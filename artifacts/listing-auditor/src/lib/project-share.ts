@@ -29,6 +29,50 @@ export function buildShareMessage(projectTitle: string | undefined, url: string)
   return `Check out ${name} on SellerLens:\n${url}`;
 }
 
+/** Copy plain text; uses Clipboard API with execCommand fallback (works in more browsers/contexts). */
+export async function copyTextToClipboard(text: string): Promise<void> {
+  const value = text.trim();
+  if (!value) {
+    throw new Error("Nothing to copy");
+  }
+
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // fall through to legacy copy
+    }
+  }
+
+  if (typeof document === "undefined") {
+    throw new Error("Clipboard unavailable");
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, value.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+
+  if (!copied) {
+    throw new Error("Copy command failed");
+  }
+}
+
 export function openWhatsAppShare(message: string): void {
   window.open(
     `https://wa.me/?text=${encodeURIComponent(message)}`,
@@ -39,10 +83,15 @@ export function openWhatsAppShare(message: string): void {
 
 /** Instagram has no web URL scheme for link sharing — copy message and open Instagram. */
 export async function shareToInstagram(message: string): Promise<void> {
-  await navigator.clipboard.writeText(message);
+  await copyTextToClipboard(message);
   window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
 }
 
+/** Copy the shareable project URL only (for “Copy link”). */
+export async function copyShareUrl(url: string): Promise<void> {
+  await copyTextToClipboard(url);
+}
+
 export async function copyShareMessage(message: string): Promise<void> {
-  await navigator.clipboard.writeText(message);
+  await copyTextToClipboard(message);
 }

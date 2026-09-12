@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   buildProjectShareUrl,
   buildShareMessage,
-  copyShareMessage,
+  copyShareUrl,
   openWhatsAppShare,
   shareToInstagram,
   type ProjectShareContext,
@@ -65,7 +65,7 @@ export function ProjectShareMenu({
 
   async function handleCopy() {
     try {
-      await copyShareMessage(shareMessage);
+      await copyShareUrl(shareUrl);
       toast({ title: "Link copied", description: "Project link copied to clipboard." });
       setOpen(false);
       onShared?.();
@@ -143,6 +143,7 @@ export function ProjectShareMenu({
           <button
             type="button"
             role="menuitem"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => void handleCopy()}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
           >
@@ -184,6 +185,10 @@ export async function copyProjectShareLink(opts: {
   shareUrl: string;
   toast: (t: { title: string; description?: string; variant?: "destructive" }) => void;
 }): Promise<void> {
-  await copyShareMessage(buildShareMessage(opts.projectTitle, opts.shareUrl));
-  opts.toast({ title: "Link copied", description: "Project link copied to clipboard." });
+  try {
+    await copyShareUrl(opts.shareUrl);
+    opts.toast({ title: "Link copied", description: "Project link copied to clipboard." });
+  } catch {
+    opts.toast({ title: "Copy failed", description: "Could not copy the link.", variant: "destructive" });
+  }
 }
