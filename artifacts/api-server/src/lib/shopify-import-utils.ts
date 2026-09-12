@@ -10,6 +10,24 @@ export function shopifyHandleFromAsin(asin: string | null | undefined): string |
   return handle || null;
 }
 
+/** Resolve Shopify product handle from import ASIN or a storefront/admin product URL. */
+export function resolveShopifyProductHandle(opts: {
+  asin?: string | null;
+  listingUrl?: string | null;
+}): string | null {
+  const fromAsin = shopifyHandleFromAsin(opts.asin);
+  if (fromAsin) return fromAsin;
+  const url = opts.listingUrl?.trim();
+  if (!url) return null;
+  const match = url.match(/\/products\/([^/?#]+)/i);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 export type ShopifyVariantLike = {
   sku?: string;
   price?: string;

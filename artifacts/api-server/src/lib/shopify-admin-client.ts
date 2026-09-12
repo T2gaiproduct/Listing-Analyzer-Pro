@@ -565,6 +565,83 @@ export async function fetchShopifyCustomCollections(opts: {
     }));
 }
 
+export type ShopifyCollectionRef = {
+  id: string;
+  title: string;
+  handle: string;
+};
+
+/** Collections this product is currently in (manual vs smart), read-only from Shopify. */
+export async function fetchShopifyProductCollectionMembership(opts: {
+  shopHost: string;
+  accessToken: string;
+  handle: string;
+}): Promise<{
+  productType: string | null;
+  manualCollections: ShopifyCollectionRef[];
+  smartCollections: ShopifyCollectionRef[];
+}> {
+  const data = await shopifyAdminGraphqlRequest<{
+    productByHandle: {
+      productType: string | null;
+      collections: {
+        nodes: Array<{
+          id: string;
+          title: string;
+          handle: string;
+          ruleSet: { rules: Array<{ column: string }> } | null;
+        }>;
+      };
+    } | null;
+  }>({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+    query: `
+      query ShopifyProductCollections($handle: String!) {
+        productByHandle(handle: $handle) {
+          productType
+          collections(first: 50) {
+            nodes {
+              id
+              title
+              handle
+              ruleSet {
+                rules {
+                  column
+                }
+              }
+            }
+          }
+        }
+      }
+    `,
+    variables: { handle: opts.handle },
+  });
+
+  const product = data.productByHandle;
+  if (!product) {
+    return { productType: null, manualCollections: [], smartCollections: [] };
+  }
+
+  const manualCollections: ShopifyCollectionRef[] = [];
+  const smartCollections: ShopifyCollectionRef[] = [];
+  for (const node of product.collections?.nodes ?? []) {
+    const ref = { id: node.id, title: node.title, handle: node.handle };
+    const rules = node.ruleSet?.rules ?? [];
+    if (rules.length > 0) {
+      smartCollections.push(ref);
+    } else {
+      manualCollections.push(ref);
+    }
+  }
+
+  return {
+    productType: product.productType?.trim() || null,
+    manualCollections,
+    smartCollections,
+  };
+}
+
 export async function addProductToShopifyCollections(opts: {
   shopHost: string;
   accessToken: string;

@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
-import { fetchShopifyStatus } from "@/lib/shopify-publish";
+import {
+  fetchShopifyListingCollections,
+  fetchShopifyStatus,
+  type ShopifyListingCollections,
+} from "@/lib/shopify-publish";
 import { ShopifyPublishCollectionsDialog } from "@/components/shopify-publish-collections-dialog";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
@@ -98,6 +102,107 @@ function buildPublishPlatformCards(listings: MarketplaceListing[]): MarketplaceL
   });
 }
 
+function shopifyCollectionHref(origin: string, collectionHandle: string): string {
+  const base = origin.replace(/\/$/, "");
+  return `${base}/collections/${encodeURIComponent(collectionHandle)}`;
+}
+
+function ShopifyCollectionMembership({
+  membership,
+  loading,
+}: {
+  membership: ShopifyListingCollections | undefined;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="pt-2 border-t border-slate-100 space-y-2">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+    );
+  }
+  if (!membership) return null;
+
+  const origin = membership.storefrontOrigin?.trim();
+  const manual = membership.manualCollections ?? [];
+  const smart = membership.smartCollections ?? [];
+
+  if (!membership.handle && membership.message) {
+    return (
+      <div className="pt-2 border-t border-slate-100">
+        <p className="text-[10px] text-slate-500 leading-relaxed">{membership.message}</p>
+      </div>
+    );
+  }
+
+  if (!membership.handle) return null;
+
+  return (
+    <div className="pt-2 border-t border-slate-100 space-y-2">
+      <DetailRow label="Product type">
+        {membership.productType ?? membership.listingCategory ?? "—"}
+      </DetailRow>
+      {manual.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-[10px] text-slate-400">Manual collections</span>
+          <ul className="space-y-1">
+            {manual.map((c) => (
+              <li key={c.id} className="text-[10px] text-right font-medium text-slate-800">
+                {origin ? (
+                  <a
+                    href={shopifyCollectionHref(origin, c.handle)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline inline-flex items-center gap-0.5 justify-end"
+                  >
+                    {c.title}
+                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                  </a>
+                ) : (
+                  c.title
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {smart.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-[10px] text-slate-400">Smart collections</span>
+          <ul className="space-y-1">
+            {smart.map((c) => (
+              <li key={c.id} className="text-[10px] text-right font-medium text-slate-800 flex flex-wrap items-center justify-end gap-1">
+                <span className="inline-flex px-1.5 py-0 rounded border border-violet-200 bg-violet-50 text-[9px] font-semibold text-violet-700 uppercase tracking-wide">
+                  Smart
+                </span>
+                {origin ? (
+                  <a
+                    href={shopifyCollectionHref(origin, c.handle)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    {c.title}
+                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                  </a>
+                ) : (
+                  c.title
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {manual.length === 0 && smart.length === 0 && (
+        <p className="text-[10px] text-slate-500 leading-relaxed">
+          Not in any Shopify collections yet. Use Publish to add manual collections; smart collections update when product rules match.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function MarketplaceCard({
   listing,
   canPublish,
@@ -106,6 +211,7 @@ function MarketplaceCard({
   connected,
   connectHint,
   onPublishLive,
+  detailsExtra,
 }: {
   listing: MarketplaceListing;
   canPublish: boolean;
@@ -114,6 +220,7 @@ function MarketplaceCard({
   connected: boolean;
   connectHint: string;
   onPublishLive?: () => void;
+  detailsExtra?: React.ReactNode;
 }) {
   const published = listing.publishedAt
     ? format(new Date(listing.publishedAt), "MMM d, yyyy")
@@ -151,6 +258,7 @@ function MarketplaceCard({
             "—"
           )}
         </DetailRow>
+        {detailsExtra}
       </div>
 
       {listing.status === "live" && (
@@ -343,6 +451,20 @@ export function ProductMarketplacesTab({
     staleTime: 60_000,
   });
 
+  const shopifyCollectionsQueryEnabled = enabled
+    && publishAuditId > 0
+    && Boolean(shopifyStatus?.connected && shopifyStatus?.publishReady);
+
+  const {
+    data: shopifyListingCollections,
+    isLoading: shopifyListingCollectionsLoading,
+  } = useQuery({
+    queryKey: ["shopify-listing-collections", publishAuditId],
+    queryFn: () => fetchShopifyListingCollections(publishAuditId),
+    enabled: shopifyCollectionsQueryEnabled,
+    staleTime: 30_000,
+  });
+
   const { data: woocommerceStatus } = useQuery({
     queryKey: ["woocommerce-status"],
     queryFn: fetchWooCommerceStatus,
@@ -360,6 +482,7 @@ export function ProductMarketplacesTab({
   const invalidateAfterPublish = () => {
     void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", productId, source] });
     void queryClient.invalidateQueries({ queryKey: ["product", productId] });
+    void queryClient.invalidateQueries({ queryKey: ["shopify-listing-collections", publishAuditId] });
   };
 
   const publishWooCommerceMutation = useMutation({
@@ -492,6 +615,16 @@ export function ProductMarketplacesTab({
               connected={state.connected}
               connectHint={state.connectHint}
               onPublishLive={state.onPublishLive}
+              detailsExtra={
+                platform === "Shopify" && shopifyCollectionsQueryEnabled
+                  ? (
+                    <ShopifyCollectionMembership
+                      membership={shopifyListingCollections}
+                      loading={shopifyListingCollectionsLoading}
+                    />
+                  )
+                  : undefined
+              }
             />
           );
         })}

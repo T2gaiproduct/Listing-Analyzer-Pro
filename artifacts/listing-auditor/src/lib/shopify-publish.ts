@@ -24,6 +24,22 @@ export async function fetchShopifyCollections(): Promise<{ collections: ShopifyC
   return fetchJson<{ collections: ShopifyCollectionOption[] }>(`${basePath}/api/shopify/collections`);
 }
 
+export type ShopifyListingCollections = {
+  handle: string | null;
+  productType: string | null;
+  listingCategory: string | null;
+  manualCollections: ShopifyCollectionOption[];
+  smartCollections: ShopifyCollectionOption[];
+  storefrontOrigin?: string;
+  message?: string;
+};
+
+export async function fetchShopifyListingCollections(auditId: number): Promise<ShopifyListingCollections> {
+  return fetchJson<ShopifyListingCollections>(
+    `${basePath}/api/audits/${auditId}/shopify/listing-collections`,
+  );
+}
+
 export async function publishAuditToShopify(opts: {
   auditId: number;
   publishMode?: "draft" | "live";

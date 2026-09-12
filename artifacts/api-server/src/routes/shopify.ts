@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { and, eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, graphicsProjectsTable } from "@workspace/db";
+import { db, graphicsProjectsTable, productMarketplaceListingsTable } from "@workspace/db";
 import type { ImageRecord } from "@workspace/db";
 import {
   getActiveWorkspaceId,
@@ -19,9 +19,11 @@ import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url
 import {
   clearShopifyAccessTokenCache,
   fetchShopifyCustomCollections,
+  fetchShopifyProductCollectionMembership,
   getShopifyAccessToken,
   parseShopifyShopHost,
 } from "../lib/shopify-admin-client.js";
+import { resolveShopifyProductHandle } from "../lib/shopify-import-utils.js";
 
 const router: IRouter = Router();
 
@@ -113,6 +115,120 @@ router.get(
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load Shopify collections";
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+router.get(
+  "/audits/:id/shopify/listing-collections",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const auditId = Number.parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(auditId)) {
+      res.status(400).json({ error: "Invalid audit id" });
+      return;
+    }
+
+    const loaded = await loadAuditForExport(req, auditId);
+    if (!loaded) {
+      res.status(404).json({ error: "Audit not found" });
+      return;
+    }
+
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getShopifyConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your Shopify store on the Marketplaces page first." });
+      return;
+    }
+    if (!isShopifyPublishReady(connection)) {
+      res.status(400).json({
+        error: "Add your Shopify Client ID and Client secret on the Marketplaces page to load collection membership.",
+      });
+      return;
+    }
+
+    const [shopifyListing] = await db
+      .select({ listingUrl: productMarketplaceListingsTable.listingUrl })
+      .from(productMarketplaceListingsTable)
+      .where(and(
+        eq(productMarketplaceListingsTable.auditId, auditId),
+        eq(productMarketplaceListingsTable.marketplace, "Shopify"),
+        eq(productMarketplaceListingsTable.isDeleted, 0),
+      ))
+      .limit(1);
+
+    const handle = resolveShopifyProductHandle({
+      asin: loaded.audit.asin,
+      listingUrl: shopifyListing?.listingUrl ?? null,
+    });
+
+    const shopHost = parseShopifyShopHost(connection.storeUrl);
+    const storefrontOrigin = (() => {
+      const fromListing = shopifyListing?.listingUrl?.trim();
+      if (fromListing) {
+        try {
+          return new URL(fromListing).origin;
+        } catch {
+          // fall through
+        }
+      }
+      const trimmed = connection.storeUrl?.trim();
+      if (!trimmed) return `https://${shopHost}`;
+      try {
+        const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+        return new URL(withProto).origin;
+      } catch {
+        return `https://${shopHost}`;
+      }
+    })();
+
+    if (!handle) {
+      res.json({
+        handle: null,
+        productType: null,
+        listingCategory: loaded.audit.category?.trim() || null,
+        manualCollections: [],
+        smartCollections: [],
+        storefrontOrigin,
+        message: "Publish this product to Shopify (or import from Shopify) to see collection membership.",
+      });
+      return;
+    }
+
+    try {
+      let accessToken = await getShopifyAccessToken({
+        shopHost,
+        clientId: connection.clientId,
+        clientSecret: connection.clientSecret,
+      });
+      let membership;
+      try {
+        membership = await fetchShopifyProductCollectionMembership({ shopHost, accessToken, handle });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!/unauthorized|invalid/i.test(message)) throw err;
+        clearShopifyAccessTokenCache({ shopHost, clientId: connection.clientId });
+        accessToken = await getShopifyAccessToken({
+          shopHost,
+          clientId: connection.clientId,
+          clientSecret: connection.clientSecret,
+        });
+        membership = await fetchShopifyProductCollectionMembership({ shopHost, accessToken, handle });
+      }
+
+      res.json({
+        handle,
+        productType: membership.productType,
+        listingCategory: loaded.audit.category?.trim() || null,
+        manualCollections: membership.manualCollections,
+        smartCollections: membership.smartCollections,
+        storefrontOrigin,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load Shopify collection membership";
       res.status(400).json({ error: message });
     }
   },
