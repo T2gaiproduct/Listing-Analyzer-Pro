@@ -16,7 +16,7 @@ Safe-by-default API checks for the Amazon Listing Auditor monorepo. **Do not** p
 | Smoke | `PROXY_URL=http://127.0.0.1:3000 pnpm run test:qa:smoke` |
 | Integration | `pnpm run test:qa:integration` |
 | DB failure | `RUN_DB_DOWN_TEST=1 pnpm run test:qa:integration` |
-| Security | `pnpm run test:qa:security` |
+| Security | `pnpm run test:qa:security` (restart API if `/api/forms` tests skip due to rate limit) |
 | Concurrency | `pnpm run test:qa:concurrency` |
 | Load | `pnpm run test:qa:load` |
 | Stress | `k6 run -e MAX_VUS=500 scripts/qa/load-stress.k6.js` |
