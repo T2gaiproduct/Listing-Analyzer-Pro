@@ -36,7 +36,9 @@ import {
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
 import { BuildBrandProductSearch } from "@/components/build-brand-product-search";
+import { BuildBrandExportStep } from "@/components/build-brand-export-step";
 import { ProductListingPreview } from "@/components/product-listing-preview";
+import type { AmazonMarketplaceId } from "@/lib/amazon-export";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
@@ -318,6 +320,11 @@ const LOADING_MESSAGES: Record<StepId, string[]> = {
     "Building Amazon-style preview…",
     "Almost ready…",
   ],
+  7: [
+    "Preparing export fields…",
+    "Collecting image URLs…",
+    "Almost ready…",
+  ],
 };
 
 /* ── Amazon categories (real top-level browse nodes + popular sub-categories) ── */
@@ -566,6 +573,7 @@ export default function AuditWorkflow() {
   });
 
   const [activeStep, setActiveStep] = useState<StepId>(() => (resumeAuditId && !isNaN(resumeAuditId) ? 2 : 1));
+  const [exportMarketplace, setExportMarketplace] = useState<AmazonMarketplaceId>("US");
   const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
 
@@ -720,7 +728,7 @@ export default function AuditWorkflow() {
           forceUploadStepRef.current = false;
         } else {
           const step = apiStepToUiStep(auditData.currentStep);
-          if (step >= 2 && step <= 6) setActiveStep(step);
+          if (step >= 2 && step <= 7) setActiveStep(step);
         }
         stepRestoredForAuditIdRef.current = currentAuditId;
       }
@@ -1386,8 +1394,8 @@ export default function AuditWorkflow() {
       toast({ title: "Listing content required", description: "Generate listing content before continuing to Product Explorer.", variant: "destructive" });
       return;
     }
-    autoSave(5);
-    persistWorkflowStep(6);
+    autoSave(7);
+    persistWorkflowStep(7);
     void queryClient.invalidateQueries({ queryKey: ["products"] });
     nav(`${basePath}/products/${currentAuditId}?source=listing`);
     toast({
@@ -1461,11 +1469,17 @@ export default function AuditWorkflow() {
         return;
       }
     }
-    if (activeStep < 6) {
+    if (activeStep < 7) {
       autoSave((activeStep + 1) as StepId);
       setActiveStep((s) => (s + 1) as StepId);
     }
   }
+
+  const handleSaveProductFromExport = useCallback(() => {
+    if (!currentAuditId) return;
+    autoSave(7);
+    toast({ title: "Product saved", description: "Your listing package is saved to this project." });
+  }, [autoSave, currentAuditId, toast]);
 
   const filteredCats = AMAZON_CATEGORIES.filter((c) =>
     c.toLowerCase().includes(catSearch.toLowerCase())
@@ -1478,6 +1492,7 @@ export default function AuditWorkflow() {
     4: generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
     5: aplusModules.length > 0 || aplusStatus === "completed",
     6: generatedContent !== null,
+    7: generatedContent !== null,
   }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
 
   const workflowUploadReady = Boolean(productName.trim() && category);
@@ -2300,6 +2315,16 @@ export default function AuditWorkflow() {
             />
           )}
 
+          {activeStep === 7 && currentAuditId && (
+            <BuildBrandExportStep
+              auditId={currentAuditId}
+              marketplace={exportMarketplace}
+              onMarketplaceChange={setExportMarketplace}
+              onSaveProduct={handleSaveProductFromExport}
+              isSaving={patchAudit.isPending}
+            />
+          )}
+
         </div>
       </div>
 
@@ -2316,11 +2341,11 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex flex-col items-end gap-1">
-          {activeStep === 6 && productExplorerSaveBlocker && (
+          {activeStep === 7 && productExplorerSaveBlocker && (
             <p className="text-xs text-amber-700">{productExplorerSaveBlocker}</p>
           )}
           <div className="flex items-center gap-3">
-            {activeStep === 6 && (
+            {activeStep === 7 && (
               <Button
                 className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
                 onClick={handleOpenProductExplorer}
@@ -2331,11 +2356,11 @@ export default function AuditWorkflow() {
                 ) : (
                   <Package className="w-4 h-4" />
                 )}
-                Save to Product Explorer
+                Finish — Product Explorer
               </Button>
             )}
 
-            {activeStep < 6 && (
+            {activeStep < 7 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={handleNextStep}

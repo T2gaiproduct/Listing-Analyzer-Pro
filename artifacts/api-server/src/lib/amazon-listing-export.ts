@@ -124,6 +124,21 @@ export function buildAuditExportBundle(opts: {
   return { marketplace, row, images, filenameBase };
 }
 
+function csvEscapeCell(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export function buildAmazonCsvBuffer(bundle: AuditExportBundle): Buffer {
+  const headerLine = AMAZON_FLAT_FILE_HEADERS.map(csvEscapeCell).join(",");
+  const valueLine = AMAZON_FLAT_FILE_HEADERS
+    .map((header) => csvEscapeCell(bundle.row[header] ?? ""))
+    .join(",");
+  return Buffer.from(`${headerLine}\n${valueLine}\n`, "utf-8");
+}
+
 export async function buildExcelBuffer(bundle: AuditExportBundle): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "SellerLens";

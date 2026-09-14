@@ -33,12 +33,12 @@ export const EXPORT_PLATFORMS: { id: ExportPlatform; label: string; description:
 
 export async function downloadAuditExport(opts: {
   auditId: number;
-  format: "excel" | "zip";
+  format: "excel" | "zip" | "csv";
   platform: ExportPlatform;
   marketplace?: AmazonMarketplaceId;
   basePath: string;
 }): Promise<void> {
-  const endpoint = opts.format === "excel" ? "excel" : "zip";
+  const endpoint = opts.format === "zip" ? "zip" : opts.format === "csv" ? "csv" : "excel";
   const params = new URLSearchParams({ platform: opts.platform });
   if (opts.platform === "amazon" && opts.marketplace) {
     params.set("marketplace", opts.marketplace);
@@ -59,11 +59,13 @@ export async function downloadAuditExport(opts: {
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const match = disposition.match(/filename="([^"]+)"/);
-  const defaultExt = opts.platform === "shopify" && opts.format === "excel"
+  const defaultExt = opts.format === "csv"
     ? "csv"
-    : opts.format === "excel"
-      ? "xlsx"
-      : "zip";
+    : opts.platform === "shopify" && opts.format === "excel"
+      ? "csv"
+      : opts.format === "excel"
+        ? "xlsx"
+        : "zip";
   const filename = match?.[1] ?? `listing-${opts.platform}.${defaultExt}`;
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

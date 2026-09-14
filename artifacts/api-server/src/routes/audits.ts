@@ -58,11 +58,13 @@ import { applyProductListingUpdates } from "../lib/product-listing-update.js";
 import { syncListingToConnectedMarketplaces } from "../lib/product-listing-sync.js";
 import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
 import {
+  buildAmazonCsvBuffer,
   buildAuditExportBundle,
   buildExcelBuffer,
   buildZipBuffer,
   exportFilename,
 } from "../lib/amazon-listing-export.js";
+import { buildAuditExportPreview } from "../lib/build-brand-export-preview.js";
 import {
   buildShopifyExportBundle,
   buildShopifyCsvBuffer,
@@ -400,6 +402,80 @@ function resolvePublicBaseUrl(req: Request): string {
 
 router.get("/audits/export/marketplaces", requireAuth, (_req, res): void => {
   res.json({ marketplaces: AMAZON_MARKETPLACES });
+});
+
+router.get("/audits/:id/export/preview", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const auditId = Number.parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(auditId)) {
+    res.status(400).json({ error: "Invalid audit id" });
+    return;
+  }
+
+  const loaded = await loadAuditForExport(req, auditId);
+  if (!loaded) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const platform = resolveExportPlatform(req.query.platform);
+  if (platform === "shopify") {
+    res.status(400).json({ error: "Preview is only available for Amazon exports." });
+    return;
+  }
+
+  const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
+  const publicBaseUrl = resolvePublicBaseUrl(req);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+
+  const preview = buildAuditExportPreview({
+    audit: loaded.audit,
+    marketplaceId: marketplace,
+    graphicsImageRecords,
+    publicBaseUrl,
+  });
+
+  res.json(preview);
+});
+
+router.get("/audits/:id/export/csv", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const auditId = Number.parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(auditId)) {
+    res.status(400).json({ error: "Invalid audit id" });
+    return;
+  }
+
+  const loaded = await loadAuditForExport(req, auditId);
+  if (!loaded) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const platform = resolveExportPlatform(req.query.platform);
+  if (platform === "shopify") {
+    res.status(400).json({ error: "Use the excel endpoint for Shopify CSV exports." });
+    return;
+  }
+
+  const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
+  const publicBaseUrl = resolvePublicBaseUrl(req);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+
+  try {
+    const bundle = buildAuditExportBundle({
+      audit: loaded.audit,
+      marketplaceId: marketplace,
+      graphicsImageRecords,
+      publicBaseUrl,
+    });
+    const buffer = buildAmazonCsvBuffer(bundle);
+    const filename = `${bundle.filenameBase}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Export failed";
+    res.status(400).json({ error: message });
+  }
 });
 
 router.get("/audits/:id/export/excel", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
