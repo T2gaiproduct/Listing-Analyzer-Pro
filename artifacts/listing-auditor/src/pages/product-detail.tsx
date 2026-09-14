@@ -2362,6 +2362,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
           step={selectedWorkflowStep}
           auditId={graphicsAuditId}
           productName={product.name}
+          brandName={product.brandName}
+          category={product.category}
+          productImageUrl={product.imageUrl}
           audit={effectiveAudit}
           generatedContent={effectiveAudit?.generatedContent ?? null}
           existingContent={existingListingContent}
