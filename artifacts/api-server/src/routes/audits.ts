@@ -72,6 +72,8 @@ import {
   shopifyExportFilename,
 } from "../lib/shopify-listing-export.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
+import { materializeAuditImagesForPublish } from "../lib/materialize-audit-images-for-publish.js";
+import { resolvePublicBaseUrl as resolveExportPublicBaseUrl } from "../lib/resolve-public-base-url.js";
 
 export type ExportPlatform = "amazon" | "shopify";
 
@@ -400,6 +402,17 @@ function resolvePublicBaseUrl(req: Request): string {
   return `${proto}://${host}`;
 }
 
+async function prepareAuditForAmazonExport(
+  req: Request,
+  loaded: NonNullable<Awaited<ReturnType<typeof loadAuditForExport>>>,
+) {
+  const audit = await materializeAuditImagesForPublish(loaded.audit);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+  const graphicsProjectId = loaded.graphicsProject?.id ?? null;
+  const publicBaseUrl = resolveExportPublicBaseUrl(req);
+  return { audit, graphicsImageRecords, graphicsProjectId, publicBaseUrl };
+}
+
 router.get("/audits/export/marketplaces", requireAuth, (_req, res): void => {
   res.json({ marketplaces: AMAZON_MARKETPLACES });
 });
@@ -424,14 +437,14 @@ router.get("/audits/:id/export/preview", requireAuth, resolveTeamAndWorkspace, a
   }
 
   const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
-  const publicBaseUrl = resolvePublicBaseUrl(req);
-  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+  const prepared = await prepareAuditForAmazonExport(req, loaded);
 
   const preview = buildAuditExportPreview({
-    audit: loaded.audit,
+    audit: prepared.audit,
     marketplaceId: marketplace,
-    graphicsImageRecords,
-    publicBaseUrl,
+    graphicsImageRecords: prepared.graphicsImageRecords,
+    graphicsProjectId: prepared.graphicsProjectId,
+    publicBaseUrl: prepared.publicBaseUrl,
   });
 
   res.json(preview);
@@ -457,15 +470,15 @@ router.get("/audits/:id/export/csv", requireAuth, resolveTeamAndWorkspace, async
   }
 
   const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
-  const publicBaseUrl = resolvePublicBaseUrl(req);
-  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
 
   try {
+    const prepared = await prepareAuditForAmazonExport(req, loaded);
     const bundle = buildAuditExportBundle({
-      audit: loaded.audit,
+      audit: prepared.audit,
       marketplaceId: marketplace,
-      graphicsImageRecords,
-      publicBaseUrl,
+      graphicsImageRecords: prepared.graphicsImageRecords,
+      graphicsProjectId: prepared.graphicsProjectId,
+      publicBaseUrl: prepared.publicBaseUrl,
     });
     const buffer = buildAmazonCsvBuffer(bundle);
     const filename = `${bundle.filenameBase}.csv`;
@@ -511,11 +524,13 @@ router.get("/audits/:id/export/excel", requireAuth, resolveTeamAndWorkspace, asy
     }
 
     const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
+    const prepared = await prepareAuditForAmazonExport(req, loaded);
     const bundle = buildAuditExportBundle({
-      audit: loaded.audit,
+      audit: prepared.audit,
       marketplaceId: marketplace,
-      graphicsImageRecords,
-      publicBaseUrl,
+      graphicsImageRecords: prepared.graphicsImageRecords,
+      graphicsProjectId: prepared.graphicsProjectId,
+      publicBaseUrl: prepared.publicBaseUrl,
     });
     const buffer = await buildExcelBuffer(bundle);
     const filename = exportFilename(bundle.filenameBase, "xlsx");
@@ -568,11 +583,13 @@ router.get("/audits/:id/export/zip", requireAuth, resolveTeamAndWorkspace, async
     }
 
     const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
+    const prepared = await prepareAuditForAmazonExport(req, loaded);
     const bundle = buildAuditExportBundle({
-      audit: loaded.audit,
+      audit: prepared.audit,
       marketplaceId: marketplace,
-      graphicsImageRecords,
-      publicBaseUrl,
+      graphicsImageRecords: prepared.graphicsImageRecords,
+      graphicsProjectId: prepared.graphicsProjectId,
+      publicBaseUrl: prepared.publicBaseUrl,
     });
     const excelBuffer = await buildExcelBuffer(bundle);
     const zipBuffer = await buildZipBuffer({

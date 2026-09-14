@@ -4,13 +4,7 @@ import {
   buildAuditExportBundle,
   type AmazonFlatFileRow,
 } from "./amazon-listing-export.js";
-import {
-  buildAplusImageAssets,
-  buildProductImageAssets,
-  collectAplusImages,
-  collectProductImages,
-  stripHtml,
-} from "./listing-export-shared.js";
+import { stripHtml } from "./listing-export-shared.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
 export type ExportPreviewRowStatus = "complete" | "missing" | "optional";
@@ -162,6 +156,7 @@ export function buildAuditExportPreview(opts: {
   audit: Audit;
   marketplaceId?: string | null;
   graphicsImageRecords?: ImageRecord[];
+  graphicsProjectId?: number | null;
   publicBaseUrl?: string;
 }): {
   readinessScore: number;
@@ -178,6 +173,7 @@ export function buildAuditExportPreview(opts: {
       audit: opts.audit,
       marketplaceId: opts.marketplaceId,
       graphicsImageRecords: opts.graphicsImageRecords,
+      graphicsProjectId: opts.graphicsProjectId,
       publicBaseUrl: opts.publicBaseUrl,
     });
     flatRows = flatRowToPreviewRows(bundle.row);
@@ -192,11 +188,24 @@ export function buildAuditExportPreview(opts: {
       }));
   } catch {
     flatRows = partialListingRows(opts.audit);
-    const productAssets = buildProductImageAssets(
-      collectProductImages(opts.audit, opts.graphicsImageRecords),
-      opts.publicBaseUrl,
-    );
-    for (const asset of productAssets) {
+    const fallbackBundle = buildAuditExportBundle({
+      audit: opts.audit,
+      marketplaceId: opts.marketplaceId,
+      graphicsImageRecords: opts.graphicsImageRecords,
+      graphicsProjectId: opts.graphicsProjectId,
+      publicBaseUrl: opts.publicBaseUrl,
+    });
+    for (const asset of fallbackBundle.images) {
+      if (asset.kind === "aplus") {
+        aplusRows.push({
+          section: "A+ Content",
+          amazonField: `A+ module image (${asset.id.replace(/^aplus-/, "")})`,
+          value: asset.absoluteUrl,
+          charCount: asset.absoluteUrl.length,
+          status: "complete" as const,
+        });
+        continue;
+      }
       const isMain = asset.kind === "main";
       flatRows.push({
         section: "Images",
@@ -206,13 +215,6 @@ export function buildAuditExportPreview(opts: {
         status: isMain ? rowStatus("main_image_url", asset.absoluteUrl) : "optional",
       });
     }
-    aplusRows = buildAplusImageAssets(collectAplusImages(opts.audit), opts.publicBaseUrl).map((img) => ({
-      section: "A+ Content",
-      amazonField: `A+ module image (${img.id.replace(/^aplus-/, "")})`,
-      value: img.absoluteUrl,
-      charCount: img.absoluteUrl.length,
-      status: "complete" as const,
-    }));
   }
 
   const rows = [...flatRows, ...aplusRows];

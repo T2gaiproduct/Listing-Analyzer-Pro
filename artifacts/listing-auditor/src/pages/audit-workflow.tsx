@@ -1379,11 +1379,23 @@ export default function AuditWorkflow() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+          void queryClient.invalidateQueries({ queryKey: ["audit-export-preview", currentAuditId] });
         },
       }
     );
     setIsDirty(false);
   }, [currentAuditId, projectName, brandName, productName, category, uploadedImages, generatedContent, generatedImages, selectedImageTypes, patchAudit, queryClient]);
+
+  const exportStepPrimedRef = useRef(false);
+  useEffect(() => {
+    if (activeStep !== 7 || !currentAuditId) {
+      exportStepPrimedRef.current = false;
+      return;
+    }
+    if (exportStepPrimedRef.current) return;
+    exportStepPrimedRef.current = true;
+    autoSave(7);
+  }, [activeStep, currentAuditId, autoSave]);
 
   const handleOpenProductExplorer = useCallback(() => {
     if (!currentAuditId) {

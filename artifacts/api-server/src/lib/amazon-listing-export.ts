@@ -5,15 +5,16 @@ import type { Audit, ImageRecord } from "@workspace/db";
 import { resolveAmazonMarketplace, type AmazonMarketplaceId } from "./amazon-marketplaces.js";
 import {
   appendImagesToZip,
-  buildAplusImageAssets,
-  buildProductImageAssets,
   collectAplusImages,
-  collectProductImages,
   slugify,
   stripHtml,
   truncate,
   type ExportImageAsset,
 } from "./listing-export-shared.js";
+import {
+  resolvePublishImageCandidate,
+  resolvePublishImageUrlsFromAudit,
+} from "./materialize-audit-images-for-publish.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
 /** Amazon Inventory Loader–style columns (compatible across marketplaces). */
@@ -62,6 +63,7 @@ export function buildAuditExportBundle(opts: {
   audit: Audit;
   marketplaceId?: string | null;
   graphicsImageRecords?: ImageRecord[];
+  graphicsProjectId?: number | null;
   publicBaseUrl?: string;
   profileSku?: string | null;
 }): AuditExportBundle {
@@ -71,10 +73,45 @@ export function buildAuditExportBundle(opts: {
   }
 
   const marketplace = resolveAmazonMarketplace(opts.marketplaceId);
-  const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
+  const publishUrls = resolvePublishImageUrlsFromAudit({
+    audit: opts.audit,
+    graphicsImageRecords: opts.graphicsImageRecords,
+    graphicsProjectId: opts.graphicsProjectId ?? null,
+    publicBaseUrl: opts.publicBaseUrl,
+  });
+
+  const productAssets: ExportImageAsset[] = publishUrls.map((absoluteUrl, index) => {
+    const ext = ".jpg";
+    const zipName = index === 0 ? `main${ext}` : `other-${String(index).padStart(2, "0")}${ext}`;
+    return {
+      id: `product-${index}`,
+      sourceUrl: absoluteUrl,
+      absoluteUrl,
+      zipPath: `images/${zipName}`,
+      kind: index === 0 ? "main" : "other",
+    };
+  });
+
   const aplusImages = collectAplusImages(opts.audit);
-  const productAssets = buildProductImageAssets(productImages, opts.publicBaseUrl);
-  const aplusAssets = buildAplusImageAssets(aplusImages, opts.publicBaseUrl);
+  const aplusAssets: ExportImageAsset[] = [];
+  for (const [index, img] of aplusImages.entries()) {
+    const absoluteUrl = resolvePublishImageCandidate({
+      auditId: opts.audit.id,
+      sourceUrl: img.url,
+      publicBaseUrl: opts.publicBaseUrl,
+      graphicsProjectId: opts.graphicsProjectId ?? null,
+      index: 200 + index,
+    });
+    if (!absoluteUrl) continue;
+    aplusAssets.push({
+      id: `aplus-${img.moduleId}`,
+      sourceUrl: img.url,
+      absoluteUrl,
+      zipPath: `aplus/${img.moduleId}.jpg`,
+      kind: "aplus",
+    });
+  }
+
   const images = [...productAssets, ...aplusAssets];
 
   const sku = opts.profileSku?.trim() || `SL-${opts.audit.id}`;
@@ -86,9 +123,9 @@ export function buildAuditExportBundle(opts: {
   const description = truncate(stripHtml(content.htmlDescription || ""), DESCRIPTION_MAX);
 
   const imageUrlColumns: string[] = ["", "", "", "", "", "", "", "", ""];
-  productAssets.forEach((asset, index) => {
-    if (index === 0) imageUrlColumns[0] = asset.absoluteUrl;
-    else if (index <= 8) imageUrlColumns[index] = asset.absoluteUrl;
+  publishUrls.forEach((url, index) => {
+    if (index === 0) imageUrlColumns[0] = url;
+    else if (index <= 8) imageUrlColumns[index] = url;
   });
 
   const row: AmazonFlatFileRow = {
