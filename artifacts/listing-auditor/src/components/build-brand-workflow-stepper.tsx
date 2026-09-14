@@ -1,18 +1,19 @@
 import type { ElementType } from "react";
-import { Check, FileText, Image as ImageIcon, PackageSearch, Sparkles, Upload } from "lucide-react";
+import { Check, Eye, FileText, Image as ImageIcon, PackageSearch, Sparkles, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type BuildBrandWorkflowStepId = 1 | 2 | 3 | 4 | 5;
+export type BuildBrandWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6;
 
-/** UI step 1 (SELECT) is not persisted; upload onward maps to API steps 1–4. */
+/** UI step 1 (SELECT) is not persisted; upload onward maps to API steps 1–4; listing preview maps to API 5. */
 export function uiStepToApiStep(uiStep: BuildBrandWorkflowStepId): number {
+  if (uiStep >= 6) return 5;
   return Math.max(1, Math.min(4, uiStep - 1));
 }
 
 export function apiStepToUiStep(apiStep: number | null | undefined): BuildBrandWorkflowStepId {
   const raw = Math.max(1, apiStep ?? 1);
-  // Legacy audits saved on the removed Export step (API 5) land on A+ Content.
-  const n = Math.min(4, raw >= 5 ? 4 : raw);
+  if (raw >= 5) return 6;
+  const n = Math.min(4, raw);
   return (n + 1) as BuildBrandWorkflowStepId;
 }
 
@@ -28,13 +29,14 @@ export const BUILD_BRAND_WORKFLOW_STEPS: {
   { id: 3, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
   { id: 4, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
   { id: 5, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
+  { id: 6, key: "listing_preview", label: "LISTING PREVIEW", sub: "Amazon-style preview", icon: Eye },
 ];
 
 export function buildBrandStepCompletedFromCurrentStep(
   currentStep: number | null | undefined,
   status?: string | null,
 ): Record<BuildBrandWorkflowStepId, boolean> {
-  const apiStep = Math.min(4, Math.max(1, currentStep ?? 1));
+  const apiStep = Math.min(5, Math.max(1, currentStep ?? 1));
   const uiStep = apiStepToUiStep(apiStep);
   const complete = status === "complete";
   return {
@@ -42,7 +44,8 @@ export function buildBrandStepCompletedFromCurrentStep(
     2: complete || uiStep > 2,
     3: complete || uiStep > 3,
     4: complete || uiStep > 4,
-    5: complete || apiStep >= 4,
+    5: complete || uiStep > 5,
+    6: complete || apiStep >= 5,
   };
 }
 
@@ -66,7 +69,7 @@ export function BuildBrandWorkflowStepper({
         className,
       )}
     >
-      <div className="flex items-stretch min-w-[24rem] w-full">
+      <div className="flex items-stretch min-w-[28rem] w-full">
         {BUILD_BRAND_WORKFLOW_STEPS.map((s) => {
           const isActive = activeStep === s.id;
           const isCompleted = !isActive && Boolean(stepCompleted[s.id]);

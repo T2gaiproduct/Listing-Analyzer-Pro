@@ -36,6 +36,7 @@ import {
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
 import { BuildBrandProductSearch } from "@/components/build-brand-product-search";
+import { ProductListingPreview } from "@/components/product-listing-preview";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
@@ -311,6 +312,11 @@ const LOADING_MESSAGES: Record<StepId, string[]> = {
     "Generating banner imagery…",
     "Assembling A+ modules…",
     "Applying brand guidelines…",
+  ],
+  6: [
+    "Gathering listing images…",
+    "Building Amazon-style preview…",
+    "Almost ready…",
   ],
 };
 
@@ -714,7 +720,7 @@ export default function AuditWorkflow() {
           forceUploadStepRef.current = false;
         } else {
           const step = apiStepToUiStep(auditData.currentStep);
-          if (step >= 2 && step <= 5) setActiveStep(step);
+          if (step >= 2 && step <= 6) setActiveStep(step);
         }
         stepRestoredForAuditIdRef.current = currentAuditId;
       }
@@ -1381,7 +1387,7 @@ export default function AuditWorkflow() {
       return;
     }
     autoSave(5);
-    persistWorkflowStep(5);
+    persistWorkflowStep(6);
     void queryClient.invalidateQueries({ queryKey: ["products"] });
     nav(`${basePath}/products/${currentAuditId}?source=listing`);
     toast({
@@ -1455,7 +1461,7 @@ export default function AuditWorkflow() {
         return;
       }
     }
-    if (activeStep < 5) {
+    if (activeStep < 6) {
       autoSave((activeStep + 1) as StepId);
       setActiveStep((s) => (s + 1) as StepId);
     }
@@ -1471,6 +1477,7 @@ export default function AuditWorkflow() {
     3: generatedContent !== null,
     4: generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
     5: aplusModules.length > 0 || aplusStatus === "completed",
+    6: generatedContent !== null,
   }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
 
   const workflowUploadReady = Boolean(productName.trim() && category);
@@ -2271,6 +2278,28 @@ export default function AuditWorkflow() {
             </div>
           )}
 
+          {/* STEP 6: Listing Preview ── */}
+          {activeStep === 6 && currentAuditId && (
+            <ProductListingPreview
+              auditId={currentAuditId}
+              audit={{
+                imageUrls: uploadedImages,
+                imageRecords: auditData?.imageRecords ?? null,
+                generatedImages: auditData?.generatedImages,
+                generatedContent,
+                brandName,
+                category,
+                productName,
+              }}
+              generatedContent={generatedContent}
+              productName={productName}
+              brandName={brandName}
+              category={category}
+              productImageUrl={uploadedImages[0] ?? null}
+              fallbackImageUrls={uploadedImages}
+            />
+          )}
+
         </div>
       </div>
 
@@ -2287,11 +2316,11 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex flex-col items-end gap-1">
-          {activeStep === 5 && productExplorerSaveBlocker && (
+          {activeStep === 6 && productExplorerSaveBlocker && (
             <p className="text-xs text-amber-700">{productExplorerSaveBlocker}</p>
           )}
           <div className="flex items-center gap-3">
-            {activeStep === 5 && (
+            {activeStep === 6 && (
               <Button
                 className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
                 onClick={handleOpenProductExplorer}
@@ -2306,7 +2335,7 @@ export default function AuditWorkflow() {
               </Button>
             )}
 
-            {activeStep < 5 && (
+            {activeStep < 6 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={handleNextStep}
