@@ -21,7 +21,7 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
   - `DATABASE_URL` (see above), `PORT=8080`
   - `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY` — module-level throw at import if unset (`lib/integrations-openai-ai-server/src/client.ts`). Dummy values let the server boot; real values are only needed for AI audits/content/image generation.
   - `CLERK_PUBLISHABLE_KEY` **and** `CLERK_SECRET_KEY` — `clerkMiddleware` runs on every request and 500s the whole app if either is missing. Clerk's well-known dummy pair lets signed-out (public) routes work: `CLERK_PUBLISHABLE_KEY=pk_test_Y2xlcmsuZXhhbXBsZS5jb20k`, `CLERK_SECRET_KEY=sk_test_<any-40+-char-string>`. With dummies, public routes (`/api/healthz`, `/api/plans`, `/api/fetch-listing`, `/api/credit-*`) work and auth-gated routes correctly return 401.
-- Run: `pnpm --filter @workspace/api-server run dev` (esbuild bundle → `dist/index.mjs`, then node). Stripe init failing on boot ("Missing Replit environment variables") is expected and non-fatal.
+- Run: `pnpm --filter @workspace/api-server run dev` (esbuild **watch** → rebuilds `dist/index.mjs` and **restarts** Node on source changes). One-shot: `dev:once`. `GET /api/healthz` includes `apiBuildId` / `staleProcess` when the running process is behind `dist/build-meta.json`. Stripe init failing on boot ("Missing Replit environment variables") is expected and non-fatal.
 
 ### Running the frontend (port 19145)
 - Vite config throws unless `PORT` and `BASE_PATH` are set: `PORT=19145 BASE_PATH=/`.

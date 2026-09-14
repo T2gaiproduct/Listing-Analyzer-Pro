@@ -1,20 +1,28 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { build as esbuild } from "esbuild";
+import { build as esbuild, context as esbuildContext } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
 
-// Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+const distDir = path.resolve(artifactDir, "dist");
+const isWatch = process.argv.includes("--watch");
 
-async function buildAll() {
-  const distDir = path.resolve(artifactDir, "dist");
-  await rm(distDir, { recursive: true, force: true });
+export function createBuildId() {
+  return `${Date.now().toString(36)}-${randomBytes(4).toString("hex")}`;
+}
 
-  await esbuild({
+export async function writeBuildMeta(buildId) {
+  const meta = { buildId, builtAt: new Date().toISOString() };
+  await writeFile(path.join(distDir, "build-meta.json"), `${JSON.stringify(meta, null, 2)}\n`, "utf8");
+}
+
+function getEsbuildOptions(extraPlugins = []) {
+  return {
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
     platform: "node",
     bundle: true,
@@ -22,11 +30,6 @@ async function buildAll() {
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
-    // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
-    // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
-    // Examples of unbundleable packages:
-    // - uses native modules and loads them dynamically (e.g. sharp)
-    // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
       "*.node",
       "sharp",
@@ -108,11 +111,7 @@ async function buildAll() {
       "@thednp/dommatrix",
     ],
     sourcemap: "linked",
-    plugins: [
-      // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
-      esbuildPluginPino({ transports: ["pino-pretty"] })
-    ],
-    // Make sure packages that are cjs only (e.g. express) but are bundled continue to work in our esm output file
+    plugins: [esbuildPluginPino({ transports: ["pino-pretty"] }), ...extraPlugins],
     banner: {
       js: `import { createRequire as __bannerCrReq } from 'node:module';
 import __bannerPath from 'node:path';
@@ -123,10 +122,76 @@ globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
 globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
-  });
+  };
 }
 
-buildAll().catch((err) => {
+export async function buildOnce() {
+  await rm(distDir, { recursive: true, force: true });
+  await esbuild(getEsbuildOptions());
+  const buildId = createBuildId();
+  await writeBuildMeta(buildId);
+  return buildId;
+}
+
+async function runWatch() {
+  const { spawn } = await import("node:child_process");
+
+  let child = null;
+
+  const startServer = () => {
+    if (child) {
+      child.kill("SIGTERM");
+      child = null;
+    }
+    child = spawn("node", ["--enable-source-maps", "./dist/index.mjs"], {
+      cwd: artifactDir,
+      stdio: "inherit",
+      env: process.env,
+    });
+  };
+
+  const restartPlugin = {
+    name: "api-dev-restart",
+    setup(build) {
+      build.onEnd(async (result) => {
+        if (result.errors.length > 0) return;
+        const buildId = createBuildId();
+        await writeBuildMeta(buildId);
+        console.info(`[dev-watch] Build ${buildId} — restarting API`);
+        startServer();
+      });
+    },
+  };
+
+  await rm(distDir, { recursive: true, force: true });
+  const ctx = await esbuildContext(getEsbuildOptions([restartPlugin]));
+
+  const first = await ctx.rebuild();
+  if (first.errors.length > 0) {
+    process.exit(1);
+  }
+
+  await ctx.watch();
+  console.info("[dev-watch] Watching API source for changes…");
+
+  const shutdown = () => {
+    void ctx.dispose();
+    if (child) child.kill("SIGTERM");
+    process.exit(0);
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+}
+
+async function main() {
+  if (isWatch) {
+    await runWatch();
+    return;
+  }
+  await buildOnce();
+}
+
+main().catch((err) => {
   console.error(err);
   process.exit(1);
 });

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { loadedBuildId, readDiskBuildMeta, isStaleApiProcess } from "../lib/api-build-meta";
 
 const router: IRouter = Router();
 
@@ -16,8 +17,14 @@ async function checkClerkProxySecret(): Promise<"ok" | "missing" | "invalid" | "
 }
 
 router.get("/healthz", async (_req, res) => {
+  const build = {
+    apiBuildId: loadedBuildId,
+    staleProcess: isStaleApiProcess(),
+    latestBuildId: readDiskBuildMeta()?.buildId ?? null,
+  };
+
   if (process.env.NODE_ENV === "production") {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", ...build });
     return;
   }
 
@@ -26,6 +33,7 @@ router.get("/healthz", async (_req, res) => {
     status: "ok",
     publishImageFix: "marketplace-signed-url-v5",
     clerkProxySecret,
+    ...build,
   });
 });
 

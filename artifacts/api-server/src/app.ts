@@ -6,6 +6,7 @@ import path from "path";
 import fs from "node:fs";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
+import { isStaleApiProcess, loadedBuildId, readDiskBuildMeta } from "./lib/api-build-meta";
 import { logger } from "./lib/logger";
 import { IMAGES_DIR } from "./lib/image-storage";
 import { HERO_IMAGES_DIR } from "./lib/hero-image-storage";
@@ -132,8 +133,19 @@ app.use("/api", router);
 
 // Express 5 HTML 404 pages break admin JSON clients — always return JSON for unknown /api routes.
 app.use("/api", (req, res) => {
+  if (isStaleApiProcess()) {
+    const disk = readDiskBuildMeta();
+    res.status(503).json({
+      error:
+        "API process is running an older build than dist/build-meta.json. Restart the API server (pnpm dev auto-restarts on code changes).",
+      staleProcess: true,
+      runningBuildId: loadedBuildId,
+      currentBuildId: disk?.buildId ?? null,
+    });
+    return;
+  }
   res.status(404).json({
-    error: `API route not found (${req.method} ${req.originalUrl}). Restart the API server after deploying the latest code.`,
+    error: `API route not found (${req.method} ${req.originalUrl}).`,
   });
 });
 
