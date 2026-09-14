@@ -102,10 +102,8 @@ export function ProductListingPreview({
       graphicsProjectRecords: graphicsProject?.imageRecords ?? null,
       productImageUrl,
       fallbackImageUrls,
-      aplusModules: aplusModules.map((m) => ({
-        url: m.imageUrl,
-        label: m.title,
-      })),
+      // A+ modules render full-width below the PDP block (not in the thumbnail carousel).
+      aplusModules: null,
     }),
     [
       audit?.imageUrls,
@@ -115,7 +113,6 @@ export function ProductListingPreview({
       productImageUrl,
       fallbackImageUrls,
       refreshKey,
-      aplusModules,
     ],
   );
 
@@ -262,37 +259,27 @@ export function ProductListingPreview({
         </div>
 
         {aplusModules.length > 0 && (
-          <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-4 lg:px-5 space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="border-t border-slate-200">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 px-4 py-2.5 lg:px-5 bg-slate-50 border-b border-slate-100">
               A+ content modules
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col w-full">
               {aplusModules.map((module) => (
-                <div
-                  key={module.id}
-                  className="rounded-lg border border-slate-200 bg-white overflow-hidden"
-                >
-                  {module.imageUrl && (
-                    <button
-                      type="button"
-                      className="block w-full cursor-zoom-in"
-                      onClick={() => openLightbox(module.imageUrl)}
-                      aria-label={`View full size ${module.title}`}
-                    >
-                      <img
-                        src={resolveListingPreviewImageUrl(module.imageUrl)}
-                        alt={module.title}
-                        className="w-full h-auto object-cover max-h-48"
-                      />
-                    </button>
-                  )}
-                  <div className="px-3 py-2">
-                    <p className="text-[10px] font-semibold text-slate-800">{module.title}</p>
-                    {module.headline?.trim() && (
-                      <p className="text-[10px] text-slate-600 mt-0.5 line-clamp-2">{module.headline}</p>
-                    )}
-                  </div>
-                </div>
+                module.imageUrl ? (
+                  <button
+                    key={module.id}
+                    type="button"
+                    className="block w-full cursor-zoom-in border-b border-slate-100 last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500"
+                    onClick={() => openLightbox(module.imageUrl)}
+                    aria-label={`View full size ${module.title}`}
+                  >
+                    <img
+                      src={resolveListingPreviewImageUrl(module.imageUrl)}
+                      alt={module.title}
+                      className="w-full h-auto block align-top"
+                    />
+                  </button>
+                ) : null
               ))}
             </div>
           </div>
