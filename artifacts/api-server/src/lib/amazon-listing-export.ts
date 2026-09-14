@@ -16,6 +16,11 @@ import {
   resolvePublishImageUrlsFromAudit,
 } from "./materialize-audit-images-for-publish.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
+import {
+  AMAZON_PRODUCT_DESCRIPTION_MAX,
+  buildListingContentReviewRows,
+} from "./listing-description-sections.js";
+import type { GeneratedContent } from "@workspace/db";
 
 /** Amazon Inventory Loader–style columns (compatible across marketplaces). */
 export const AMAZON_FLAT_FILE_HEADERS = [
@@ -53,11 +58,12 @@ export interface AuditExportBundle {
   row: AmazonFlatFileRow;
   images: ExportImageAsset[];
   filenameBase: string;
+  listingContent: GeneratedContent;
 }
 
 const BULLET_MAX = 500;
 const KEYWORDS_MAX = 250;
-const DESCRIPTION_MAX = 2000;
+const DESCRIPTION_MAX = AMAZON_PRODUCT_DESCRIPTION_MAX;
 
 export function buildAuditExportBundle(opts: {
   audit: Audit;
@@ -158,7 +164,7 @@ export function buildAuditExportBundle(opts: {
 
   const filenameBase = `${slugify(opts.audit.projectName || opts.audit.productName)}-amazon-${marketplace.id.toLowerCase()}`;
 
-  return { marketplace, row, images, filenameBase };
+  return { marketplace, row, images, filenameBase, listingContent: content };
 }
 
 function csvEscapeCell(value: string): string {
@@ -179,17 +185,35 @@ export function buildAmazonCsvBuffer(bundle: AuditExportBundle): Buffer {
 export async function buildExcelBuffer(bundle: AuditExportBundle): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "SellerLens";
-  const sheet = workbook.addWorksheet("Listing");
 
-  sheet.addRow([...AMAZON_FLAT_FILE_HEADERS]);
-  sheet.addRow(AMAZON_FLAT_FILE_HEADERS.map((header) => bundle.row[header]));
-
-  sheet.getRow(1).font = { bold: true };
-  sheet.columns = AMAZON_FLAT_FILE_HEADERS.map((header) => ({
+  const uploadSheet = workbook.addWorksheet("Amazon Upload");
+  uploadSheet.addRow([...AMAZON_FLAT_FILE_HEADERS]);
+  uploadSheet.addRow(AMAZON_FLAT_FILE_HEADERS.map((header) => bundle.row[header]));
+  uploadSheet.getRow(1).font = { bold: true };
+  uploadSheet.columns = AMAZON_FLAT_FILE_HEADERS.map((header) => ({
     header,
     key: header,
-    width: Math.min(40, Math.max(12, header.length + 4)),
+    width: Math.min(48, Math.max(12, header.length + 4)),
   }));
+  const descColIndex = AMAZON_FLAT_FILE_HEADERS.indexOf("product_description") + 1;
+  if (descColIndex > 0) {
+    uploadSheet.getColumn(descColIndex).width = 60;
+    uploadSheet.getRow(2).getCell(descColIndex).alignment = { wrapText: true, vertical: "top" };
+  }
+
+  const reviewRows = buildListingContentReviewRows(bundle.listingContent, bundle.row, bundle.images);
+  const reviewSheet = workbook.addWorksheet("Full listing content");
+  reviewSheet.addRow(["Section", "Field", "Value"]);
+  reviewSheet.getRow(1).font = { bold: true };
+  for (const r of reviewRows) {
+    reviewSheet.addRow([r.section, r.field, r.value]);
+  }
+  reviewSheet.getColumn(1).width = 18;
+  reviewSheet.getColumn(2).width = 36;
+  reviewSheet.getColumn(3).width = 80;
+  for (let i = 2; i <= reviewSheet.rowCount; i++) {
+    reviewSheet.getRow(i).getCell(3).alignment = { wrapText: true, vertical: "top" };
+  }
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
