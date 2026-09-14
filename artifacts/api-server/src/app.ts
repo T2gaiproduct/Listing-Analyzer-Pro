@@ -31,6 +31,7 @@ import {
   clerkProxyMiddleware,
 } from "./middlewares/clerkProxyMiddleware";
 import { WebhookHandlers } from "./webhookHandlers";
+import { handleJsonParseError } from "./middlewares/json-parse-error";
 
 const app: Express = express();
 
@@ -95,6 +96,7 @@ app.post(
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(handleJsonParseError);
 
 app.use(clerkMiddleware((req) => clerkMiddlewareOptionsForRequest(req)));
 
