@@ -27,3 +27,17 @@ export function pendingWorkspaceInviteRedirect(
   if (!token) return null;
   return `/accept-workspace-invite?token=${encodeURIComponent(token)}`;
 }
+
+/** Shared project URLs: allow viewing after sign-in even if owner onboarding is incomplete. */
+export function isSharedProjectDeepLink(path: string, search = ""): boolean {
+  const p = path.split("?")[0] ?? path;
+  if (p.startsWith("/products/")) return true;
+  if (p.startsWith("/projects/") && p !== "/projects/create") return true;
+  if (p === "/audits/workflow") {
+    return new URLSearchParams(search).has("resume");
+  }
+  if (p.startsWith("/audits/") && p !== "/audits/new" && p !== "/audits/workflow") {
+    return true;
+  }
+  return false;
+}

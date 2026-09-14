@@ -63,15 +63,21 @@ export function ProjectShareMenu({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open]);
 
-  async function handleCopy() {
-    try {
-      await copyShareUrl(shareUrl);
-      toast({ title: "Link copied", description: "Project link copied to clipboard." });
-      setOpen(false);
-      onShared?.();
-    } catch {
-      toast({ title: "Copy failed", description: "Could not copy the link.", variant: "destructive" });
+  function handleCopy() {
+    const url = shareUrl.trim();
+    if (!url) {
+      toast({ title: "Copy failed", description: "No link available for this project.", variant: "destructive" });
+      return;
     }
+    void copyShareUrl(url)
+      .then(() => {
+        toast({ title: "Link copied", description: "Project link copied to clipboard." });
+        setOpen(false);
+        onShared?.();
+      })
+      .catch(() => {
+        toast({ title: "Copy failed", description: "Could not copy the link.", variant: "destructive" });
+      });
   }
 
   function handleWhatsApp() {
@@ -143,8 +149,7 @@ export function ProjectShareMenu({
           <button
             type="button"
             role="menuitem"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => void handleCopy()}
+            onClick={handleCopy}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100"
           >
             <Copy className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -152,7 +157,7 @@ export function ProjectShareMenu({
           </button>
           <p className="px-4 py-2 text-[10px] text-slate-400 border-t border-slate-100 flex items-start gap-1.5">
             <Link2 className="w-3 h-3 mt-0.5 flex-shrink-0" />
-            Recipients must sign in to open shared projects.
+            Anyone with this link can view after signing in or creating an account.
           </p>
         </div>
       )}

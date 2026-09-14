@@ -29,43 +29,30 @@ export function buildShareMessage(projectTitle: string | undefined, url: string)
   return `Check out ${name} on SellerLens:\n${url}`;
 }
 
-/** Copy plain text; uses Clipboard API with execCommand fallback (works in more browsers/contexts). */
-export async function copyTextToClipboard(text: string): Promise<void> {
+/** Synchronous copy — must run in the same turn as the user click (Safari / strict browsers). */
+function copyTextToClipboardSync(text: string): boolean {
+  if (typeof document === "undefined") return false;
   const value = text.trim();
-  if (!value) {
-    throw new Error("Nothing to copy");
-  }
-
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return;
-    } catch {
-      // fall through to legacy copy
-    }
-  }
-
-  if (typeof document === "undefined") {
-    throw new Error("Clipboard unavailable");
-  }
+  if (!value) return false;
 
   const textarea = document.createElement("textarea");
   textarea.value = value;
   textarea.setAttribute("readonly", "");
-  // Keep element in viewport with 0 opacity so mobile browsers (iOS/Safari) can select it without scrolling
+  textarea.setAttribute("aria-hidden", "true");
   textarea.style.position = "fixed";
   textarea.style.top = "0";
   textarea.style.left = "0";
-  textarea.style.width = "1px";
-  textarea.style.height = "1px";
+  textarea.style.width = "2em";
+  textarea.style.height = "2em";
   textarea.style.padding = "0";
   textarea.style.border = "none";
   textarea.style.outline = "none";
   textarea.style.boxShadow = "none";
   textarea.style.background = "transparent";
   textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
   document.body.appendChild(textarea);
-  textarea.focus();
+  textarea.focus({ preventScroll: true });
   textarea.select();
   textarea.setSelectionRange(0, value.length);
 
@@ -75,10 +62,34 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   } finally {
     document.body.removeChild(textarea);
   }
+  return copied;
+}
 
-  if (!copied) {
-    throw new Error("Copy command failed");
+/** Copy plain text; sync execCommand first (click gesture), then Clipboard API fallback. */
+export async function copyTextToClipboard(text: string): Promise<void> {
+  const value = text.trim();
+  if (!value) {
+    throw new Error("Nothing to copy");
   }
+
+  if (copyTextToClipboardSync(value)) {
+    return;
+  }
+
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // fall through
+    }
+  }
+
+  if (copyTextToClipboardSync(value)) {
+    return;
+  }
+
+  throw new Error("Copy command failed");
 }
 
 export function openWhatsAppShare(message: string): void {

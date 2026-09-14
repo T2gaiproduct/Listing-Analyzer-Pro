@@ -21,6 +21,7 @@ import { fetchJson } from "@/lib/api-fetch";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import { buildClerkLocalization } from "@/lib/clerk-localization";
 import {
+  isSharedProjectDeepLink,
   pendingWorkspaceInviteRedirect,
   requiresOnboarding,
   type ProfileSummaryForGate,
@@ -238,6 +239,15 @@ if (!clerkPubKey) {
 }
 
 
+function OnboardingSignUpRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const redirectParam = params.get("redirect_url");
+  if (redirectParam) {
+    return <Redirect to={`/sign-up?redirect_url=${encodeURIComponent(redirectParam)}`} />;
+  }
+  return <Redirect to="/sign-up" />;
+}
+
 function SignInPage() {
   const params = new URLSearchParams(window.location.search);
   const redirectParam = params.get("redirect_url");
@@ -342,14 +352,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (user && !isAdminUser && (summaryError || !summary)) {
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
   }
+  const fullSearch = typeof window !== "undefined" ? window.location.search : "";
   const inviteRedirect = summary ? pendingWorkspaceInviteRedirect(summary) : null;
   if (user && !isAdminUser && inviteRedirect) return <Redirect to={inviteRedirect} />;
-  if (user && !isAdminUser && summary && requiresOnboarding(summary)) {
+  if (
+    user
+    && !isAdminUser
+    && summary
+    && requiresOnboarding(summary)
+    && !isSharedProjectDeepLink(location, fullSearch)
+  ) {
     return <Redirect to="/onboarding" />;
   }
   // Customer SaaS routes always use the customer shell (workspace switcher, sidebar).
   // Platform admins reach /admin/* via AdminRoute with AdminLayout.
-  const fullSearch = typeof window !== "undefined" ? window.location.search : "";
   const fullDestination = `${location}${fullSearch}`;
   const encodedDestination = encodeURIComponent(fullDestination);
 
@@ -669,7 +685,7 @@ function Router() {
           <Onboarding />
         </Show>
         <Show when="signed-out">
-          <Redirect to="/sign-up" />
+          <OnboardingSignUpRedirect />
         </Show>
       </Route>
 
