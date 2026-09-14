@@ -101,14 +101,27 @@ async function main() {
   );
 
   try {
-    const health = await fetchStatus(`${API_BASE}/api/healthz`);
-    const parsed = JSON.parse(health.bodySnippet.startsWith("{") ? health.bodySnippet : "{}");
+    const healthRes = await fetch(`${API_BASE}/api/healthz`);
+    const healthText = await healthRes.text();
+    const parsed = JSON.parse(healthText);
     const hasBuild = typeof parsed.apiBuildId === "string" && parsed.apiBuildId.length > 0;
+    const stale = parsed.staleProcess === true;
+    const metaOk = healthRes.status === 200 && hasBuild && !stale;
+    const actualDesc = !hasBuild
+      ? "missing apiBuildId (restart API on latest main)"
+      : stale
+        ? "staleProcess=true"
+        : "ok";
     record(
       "API GET /api/healthz build metadata",
       "apiBuildId present, staleProcess false",
-      health.status === 200 && hasBuild && parsed.staleProcess === false,
-      { httpStatus: health.status, evidence: health.bodySnippet.slice(0, 120) },
+      actualDesc,
+      metaOk,
+      {
+        httpStatus: healthRes.status,
+        evidence: healthText.slice(0, 160),
+        blocker: !hasBuild,
+      },
     );
   } catch (e) {
     record("API GET /api/healthz build metadata", "ok", "error", false, { error: String(e) });
