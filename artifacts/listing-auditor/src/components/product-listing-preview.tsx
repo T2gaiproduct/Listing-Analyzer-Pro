@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Eye, RefreshCw, Star } from "lucide-react";
+import { Eye, RefreshCw, Star, X } from "lucide-react";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
@@ -57,6 +58,7 @@ export function ProductListingPreview({
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const { data: graphicsProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId, refreshKey],
@@ -64,32 +66,6 @@ export function ProductListingPreview({
     enabled: auditId > 0,
     staleTime: 10_000,
   });
-
-  const galleryImages = useMemo(
-    () => collectListingPreviewImages({
-      imageUrls: audit?.imageUrls,
-      imageRecords: audit?.imageRecords,
-      generatedImages: audit?.generatedImages,
-      graphicsProjectRecords: graphicsProject?.imageRecords ?? null,
-      productImageUrl,
-      fallbackImageUrls,
-    }),
-    [
-      audit?.imageUrls,
-      audit?.imageRecords,
-      audit?.generatedImages,
-      graphicsProject?.imageRecords,
-      productImageUrl,
-      fallbackImageUrls,
-      refreshKey,
-    ],
-  );
-
-  useEffect(() => {
-    if (selectedIndex >= galleryImages.length) {
-      setSelectedIndex(0);
-    }
-  }, [galleryImages.length, selectedIndex]);
 
   const title = useMemo(() => {
     const fromGenerated = generatedContent?.title?.trim()
@@ -117,6 +93,43 @@ export function ProductListingPreview({
     () => readAplusFromAudit(audit?.generatedImages).modules.filter((m) => m.imageUrl?.trim()),
     [audit?.generatedImages],
   );
+
+  const aplusExcludeUrls = useMemo(
+    () => aplusModules.map((m) => m.imageUrl.trim()),
+    [aplusModules],
+  );
+
+  const galleryImages = useMemo(
+    () => collectListingPreviewImages({
+      imageUrls: audit?.imageUrls,
+      imageRecords: audit?.imageRecords,
+      generatedImages: audit?.generatedImages,
+      graphicsProjectRecords: graphicsProject?.imageRecords ?? null,
+      productImageUrl,
+      fallbackImageUrls,
+      excludeUrls: aplusExcludeUrls,
+    }),
+    [
+      audit?.imageUrls,
+      audit?.imageRecords,
+      audit?.generatedImages,
+      graphicsProject?.imageRecords,
+      productImageUrl,
+      fallbackImageUrls,
+      refreshKey,
+      aplusExcludeUrls,
+    ],
+  );
+
+  const openLightbox = (url: string) => {
+    setLightboxUrl(resolveListingPreviewImageUrl(url));
+  };
+
+  useEffect(() => {
+    if (selectedIndex >= galleryImages.length) {
+      setSelectedIndex(0);
+    }
+  }, [galleryImages.length, selectedIndex]);
 
   const hasListingCopy = Boolean(title && (bullets.length > 0 || htmlDescription));
   const hasImages = galleryImages.length > 0;
@@ -160,9 +173,12 @@ export function ProductListingPreview({
                 <button
                   key={`${img.url}-${index}`}
                   type="button"
-                  onClick={() => setSelectedIndex(index)}
+                  onClick={() => {
+                    setSelectedIndex(index);
+                    openLightbox(img.url);
+                  }}
                   className={cn(
-                    "shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50",
+                    "shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50 cursor-zoom-in",
                     selectedIndex === index ? "border-blue-500" : "border-slate-200 hover:border-slate-300",
                   )}
                 >
@@ -183,11 +199,18 @@ export function ProductListingPreview({
           {/* Main image */}
           <div className="order-1 lg:order-2 aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden">
             {selected ? (
-              <img
-                src={resolveListingPreviewImageUrl(selected.url)}
-                alt={selected.label}
-                className="w-full h-full object-contain"
-              />
+              <button
+                type="button"
+                className="w-full h-full flex items-center justify-center cursor-zoom-in"
+                onClick={() => openLightbox(selected.url)}
+                aria-label="View full size image"
+              >
+                <img
+                  src={resolveListingPreviewImageUrl(selected.url)}
+                  alt={selected.label}
+                  className="w-full h-full object-contain"
+                />
+              </button>
             ) : (
               <span className="text-[11px] text-slate-400">Main image</span>
             )}
@@ -247,11 +270,18 @@ export function ProductListingPreview({
                   className="rounded-lg border border-slate-200 bg-white overflow-hidden"
                 >
                   {module.imageUrl && (
-                    <img
-                      src={resolveListingPreviewImageUrl(module.imageUrl)}
-                      alt={module.title}
-                      className="w-full h-auto object-cover max-h-48"
-                    />
+                    <button
+                      type="button"
+                      className="block w-full cursor-zoom-in"
+                      onClick={() => openLightbox(module.imageUrl)}
+                      aria-label={`View full size ${module.title}`}
+                    >
+                      <img
+                        src={resolveListingPreviewImageUrl(module.imageUrl)}
+                        alt={module.title}
+                        className="w-full h-auto object-cover max-h-48"
+                      />
+                    </button>
                   )}
                   <div className="px-3 py-2">
                     <p className="text-[10px] font-semibold text-slate-800">{module.title}</p>
@@ -265,6 +295,34 @@ export function ProductListingPreview({
           </div>
         )}
       </div>
+
+      {lightboxUrl && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image preview"
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]">
+            <img
+              src={lightboxUrl}
+              alt="Full size preview"
+              className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center shadow-lg hover:bg-slate-100 transition-colors"
+              onClick={() => setLightboxUrl(null)}
+              aria-label="Close preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
