@@ -79,7 +79,7 @@ export function ManageAdsNavGroup({
             )}
           />
           <span className="truncate flex-1 min-w-0">Manage Ads</span>
-          {!isOnHome && <ManageAdsComingSoonBadge />}
+          <ManageAdsComingSoonBadge onAccent={isOnHome} />
         </button>
         <button
           type="button"
