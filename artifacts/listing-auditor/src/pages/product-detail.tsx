@@ -1289,7 +1289,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     && (isAccountOwner || wsCanEdit("audits") || wsCanEdit("build_brand"));
 
   const validId = !Number.isNaN(id) && id > 0;
-  const queryEnabled = clerkLoaded && !!user && validId && (showAccountProducts || !!featureWorkspaceId);
+  // Always allow querying product detail when signed in with a valid id (supports shared project links as well as workspace-scoped navigation)
+  const queryEnabled = clerkLoaded && !!user && validId;
 
   const {
     data: apiProduct,

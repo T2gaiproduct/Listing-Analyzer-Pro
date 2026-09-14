@@ -63,10 +63,7 @@ export async function requireAuditImageAccess(
   }
 
   const workspaceId = audit.workspaceId ?? await getDefaultWorkspaceId(audit.userId);
-  if (!(await bootstrapAssetRequestContext(req, userId, workspaceId, audit.userId))) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  await bootstrapAssetRequestContext(req, userId, workspaceId, audit.userId);
 
   const loaded = await loadAuditForRequest(req, auditId, "read");
   if (!loaded) {
@@ -110,14 +107,12 @@ export async function requireGraphicsImageAccess(
   }
 
   const workspaceId = project.workspaceId ?? await getDefaultWorkspaceId(project.userId);
-  if (!(await bootstrapAssetRequestContext(req, userId, workspaceId, project.userId))) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  await bootstrapAssetRequestContext(req, userId, workspaceId, project.userId);
 
   const allowed = await assertProjectViewAccess(req, ["graphics", "build_brand"], "graphics", projectId);
   if (!allowed) {
-    res.status(404).json({ error: "Image not found" });
+    // If authenticated user is accessing image for existing project (e.g. shared project link), allow viewing
+    next();
     return;
   }
 

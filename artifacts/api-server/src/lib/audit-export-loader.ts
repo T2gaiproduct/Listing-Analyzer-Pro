@@ -49,8 +49,19 @@ export async function loadAuditForExport(req: Request, auditId: number) {
     ? and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0))
     : await auditScopeWhere(req, eq(auditsTable.id, auditId));
 
-  const [audit] = await db.select().from(auditsTable).where(whereClause).limit(1);
-  if (!audit) return null;
+  let [audit] = await db.select().from(auditsTable).where(whereClause).limit(1);
+  if (!audit) {
+    const [shared] = await db
+      .select()
+      .from(auditsTable)
+      .where(and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0)))
+      .limit(1);
+    if (shared) {
+      audit = shared;
+    } else {
+      return null;
+    }
+  }
 
   const [graphicsProject] = await db
     .select()

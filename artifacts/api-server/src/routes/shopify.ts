@@ -137,15 +137,29 @@ router.get(
       return;
     }
 
-    const workspaceId = getActiveWorkspaceId(req);
+    const workspaceId = loaded.audit.workspaceId ?? getActiveWorkspaceId(req);
     const connection = await getShopifyConnection(workspaceId);
     if (!connection) {
-      res.status(400).json({ error: "Connect your Shopify store on the Marketplaces page first." });
+      res.json({
+        handle: null,
+        productType: null,
+        listingCategory: loaded.audit.category?.trim() || null,
+        manualCollections: [],
+        smartCollections: [],
+        storefrontOrigin: "",
+        message: "No connected Shopify store found for this listing.",
+      });
       return;
     }
     if (!isShopifyPublishReady(connection)) {
-      res.status(400).json({
-        error: "Add your Shopify Client ID and Client secret on the Marketplaces page to load collection membership.",
+      res.json({
+        handle: null,
+        productType: null,
+        listingCategory: loaded.audit.category?.trim() || null,
+        manualCollections: [],
+        smartCollections: [],
+        storefrontOrigin: "",
+        message: "Shopify publishing credentials not configured.",
       });
       return;
     }

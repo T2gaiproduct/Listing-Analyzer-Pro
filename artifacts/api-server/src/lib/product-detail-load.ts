@@ -507,12 +507,25 @@ async function loadAuditDetail(
 
 async function loadGraphicsDetail(req: Request, id: number): Promise<ProductDetailPayload | null> {
   const where = await projectScopeWhere(req, "graphics", graphicsProjectsTable, "graphics");
-  const [row] = await db
+  let [row] = await db
     .select()
     .from(graphicsProjectsTable)
     .where(and(where, eq(graphicsProjectsTable.id, id)))
     .limit(1);
-  if (!row) return null;
+
+  if (!row) {
+    // Check direct read fallback for graphics project via shared link
+    const [shared] = await db
+      .select()
+      .from(graphicsProjectsTable)
+      .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.isDeleted, 0)))
+      .limit(1);
+    if (shared) {
+      row = shared;
+    } else {
+      return null;
+    }
+  }
 
   const name = row.name?.trim() || row.productName?.trim() || "Untitled Project";
   const mapped = mapProductStatus(row.status, null);
@@ -594,12 +607,24 @@ async function loadGraphicsDetail(req: Request, id: number): Promise<ProductDeta
 
 async function loadVideoDetail(req: Request, id: number): Promise<ProductDetailPayload | null> {
   const where = await projectScopeWhere(req, "videos", videosProjectsTable, "video");
-  const [row] = await db
+  let [row] = await db
     .select()
     .from(videosProjectsTable)
     .where(and(where, eq(videosProjectsTable.id, id)))
     .limit(1);
-  if (!row) return null;
+
+  if (!row) {
+    const [shared] = await db
+      .select()
+      .from(videosProjectsTable)
+      .where(and(eq(videosProjectsTable.id, id), eq(videosProjectsTable.isDeleted, 0)))
+      .limit(1);
+    if (shared) {
+      row = shared;
+    } else {
+      return null;
+    }
+  }
 
   const name = row.name?.trim() || row.productName?.trim() || "Untitled Video";
   const mapped = mapProductStatus(row.status, null);
@@ -656,12 +681,24 @@ async function loadVideoDetail(req: Request, id: number): Promise<ProductDetailP
 
 async function loadAdsDetail(req: Request, id: number): Promise<ProductDetailPayload | null> {
   const where = await projectScopeWhere(req, "ads", adsProjectsTable, "ads");
-  const [row] = await db
+  let [row] = await db
     .select()
     .from(adsProjectsTable)
     .where(and(where, eq(adsProjectsTable.id, id)))
     .limit(1);
-  if (!row) return null;
+
+  if (!row) {
+    const [shared] = await db
+      .select()
+      .from(adsProjectsTable)
+      .where(and(eq(adsProjectsTable.id, id), eq(adsProjectsTable.isDeleted, 0)))
+      .limit(1);
+    if (shared) {
+      row = shared;
+    } else {
+      return null;
+    }
+  }
 
   const name = row.name?.trim() || row.productName?.trim() || "Untitled Campaign";
   const mapped = mapProductStatus(row.status, null);

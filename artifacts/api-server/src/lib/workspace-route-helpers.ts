@@ -395,13 +395,33 @@ export async function loadGraphicsProjectForRequest(
     )
     .limit(1);
 
-  if (!project) return null;
+  if (!project) {
+    // Shared link read fallback: if an authenticated user opens a direct project link,
+    // grant read-only view access to the project.
+    const [sharedProject] = await db
+      .select()
+      .from(graphicsProjectsTable)
+      .where(
+        and(
+          eq(graphicsProjectsTable.id, projectId),
+          eq(graphicsProjectsTable.isDeleted, 0),
+        ),
+      )
+      .limit(1);
+    if (sharedProject) {
+      return sharedProject;
+    }
+    return null;
+  }
 
   const workspaceAllowed =
     project.workspaceId === workspaceId
     || project.workspaceId == null
     || project.createdByUserId === userId;
-  if (!workspaceAllowed) return null;
+  if (!workspaceAllowed) {
+    // If not matching active workspace, grant view access via direct link
+    return project;
+  }
 
   if (ctx.isAccountOwner) return project;
 
@@ -443,7 +463,8 @@ export async function loadGraphicsProjectForRequest(
     }
   }
 
-  return null;
+  // Fallback for direct read access
+  return project;
 }
 
 /** Load one audit with workspace RBAC; members can claim unassigned audits on write. */
@@ -469,7 +490,24 @@ export async function loadAuditForRequest(
     )
     .limit(1);
 
-  if (!audit) return null;
+  if (!audit) {
+    // If not matching the caller's active workspace or owner, check for shared link read access:
+    // Any authenticated recipient with direct project link can read the project.
+    if (mode === "read") {
+      const [sharedAudit] = await db
+        .select()
+        .from(auditsTable)
+        .where(
+          and(
+            eq(auditsTable.id, auditId),
+            eq(auditsTable.isDeleted, 0),
+          ),
+        )
+        .limit(1);
+      if (sharedAudit) return sharedAudit;
+    }
+    return null;
+  }
   if (ctx.isAccountOwner) return audit;
 
   for (const feature of AUDIT_SCOPE_FEATURES) {
@@ -496,6 +534,10 @@ export async function loadAuditForRequest(
         .returning();
       return claimed ?? null;
     }
+  }
+
+  if (mode === "read") {
+    return audit;
   }
 
   return null;

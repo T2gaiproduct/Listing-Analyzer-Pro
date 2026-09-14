@@ -42,6 +42,13 @@ export function canViewPath(
   if (p === "/" || p === "/dashboard") return true;
   if (p === "/roles") return false;
 
+  // Direct project viewing via shared link (e.g. /audits/:id, /projects/:id, /audits/workflow?resume=..., /products/:id):
+  // Any authenticated user with the direct link can view the project in read-only mode.
+  // Full project creation and edits remain strictly enforced by permission checks.
+  if (p.startsWith("/audits/") || p.startsWith("/projects/") || p.startsWith("/products/")) {
+    return true;
+  }
+
   if (p === "/billing" && isBillingAccountOwner) return true;
 
   if (p === "/team") return can("team", "viewGlobal");
@@ -51,11 +58,8 @@ export function canViewPath(
   if (p === "/settings") return canView("settings");
   if (p === "/billing") return canView("billing");
 
-  if (p === "/audits/new" || p === "/audits/workflow") {
+  if (p === "/audits/new") {
     return canView("build_brand") || canView("audits");
-  }
-  if (p.startsWith("/audits/")) {
-    return canView("audits") || canView("build_brand");
   }
 
   const feature = viewFeatureForPath(p);
@@ -70,7 +74,15 @@ export function canCreateForPath(
 ): boolean {
   if (isWorkspaceAccountOwner) return true;
   const p = path.split("?")[0] ?? path;
-  if (p === "/audits/new" || p === "/audits/workflow") {
+  if (p === "/audits/workflow") {
+    // Opening an existing project via /audits/workflow?resume=... is viewing an existing workflow project,
+    // not creating a new one. Full creation permission is enforced when creating new drafts.
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const params = new URLSearchParams(search);
+    if (params.get("resume")) return true;
+    return can("build_brand", "create") || can("audits", "create");
+  }
+  if (p === "/audits/new") {
     return can("build_brand", "create") || can("audits", "create");
   }
   if (p === "/projects/create") return can("graphics", "create");

@@ -325,6 +325,7 @@ function HomeRedirect() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
@@ -348,13 +349,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
   // Customer SaaS routes always use the customer shell (workspace switcher, sidebar).
   // Platform admins reach /admin/* via AdminRoute with AdminLayout.
+  const fullSearch = typeof window !== "undefined" ? window.location.search : "";
+  const fullDestination = `${location}${fullSearch}`;
+  const encodedDestination = encodeURIComponent(fullDestination);
+
   return (
     <>
       <Show when="signed-in">
         <Layout>{children}</Layout>
       </Show>
       <Show when="signed-out">
-        <Redirect to="/" />
+        <Redirect to={`/sign-in?redirect_url=${encodedDestination}`} />
       </Show>
     </>
   );

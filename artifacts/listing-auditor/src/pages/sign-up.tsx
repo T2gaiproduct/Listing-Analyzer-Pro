@@ -24,8 +24,11 @@ export default function SignUpPage() {
     if (redirectParam?.startsWith("/")) {
       return `${basePath}${appendPlanSelectionToPath(redirectParam, planId, billingYearly)}`;
     }
-    const onboardingPath = appendPlanSelectionToPath("/onboarding", planId, billingYearly);
-    return `${basePath}${onboardingPath}`;
+    // If no explicit redirect parameter, default to /dashboard (or onboarding with plan selection if specified)
+    if (planId !== null || billingYearly) {
+      return `${basePath}${appendPlanSelectionToPath("/onboarding", planId, billingYearly)}`;
+    }
+    return `${basePath}/dashboard`;
   }, [redirectParam, planId, billingYearly]);
 
   const signInPath = useMemo(() => {
