@@ -94,11 +94,6 @@ export function ProductListingPreview({
     [audit?.generatedImages],
   );
 
-  const aplusExcludeUrls = useMemo(
-    () => aplusModules.map((m) => m.imageUrl.trim()),
-    [aplusModules],
-  );
-
   const galleryImages = useMemo(
     () => collectListingPreviewImages({
       imageUrls: audit?.imageUrls,
@@ -107,7 +102,10 @@ export function ProductListingPreview({
       graphicsProjectRecords: graphicsProject?.imageRecords ?? null,
       productImageUrl,
       fallbackImageUrls,
-      excludeUrls: aplusExcludeUrls,
+      aplusModules: aplusModules.map((m) => ({
+        url: m.imageUrl,
+        label: m.title,
+      })),
     }),
     [
       audit?.imageUrls,
@@ -117,7 +115,7 @@ export function ProductListingPreview({
       productImageUrl,
       fallbackImageUrls,
       refreshKey,
-      aplusExcludeUrls,
+      aplusModules,
     ],
   );
 
@@ -178,7 +176,7 @@ export function ProductListingPreview({
                     openLightbox(img.url);
                   }}
                   className={cn(
-                    "shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50 cursor-zoom-in",
+                    "relative shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50 cursor-zoom-in",
                     selectedIndex === index ? "border-blue-500" : "border-slate-200 hover:border-slate-300",
                   )}
                 >
@@ -187,6 +185,11 @@ export function ProductListingPreview({
                     alt={img.label}
                     className="w-full h-full object-cover"
                   />
+                  {img.label.startsWith("A+") && (
+                    <span className="absolute bottom-0 left-0 right-0 bg-orange-600/90 text-white text-[8px] font-bold uppercase tracking-wide py-0.5 truncate px-0.5">
+                      A+
+                    </span>
+                  )}
                 </button>
               ))
             ) : (

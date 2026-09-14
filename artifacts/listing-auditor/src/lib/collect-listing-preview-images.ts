@@ -58,8 +58,10 @@ export function collectListingPreviewImages(opts: {
   graphicsProjectRecords?: GraphicsImageRecord[] | null;
   productImageUrl?: string | null;
   fallbackImageUrls?: string[] | null;
-  /** A+ module image URLs — shown only in the A+ section, not the PDP gallery. */
+  /** Optional URLs to skip in the PDP gallery (e.g. duplicates). */
   excludeUrls?: Iterable<string> | null;
+  /** A+ module images appended after product/graphics images in the gallery. */
+  aplusModules?: Array<{ url: string; label?: string | null }> | null;
 }): ListingPreviewImage[] {
   const items: ListingPreviewImage[] = [];
   const seen = new Set<string>();
@@ -94,6 +96,11 @@ export function collectListingPreviewImages(opts: {
   }
   for (const url of opts.fallbackImageUrls ?? []) {
     add(url, "Product");
+  }
+
+  for (const module of opts.aplusModules ?? []) {
+    const label = module.label?.trim() || "A+ Content";
+    add(module.url, label.startsWith("A+") ? label : `A+ ${label}`);
   }
 
   return items;
