@@ -92,17 +92,27 @@ async function main() {
     headers: { "Content-Type": "application/json" },
     body: "{not-json",
   });
-  const malformedOk = badPost.status === 401 || badPost.status === 400;
   record(
     "API POST /api/audits malformed JSON (no auth)",
-    "401 or 400",
+    "400",
     String(badPost.status),
-    malformedOk,
-    {
-      httpStatus: badPost.status,
-      note: badPost.status === 500 ? "express.json may 500 before auth — see bugs" : undefined,
-    },
+    badPost.status === 400,
+    { httpStatus: badPost.status },
   );
+
+  try {
+    const health = await fetchStatus(`${API_BASE}/api/healthz`);
+    const parsed = JSON.parse(health.bodySnippet.startsWith("{") ? health.bodySnippet : "{}");
+    const hasBuild = typeof parsed.apiBuildId === "string" && parsed.apiBuildId.length > 0;
+    record(
+      "API GET /api/healthz build metadata",
+      "apiBuildId present, staleProcess false",
+      health.status === 200 && hasBuild && parsed.staleProcess === false,
+      { httpStatus: health.status, evidence: health.bodySnippet.slice(0, 120) },
+    );
+  } catch (e) {
+    record("API GET /api/healthz build metadata", "ok", "error", false, { error: String(e) });
+  }
 
   if (PROXY_BASE) {
     const proxyHealth = await fetchStatus(`${PROXY_BASE}/api/healthz`);

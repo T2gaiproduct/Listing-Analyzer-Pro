@@ -4,7 +4,7 @@ import helmet from "helmet";
 import pinoHttp from "pino-http";
 import path from "path";
 import fs from "node:fs";
-import { clerkMiddleware } from "@clerk/express";
+import { clerkMiddlewareSafe } from "./middlewares/clerk-auth-error";
 import router from "./routes";
 import { isStaleApiProcess, loadedBuildId, readDiskBuildMeta } from "./lib/api-build-meta";
 import { logger } from "./lib/logger";
@@ -90,7 +90,7 @@ app.use(cors({
 app.post(
   "/api/admin/hero-video",
   express.raw({ type: ["video/*", "application/octet-stream"], limit: "50mb" }),
-  clerkMiddleware((req) => clerkMiddlewareOptionsForRequest(req)),
+  clerkMiddlewareSafe((req) => clerkMiddlewareOptionsForRequest(req)),
   (req, res) => { void handleHeroVideoUpload(req, res); },
 );
 
@@ -98,7 +98,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(handleJsonParseError);
 
-app.use(clerkMiddleware((req) => clerkMiddlewareOptionsForRequest(req)));
+app.use(clerkMiddlewareSafe((req) => clerkMiddlewareOptionsForRequest(req)));
 
 // Public CMS/branding assets — register before /api/images/:auditId/:filename so
 // segment names like "heroes" are not captured as audit ids (see protected-images.ts).
