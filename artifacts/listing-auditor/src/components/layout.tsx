@@ -840,7 +840,7 @@ export function Layout({ children }: { children: ReactNode }) {
               />
             )}
             {canViewAds && collapsed && (
-              <SidebarTooltip label="Manage Ads" side="right">
+              <SidebarTooltip label="Manage Ads (Coming Soon)" side="right">
                 <div>
                   <ManageAdsNavCollapsed location={location} onNavigate={(href) => handleFeatureNav(href)} />
                 </div>

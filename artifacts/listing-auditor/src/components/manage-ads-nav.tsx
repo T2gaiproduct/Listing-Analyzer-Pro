@@ -3,10 +3,24 @@ import { cn } from "@/lib/utils";
 import {
   MANAGE_ADS_HOME_HREF,
   MANAGE_ADS_NAV_ITEMS,
-  isManageAdsConsolePath,
   isManageAdsHomePath,
   isManageAdsPath,
 } from "@/lib/ads-nav";
+
+function ManageAdsComingSoonBadge({ onAccent }: { onAccent?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "text-[9px] font-semibold uppercase tracking-wide rounded px-1 py-0.5 flex-shrink-0",
+        onAccent
+          ? "text-amber-100 bg-amber-600/30 border border-amber-200/40"
+          : "text-amber-700 bg-amber-50 border border-amber-200",
+      )}
+    >
+      Coming Soon
+    </span>
+  );
+}
 
 type ManageAdsNavGroupProps = {
   location: string;
@@ -48,7 +62,7 @@ export function ManageAdsNavGroup({
             if (!expanded) onToggle();
           }}
           className={cn(
-            "flex flex-1 items-center gap-2 text-left min-w-0",
+            "flex flex-1 items-center gap-1.5 text-left min-w-0",
             isMobile ? "px-3 py-2.5 min-h-9 text-xs" : "px-2.5 py-2 text-[11px]",
             isOnHome
               ? "font-medium text-white"
@@ -64,7 +78,8 @@ export function ManageAdsNavGroup({
               isOnHome ? "text-white" : isMobile ? "" : "text-sidebar-foreground/40",
             )}
           />
-          <span className="truncate">Manage Ads</span>
+          <span className="truncate flex-1 min-w-0">Manage Ads</span>
+          {!isOnHome && <ManageAdsComingSoonBadge />}
         </button>
         <button
           type="button"
