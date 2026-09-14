@@ -24,11 +24,7 @@ async function main() {
   const fakeSession = await fetch(`${API_BASE}/api/profile`, {
     headers: { Cookie: "__session=invalid.jwt.token" },
   });
-  log(
-    "Invalid session cookie",
-    fakeSession.status === 401 || fakeSession.status === 403,
-    `status=${fakeSession.status}`,
-  );
+  log("Invalid session cookie", fakeSession.status === 401, `status=${fakeSession.status}`);
 
   // IDOR probe: numeric audit id without auth
   const idor = await fetch(`${API_BASE}/api/audits/999999`);
