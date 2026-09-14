@@ -14,7 +14,12 @@
     "db:generate-schema": "bash scripts/generate-additive-schema-from-local.sh",
     "test:plan-capabilities": "pnpm --filter @workspace/db exec tsx ../../scripts/test-plan-capabilities.mjs",
     "test:plan-workspaces": "pnpm --filter @workspace/db exec tsx ../../scripts/test-plan-workspaces-integration.mjs",
-    "test": "pnpm run test:plan-capabilities && pnpm run test:plan-workspaces"
+    "test": "pnpm run test:plan-capabilities && pnpm run test:plan-workspaces",
+    "test:qa:smoke": "node scripts/qa/smoke-api.mjs",
+    "test:qa:security": "node scripts/qa/security-api.mjs",
+    "test:qa:integration": "node scripts/qa/integration-resilience.mjs",
+    "test:qa:concurrency": "node scripts/qa/concurrency-rate-limit.mjs",
+    "test:qa:load": "k6 run scripts/qa/load-healthz.k6.js"
   },
   "private": true,
   "devDependencies": {
