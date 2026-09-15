@@ -258,7 +258,7 @@ export function ProductListingPreview({
             : "rounded-lg border border-slate-200",
         )}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_minmax(0,1.1fr)] gap-4 p-4 lg:p-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_minmax(0,1.1fr)] gap-4 items-start px-4 pt-4 pb-2 lg:px-5 lg:pt-5 lg:pb-3">
           {/* Thumbnails */}
           <div className="flex flex-col items-center gap-1 order-2 lg:order-1 shrink-0">
             {canStepGallery && (
@@ -426,21 +426,21 @@ export function ProductListingPreview({
                 </ul>
               </div>
             )}
-
-            {htmlDescription && (
-              <div className="border-t border-slate-100 pt-3">
-                <p className="text-[11px] font-semibold text-slate-900 mb-1.5">Product description</p>
-                <div
-                  className="prose prose-sm max-w-none text-slate-700 text-[11px]"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(htmlDescription) }}
-                />
-              </div>
-            )}
           </div>
         </div>
 
+        {htmlDescription && (
+          <div className="border-t border-slate-100 px-4 py-3 lg:px-5">
+            <p className="text-[11px] font-semibold text-slate-900 mb-1.5">Product description</p>
+            <div
+              className="prose prose-sm max-w-none text-slate-700 text-[11px]"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(htmlDescription) }}
+            />
+          </div>
+        )}
+
         {aplusModules.length > 0 && (
-          <section className="border-t border-slate-300 bg-white" aria-label="From the brand">
+          <section className="border-t border-slate-200 bg-white" aria-label="From the brand">
             <div className="border-b border-slate-200 px-4 lg:px-5 bg-white">
               <div className="flex flex-wrap items-end gap-4 sm:gap-8 text-[11px]">
                 <span className="py-2.5 text-slate-500">About this item</span>
