@@ -275,7 +275,7 @@ export function ProductListingPreview({
             : "rounded-lg border border-slate-200",
         )}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_minmax(0,1.1fr)] gap-4 items-start px-4 pt-4 pb-2 lg:px-5 lg:pt-5 lg:pb-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,28rem)_minmax(0,1fr)] gap-4 lg:gap-5 items-start px-4 pt-4 pb-2 lg:px-5 lg:pt-5 lg:pb-3">
           {/* Thumbnails */}
           <div className="flex flex-col items-center gap-1 order-2 lg:order-1 shrink-0">
             {canStepGallery && (
@@ -362,7 +362,7 @@ export function ProductListingPreview({
           </div>
 
           {/* Main image */}
-          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden group/main-image">
+          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:justify-self-start rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden group/main-image">
             {selected ? (
               <>
                 {canStepGallery && (
@@ -415,7 +415,7 @@ export function ProductListingPreview({
           </div>
 
           {/* Product details */}
-          <div className="order-3 space-y-3 min-w-0">
+          <div className="order-3 space-y-3 min-w-0 lg:max-w-2xl">
             <h4 className="text-base sm:text-lg font-semibold text-slate-900 leading-snug">{title}</h4>
 
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
