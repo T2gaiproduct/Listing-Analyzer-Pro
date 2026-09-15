@@ -232,7 +232,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   });
 });
 
-const PUBLIC_FORM_TYPES = new Set(["support", "contact", "demo", "enterprise"]);
+const PUBLIC_FORM_TYPES = new Set(["support", "contact", "demo", "enterprise", "newsletter"]);
 
 function trimOptionalString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -287,6 +287,26 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
       title: "New support ticket",
       message: `${trimmedEmail}: ${subject}`,
       link: "/admin/help/support-tickets",
+    });
+
+    res.status(201).json(item);
+    return;
+  }
+
+  if (formType === "newsletter") {
+    const source = trimOptionalString(payload.source) || "website";
+    const [item] = await db.insert(formSubmissions).values({
+      formType: "newsletter",
+      email: trimmedEmail,
+      name: trimmedName || null,
+      data: { source },
+    }).returning();
+
+    void notifyAdminUsers({
+      type: "form_submission_new",
+      title: "New newsletter signup",
+      message: trimmedEmail,
+      link: "/admin/marketing/forms?type=newsletter",
     });
 
     res.status(201).json(item);

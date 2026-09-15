@@ -81,7 +81,11 @@ export default function AdminMarketingForms() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Inbox className="w-6 h-6 text-orange-500" /> {typeFilter === "contact" ? "Contact Messages" : "Form Submissions"}
+            <Inbox className="w-6 h-6 text-orange-500" /> {
+              typeFilter === "contact" ? "Contact Messages"
+                : typeFilter === "newsletter" ? "Newsletter signups"
+                  : "Form Submissions"
+            }
           </h1>
           <p className="text-slate-500 text-sm mt-1">
             {submissions.length} total {unread > 0 && <span className="text-orange-600 font-medium">· {unread} unread</span>}

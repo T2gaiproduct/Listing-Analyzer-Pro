@@ -6,6 +6,7 @@ import { Clock, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatBlogDate, formatReadTime, resolveBlogImageUrl, type PublicBlogPost } from "@/lib/blog";
 import { cn } from "@/lib/utils";
+import { NewsletterSection } from "@/components/newsletter";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -146,22 +147,7 @@ export default function Blog() {
           </>
         )}
 
-        <section className="py-16 md:py-20 bg-slate-900 text-white">
-          <div className="max-w-xl mx-auto px-8 text-center">
-            <h2 className="text-2xl font-bold mb-3">Get weekly Amazon selling tips</h2>
-            <p className="text-slate-400 mb-8">Join 5,000+ sellers who get actionable listing optimization advice delivered to their inbox.</p>
-            <div className="flex gap-3 max-w-md mx-auto">
-              <input
-                type="email"
-                placeholder="your@email.com"
-                className="flex-1 px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-              <button className="px-5 py-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors shrink-0">
-                Subscribe
-              </button>
-            </div>
-          </div>
-        </section>
+        <NewsletterSection source="blog" />
       </main>
 
       <PublicFooter />

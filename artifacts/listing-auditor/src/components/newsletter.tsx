@@ -1,17 +1,24 @@
 import { useState } from "react";
 import { Mail, CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { submitNewsletterSignup } from "@/lib/newsletter-signup";
 
-export function NewsletterSection() {
+export function NewsletterSection({ source = "newsletter-section" }: { source?: string }) {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "success">("idle");
+  const [status, setStatus] = useState<"idle" | "success" | "loading">("idle");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
-    setStatus("success");
-    setEmail("");
-    setTimeout(() => setStatus("idle"), 4000);
+    if (!email.trim() || status === "loading") return;
+    setStatus("loading");
+    try {
+      await submitNewsletterSignup(email, source);
+      setStatus("success");
+      setEmail("");
+      setTimeout(() => setStatus("idle"), 4000);
+    } catch {
+      setStatus("idle");
+    }
   };
 
   return (
@@ -34,7 +41,7 @@ export function NewsletterSection() {
               required
             />
           </div>
-          <Button type="submit" className="shrink-0 px-5" disabled={status === "success"}>
+          <Button type="submit" className="shrink-0 px-5" disabled={status === "success" || status === "loading"}>
             {status === "success" ? (
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Subscribed</span>
             ) : (
