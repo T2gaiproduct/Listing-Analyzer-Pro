@@ -237,13 +237,7 @@ export function ProductDetailRibbon({
           <span className="hidden sm:inline">Back</span>
         </Link>
 
-        <div className="flex-1 min-w-0 sm:ml-2 flex items-center order-3 sm:order-none w-full sm:w-auto basis-full sm:basis-auto">
-          <h1 className="text-xs sm:text-sm font-semibold text-slate-900 truncate">
-            {productName}
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-1 ml-auto z-10">
+        <div className="flex items-center gap-1 ml-auto z-10 flex-1 justify-end">
           <ProjectShareMenu
             projectCtx={projectCtx}
             projectTitle={productName}

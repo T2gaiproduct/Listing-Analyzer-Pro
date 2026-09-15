@@ -1013,13 +1013,9 @@ function OptimizedContentPanel({
         <div className="space-y-2 min-w-0">
           <div className="flex items-center justify-between gap-2 px-1">
             <div className="flex items-center gap-1.5">
-              {showSuggestions ? (
-                <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-              )}
+              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
               <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-                {showSuggestions ? "Suggestions" : "Optimized Content"}
+                Optimized Content
               </p>
             </div>
             <Button
@@ -1038,7 +1034,7 @@ function OptimizedContentPanel({
               ) : (
                 <>
                   <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                  {hasGeneratedContent ? "Regenerate" : "Generate Content"}
+                  {hasGeneratedContent ? "Regenerate" : "Generate"}
                 </>
               )}
             </Button>
@@ -1054,7 +1050,7 @@ function OptimizedContentPanel({
           ) : (
             <ListingContentCard
               content={optimizedContent}
-              emptyMessage="No optimized content yet. Click Generate Content to create listing copy (1 AI credit)."
+              emptyMessage="No optimized content yet. Use Generate above (1 AI credit)."
               accent="orange"
             />
           )}

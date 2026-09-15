@@ -238,10 +238,6 @@ export function ProductWorkflowStepContent({
   if (step === 2) {
     return (
       <WorkflowStepShell {...shellProps}>
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-          <h3 className="text-xs font-semibold text-slate-900">Listing content</h3>
-        </div>
         <OptimizedContentPanel
           generatedContent={generatedContent}
           existingContent={existingContent}
