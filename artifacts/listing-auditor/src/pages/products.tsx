@@ -1,17 +1,14 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
-  Plus,
   Eye,
   Pencil,
   Upload,
-  FileInput,
   Loader2,
   Package,
-  ChevronRight,
   Trash2,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,8 +24,6 @@ import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { useActionDialog } from "@/components/ui/action-dialog";
-import { downloadProductImportTemplate, parseProductsCsv } from "@/lib/product-import";
-import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { fetchAccountOverviewProducts, fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
@@ -246,14 +241,11 @@ function ChannelTags({ channels }: { channels: string[] }) {
 export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const importInputRef = useRef<HTMLInputElement>(null);
-  const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
   const {
     featureWorkspaceId,
     isLoading: wsLoading,
     needsWorkspaceSelection,
-    canEdit,
     isAccountOwner,
     canDelete,
     isBillingAccountOwner,
@@ -288,8 +280,6 @@ export default function ProductsPage() {
     () => (apiData?.products ?? []).map(normalizeApiProduct),
     [apiData],
   );
-
-  const canImportProducts = !showAccountProducts && (canEdit("build_brand") || canEdit("audits"));
 
   const canDeleteProduct = (product: ProductListItem) =>
     isAccountOwner || canDelete(productDeleteFeature(product.sourceType));
@@ -366,58 +356,6 @@ export default function ProductsPage() {
     );
   }
 
-  const importProductsMutation = useMutation({
-    mutationFn: (products: ReturnType<typeof parseProductsCsv>) =>
-      fetchJson<{ imported: Array<{ id: number; name: string; sku: string }>; errors: Array<{ row: number; error: string }> }>(
-        `${basePath}/api/products/import`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ products }),
-        },
-      ),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["products"] });
-      void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
-
-      if (result.imported.length > 0) {
-        toast({
-          title: "Import complete",
-          description: `${result.imported.length} product${result.imported.length === 1 ? "" : "s"} imported.`,
-        });
-      }
-
-      if (result.errors.length > 0) {
-        toast({
-          title: "Some rows failed",
-          description: result.errors.map((e) => `Row ${e.row}: ${e.error}`).join(" "),
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Import failed",
-        description: error instanceof Error ? error.message : "Could not import products.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  async function handleImportFile(file: File) {
-    try {
-      const text = await file.text();
-      const products = parseProductsCsv(text);
-      importProductsMutation.mutate(products);
-    } catch (error) {
-      toast({
-        title: "Invalid CSV",
-        description: error instanceof Error ? error.message : "Could not read the CSV file.",
-        variant: "destructive",
-      });
-    }
-  }
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
@@ -486,13 +424,6 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-        <span>{platformName}</span>
-        <ChevronRight className="w-3 h-3" />
-        <span className="text-muted-foreground">Product Explorer</span>
-      </div>
-
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -509,26 +440,15 @@ export default function ProductsPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products, orders..."
+              placeholder="Search products..."
               className="h-8 pl-8 text-xs border-border bg-card rounded-lg"
             />
           </div>
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs font-medium border-border text-foreground/90 shrink-0 rounded-lg px-3"
-          >
-            <Link href="/audits/new">
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              Add Product
-            </Link>
-          </Button>
         </div>
       </div>
 
-      {/* Channel filters + Import */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      {/* Channel filters */}
+      <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           {CHANNEL_FILTERS.map(({ id, label }) => (
             <button
@@ -545,52 +465,6 @@ export default function ProductsPage() {
               {label}
             </button>
           ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void handleImportFile(file);
-              event.target.value = "";
-            }}
-          />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!canImportProducts || importProductsMutation.isPending}
-                className="h-7 text-[11px] font-medium border-border text-muted-foreground rounded-lg px-2.5 gap-1.5"
-                onClick={() => importInputRef.current?.click()}
-              >
-                {importProductsMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <FileInput className="w-3.5 h-3.5" />
-                )}
-                Import
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs max-w-xs">
-              Upload a CSV with productName, sku, and optional marketplace columns.
-              {" "}
-              <button
-                type="button"
-                className="underline text-orange-600 hover:text-orange-700"
-                onClick={(event) => {
-                  event.preventDefault();
-                  downloadProductImportTemplate();
-                }}
-              >
-                Download template
-              </button>
-            </TooltipContent>
-          </Tooltip>
         </div>
       </div>
 
@@ -668,16 +542,6 @@ export default function ProductsPage() {
                     <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
                       Projects from Build Your Brand, Audit Listing, Create Graphics, Create Video, and Manage Ads appear here automatically.
                     </p>
-                    <Button
-                      asChild
-                      size="sm"
-                      className="mt-4 h-7 text-xs bg-orange-500 hover:bg-orange-600"
-                    >
-                      <Link href="/audits/new">
-                        <Plus className="w-3.5 h-3.5 mr-1" />
-                        Add Product
-                      </Link>
-                    </Button>
                   </td>
                 </tr>
               ) : (
