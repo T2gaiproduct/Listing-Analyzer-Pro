@@ -1,7 +1,15 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, avg, count, sql, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable, competitorsTable, graphicsProjectsTable, productProfilesTable } from "@workspace/db";
+import {
+  db,
+  auditsTable,
+  competitorsTable,
+  graphicsProjectsTable,
+  productProfilesTable,
+  normalizeReferenceResearchData,
+  referenceResearchDataSchema,
+} from "@workspace/db";
 import {
   CreateAuditBody,
   GetAuditParams,
@@ -14,6 +22,10 @@ import { analyzeListingWithAI } from "../lib/analyzer";
 import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
 import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
+import {
+  analyzeReferenceIntelligence,
+  fetchReferenceListingSummaries,
+} from "../lib/analyze-reference-intelligence.js";
 import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
 import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refresh.js";
 import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-product-listing-refresh.js";
@@ -1145,6 +1157,98 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       .where(eq(auditsTable.id, id));
 
     res.json(generatedContent);
+  } catch (err) {
+    const { httpStatus, message } = mapAiProviderError(err);
+    res.status(httpStatus).json({ error: message });
+  }
+});
+
+router.patch("/audits/:id/reference-research", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const audit = await loadScopedAudit(req, id, "write");
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const parsed = referenceResearchDataSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const referenceResearch = normalizeReferenceResearchData(parsed.data);
+
+  const [updated] = await db
+    .update(auditsTable)
+    .set({ referenceResearch, updatedAt: new Date() })
+    .where(eq(auditsTable.id, id))
+    .returning();
+
+  res.json(updated?.referenceResearch ?? referenceResearch);
+});
+
+router.post("/audits/:id/reference-research/analyze", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const cost = await getCreditCost("reference_research");
+  const creditCtxRef = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtxRef, cost.creditType, cost.creditsRequired);
+  if (!creditCheck) {
+    res.status(402).json({
+      error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.`,
+    });
+    return;
+  }
+
+  const audit = await loadScopedAudit(req, id, "write");
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const body = (req.body ?? {}) as { slots?: unknown };
+  const slotsParsed = referenceResearchDataSchema.safeParse({ slots: body.slots ?? audit.referenceResearch?.slots });
+  if (!slotsParsed.success) {
+    res.status(400).json({ error: slotsParsed.error.message });
+    return;
+  }
+
+  const slots = normalizeReferenceResearchData(slotsParsed.data).slots;
+  const hasAnyInput = slots.some((slot) => slot.url.trim() || slot.notes.trim())
+    || Boolean(audit.category?.trim());
+
+  if (!hasAnyInput) {
+    res.status(400).json({ error: "Add at least one Amazon URL or research note before analyzing." });
+    return;
+  }
+
+  try {
+    const fetchResults = await fetchReferenceListingSummaries(slots);
+    const intelligence = await analyzeReferenceIntelligence({ audit, slots, fetchResults });
+    const fetchErrors = fetchResults
+      .filter((r) => !r.ok && r.error)
+      .map((r) => ({ index: r.index, message: r.error! }));
+
+    const referenceResearch = normalizeReferenceResearchData({
+      slots,
+      intelligence,
+      analyzedAt: new Date().toISOString(),
+      fetchErrors: fetchErrors.length > 0 ? fetchErrors : undefined,
+    });
+
+    await deductCreditsTeamAware(
+      creditCtxRef,
+      cost.creditType,
+      cost.creditsRequired,
+      cost.activityName,
+      "reference_research",
+      { auditId: id },
+    );
+
+    await db
+      .update(auditsTable)
+      .set({ referenceResearch, updatedAt: new Date() })
+      .where(eq(auditsTable.id, id));
+
+    res.json(referenceResearch);
   } catch (err) {
     const { httpStatus, message } = mapAiProviderError(err);
     res.status(httpStatus).json({ error: message });

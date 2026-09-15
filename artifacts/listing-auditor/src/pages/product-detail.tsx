@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useGetAudit, getGetAuditQueryKey, useGenerateContent, type GetAuditQueryResult } from "@workspace/api-client-react";
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
+import type { ReferenceResearchData } from "@/lib/reference-research";
 import { formatAiErrorMessage } from "@/lib/ai-error-message";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
@@ -1400,6 +1401,24 @@ export default function ProductDetailPage({ id }: { id: number }) {
     });
   }, [marketplaceData?.listings]);
 
+  const referenceResearch = (effectiveAudit as { referenceResearch?: ReferenceResearchData | null } | null)
+    ?.referenceResearch ?? null;
+
+  const { data: creditRules = [] } = useQuery({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((res) => res.json()) as Promise<
+      Array<{ featureType: string; creditsRequired: number; creditType: string }>
+    >,
+    staleTime: 60_000,
+  });
+
+  const referenceCreditLabel = useMemo(() => {
+    const rule = creditRules.find((r) => r.featureType === "reference_research");
+    const count = rule?.creditsRequired ?? 1;
+    const typeLabel = rule?.creditType === "audit" ? "audit" : "AI";
+    return `${count} ${typeLabel} credit${count === 1 ? "" : "s"}`;
+  }, [creditRules]);
+
   const workflowStepCompleted = useMemo(
     () => productExplorerStepCompletedFromData({
       imageUrls: effectiveAudit?.imageUrls,
@@ -1413,6 +1432,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       marketplaceActiveCount: marketplaceData?.activeCount ?? 0,
       totalOrders: product?.stats.totalOrders,
       totalRevenue: product?.stats.revenue,
+      referenceResearchAnalyzedAt: referenceResearch?.analyzedAt,
     }),
     [
       effectiveAudit?.imageUrls,
@@ -1426,6 +1446,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       product?.stats.revenue,
       liveMarketplaces.length,
       marketplaceData?.activeCount,
+      referenceResearch?.analyzedAt,
     ],
   );
 
@@ -2010,7 +2031,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }
 
   async function goToGraphicsStep(auditId: number) {
-    await saveAndContinueWorkflowStep(2, auditId);
+    await saveAndContinueWorkflowStep(3, auditId);
   }
 
   function goToWorkflowStep(stepId: ProductExplorerWorkflowStepId) {
@@ -2221,6 +2242,21 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
 
+  function handleReferenceResearchUpdated(data: ReferenceResearchData) {
+    const auditId = optimizeAuditId ?? id;
+    queryClient.setQueryData<GetAuditQueryResult>(
+      getGetAuditQueryKey(auditId),
+      (current) => (current ? { ...current, referenceResearch: data } as GetAuditQueryResult : current),
+    );
+    if (auditId !== id) {
+      queryClient.setQueryData<GetAuditQueryResult>(
+        getGetAuditQueryKey(id),
+        (current) => (current ? { ...current, referenceResearch: data } as GetAuditQueryResult : current),
+      );
+    }
+    refreshCreditBalances(queryClient);
+  }
+
   function handleOptimizeContent() {
     if (!optimizeAuditId) {
       toast({
@@ -2331,7 +2367,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     <button
                       key={marketplace}
                       type="button"
-                      onClick={() => goToWorkflowStep(5)}
+                      onClick={() => goToWorkflowStep(7)}
                       className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50/60 px-1.5 py-0.5 hover:bg-emerald-50 transition-colors"
                       title={`View ${marketplace} listing`}
                     >
@@ -2379,6 +2415,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
           storePlatformLabel={storePlatformLabel}
           onSyncToStore={() => syncToStoreMutation.mutate()}
           isSyncingStore={syncToStoreMutation.isPending}
+          referenceResearch={referenceResearch}
+          canEditReferences={canOptimizeContent}
+          referenceCreditLabel={referenceCreditLabel}
+          onReferenceResearchUpdated={handleReferenceResearchUpdated}
           OptimizedContentPanel={(panelProps) => (
             <OptimizedContentPanel
               {...panelProps}

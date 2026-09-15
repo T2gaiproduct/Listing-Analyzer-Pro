@@ -14,7 +14,9 @@ import { canExportListingSource } from "@/components/listing-export-button";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
+import { ProductReferenceStep } from "@/components/product-reference-step";
 import { ProductSalesTab } from "@/components/product-sales-tab";
+import type { ReferenceResearchData } from "@/lib/reference-research";
 
 type AuditLike = {
   id?: number;
@@ -148,6 +150,10 @@ export function ProductWorkflowStepContent({
   storePlatformLabel,
   onSyncToStore,
   isSyncingStore,
+  referenceResearch,
+  canEditReferences,
+  referenceCreditLabel,
+  onReferenceResearchUpdated,
   OptimizedContentPanel,
 }: {
   step: ProductExplorerWorkflowStepId;
@@ -181,6 +187,10 @@ export function ProductWorkflowStepContent({
   storePlatformLabel?: string;
   onSyncToStore?: () => void;
   isSyncingStore?: boolean;
+  referenceResearch?: ReferenceResearchData | null;
+  canEditReferences?: boolean;
+  referenceCreditLabel?: string;
+  onReferenceResearchUpdated?: (data: ReferenceResearchData) => void;
   OptimizedContentPanel: React.ComponentType<{
     generatedContent: GeneratedContent | null | undefined;
     existingContent?: {
@@ -204,9 +214,9 @@ export function ProductWorkflowStepContent({
   const showContinueFooter = hasNextStep
     && !listingEditorContent
     && Boolean(onSaveAndContinue)
-    && step !== 7;
+    && step !== 8;
   const showStoreSyncOnStep = Boolean(
-    showStoreSync && !listingEditorContent && step >= 1 && step <= 4,
+    showStoreSync && !listingEditorContent && step >= 1 && step <= 5,
   );
   const shellProps = {
     showSaveAndContinue: showContinueFooter,
@@ -239,6 +249,20 @@ export function ProductWorkflowStepContent({
   if (step === 2) {
     return (
       <WorkflowStepShell {...shellProps}>
+        <ProductReferenceStep
+          auditId={auditId}
+          initialData={referenceResearch}
+          canEdit={canEditReferences ?? false}
+          creditLabel={referenceCreditLabel}
+          onResearchUpdated={onReferenceResearchUpdated}
+        />
+      </WorkflowStepShell>
+    );
+  }
+
+  if (step === 3) {
+    return (
+      <WorkflowStepShell {...shellProps}>
         <OptimizedContentPanel
           generatedContent={generatedContent}
           existingContent={existingContent}
@@ -252,7 +276,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 3) {
+  if (step === 4) {
     return (
       <WorkflowStepShell {...shellProps}>
         <div className="flex items-center gap-1.5">
@@ -287,7 +311,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 4) {
+  if (step === 5) {
     return (
       <WorkflowStepShell {...shellProps}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
@@ -306,7 +330,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 5) {
+  if (step === 6) {
     return (
       <WorkflowStepShell {...shellProps}>
         <ProductListingPreview
@@ -326,7 +350,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 6 && productId && productSource) {
+  if (step === 7 && productId && productSource) {
     return (
       <WorkflowStepShell {...shellProps}>
         <ProductMarketplacesTab
@@ -340,7 +364,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 7 && productId && productSource) {
+  if (step === 8 && productId && productSource) {
     return (
       <WorkflowStepShell showSaveAndContinue={false}>
         <ProductOrdersTab productId={productId} source={productSource} enabled />
@@ -348,7 +372,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 8 && productId && productSource) {
+  if (step === 9 && productId && productSource) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <ProductSalesTab productId={productId} source={productSource} enabled />

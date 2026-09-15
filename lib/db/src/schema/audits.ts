@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import type { ReferenceResearchData } from "./reference-research.js";
 
 export const scoreDetailSchema = z.object({
   score: z.number(),
@@ -89,6 +90,8 @@ export const auditsTable = pgTable("audits", {
   generatedImages: jsonb("generated_images").$type<GeneratedImages>(),
   imageRecords: jsonb("image_records").$type<ImageRecords>(),
   currentStep: integer("current_step").default(1),
+  /** Product Explorer reference listings + intelligence (research only). */
+  referenceResearch: jsonb("reference_research").$type<ReferenceResearchData>(),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
