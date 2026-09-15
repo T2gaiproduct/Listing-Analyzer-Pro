@@ -9,14 +9,19 @@ import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { useCompanyContact } from "@/hooks/use-company-contact";
 import { DEFAULT_SUPPORT_HOURS } from "@/lib/company-contact";
+import { useToast } from "@/hooks/use-toast";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type FormType = "contact" | "demo" | "enterprise";
 
 export default function Contact() {
   const { contact } = useCompanyContact();
+  const { toast } = useToast();
   const [formType, setFormType] = useState<FormType>("contact");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const contactInfo = useMemo(() => [
     { icon: Mail, label: "Email", value: contact.supportEmail, href: `mailto:${contact.supportEmail}` },
@@ -36,10 +41,38 @@ export default function Contact() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitError("");
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    setSubmitted(true);
+    try {
+      const data: Record<string, string> = { message: form.message.trim() };
+      if (form.subject.trim()) data.subject = form.subject.trim();
+      if (form.company.trim()) data.company = form.company.trim();
+      if (form.phone.trim()) data.phone = form.phone.trim();
+      if (form.demoDate.trim()) data.demoDate = form.demoDate.trim();
+      if (form.teamSize.trim()) data.teamSize = form.teamSize.trim();
+
+      const res = await fetch(`${basePath}/api/forms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formType,
+          email: form.email.trim(),
+          name: form.name.trim(),
+          data,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(typeof err.error === "string" ? err.error : "Failed to send message");
+      }
+      setSubmitted(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send message";
+      setSubmitError(message);
+      toast({ title: "Could not send message", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   }
 
   const tabs: { key: FormType; label: string }[] = [
@@ -224,6 +257,10 @@ export default function Contact() {
                     className="mt-1"
                   />
                 </div>
+
+                {submitError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{submitError}</p>
+                )}
 
                 <Button type="submit" disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600 text-white">
                   {loading ? (

@@ -232,43 +232,104 @@ router.get("/branding", async (_req, res): Promise<void> => {
   });
 });
 
+const PUBLIC_FORM_TYPES = new Set(["support", "contact", "demo", "enterprise"]);
+
+function trimOptionalString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max: 10 }), async (req, res): Promise<void> => {
   const { formType, email, name, data } = req.body ?? {};
 
-  if (formType !== "support") {
+  if (typeof formType !== "string" || !PUBLIC_FORM_TYPES.has(formType)) {
     res.status(400).json({ error: "Unsupported form type" });
     return;
   }
 
-  const trimmedEmail = typeof email === "string" ? email.trim() : "";
-  const subject = typeof data?.subject === "string" ? data.subject.trim() : "";
-  const message = typeof data?.message === "string" ? data.message.trim() : "";
+  const trimmedEmail = trimOptionalString(email);
+  const trimmedName = trimOptionalString(name);
+  const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  const subject = trimOptionalString(payload.subject);
+  const message = trimOptionalString(payload.message);
+  const company = trimOptionalString(payload.company);
+  const phone = trimOptionalString(payload.phone);
+  const demoDate = trimOptionalString(payload.demoDate);
+  const teamSize = trimOptionalString(payload.teamSize);
 
-  if (!trimmedEmail || !subject || !message) {
-    res.status(400).json({ error: "Email, subject, and message are required" });
+  if (!trimmedEmail) {
+    res.status(400).json({ error: "Email is required" });
     return;
   }
 
+  if (formType === "support") {
+    if (!subject || !message) {
+      res.status(400).json({ error: "Email, subject, and message are required" });
+      return;
+    }
+
+    const [item] = await db.insert(formSubmissions).values({
+      formType: "support",
+      email: trimmedEmail,
+      name: trimmedName || null,
+      data: { subject, message },
+    }).returning();
+
+    void sendSupportTicketCreatedEmails({
+      ticketId: item.id,
+      email: trimmedEmail,
+      name: item.name,
+      subject,
+      message,
+    });
+
+    void notifyAdminUsers({
+      type: "support_ticket_new",
+      title: "New support ticket",
+      message: `${trimmedEmail}: ${subject}`,
+      link: "/admin/help/support-tickets",
+    });
+
+    res.status(201).json(item);
+    return;
+  }
+
+  if (formType === "contact") {
+    if (!trimmedName || !subject || !message) {
+      res.status(400).json({ error: "Name, email, subject, and message are required" });
+      return;
+    }
+  } else if (!trimmedName || !message) {
+    res.status(400).json({ error: "Name, email, and message are required" });
+    return;
+  }
+
+  const submissionData: Record<string, string> = { message };
+  if (subject) submissionData.subject = subject;
+  if (company) submissionData.company = company;
+  if (phone) submissionData.phone = phone;
+  if (demoDate) submissionData.demoDate = demoDate;
+  if (teamSize) submissionData.teamSize = teamSize;
+
   const [item] = await db.insert(formSubmissions).values({
-    formType: "support",
+    formType,
     email: trimmedEmail,
-    name: typeof name === "string" && name.trim() ? name.trim() : null,
-    data: { subject, message },
+    name: trimmedName || null,
+    data: submissionData,
   }).returning();
 
-  void sendSupportTicketCreatedEmails({
-    ticketId: item.id,
-    email: trimmedEmail,
-    name: item.name,
-    subject,
-    message,
-  });
+  const formLabels: Record<string, string> = {
+    contact: "General inquiry",
+    demo: "Demo request",
+    enterprise: "Enterprise sales",
+  };
+  const label = formLabels[formType] ?? "Form submission";
+  const preview = subject || message.slice(0, 120);
 
   void notifyAdminUsers({
-    type: "support_ticket_new",
-    title: "New support ticket",
-    message: `${trimmedEmail}: ${subject}`,
-    link: "/admin/help/support-tickets",
+    type: "form_submission_new",
+    title: `New ${label}`,
+    message: `${trimmedName || trimmedEmail}: ${preview}`,
+    link: `/admin/marketing/forms?type=${formType}`,
   });
 
   res.status(201).json(item);
