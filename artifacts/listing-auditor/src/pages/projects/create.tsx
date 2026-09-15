@@ -1,11 +1,16 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
-import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Search, Camera, Monitor, Lightbulb } from "lucide-react";
+import { useTeam } from "@/hooks/use-team";
+import { useCreateAuditDraft } from "@workspace/api-client-react";
+import { APLUS_MODULE_CARDS } from "@/components/aplus-content-wizard";
+import { buildGraphicsAuditDraftBody } from "@/lib/graphics-audit-draft";
+import { cn } from "@/lib/utils";
+import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Search, Camera, Monitor, Lightbulb, Sparkles } from "lucide-react";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
@@ -86,11 +91,14 @@ const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES;
 const CUSTOM_EXAMPLES = GRAPHICS_CUSTOM_PROMPT_EXAMPLES;
 const PROMPT_MAX_CHARS = GRAPHICS_PROMPT_MAX_CHARS;
 
-type Step = 1 | 2;
+type AplusModuleId = (typeof APLUS_MODULE_CARDS)[number]["id"];
+
+type Step = 1 | 2 | 3;
 
 const STEPS = [
   { id: 1, label: "Upload Product" },
   { id: 2, label: "Select Graphics" },
+  { id: 3, label: "A+ Content" },
 ];
 
 export default function CreateProject() {
@@ -111,6 +119,18 @@ export default function CreateProject() {
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
+  const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
+  const [aplusModulePromptConfigs, setAplusModulePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [aplusCustomizeModuleId, setAplusCustomizeModuleId] = useState<string | null>(null);
+
+  const { isTeamMember, memberCredits } = useTeam();
+  const createAuditDraft = useCreateAuditDraft();
+  const { data: creditRules = [] } = useQuery({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const imageCreditPerUnit = creditRules.find((r: { featureType?: string }) => r.featureType === "graphics")?.creditsRequired ?? 8;
 
   const getImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
     ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -143,6 +163,39 @@ export default function CreateProject() {
     return configs;
   }, [selectedImageTypes, imageTypePromptConfigs]);
 
+  const getAplusModuleConfig = useCallback((moduleId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...aplusModulePromptConfigs[moduleId],
+  }), [aplusModulePromptConfigs]);
+
+  const updateAplusModuleConfig = useCallback((moduleId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setAplusModulePromptConfigs((prev) => ({
+      ...prev,
+      [moduleId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[moduleId], ...patch },
+    }));
+  }, []);
+
+  const aplusModuleConfigsPayload = useMemo(() => {
+    const payload: Record<string, {
+      imageCustomPrompt?: string;
+      promptReferenceImageUrls?: string[];
+      quality?: GraphicsQuality;
+    }> = {};
+    for (const moduleId of selectedAplusModules) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
+      payload[moduleId] = {
+        imageCustomPrompt: config.customPrompt.trim() || undefined,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        quality: config.quality,
+      };
+    }
+    return payload;
+  }, [selectedAplusModules, aplusModulePromptConfigs]);
+
+  const graphicsCreditsNeeded = selectedImageTypes.length * imageCreditPerUnit;
+  const aplusCreditsNeeded = selectedAplusModules.length * imageCreditPerUnit;
+  const totalCreditsNeeded = graphicsCreditsNeeded + aplusCreditsNeeded;
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
@@ -167,30 +220,76 @@ export default function CreateProject() {
         quality: GraphicsQuality;
         promptReferenceImageUrls?: string[];
       }>;
+      aplusModuleIds: AplusModuleId[];
+      aplusModuleConfigs: Record<string, {
+        imageCustomPrompt?: string;
+        promptReferenceImageUrls?: string[];
+        quality?: GraphicsQuality;
+      }>;
     }) => {
+      let auditId: number | undefined;
+      if (input.aplusModuleIds.length > 0) {
+        const draftBody = buildGraphicsAuditDraftBody(
+          `${productName} Project`,
+          productName,
+          brandName,
+          category,
+          uploadedImages,
+        );
+        if (!draftBody) {
+          throw new Error("Category is required when generating A+ content.");
+        }
+        const audit = await createAuditDraft.mutateAsync({ data: draftBody });
+        auditId = audit.id;
+      }
+
+      const createBody = auditId != null ? { ...input.createBody, auditId } : input.createBody;
       const res = await fetch(`${basePath}/api/graphics/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(input.createBody),
+        body: JSON.stringify(createBody),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Failed to create project (${res.status})`);
       }
       const project = await res.json();
-      return { project, imageTypes: input.imageTypes, typeConfigs: input.typeConfigs };
-    },
-    onSuccess: ({ project, imageTypes, typeConfigs }) => {
-      void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
+
+      const genRes = await fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          imageTypes,
-          typeConfigs,
+          imageTypes: input.imageTypes,
+          typeConfigs: input.typeConfigs,
         }),
-      }).then(() => refreshCreditBalances(queryClient));
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to start graphics generation");
+      }
+
+      if (auditId != null && input.aplusModuleIds.length > 0) {
+        const aplusRes = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            moduleIds: input.aplusModuleIds,
+            moduleConfigs: input.aplusModuleConfigs,
+          }),
+        });
+        if (!aplusRes.ok) {
+          const err = await aplusRes.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error || "Failed to start A+ generation");
+        }
+      }
+
+      return { project };
+    },
+    onSuccess: ({ project }) => {
+      refreshCreditBalances(queryClient);
       nav(`/projects/${project.id}/generating`);
     },
     onError: (err) => {
@@ -293,25 +392,62 @@ export default function CreateProject() {
       if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) return false;
       return true;
     }
+    if (step === 3) {
+      if (selectedAplusModules.length > 0 && !category.trim()) return false;
+      const creditsForRun = selectedImageTypes.length * imageCreditPerUnit + selectedAplusModules.length * imageCreditPerUnit;
+      if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) return false;
+      return true;
+    }
     return true;
   };
 
-  const handleContinue = () => {
-    if (step === 2) {
-      createProject.mutate({
-        createBody: {
-          name: `${productName} Project`,
-          productName,
-          category,
-          sourceImageUrls: uploadedImages,
-          imageTypes: selectedImageTypes,
-        },
-        imageTypes: selectedImageTypes,
-        typeConfigs: graphicsTypeConfigsPayload,
+  const runGenerate = (aplusModuleIds: AplusModuleId[]) => {
+    const creditsForRun = selectedImageTypes.length * imageCreditPerUnit + aplusModuleIds.length * imageCreditPerUnit;
+    if (aplusModuleIds.length > 0 && !category.trim()) {
+      toast({
+        title: "Category required",
+        description: "Select a category on step 1 to generate A+ content.",
+        variant: "destructive",
       });
-    } else {
-      setStep((s) => (s + 1) as Step);
+      return;
     }
+    if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) {
+      toast({
+        title: "Insufficient image credits",
+        description: `You need ${creditsForRun} image credits for this run.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    createProject.mutate({
+      createBody: {
+        name: `${productName} Project`,
+        productName,
+        category,
+        sourceImageUrls: uploadedImages,
+        imageTypes: selectedImageTypes,
+      },
+      imageTypes: selectedImageTypes,
+      typeConfigs: graphicsTypeConfigsPayload,
+      aplusModuleIds,
+      aplusModuleConfigs: aplusModuleIds.length > 0 ? aplusModuleConfigsPayload : {},
+    });
+  };
+
+  const handleContinue = () => {
+    if (step === 3) {
+      runGenerate(selectedAplusModules);
+      return;
+    }
+    if (step === 2) {
+      setStep(3);
+      return;
+    }
+    setStep((s) => (s + 1) as Step);
+  };
+
+  const handleSkipAplus = () => {
+    runGenerate([]);
   };
 
   return (
@@ -584,27 +720,136 @@ export default function CreateProject() {
         </div>
       )}
 
+      {step === 3 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-orange-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">A+ Content</h2>
+              <p className="text-xs text-slate-500">
+                Optional — choose modules to generate A+ images, or skip to create product graphics only.
+              </p>
+            </div>
+          </div>
+
+          {!category.trim() && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              A+ generation requires a category. Go back to step 1 and select one, or skip this step.
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            {APLUS_MODULE_CARDS.map((module) => {
+              const isSelected = selectedAplusModules.includes(module.id);
+              return (
+                <button
+                  key={module.id}
+                  type="button"
+                  onClick={() => {
+                    if (!selectedAplusModules.includes(module.id)) {
+                      setSelectedAplusModules((prev) => [...prev, module.id]);
+                    }
+                    setAplusCustomizeModuleId(module.id);
+                  }}
+                  className={cn(
+                    "relative rounded-xl border-2 p-3 text-left transition-all",
+                    isSelected
+                      ? "border-orange-600 bg-orange-50/30"
+                      : "border-slate-200 bg-white hover:border-slate-300",
+                  )}
+                >
+                  <span className="text-xl leading-none block mb-1">{module.icon}</span>
+                  <p className={cn("text-sm font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                    {module.label}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5 leading-tight">{module.desc}</p>
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-600 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedAplusModules.length > 0 && (
+            <SelectedGraphicsTypesSummary
+              imageTypes={APLUS_MODULE_CARDS}
+              selectedTypeIds={selectedAplusModules}
+              getConfig={getAplusModuleConfig}
+              onEdit={setAplusCustomizeModuleId}
+              onRemove={(moduleId) => {
+                setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
+                if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
+              }}
+              instructionText="Selected A+ modules — tap a row to customize prompt, references, and quality."
+              hideAspectRatio
+            />
+          )}
+
+          <ImageTypeCustomizeDialog
+            open={aplusCustomizeModuleId !== null}
+            onOpenChange={(open) => { if (!open) setAplusCustomizeModuleId(null); }}
+            type={APLUS_MODULE_CARDS.find((m) => m.id === aplusCustomizeModuleId) ?? null}
+            config={aplusCustomizeModuleId ? getAplusModuleConfig(aplusCustomizeModuleId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+            onConfigChange={(patch) => {
+              if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
+            }}
+            hideAspectRatio
+          />
+
+          <p className="text-xs text-slate-500">
+            Estimated image credits: {totalCreditsNeeded}
+            {selectedAplusModules.length === 0 ? " (graphics only)" : ` (${selectedImageTypes.length} graphics + ${selectedAplusModules.length} A+)`}
+          </p>
+        </div>
+      )}
+
       {/* Actions */}
-      <div className="flex items-center justify-end pt-3">
+      <div className="flex items-center justify-between pt-3 gap-2">
+        {step === 3 ? (
+          <Button
+            variant="ghost"
+            className="text-slate-500 h-8 text-xs"
+            disabled={createProject.isPending || createAuditDraft.isPending}
+            onClick={handleSkipAplus}
+          >
+            Skip A+ — graphics only
+          </Button>
+        ) : (
+          <span />
+        )}
         <div className="flex items-center gap-2">
           {step > 1 && (
-            <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg h-8 text-xs" onClick={() => setStep((s) => (s - 1) as Step)}>
+            <Button
+              variant="outline"
+              className="text-slate-500 border-slate-200 rounded-lg h-8 text-xs"
+              disabled={createProject.isPending || createAuditDraft.isPending}
+              onClick={() => setStep((s) => (s - 1) as Step)}
+            >
               Back
             </Button>
           )}
           <Button
             className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-8 text-xs"
-            disabled={!canContinue() || createProject.isPending}
+            disabled={!canContinue() || createProject.isPending || createAuditDraft.isPending}
             onClick={handleContinue}
           >
-            {createProject.isPending ? (
+            {createProject.isPending || createAuditDraft.isPending ? (
               <>
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                 Creating...
               </>
             ) : (
               <>
-                {step === 2 ? "Generate" : "Continue"}
+                {step === 3
+                  ? (selectedAplusModules.length > 0
+                    ? `Generate all (${totalCreditsNeeded} credits)`
+                    : "Generate graphics")
+                  : "Continue"}
                 <ArrowRight className="w-3 h-3 ml-1" />
               </>
             )}

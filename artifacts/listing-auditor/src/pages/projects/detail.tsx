@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,8 @@ import {
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
+import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
+import { readAplusFromAudit } from "@/components/aplus-content-wizard";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -60,6 +63,7 @@ interface GraphicsProject {
   lifestyleCount: number;
   featureCount: number;
   imageRecords?: ImageRecord[];
+  auditId?: number | null;
   updatedAt: string;
 }
 
@@ -135,6 +139,31 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     queryFn: () => fetchProject(id),
     enabled: !!id,
   });
+
+  const linkedAuditId = project?.auditId ?? null;
+  const { data: linkedAudit } = useGetAudit(linkedAuditId ?? 0, {
+    query: {
+      enabled: linkedAuditId != null && linkedAuditId > 0,
+      queryKey: getGetAuditQueryKey(linkedAuditId ?? 0),
+    },
+  });
+  const aplusState = useMemo(
+    () => readAplusFromAudit(linkedAudit?.generatedImages),
+    [linkedAudit?.generatedImages],
+  );
+  const [aplusModules, setAplusModules] = useState<AplusModuleItem[]>([]);
+
+  useEffect(() => {
+    if (aplusState.modules.length) setAplusModules(aplusState.modules);
+  }, [aplusState.modules]);
+
+  useEffect(() => {
+    if (!linkedAuditId || aplusState.status !== "generating") return;
+    const interval = setInterval(() => {
+      void qc.invalidateQueries({ queryKey: getGetAuditQueryKey(linkedAuditId) });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [linkedAuditId, aplusState.status, qc]);
 
   const setLoading = (imageId: string, loading: boolean) => {
     setLoadingIds((prev) => {
@@ -386,6 +415,30 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             <p className="text-sm text-red-400 mt-1">Please try again or contact support.</p>
           </CardContent>
         </Card>
+      )}
+
+      {linkedAuditId != null && (aplusState.status === "generating" || aplusModules.length > 0) && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-orange-500" />
+            <h2 className="text-lg font-semibold text-slate-900">A+ Content</h2>
+            {aplusState.status === "generating" && (
+              <Badge variant="secondary" className="gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Generating…
+              </Badge>
+            )}
+          </div>
+          {aplusModules.length > 0 ? (
+            <AplusModuleGallery
+              auditId={linkedAuditId}
+              modules={aplusModules}
+              onModulesUpdate={setAplusModules}
+            />
+          ) : (
+            <p className="text-sm text-slate-500">A+ module images are being generated. This section will update automatically.</p>
+          )}
+        </div>
       )}
 
       {/* All Images */}

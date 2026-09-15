@@ -886,7 +886,7 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
   }
 });
 
-router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand", "graphics"], "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -1342,7 +1342,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndW
   }
 });
 
-router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand", "graphics"], "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
@@ -1409,7 +1409,7 @@ router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAn
   }
 });
 
-router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand", "graphics"], "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
