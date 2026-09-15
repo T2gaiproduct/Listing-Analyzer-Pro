@@ -16,6 +16,9 @@ export type ManageAdsNavItem = {
   badge?: string;
 };
 
+/** When true, client sidebar blocks Manage Ads and /ads routes redirect away. */
+export const MANAGE_ADS_COMING_SOON = true;
+
 export const MANAGE_ADS_HOME_HREF = "/ads";
 
 export const MANAGE_ADS_NAV_ITEMS: ManageAdsNavItem[] = [

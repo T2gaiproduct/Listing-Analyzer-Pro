@@ -36,6 +36,7 @@ import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { DashboardDonutChart } from "@/components/dashboard-donut-chart";
+import { MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -348,7 +349,7 @@ export default function Dashboard() {
     { href: "/videos", label: "Create Videos", feature: "videos" as const },
     { href: "/ads/campaigns", label: "Manage Ads", feature: "ads" as const },
     { href: "/recent-projects", label: "Recent Projects", feature: "recent_projects" as const },
-  ].filter((item) => isAccountOwner || canView(item.feature));
+  ].filter((item) => (isAccountOwner || canView(item.feature)) && !(MANAGE_ADS_COMING_SOON && item.feature === "ads"));
 
   const newProjectActions = [
     { href: "/audits/new", label: "Build Your Brand", feature: "build_brand" as const },
@@ -356,7 +357,7 @@ export default function Dashboard() {
     { href: "/projects/create", label: "Create Graphics", feature: "graphics" as const },
     { href: "/videos", label: "Create Videos", feature: "videos" as const },
     { href: "/ads/campaigns", label: "Manage Ads", feature: "ads" as const },
-  ].filter((item) => isAccountOwner || canView(item.feature));
+  ].filter((item) => (isAccountOwner || canView(item.feature)) && !(MANAGE_ADS_COMING_SOON && item.feature === "ads"));
 
   const defaultOwnedWorkspaceId =
     workspaces.find((w) => w.isAccountOwner && w.isDefault)?.id

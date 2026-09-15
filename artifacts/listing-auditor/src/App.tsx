@@ -15,6 +15,7 @@ import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { WorkspacePermissionGate } from "@/components/workspace-permission-gate";
+import { ManageAdsComingSoonGate } from "@/components/manage-ads-coming-soon-gate";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
@@ -778,29 +779,59 @@ function Router() {
       </Route>
       <Route path="/ads/new">
         <WorkspaceProtectedRoute requireCreate>
-          <AdsWorkflowPage />
+          <ManageAdsComingSoonGate>
+            <AdsWorkflowPage />
+          </ManageAdsComingSoonGate>
         </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/campaigns">
-        <WorkspaceProtectedRoute><AdsCampaignsConsolePage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <ManageAdsComingSoonGate>
+            <AdsCampaignsConsolePage />
+          </ManageAdsComingSoonGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/targets">
-        <WorkspaceProtectedRoute><AdsTargetsConsolePage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <ManageAdsComingSoonGate>
+            <AdsTargetsConsolePage />
+          </ManageAdsComingSoonGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/search-terms">
-        <WorkspaceProtectedRoute><AdsSearchTermsConsolePage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <ManageAdsComingSoonGate>
+            <AdsSearchTermsConsolePage />
+          </ManageAdsComingSoonGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/products">
-        <WorkspaceProtectedRoute><AdsProductsConsolePage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <ManageAdsComingSoonGate>
+            <AdsProductsConsolePage />
+          </ManageAdsComingSoonGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/placements">
-        <WorkspaceProtectedRoute><AdsPlacementsConsolePage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <ManageAdsComingSoonGate>
+            <AdsPlacementsConsolePage />
+          </ManageAdsComingSoonGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/negative-targets">
-        <WorkspaceProtectedRoute><AdsNegativeTargetsConsolePage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <ManageAdsComingSoonGate>
+            <AdsNegativeTargetsConsolePage />
+          </ManageAdsComingSoonGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/campaign-manager">
-        <WorkspaceProtectedRoute><AdsCampaignManagerPage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <ManageAdsComingSoonGate>
+            <AdsCampaignManagerPage />
+          </ManageAdsComingSoonGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/:id">
         {params => {
@@ -810,13 +841,19 @@ function Router() {
           }
           return (
             <WorkspaceProtectedRoute requireCreate>
-              <AdsWorkflowPage projectId={id} />
+              <ManageAdsComingSoonGate>
+                <AdsWorkflowPage projectId={id} />
+              </ManageAdsComingSoonGate>
             </WorkspaceProtectedRoute>
           );
         }}
       </Route>
       <Route path="/ads">
-        <WorkspaceProtectedRoute><AdsPage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <ManageAdsComingSoonGate>
+            <AdsPage />
+          </ManageAdsComingSoonGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/settings">
         <WorkspaceProtectedRoute><SettingsPage /></WorkspaceProtectedRoute>

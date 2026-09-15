@@ -16,6 +16,7 @@ import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { fetchAccountOverviewRecents, fetchWorkspaceRecents } from "@/lib/account-recents-fetch";
+import { MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -323,9 +324,11 @@ export default function RecentProjectsPage() {
             <DropdownMenuItem asChild>
               <Link href="/videos">Create Videos</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/ads">Manage Ads</Link>
-            </DropdownMenuItem>
+            {!MANAGE_ADS_COMING_SOON && (
+              <DropdownMenuItem asChild>
+                <Link href="/ads">Manage Ads</Link>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

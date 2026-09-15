@@ -1,23 +1,17 @@
 import { ChevronDown, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  MANAGE_ADS_COMING_SOON,
   MANAGE_ADS_HOME_HREF,
   MANAGE_ADS_NAV_ITEMS,
   isManageAdsHomePath,
   isManageAdsPath,
 } from "@/lib/ads-nav";
 
-function ManageAdsComingSoonBadge({ onAccent }: { onAccent?: boolean }) {
+function ManageAdsSoonBadge() {
   return (
-    <span
-      className={cn(
-        "text-[9px] font-semibold uppercase tracking-wide rounded px-1 py-0.5 flex-shrink-0",
-        onAccent
-          ? "text-amber-100 bg-amber-600/30 border border-amber-200/40"
-          : "text-amber-700 bg-amber-50 border border-amber-200",
-      )}
-    >
-      Coming Soon
+    <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
+      Soon
     </span>
   );
 }
@@ -40,6 +34,31 @@ export function ManageAdsNavGroup({
   const isAdsActive = isManageAdsPath(location);
   const isOnHome = isManageAdsHomePath(location);
   const isMobile = variant === "mobile";
+
+  if (MANAGE_ADS_COMING_SOON) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => e.preventDefault()}
+        className={cn(
+          "w-full flex items-center gap-2 rounded-lg text-left transition-colors cursor-default",
+          isMobile ? "px-3 py-2.5 min-h-9 text-xs" : "px-2.5 py-2 text-[11px]",
+          "text-sidebar-foreground/60 font-normal",
+          isMobile && "text-slate-600",
+        )}
+        aria-disabled="true"
+      >
+        <Megaphone
+          className={cn(
+            "w-3.5 h-3.5 flex-shrink-0",
+            isMobile ? "w-4 h-4 text-slate-400" : "text-sidebar-foreground/40",
+          )}
+        />
+        <span className="truncate flex-1 min-w-0">Manage Ads</span>
+        <ManageAdsSoonBadge />
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-0.5">
@@ -79,7 +98,6 @@ export function ManageAdsNavGroup({
             )}
           />
           <span className="truncate flex-1 min-w-0">Manage Ads</span>
-          <ManageAdsComingSoonBadge onAccent={isOnHome} />
         </button>
         <button
           type="button"
@@ -146,6 +164,20 @@ export function ManageAdsNavCollapsed({
     isManageAdsPath(location)
     || location === "/ads/new"
     || /^\/ads\/\d+$/.test(location);
+
+  if (MANAGE_ADS_COMING_SOON) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => e.preventDefault()}
+        className="w-full flex items-center justify-center w-10 h-10 rounded-xl text-sidebar-foreground/60 cursor-default"
+        aria-label="Manage Ads (coming soon)"
+        aria-disabled="true"
+      >
+        <Megaphone className="w-4 h-4" />
+      </button>
+    );
+  }
 
   return (
     <button

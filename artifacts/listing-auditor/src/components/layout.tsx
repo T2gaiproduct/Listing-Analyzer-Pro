@@ -58,7 +58,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Building2, ChevronRight } from "lucide-react";
 import { ManageAdsNavCollapsed, ManageAdsNavGroup } from "@/components/manage-ads-nav";
-import { isManageAdsPath } from "@/lib/ads-nav";
+import { isManageAdsPath, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -840,7 +840,7 @@ export function Layout({ children }: { children: ReactNode }) {
               />
             )}
             {canViewAds && collapsed && (
-              <SidebarTooltip label="Manage Ads (Coming Soon)" side="right">
+              <SidebarTooltip label={MANAGE_ADS_COMING_SOON ? "Manage Ads (Soon)" : "Manage Ads"} side="right">
                 <div>
                   <ManageAdsNavCollapsed location={location} onNavigate={(href) => handleFeatureNav(href)} />
                 </div>
