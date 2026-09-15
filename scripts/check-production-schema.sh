@@ -21,6 +21,7 @@ workspace_credits:id
 workspace_credits:pool_is_net
 audits:workspace_id
 audits:created_by_user_id
+audits:reference_research
 graphics_projects:workspace_id
 graphics_projects:created_by_user_id
 videos_projects:workspace_id

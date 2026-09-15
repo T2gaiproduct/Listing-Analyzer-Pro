@@ -15,6 +15,7 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 - A local dev database already exists in the image (role `lauser` / password `lapass`, database `listingauditor`). The Drizzle schema and seeded plans persist in the cluster's data dir. Connection string:
   - `export DATABASE_URL="postgresql://lauser:lapass@127.0.0.1:5432/listingauditor"`
 - If the DB is ever missing/empty, recreate it: `sudo -u postgres psql -c "CREATE ROLE lauser LOGIN PASSWORD 'lapass' CREATEDB;"` then `sudo -u postgres createdb -O lauser listingauditor`, then `bash scripts/sync-local-db.sh` (or `DATABASE_URL=... pnpm --filter @workspace/db run push` and `seed-plans`).
+- After schema changes in `lib/db/src/schema/`, run `bash scripts/sync-local-db.sh` locally and `bash scripts/sync-production-db.sh` on production (same additive SQL + drizzle push). `bash scripts/check-production-schema.sh` verifies critical columns (including `audits.reference_research`).
 
 ### Running the API server (port 8080)
 - The API requires several env vars just to boot and serve **any** route:

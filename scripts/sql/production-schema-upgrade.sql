@@ -387,6 +387,10 @@ ALTER TABLE sellermate_messages ADD COLUMN IF NOT EXISTS metadata text;
 ALTER TABLE sellermate_messages ADD COLUMN IF NOT EXISTS is_deleted integer NOT NULL DEFAULT 0;
 ALTER TABLE sellermate_messages ADD COLUMN IF NOT EXISTS deleted_at timestamp;
 
+-- ─── Product Explorer reference research (audits.reference_research) ─────────
+ALTER TABLE audits
+  ADD COLUMN IF NOT EXISTS reference_research jsonb;
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');
