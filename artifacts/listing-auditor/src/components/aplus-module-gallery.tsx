@@ -9,7 +9,7 @@ import { ReferenceImageUploadField } from "@/components/reference-image-upload-f
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
-import { Check, Clock, Download, Maximize2, RefreshCw, Wand2, X } from "lucide-react";
+import { Check, Download, Maximize2, RefreshCw, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -108,18 +108,14 @@ function AplusImageCard({
   isLoading,
   canEditAudits,
   onView,
-  onRegenerate,
   onEdit,
-  onHistory,
   onDownload,
 }: {
   module: AplusModuleItem;
   isLoading: boolean;
   canEditAudits: boolean;
   onView: () => void;
-  onRegenerate: () => void;
   onEdit: () => void;
-  onHistory: () => void;
   onDownload: () => void;
 }) {
   const normalized = normalizeModule(module);
@@ -143,12 +139,8 @@ function AplusImageCard({
           <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
             {canEditAudits && (
-              <>
-                <ActionBtn icon={<RefreshCw className="h-4 w-4" />} title="Regenerate" onClick={onRegenerate} />
-                <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />
-              </>
+              <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />
             )}
-            <ActionBtn icon={<Clock className="h-4 w-4" />} title="Version history" onClick={onHistory} />
             <ActionBtn icon={<Download className="h-4 w-4" />} title="Download" onClick={onDownload} />
           </div>
         )}
@@ -188,7 +180,6 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
   const [editModule, setEditModule] = useState<AplusModuleItem | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
   const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
-  const [historyModule, setHistoryModule] = useState<AplusModuleItem | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
@@ -196,7 +187,6 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
     queryFn: () => fetch(`${basePath}/api/credit-rules`, { credentials: "include" }).then((r) => r.json()),
     staleTime: 60_000,
   });
-  const regenerateCreditCost = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
   const editCreditCost = creditRules.find((r) => r.featureType === "graphics_edit")?.creditsRequired ?? 4;
 
   const setLoading = (moduleId: string, loading: boolean) => {
@@ -233,36 +223,6 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
     });
     return false;
   };
-
-  const regenerateMutation = useMutation({
-    mutationFn: async (moduleId: AplusModuleItem["id"]) => {
-      const res = await fetch(`${basePath}/api/audits/${auditId}/aplus/${moduleId}/regenerate`, {
-        method: "POST",
-        credentials: "include",
-      });
-      let data: { error?: string } = {};
-      const text = await res.text();
-      try {
-        data = text ? JSON.parse(text) as { error?: string } : {};
-      } catch {
-        if (res.status === 404) {
-          throw new Error("A+ regenerate API not found. Rebuild and restart the API server on latest-code.");
-        }
-      }
-      if (!res.ok) throw new Error(data.error ?? `Failed (${res.status})`);
-      return JSON.parse(text) as AplusModuleItem;
-    },
-    onMutate: (moduleId) => setLoading(moduleId, true),
-    onSuccess: (updated) => {
-      updateModuleInList(updated);
-      void refreshCreditBalances(queryClient);
-      toast({ title: "Module regenerated", description: `${updated.title} has a new image.` });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Regeneration failed", description: err.message, variant: "destructive" });
-    },
-    onSettled: (_data, _err, moduleId) => setLoading(moduleId, false),
-  });
 
   const editMutation = useMutation({
     mutationFn: async ({
@@ -351,16 +311,11 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
               isLoading={loadingIds.has(module.id)}
               canEditAudits={canEditAudits}
               onView={() => openLightbox(module.imageUrl)}
-              onRegenerate={() => {
-                if (!requireImageCredits(regenerateCreditCost, "regeneration")) return;
-                regenerateMutation.mutate(module.id);
-              }}
               onEdit={() => {
                 setEditModule(module);
                 setEditPrompt("");
                 setEditReferenceImages([]);
               }}
-              onHistory={() => setHistoryModule(module)}
               onDownload={() => void handleDownload(module.imageUrl, `aplus-${module.id}.png`)}
             />
           ))}
@@ -455,92 +410,6 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                   {loadingIds.has(editModule.id) ? "Applying…" : "Apply Edit"}
                 </Button>
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!historyModule} onOpenChange={(open) => { if (!open) setHistoryModule(null); }}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Version History
-              {historyModule && (
-                <span className="text-slate-500 font-normal text-sm">— {historyModule.title}</span>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          {historyModule && (
-            <div className="space-y-4">
-              {(() => {
-            const history = normalizeModule(historyModule);
-            return history.versions.length === 0 ? (
-                <div className="py-12 flex flex-col items-center gap-2 text-slate-400">
-                  <Clock className="h-8 w-8 opacity-30" />
-                  <p className="text-sm">No version history yet.</p>
-                  <p className="text-xs">Regenerate or edit this module to start tracking versions.</p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                  {[...history.versions].reverse().map((version, i) => {
-                    const versionNum = history.versions.length - i;
-                    const isCurrent = version.url === historyModule.imageUrl;
-                    return (
-                      <div
-                        key={`${version.url}-${i}`}
-                        className={cn(
-                          "flex items-center gap-3 p-3 rounded-lg border bg-white",
-                          isCurrent && "ring-2 ring-orange-500 border-orange-200",
-                        )}
-                      >
-                        <button
-                          type="button"
-                          className="w-20 h-14 rounded-lg border bg-slate-50 overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-orange-300 transition-shadow"
-                          onClick={() => openLightbox(version.url)}
-                          title="Preview full screen"
-                        >
-                          <img src={resolveImageUrl(version.url)} alt={`Version ${versionNum}`} className="w-full h-full object-cover" />
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="text-[10px]">
-                              {version.isEdit ? "Edit" : "Generate"}
-                            </Badge>
-                            <span className="text-xs text-slate-400">v{versionNum}</span>
-                            {isCurrent && <span className="text-xs text-orange-600 font-medium">Current</span>}
-                            <span className="text-xs text-slate-400">
-                              {new Date(version.generatedAt).toLocaleString()}
-                            </span>
-                          </div>
-                          {version.prompt && (
-                            <p className="text-xs text-slate-500 mt-1 truncate">{version.prompt}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title="Preview"
-                            onClick={() => openLightbox(version.url)}
-                          >
-                            <Maximize2 className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title="Download"
-                            onClick={() => void handleDownload(version.url, `aplus-${historyModule.id}-v${versionNum}.png`)}
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-          })()}
             </div>
           )}
         </DialogContent>
