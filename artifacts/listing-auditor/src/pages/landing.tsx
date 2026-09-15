@@ -30,6 +30,7 @@ import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
 import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
 import { buildSignUpHref } from "@/lib/plan-selection";
 import { cn } from "@/lib/utils";
+import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -498,12 +499,6 @@ function LandingPricingSection() {
   );
 }
 
-interface DbFaq {
-  id: number;
-  question: string;
-  answer: string;
-}
-
 interface DbTestimonial {
   id: number;
   name: string;
@@ -582,21 +577,8 @@ function LandingFaqSection() {
   const cms = useHomepageCmsContext();
   const heading = cmsText(cms, "faq.heading");
 
-  const cmsFaqs = [1, 2, 3, 4, 5].flatMap((i) => {
-    const q = cmsText(cms, `faq.q${i}`);
-    if (!q) return [];
-    return [{ id: i, q, a: cmsText(cms, `faq.a${i}`) }];
-  });
-
-  const { data: dbFaqs = [] } = useQuery<DbFaq[]>({
-    queryKey: ["public-faqs"],
-    queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
-    staleTime: PUBLIC_DATA_STALE_MS,
-  });
-
-  const faqs = dbFaqs.length > 0
-    ? dbFaqs.map((f) => ({ id: f.id, q: f.question, a: f.answer }))
-    : cmsFaqs;
+  const { data: dbFaqs = [] } = usePublicFaqs(PUBLIC_DATA_STALE_MS);
+  const faqs = mapPublicFaqs(dbFaqs);
 
   if (faqs.length === 0) return null;
 

@@ -11,6 +11,7 @@ import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
 import { appendPlanSelectionToPath, buildSignUpHref, coercePlanId } from "@/lib/plan-selection";
+import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -138,15 +139,6 @@ function dbPlanToDisplay(p: DbPlan): DisplayPlan {
   };
 }
 
-const defaultFaqs = [
-  { q: "What are credits?", a: "Credits are the currency for AI operations. AI content credits power title/bullet rewrites and keyword suggestions. Image credits generate professional product photos. Audit credits run full listing analyses." },
-  { q: "Can I change plans anytime?", a: "Yes — upgrade or downgrade anytime from your billing settings. Upgrades take effect immediately; downgrades apply at the next billing cycle." },
-  { q: "Is there a free trial?", a: "Starter, Growth, and Pro plans include a 14-day free trial. No credit card required to start. Enterprise plans are custom and do not include a trial." },
-  { q: "Do unused credits roll over?", a: "Credits reset monthly. Any unused credits from the previous cycle do not roll over, but you can purchase add-on credits at any time." },
-  { q: "What payment methods do you accept?", a: "We accept all major credit cards (Visa, Mastercard, Amex), PayPal, and bank transfers for Enterprise plans." },
-  { q: "Can I get a refund?", a: "We offer a money-back guarantee on all plans. Enterprise plans are handled case-by-case — contact our sales team." },
-];
-
 export default function Pricing() {
   const [yearly, setYearly] = useState(false);
 
@@ -166,15 +158,12 @@ export default function Pricing() {
     queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
   });
 
-  const { data: dbFaqs = [] } = useQuery<{ question: string; answer: string }[]>({
-    queryKey: ["public-faqs"],
-    queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
-  });
+  const { data: dbFaqs = [] } = usePublicFaqs();
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
     queryKey: ["credit-rules"],
     queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
   });
-  const faqs = dbFaqs.length > 0 ? dbFaqs.map((f) => ({ q: f.question, a: f.answer })) : defaultFaqs;
+  const faqs = mapPublicFaqs(dbFaqs);
 
   const plans: DisplayPlan[] = dbPlans.length > 0
     ? dbPlans.map((p) => dbPlanToDisplay(p))
@@ -306,13 +295,13 @@ export default function Pricing() {
         </div>
       </section>
 
-      {/* FAQ */}
+      {faqs.length > 0 && (
       <section className="px-6 py-20">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-900 text-center mb-10">Frequently asked questions</h2>
           <div className="space-y-4">
             {faqs.map((faq) => (
-              <div key={faq.q} className="border border-slate-200 rounded-xl p-5">
+              <div key={faq.id} className="border border-slate-200 rounded-xl p-5">
                 <div className="flex items-start gap-3">
                   <HelpCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
                   <div>
@@ -325,6 +314,7 @@ export default function Pricing() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Bottom CTA */}
       <section className="bg-slate-900 px-6 py-16 text-center">

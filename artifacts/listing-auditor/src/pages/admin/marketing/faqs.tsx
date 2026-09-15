@@ -76,7 +76,7 @@ export default function AdminFaqs() {
         <HelpCircle className="h-6 w-6 text-orange-500" />
         <h1 className="text-2xl font-bold text-slate-900">FAQs</h1>
       </div>
-      <p className="text-slate-500 text-sm -mt-3">Manage the FAQs shown on the public pricing page.</p>
+      <p className="text-slate-500 text-sm -mt-3">Published FAQs appear on the homepage, pricing, and help center.</p>
 
       <Card>
         <CardContent className="space-y-4 pt-6">

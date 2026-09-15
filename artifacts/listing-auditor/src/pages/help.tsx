@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
 import { PageSeo } from "@/components/page-seo";
 import { Search, BookOpen, Video, MessageCircle, ChevronDown, ChevronUp, Ticket, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -58,44 +59,11 @@ const categories = [
   },
 ];
 
-const faqs = [
-  {
-    q: "How do I audit my first listing?",
-    a: "Sign in, click 'New Audit' from the dashboard, enter your ASIN or paste your listing data manually, and click 'Run Audit'. Your results will appear within 30 seconds.",
-  },
-  {
-    q: "What does the overall score mean?",
-    a: "The overall score (0–100) is a weighted average of your title, bullet points, images, and keyword scores. A score above 80 is considered excellent. Below 60 needs significant improvement.",
-  },
-  {
-    q: "Can I audit a listing I don't own?",
-    a: "Yes — you can audit any Amazon listing using its ASIN. This is especially useful for competitor analysis. We'll compare it against best practices just like your own listings.",
-  },
-  {
-    q: "How do I add team members?",
-    a: "Go to Settings → Team, click 'Invite Member', enter their email, and assign a role. They'll receive an invitation email. Team seats depend on your plan.",
-  },
-  {
-    q: "Do credits expire?",
-    a: "Monthly plan credits reset at the start of each billing cycle. Add-on credits purchased separately never expire.",
-  },
-  {
-    q: "How do I download my invoice?",
-    a: "Go to Settings → Billing → Billing History, and click the download icon next to any invoice. All invoices are available as PDF.",
-  },
-  {
-    q: "Can I export my audit results?",
-    a: "Yes. On any audit detail page, click 'Export' in the top-right corner. You can export to PDF or CSV format.",
-  },
-  {
-    q: "What image formats does the Image Studio support?",
-    a: "Generated images are delivered as high-resolution PNG files (2048×2048 for main images). You can download them directly or regenerate with different prompts.",
-  },
-];
-
 export default function Help() {
   const [search, setSearch] = useState("");
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [openFaqId, setOpenFaqId] = useState<number | null>(null);
+  const { data: dbFaqs = [], isLoading: faqsLoading } = usePublicFaqs();
+  const faqs = mapPublicFaqs(dbFaqs);
   const [ticketForm, setTicketForm] = useState({ email: "", subject: "", message: "" });
   const [ticketSent, setTicketSent] = useState(false);
   const [ticketError, setTicketError] = useState("");
@@ -182,7 +150,8 @@ export default function Help() {
         </div>
       </section>
 
-      {/* FAQ */}
+      {/* FAQ — published items from Admin → Marketing → FAQ only */}
+      {(faqsLoading || faqs.length > 0) && (
       <section className="bg-slate-50 px-6 py-16">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">Frequently asked questions</h2>
@@ -190,31 +159,37 @@ export default function Help() {
             {search ? `${filteredFaqs.length} result${filteredFaqs.length !== 1 ? "s" : ""} for "${search}"` : "Quick answers to common questions"}
           </p>
           <div className="space-y-3">
-            {filteredFaqs.map((faq, i) => (
-              <div key={i} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            {faqsLoading ? (
+              <div className="text-center py-10 text-slate-400">Loading FAQs…</div>
+            ) : filteredFaqs.map((faq) => (
+              <div key={faq.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
                 <button
+                  type="button"
                   className="w-full flex items-center justify-between px-5 py-4 text-left"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  onClick={() => setOpenFaqId(openFaqId === faq.id ? null : faq.id)}
                 >
                   <span className="font-semibold text-slate-900 text-sm pr-4">{faq.q}</span>
-                  {openFaq === i
+                  {openFaqId === faq.id
                     ? <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" />
                     : <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
                   }
                 </button>
-                {openFaq === i && (
+                {openFaqId === faq.id && (
                   <div className="px-5 pb-4 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-3">
                     {faq.a}
                   </div>
                 )}
               </div>
             ))}
-            {filteredFaqs.length === 0 && (
-              <div className="text-center py-10 text-slate-400">No results found. Try a different search or submit a ticket below.</div>
+            {!faqsLoading && filteredFaqs.length === 0 && (
+              <div className="text-center py-10 text-slate-400">
+                {search ? "No results found. Try a different search or submit a ticket below." : "No FAQs published yet."}
+              </div>
             )}
           </div>
         </div>
       </section>
+      )}
 
       {/* Submit a ticket */}
       <section className="px-6 py-16">
