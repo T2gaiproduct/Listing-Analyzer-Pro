@@ -22,7 +22,6 @@ import {
   SelectedGraphicsTypesSummary,
 } from "@/components/graphics-type-customize-ui";
 import {
-  GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
   GRAPHICS_IMAGE_TYPES,
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
@@ -87,8 +86,8 @@ const AMAZON_CATEGORIES = [
   "Wine",
 ];
 
-const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES;
-const CUSTOM_EXAMPLES = GRAPHICS_CUSTOM_PROMPT_EXAMPLES;
+/** Create Graphics — preset types only (no standalone "Generate Custom" card). */
+const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES.filter((type) => type.id !== "custom");
 const PROMPT_MAX_CHARS = GRAPHICS_PROMPT_MAX_CHARS;
 
 type AplusModuleId = (typeof APLUS_MODULE_CARDS)[number]["id"];
@@ -388,9 +387,7 @@ export default function CreateProject() {
   const canContinue = () => {
     if (step === 1) return brandName.trim().length > 0 && productName.trim().length > 0;
     if (step === 2) {
-      if (selectedImageTypes.length === 0) return false;
-      if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) return false;
-      return true;
+      return selectedImageTypes.filter((id) => id !== "custom").length > 0;
     }
     if (step === 3) {
       if (selectedAplusModules.length > 0 && !category.trim()) return false;
@@ -715,7 +712,6 @@ export default function CreateProject() {
               if (customizeTypeId) updateImageTypeConfig(customizeTypeId, patch);
             }}
             promptMaxChars={PROMPT_MAX_CHARS}
-            examplePrompts={customizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
           />
         </div>
       )}
