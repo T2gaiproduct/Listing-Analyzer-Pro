@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
+import { ListingExportButton } from "@/components/listing-export-button";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
 import {
   collectListingPreviewImages,
@@ -64,6 +65,8 @@ export function ProductListingPreview({
   productImageUrl,
   fallbackImageUrls,
   edgeToEdge = false,
+  showExportButton = false,
+  exportDisabled = false,
 }: {
   auditId: number;
   audit: AuditLike | null | undefined;
@@ -75,6 +78,9 @@ export function ProductListingPreview({
   fallbackImageUrls?: string[] | null;
   /** Extend preview card to parent edges (Product Explorer listing preview step). */
   edgeToEdge?: boolean;
+  /** Amazon listing Excel export (Product Explorer listing preview). */
+  showExportButton?: boolean;
+  exportDisabled?: boolean;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -228,16 +234,27 @@ export function ProductListingPreview({
           <Eye className="w-3.5 h-3.5 text-orange-500" />
           <h3 className="text-xs font-semibold text-slate-900">Listing preview</h3>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-[10px] rounded-lg gap-1"
-          onClick={() => setRefreshKey((k) => k + 1)}
-        >
-          <RefreshCw className="w-3 h-3" />
-          Refresh preview
-        </Button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {showExportButton && (
+            <ListingExportButton
+              auditId={auditId}
+              productName={productName}
+              disabled={exportDisabled}
+              size="sm"
+              className="h-7 text-[10px] rounded-lg gap-1"
+            />
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] rounded-lg gap-1"
+            onClick={() => setRefreshKey((k) => k + 1)}
+          >
+            <RefreshCw className="w-3 h-3" />
+            Refresh preview
+          </Button>
+        </div>
       </div>
 
       {(!hasListingCopy || !hasImages) && (

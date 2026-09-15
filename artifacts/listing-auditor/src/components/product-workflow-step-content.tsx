@@ -10,6 +10,7 @@ import {
   nextProductExplorerWorkflowStep,
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
+import { canExportListingSource } from "@/components/listing-export-button";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
@@ -318,6 +319,8 @@ export function ProductWorkflowStepContent({
           productImageUrl={productImageUrl}
           fallbackImageUrls={productImageUrls}
           edgeToEdge
+          showExportButton
+          exportDisabled={!canExportListingSource(productSource)}
         />
       </WorkflowStepShell>
     );

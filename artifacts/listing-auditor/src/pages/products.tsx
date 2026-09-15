@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useActionDialog } from "@/components/ui/action-dialog";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
+import { canExportListingSource } from "@/components/listing-export-button";
 import { downloadAuditExport } from "@/lib/amazon-export";
 import { fetchAccountOverviewProducts, fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
@@ -143,7 +144,7 @@ function productOverviewEditUrl(detailUrl: string): string {
 }
 
 function canExportListingProduct(product: ProductListItem): boolean {
-  return product.sourceType === "listing" || product.sourceType === "audit";
+  return canExportListingSource(product.sourceType);
 }
 
 function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): ProductListItem {
