@@ -10,7 +10,6 @@ export const TUTORIAL_CATEGORIES = [
   { id: "optimization", label: "Optimization" },
   { id: "analytics", label: "Analytics" },
   { id: "images", label: "Images & Content" },
-  { id: "reports", label: "Reports" },
 ] as const;
 
 export type TutorialCategoryId = (typeof TUTORIAL_CATEGORIES)[number]["id"];

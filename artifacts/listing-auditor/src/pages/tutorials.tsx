@@ -1,7 +1,7 @@
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { SeoHead } from "@/components/seo-head";
 import { Link } from "wouter";
-import { Search, BookOpen, Wrench, BarChart3, Image, FileText } from "lucide-react";
+import { Search, BookOpen, Wrench, BarChart3, Image } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText } from "@/lib/homepage-cms";
@@ -20,7 +20,6 @@ const CATEGORY_ICONS: Record<string, typeof BookOpen> = {
   optimization: Wrench,
   analytics: BarChart3,
   images: Image,
-  reports: FileText,
 };
 
 export default function Tutorials() {
