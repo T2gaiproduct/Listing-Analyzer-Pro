@@ -73,7 +73,10 @@ import {
 } from "../lib/shopify-listing-export.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
 import { materializeAuditImagesForPublish } from "../lib/materialize-audit-images-for-publish.js";
-import { resolvePublicBaseUrl as resolveExportPublicBaseUrl } from "../lib/resolve-public-base-url.js";
+import {
+  resolveAmazonExportImageBaseUrl,
+  resolvePublicBaseUrl as resolveExportPublicBaseUrl,
+} from "../lib/resolve-public-base-url.js";
 
 export type ExportPlatform = "amazon" | "shopify";
 
@@ -409,7 +412,7 @@ async function prepareAuditForAmazonExport(
   const audit = await materializeAuditImagesForPublish(loaded.audit);
   const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
   const graphicsProjectId = loaded.graphicsProject?.id ?? null;
-  const publicBaseUrl = resolveExportPublicBaseUrl(req);
+  const publicBaseUrl = resolveAmazonExportImageBaseUrl(req);
   return { audit, graphicsImageRecords, graphicsProjectId, publicBaseUrl };
 }
 

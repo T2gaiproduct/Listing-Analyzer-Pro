@@ -43,6 +43,8 @@ export function resolvePublishImageCandidate(opts: {
   publicBaseUrl?: string;
   graphicsProjectId?: number | null;
   index: number;
+  /** Use 90-day signed URLs for Amazon CSV/Excel export columns. */
+  exportListing?: boolean;
 }): string | null {
   let source = repairCorruptedImageUrl(opts.sourceUrl);
   if (!source) return null;
@@ -64,6 +66,7 @@ export function resolvePublishImageCandidate(opts: {
       auditId: opts.auditId,
       sourceUrl: source,
       graphicsProjectId: opts.graphicsProjectId,
+      exportListing: opts.exportListing,
     });
     return sanitizeMarketplacePublishImageUrl(signed);
   }
@@ -120,6 +123,7 @@ export function resolvePublishImageUrlsFromAudit(opts: {
   graphicsProjectId?: number | null;
   publicBaseUrl?: string;
   maxImages?: number;
+  exportListing?: boolean;
 }): string[] {
   const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
   const max = opts.maxImages ?? 9;
@@ -134,6 +138,7 @@ export function resolvePublishImageUrlsFromAudit(opts: {
       publicBaseUrl: opts.publicBaseUrl,
       graphicsProjectId: opts.graphicsProjectId,
       index,
+      exportListing: opts.exportListing,
     });
     const safe = sanitizeMarketplacePublishImageUrl(url);
     if (safe && !seen.has(safe)) {

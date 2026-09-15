@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { requireSigningSecret } from "./require-production-secret.js";
 
 const TOKEN_TTL_MS = 15 * 60 * 1000;
+/** Amazon flat-file / Excel exports need URLs that stay valid after download. */
+const EXPORT_LISTING_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 type PublishImageTokenPayload = {
   auditId: number;
@@ -22,12 +24,15 @@ export function createPublishImageToken(input: {
   auditId: number;
   filename: string;
   graphicsProjectId?: number | null;
+  /** Longer TTL for CSV/Excel export image columns (not live marketplace publish). */
+  exportListing?: boolean;
 }): string {
+  const ttl = input.exportListing ? EXPORT_LISTING_TOKEN_TTL_MS : TOKEN_TTL_MS;
   const payload: PublishImageTokenPayload = {
     auditId: input.auditId,
     filename: input.filename,
     graphicsProjectId: input.graphicsProjectId ?? null,
-    exp: Date.now() + TOKEN_TTL_MS,
+    exp: Date.now() + ttl,
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
@@ -63,6 +68,7 @@ export function buildSignedPublishImageUrl(input: {
   auditId: number;
   sourceUrl: string;
   graphicsProjectId?: number | null;
+  exportListing?: boolean;
 }): string | null {
   const base = input.publicBaseUrl.trim().replace(/\/$/, "");
   if (!base) return null;
@@ -76,6 +82,7 @@ export function buildSignedPublishImageUrl(input: {
       auditId: input.auditId,
       filename,
       graphicsProjectId: projectId,
+      exportListing: input.exportListing,
     });
     return `${base}/api/marketplace-publish/images/graphics/${projectId}/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}`;
   }
@@ -91,6 +98,7 @@ export function buildSignedPublishImageUrl(input: {
     auditId,
     filename,
     graphicsProjectId: input.graphicsProjectId ?? null,
+    exportListing: input.exportListing,
   });
   return `${base}/api/marketplace-publish/images/${auditId}/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}`;
 }

@@ -84,6 +84,7 @@ export function buildAuditExportBundle(opts: {
     graphicsImageRecords: opts.graphicsImageRecords,
     graphicsProjectId: opts.graphicsProjectId ?? null,
     publicBaseUrl: opts.publicBaseUrl,
+    exportListing: true,
   });
 
   const productAssets: ExportImageAsset[] = publishUrls.map((absoluteUrl, index) => {
@@ -107,6 +108,7 @@ export function buildAuditExportBundle(opts: {
       publicBaseUrl: opts.publicBaseUrl,
       graphicsProjectId: opts.graphicsProjectId ?? null,
       index: 200 + index,
+      exportListing: true,
     });
     if (!absoluteUrl) continue;
     aplusAssets.push({

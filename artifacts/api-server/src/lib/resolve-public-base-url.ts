@@ -91,3 +91,25 @@ export function resolveMarketplacePublishBaseUrl(req: Request): string {
   }
   return base;
 }
+
+/**
+ * Base URL for Amazon export flat-file image columns.
+ * Prefers configured HTTPS app URL so Excel/CSV links are not tied to a raw IP:port from the browser.
+ */
+export function resolveAmazonExportImageBaseUrl(req: Request): string {
+  const explicit = process.env.MARKETPLACE_PUBLISH_BASE_URL?.trim().replace(/\/$/, "");
+  if (explicit && !isLocalhostOrigin(explicit)) {
+    return explicit;
+  }
+
+  const configured = resolveConfiguredHttpsBaseUrl() ?? getConfiguredAppUrl();
+  if (configured && !isLocalhostOrigin(configured)) {
+    return configured;
+  }
+
+  try {
+    return resolveMarketplacePublishBaseUrl(req);
+  } catch {
+    return resolvePublicBaseUrl(req);
+  }
+}
