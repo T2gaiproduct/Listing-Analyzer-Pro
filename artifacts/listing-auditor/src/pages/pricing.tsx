@@ -138,14 +138,6 @@ function dbPlanToDisplay(p: DbPlan): DisplayPlan {
   };
 }
 
-const addOns = [
-  { name: "Audit Credits", price: "$1.00", per: "10 credits" },
-  { name: "Text Content Credits", price: "$1.50", per: "15 credits" },
-  { name: "Image Credits", price: "$1.00", per: "10 credits" },
-  { name: "A+ / EBC Content", price: "$0.50", per: "5 pieces" },
-  { name: "Competitor Analysis", price: "$0.50", per: "5 analyses" },
-];
-
 const defaultFaqs = [
   { q: "What are credits?", a: "Credits are the currency for AI operations. AI content credits power title/bullet rewrites and keyword suggestions. Image credits generate professional product photos. Audit credits run full listing analyses." },
   { q: "Can I change plans anytime?", a: "Yes — upgrade or downgrade anytime from your billing settings. Upgrades take effect immediately; downgrades apply at the next billing cycle." },
@@ -311,23 +303,6 @@ export default function Pricing() {
               </div>
             );
           })}
-        </div>
-      </section>
-
-      {/* Add-ons */}
-      <section className="bg-slate-50 px-6 py-16">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">Need more? Buy add-on credits</h2>
-          <p className="text-slate-500 text-center mb-10">Top up whenever you need — credits never expire after purchase.</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {addOns.map((a) => (
-              <div key={a.name} className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
-                <p className="text-sm text-slate-500 mb-1">{a.name}</p>
-                <p className="text-2xl font-bold text-slate-900">{a.price}</p>
-                <p className="text-xs text-slate-400 mt-1">{a.per}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
