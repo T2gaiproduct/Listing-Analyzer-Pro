@@ -2,6 +2,17 @@ import { generateChatCompletion } from "./ai-provider";
 import type { GeneratedContent } from "@workspace/db";
 import { sanitizeHtmlDescription } from "./sanitize-html.js";
 
+/** Remove "Why You'll Love It" (and common variants) from generated HTML descriptions. */
+export function stripWhyYoullLoveItSection(html: string): string {
+  const trimmed = html.trim();
+  if (!trimmed) return trimmed;
+
+  const sectionPattern = /<h3[^>]*>\s*(?:<strong>)?\s*why\s+you(?:'|&#39;|&apos;)ll\s+love\s+it\s*(?:<\/strong>)?\s*<\/h3>[\s\S]*?(?=<h3[^>]*>|$)/gi;
+  let result = trimmed.replace(sectionPattern, "");
+  result = result.replace(/\n{3,}/g, "\n\n").trim();
+  return result;
+}
+
 export async function generateListingContent(data: {
   productName: string;
   asin?: string | null;
@@ -119,7 +130,7 @@ HTML STRUCTURE:
 - Do not use CSS, JavaScript, tables, or external styling.
 - Use only Amazon-supported HTML tags: <h2>, <h3>, <p>, <strong>, <ul>, <li>, <br>.
 
-CONTENT LAYOUT (follow this exact 6-section structure inside the htmlDescription string):
+CONTENT LAYOUT (follow this exact 5-section structure inside the htmlDescription string):
 
 1. Compelling Heading
    - Start with a clear, benefit-driven heading inside an <h2> tag.
@@ -134,18 +145,16 @@ CONTENT LAYOUT (follow this exact 6-section structure inside the htmlDescription
    - Each bullet must start with the feature name in <strong>, then explain the customer benefit focusing on value rather than specs alone.
    - Example: <li><strong>Premium Material</strong> – Built with durable, high-quality materials for long-lasting performance.</li>
 
-4. Benefits Section
-   - Use heading: <h3><strong>Why You'll Love It</strong></h3>
-   - Bullet points explaining how the product improves the customer's life or solves common problems.
-
-5. Usage / Application
+4. Usage / Application
    - Use heading: <h3><strong>Perfect For</strong></h3>
    - Bullet points listing ideal users, occasions, or environments.
 
-6. Pitch Summary (Mandatory)
+5. Pitch Summary (Mandatory)
    - Use heading: <h3><strong>Why Choose This Product?</strong></h3>
    - Write a concise sales-oriented paragraph that reinforces the biggest benefits, builds confidence, and encourages purchase naturally.
    - Avoid exaggerated or misleading claims.
+
+DO NOT include a "Why You'll Love It" section or any separate benefits section — customer benefits belong in the bullet points and Key Features only.
 
 FORMATTING RULES:
 - Every section heading must be bold.
@@ -177,7 +186,7 @@ Return ONLY the JSON object, no markdown, no explanation.`;
       bulletPoints: parsed.bulletPoints ?? data.currentBullets,
       keywords: parsed.keywords ?? data.currentKeywords,
       htmlDescription: sanitizeHtmlDescription(
-        parsed.htmlDescription ?? "<p>Description not available.</p>",
+        stripWhyYoullLoveItSection(parsed.htmlDescription ?? "<p>Description not available.</p>"),
       ),
     };
   } catch {
