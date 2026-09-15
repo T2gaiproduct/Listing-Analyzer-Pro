@@ -14,6 +14,14 @@ import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/** Amazon A+ module stack order (top → bottom). */
+const APLUS_MODULE_ORDER: Record<string, number> = {
+  hero: 0,
+  features: 1,
+  comparison: 2,
+  brand_story: 3,
+};
+
 async function fetchGraphicsProjectForAudit(auditId: number) {
   const res = await fetch(`${basePath}/api/graphics/projects?auditId=${auditId}`, {
     credentials: "include",
@@ -46,6 +54,7 @@ export function ProductListingPreview({
   category,
   productImageUrl,
   fallbackImageUrls,
+  edgeToEdge = false,
 }: {
   auditId: number;
   audit: AuditLike | null | undefined;
@@ -55,6 +64,8 @@ export function ProductListingPreview({
   category?: string | null;
   productImageUrl?: string | null;
   fallbackImageUrls?: string[] | null;
+  /** Extend preview card to parent edges (Product Explorer listing preview step). */
+  edgeToEdge?: boolean;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -89,10 +100,12 @@ export function ProductListingPreview({
   const displayBrand = brandName?.trim() || audit?.brandName?.trim() || "Your brand";
   const displayCategory = category?.trim() || audit?.category?.trim() || "General";
 
-  const aplusModules = useMemo(
-    () => readAplusFromAudit(audit?.generatedImages).modules.filter((m) => m.imageUrl?.trim()),
-    [audit?.generatedImages],
-  );
+  const aplusModules = useMemo(() => {
+    const modules = readAplusFromAudit(audit?.generatedImages).modules.filter((m) => m.imageUrl?.trim());
+    return [...modules].sort(
+      (a, b) => (APLUS_MODULE_ORDER[a.id] ?? 99) - (APLUS_MODULE_ORDER[b.id] ?? 99),
+    );
+  }, [audit?.generatedImages]);
 
   const galleryImages = useMemo(
     () => collectListingPreviewImages({
@@ -159,7 +172,14 @@ export function ProductListingPreview({
         </p>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div
+        className={cn(
+          "bg-white shadow-sm overflow-hidden",
+          edgeToEdge
+            ? "rounded-none border-0 -mx-3.5 border-y border-slate-200"
+            : "rounded-lg border border-slate-200",
+        )}
+      >
         <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_minmax(0,1.1fr)] gap-4 p-4 lg:p-5">
           {/* Thumbnails */}
           <div
@@ -267,30 +287,35 @@ export function ProductListingPreview({
         </div>
 
         {aplusModules.length > 0 && (
-          <div className="border-t border-slate-200">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 px-4 py-2.5 lg:px-5 bg-slate-50 border-b border-slate-100">
-              A+ content modules
-            </p>
-            <div className="flex flex-col w-full">
+          <section className="border-t border-slate-300 bg-white" aria-label="From the brand">
+            <div className="border-b border-slate-200 px-4 lg:px-5 bg-white">
+              <div className="flex flex-wrap items-end gap-4 sm:gap-8 text-[11px]">
+                <span className="py-2.5 text-slate-500">About this item</span>
+                <span className="py-2.5 font-semibold text-slate-900 border-b-2 border-orange-500 -mb-px">
+                  From the brand
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col w-full max-w-none [&_img]:block [&_img]:w-full [&_img]:max-w-none [&_img]:h-auto [&_img]:align-top">
               {aplusModules.map((module) => (
                 module.imageUrl ? (
                   <button
                     key={module.id}
                     type="button"
-                    className="block w-full cursor-zoom-in border-b border-slate-100 last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500"
+                    className="block w-full max-w-none cursor-zoom-in p-0 m-0 border-0 bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500"
                     onClick={() => openLightbox(module.imageUrl)}
                     aria-label={`View full size ${module.title}`}
                   >
                     <img
                       src={resolveListingPreviewImageUrl(module.imageUrl)}
                       alt={module.title}
-                      className="w-full h-auto block align-top"
+                      className="w-full h-auto"
                     />
                   </button>
                 ) : null
               ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
 

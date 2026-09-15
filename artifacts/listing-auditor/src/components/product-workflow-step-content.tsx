@@ -317,6 +317,7 @@ export function ProductWorkflowStepContent({
           category={category}
           productImageUrl={productImageUrl}
           fallbackImageUrls={productImageUrls}
+          edgeToEdge
         />
       </WorkflowStepShell>
     );
