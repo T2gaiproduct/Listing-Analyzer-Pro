@@ -207,11 +207,17 @@ function resolveClerkProxyUrl(): string | undefined {
   if (typeof window === "undefined") return undefined;
 
   const host = window.location.hostname;
-  // Cloudflare preview + production domain: route Clerk FAPI through our API proxy.
-  // Quick tunnel hostnames change on restart; dev-stack updates Clerk proxy_url to match.
+  // Quick Cloudflare tunnels get a new hostname on every restart — pk_test can use Clerk CDN
+  // directly (same as localhost). Same-origin proxy requires Clerk proxy_url for that host.
+  if (host.endsWith(".trycloudflare.com")) {
+    if (clerkPubKey.startsWith("pk_test_")) {
+      return undefined;
+    }
+    return sameOriginClerkProxyPath();
+  }
+  // Production SellerLens domain: route Clerk FAPI through our API proxy.
   if (
-    host.endsWith(".trycloudflare.com")
-    || host === "sellerlens.io"
+    host === "sellerlens.io"
     || host === "www.sellerlens.io"
     || host.endsWith(".sellerlens.io")
   ) {
