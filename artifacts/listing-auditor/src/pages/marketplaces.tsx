@@ -46,6 +46,9 @@ import { AMAZON_MARKETPLACES } from "@/lib/amazon-export";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/** When true, the Amazon card is read-only with a Coming soon badge (no SP-API connect flow). */
+const AMAZON_MARKETPLACE_COMING_SOON = true;
+
 type DialogTarget = StoreMarketplace;
 
 const CONNECT_CARDS: Array<{
@@ -85,6 +88,7 @@ function ConnectCard({
   setupRequired,
   setupMessage,
   setupHref,
+  comingSoon,
 }: {
   marketplace: string;
   description: string;
@@ -102,12 +106,17 @@ function ConnectCard({
   setupRequired?: boolean;
   setupMessage?: string;
   setupHref?: string;
+  comingSoon?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col gap-5">
       <div className="flex items-start justify-between gap-3">
         <MarketplaceLogo marketplace={marketplace} className="h-7 w-32" />
-        {connected ? (
+        {comingSoon ? (
+          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+            Coming soon
+          </span>
+        ) : connected ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
             <Check className="w-3 h-3" />
             Connected
@@ -134,14 +143,20 @@ function ConnectCard({
         </p>
       ) : null}
 
-      {setupRequired && setupMessage && !connected ? (
+      {setupRequired && setupMessage && !connected && !comingSoon ? (
         <p className="text-[11px] text-amber-800 leading-relaxed rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
           {setupMessage}
         </p>
       ) : null}
 
+      {comingSoon ? (
+        <p className="text-[11px] text-slate-600 leading-relaxed rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+          Amazon connect, import, and publish will be available here soon. Shopify and WooCommerce are available now.
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
-        {connected ? (
+        {comingSoon ? null : connected ? (
           <>
             {(onImport || importDisabled) ? (
               importDisabled && importDisabledReason ? (
@@ -691,8 +706,13 @@ export default function MarketplacesPage() {
         <div className="space-y-2">
           <ConnectCard
             marketplace="Amazon"
-            description="Step 1: Add Develop Apps credentials. Step 2: Connect with Amazon using your refresh token. Then import your catalog."
-            connected={amazonConnected}
+            comingSoon={AMAZON_MARKETPLACE_COMING_SOON}
+            description={
+              AMAZON_MARKETPLACE_COMING_SOON
+                ? "Connect your Amazon seller account to import catalog, publish listings, and sync orders."
+                : "Step 1: Add Develop Apps credentials. Step 2: Connect with Amazon using your refresh token. Then import your catalog."
+            }
+            connected={AMAZON_MARKETPLACE_COMING_SOON ? false : amazonConnected}
             pending={false}
             connectLabel={
               !amazonWorkspaceCredentialsSaved
@@ -701,21 +721,23 @@ export default function MarketplacesPage() {
                   ? "Connect with Amazon"
                   : undefined
             }
-            setupRequired={!amazonWorkspaceCredentialsSaved}
+            setupRequired={AMAZON_MARKETPLACE_COMING_SOON ? false : !amazonWorkspaceCredentialsSaved}
             setupMessage="Add LWA Client ID, Client Secret, and AWS keys from Seller Central → Develop Apps."
             detail={
-              amazonConnected
-                ? [
-                    data?.amazon.sellerId ? `Seller ${data.amazon.sellerId}` : "Seller account linked",
-                    data?.amazon.publishReady
-                      ? "Import, publish & sync enabled"
-                      : data?.amazon.canSignRequests
-                        ? "Ready to import after seller connect"
-                        : "Add AWS keys in credentials to import & publish",
-                  ].filter(Boolean).join(" · ")
-                : amazonWorkspaceCredentialsSaved && !amazonConnected
-                  ? "Credentials saved — click Connect with Amazon and paste Seller ID + refresh token from Develop Apps"
-                  : null
+              AMAZON_MARKETPLACE_COMING_SOON
+                ? null
+                : amazonConnected
+                  ? [
+                      data?.amazon.sellerId ? `Seller ${data.amazon.sellerId}` : "Seller account linked",
+                      data?.amazon.publishReady
+                        ? "Import, publish & sync enabled"
+                        : data?.amazon.canSignRequests
+                          ? "Ready to import after seller connect"
+                          : "Add AWS keys in credentials to import & publish",
+                    ].filter(Boolean).join(" · ")
+                  : amazonWorkspaceCredentialsSaved && !amazonConnected
+                    ? "Credentials saved — click Connect with Amazon and paste Seller ID + refresh token from Develop Apps"
+                    : null
             }
             loading={pendingAction === "amazon"}
             importLoading={amazonSyncMutation.isPending}
@@ -725,7 +747,7 @@ export default function MarketplacesPage() {
             importDisabled={amazonConnected && !amazonCanSignRequests}
             importDisabledReason="Add AWS Access Key and Secret in Amazon SP-API credentials, then click Import products."
           />
-          {amazonWorkspaceCredentialsSaved ? (
+          {!AMAZON_MARKETPLACE_COMING_SOON && amazonWorkspaceCredentialsSaved ? (
             <p className="text-[11px] text-muted-foreground px-1">
               <button
                 type="button"
