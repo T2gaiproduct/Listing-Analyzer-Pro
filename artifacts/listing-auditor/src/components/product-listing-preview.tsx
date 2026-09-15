@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Eye, RefreshCw, Star, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Eye,
+  RefreshCw,
+  Star,
+  X,
+} from "lucide-react";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
@@ -69,7 +78,9 @@ export function ProductListingPreview({
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxGalleryIndex, setLightboxGalleryIndex] = useState<number | null>(null);
+  const [lightboxStandaloneUrl, setLightboxStandaloneUrl] = useState<string | null>(null);
+  const thumbRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const { data: graphicsProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId, refreshKey],
@@ -129,19 +140,86 @@ export function ProductListingPreview({
     ],
   );
 
-  const openLightbox = (url: string) => {
-    setLightboxUrl(resolveListingPreviewImageUrl(url));
+  const hasListingCopy = Boolean(title && (bullets.length > 0 || htmlDescription));
+  const hasImages = galleryImages.length > 0;
+  const imageCount = galleryImages.length;
+  const safeSelectedIndex = imageCount > 0 ? Math.min(selectedIndex, imageCount - 1) : 0;
+  const selected = galleryImages[safeSelectedIndex] ?? galleryImages[0];
+  const canStepGallery = imageCount > 1;
+
+  const goToGalleryIndex = useCallback((index: number) => {
+    if (imageCount === 0) return;
+    const next = ((index % imageCount) + imageCount) % imageCount;
+    setSelectedIndex(next);
+    if (lightboxGalleryIndex !== null) {
+      setLightboxGalleryIndex(next);
+    }
+  }, [imageCount, lightboxGalleryIndex]);
+
+  const goPrevImage = useCallback(() => {
+    goToGalleryIndex(safeSelectedIndex - 1);
+  }, [goToGalleryIndex, safeSelectedIndex]);
+
+  const goNextImage = useCallback(() => {
+    goToGalleryIndex(safeSelectedIndex + 1);
+  }, [goToGalleryIndex, safeSelectedIndex]);
+
+  const openGalleryLightbox = (index: number) => {
+    if (imageCount === 0) return;
+    const clamped = Math.max(0, Math.min(index, imageCount - 1));
+    setSelectedIndex(clamped);
+    setLightboxGalleryIndex(clamped);
+    setLightboxStandaloneUrl(null);
+  };
+
+  const openStandaloneLightbox = (url: string) => {
+    setLightboxStandaloneUrl(resolveListingPreviewImageUrl(url));
+    setLightboxGalleryIndex(null);
+  };
+
+  const closeLightbox = () => {
+    setLightboxGalleryIndex(null);
+    setLightboxStandaloneUrl(null);
   };
 
   useEffect(() => {
-    if (selectedIndex >= galleryImages.length) {
+    if (selectedIndex >= imageCount && imageCount > 0) {
       setSelectedIndex(0);
     }
-  }, [galleryImages.length, selectedIndex]);
+  }, [imageCount, selectedIndex]);
 
-  const hasListingCopy = Boolean(title && (bullets.length > 0 || htmlDescription));
-  const hasImages = galleryImages.length > 0;
-  const selected = galleryImages[selectedIndex] ?? galleryImages[0];
+  useEffect(() => {
+    thumbRefs.current[safeSelectedIndex]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [safeSelectedIndex]);
+
+  useEffect(() => {
+    if (lightboxGalleryIndex === null && !lightboxStandaloneUrl) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        closeLightbox();
+        return;
+      }
+      if (lightboxGalleryIndex === null || !canStepGallery) return;
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        goPrevImage();
+      }
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        goNextImage();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxGalleryIndex, lightboxStandaloneUrl, canStepGallery, goPrevImage, goNextImage]);
+
+  const lightboxGalleryUrl = lightboxGalleryIndex !== null && galleryImages[lightboxGalleryIndex]
+    ? resolveListingPreviewImageUrl(galleryImages[lightboxGalleryIndex].url)
+    : null;
+  const lightboxOpen = lightboxGalleryUrl !== null || lightboxStandaloneUrl !== null;
+  const lightboxDisplayUrl = lightboxGalleryUrl ?? lightboxStandaloneUrl;
 
   return (
     <div className="space-y-3">
@@ -182,27 +260,38 @@ export function ProductListingPreview({
       >
         <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_minmax(0,1.1fr)] gap-4 p-4 lg:p-5">
           {/* Thumbnails */}
-          <div
-            className={cn(
-              "flex lg:flex-col gap-2 order-2 lg:order-1 shrink-0",
-              "overflow-x-auto pb-1",
-              "lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0 lg:pr-0.5",
-              "lg:max-h-[min(420px,70vw)]",
-              "[scrollbar-width:thin]",
+          <div className="flex flex-col items-center gap-1 order-2 lg:order-1 shrink-0">
+            {canStepGallery && (
+              <button
+                type="button"
+                className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                onClick={goPrevImage}
+                aria-label="Previous image"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
             )}
-          >
+            <div
+              className={cn(
+                "flex lg:flex-col gap-2 w-full",
+                "overflow-x-auto pb-1 lg:pb-0",
+                "lg:overflow-x-hidden lg:overflow-y-auto lg:pr-0.5",
+                "lg:max-h-[min(380px,65vw)]",
+                "[scrollbar-width:thin]",
+              )}
+            >
             {hasImages ? (
               galleryImages.map((img, index) => (
                 <button
                   key={`${img.url}-${index}`}
-                  type="button"
-                  onClick={() => {
-                    setSelectedIndex(index);
-                    openLightbox(img.url);
+                  ref={(el) => {
+                    thumbRefs.current[index] = el;
                   }}
+                  type="button"
+                  onClick={() => openGalleryLightbox(index)}
                   className={cn(
                     "relative shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50 cursor-zoom-in",
-                    selectedIndex === index ? "border-blue-500" : "border-slate-200 hover:border-slate-300",
+                    safeSelectedIndex === index ? "border-blue-500" : "border-slate-200 hover:border-slate-300",
                   )}
                 >
                   <img
@@ -222,23 +311,87 @@ export function ProductListingPreview({
                 No images
               </div>
             )}
+            </div>
+            {canStepGallery && (
+              <>
+                <button
+                  type="button"
+                  className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  onClick={goNextImage}
+                  aria-label="Next image"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                <div className="hidden lg:flex gap-1 w-14">
+                  <button
+                    type="button"
+                    className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    onClick={goPrevImage}
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    onClick={goNextImage}
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Main image */}
-          <div className="order-1 lg:order-2 aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden">
+          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden group/main-image">
             {selected ? (
-              <button
-                type="button"
-                className="w-full h-full flex items-center justify-center cursor-zoom-in"
-                onClick={() => openLightbox(selected.url)}
-                aria-label="View full size image"
-              >
-                <img
-                  src={resolveListingPreviewImageUrl(selected.url)}
-                  alt={selected.label}
-                  className="w-full h-full object-contain"
-                />
-              </button>
+              <>
+                {canStepGallery && (
+                  <>
+                    <button
+                      type="button"
+                      className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goPrevImage();
+                      }}
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goNextImage();
+                      }}
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="w-full h-full flex items-center justify-center cursor-zoom-in"
+                  onClick={() => openGalleryLightbox(safeSelectedIndex)}
+                  aria-label="View full size image"
+                >
+                  <img
+                    src={resolveListingPreviewImageUrl(selected.url)}
+                    alt={selected.label}
+                    className="w-full h-full object-contain"
+                  />
+                </button>
+                {canStepGallery && (
+                  <span className="absolute bottom-2 right-2 rounded-md bg-black/55 text-white text-[10px] px-1.5 py-0.5 tabular-nums">
+                    {safeSelectedIndex + 1} / {imageCount}
+                  </span>
+                )}
+              </>
             ) : (
               <span className="text-[11px] text-slate-400">Main image</span>
             )}
@@ -303,7 +456,7 @@ export function ProductListingPreview({
                     key={module.id}
                     type="button"
                     className="block w-full max-w-none cursor-zoom-in p-0 m-0 border-0 bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500"
-                    onClick={() => openLightbox(module.imageUrl)}
+                    onClick={() => openStandaloneLightbox(module.imageUrl)}
                     aria-label={`View full size ${module.title}`}
                   >
                     <img
@@ -319,29 +472,65 @@ export function ProductListingPreview({
         )}
       </div>
 
-      {lightboxUrl && createPortal(
+      {lightboxOpen && lightboxDisplayUrl && createPortal(
         <div
           className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
+          onClick={closeLightbox}
           role="dialog"
           aria-modal="true"
           aria-label="Image preview"
         >
-          <div className="relative max-w-[90vw] max-h-[90vh]">
-            <img
-              src={lightboxUrl}
-              alt="Full size preview"
-              className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              type="button"
-              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center shadow-lg hover:bg-slate-100 transition-colors"
-              onClick={() => setLightboxUrl(null)}
-              aria-label="Close preview"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div className="relative max-w-[90vw] max-h-[90vh] flex items-center gap-2 sm:gap-4">
+            {lightboxGalleryIndex !== null && canStepGallery && (
+              <button
+                type="button"
+                className="shrink-0 w-10 h-10 rounded-full bg-white/95 text-slate-800 flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goPrevImage();
+                }}
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div className="relative min-w-0">
+              <img
+                src={lightboxDisplayUrl}
+                alt="Full size preview"
+                className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+              {lightboxGalleryIndex !== null && canStepGallery && (
+                <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 text-white text-xs px-3 py-1 tabular-nums">
+                  {lightboxGalleryIndex + 1} / {imageCount}
+                </span>
+              )}
+              <button
+                type="button"
+                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center shadow-lg hover:bg-slate-100 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeLightbox();
+                }}
+                aria-label="Close preview"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {lightboxGalleryIndex !== null && canStepGallery && (
+              <button
+                type="button"
+                className="shrink-0 w-10 h-10 rounded-full bg-white/95 text-slate-800 flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goNextImage();
+                }}
+                aria-label="Next image"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>,
         document.body,
