@@ -22,6 +22,7 @@ import {
   SelectedGraphicsTypesSummary,
 } from "@/components/graphics-type-customize-ui";
 import {
+  GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
   GRAPHICS_IMAGE_TYPES,
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
@@ -87,8 +88,13 @@ const AMAZON_CATEGORIES = [
 ];
 
 /** Create Graphics — preset types only (no standalone "Generate Custom" card). */
-const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES.filter((type) => type.id !== "custom");
+const CREATE_GRAPHICS_IMAGE_TYPES = GRAPHICS_IMAGE_TYPES.filter((type) => type.id !== "custom");
+const IMAGE_TYPES = CREATE_GRAPHICS_IMAGE_TYPES;
 const PROMPT_MAX_CHARS = GRAPHICS_PROMPT_MAX_CHARS;
+
+function visibleSelectedImageTypes(ids: string[]): string[] {
+  return ids.filter((id) => id !== "custom");
+}
 
 type AplusModuleId = (typeof APLUS_MODULE_CARDS)[number]["id"];
 
@@ -116,6 +122,10 @@ export default function CreateProject() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
+  const selectedGraphicsTypes = useMemo(
+    () => visibleSelectedImageTypes(selectedImageTypes),
+    [selectedImageTypes],
+  );
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
   const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
@@ -150,7 +160,7 @@ export default function CreateProject() {
       quality: GraphicsQuality;
       promptReferenceImageUrls?: string[];
     }> = {};
-    for (const typeId of selectedImageTypes) {
+    for (const typeId of visibleSelectedImageTypes(selectedImageTypes)) {
       const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...imageTypePromptConfigs[typeId] };
       configs[typeId] = {
         customPrompt: config.customPrompt.trim() || undefined,
@@ -191,7 +201,7 @@ export default function CreateProject() {
     return payload;
   }, [selectedAplusModules, aplusModulePromptConfigs]);
 
-  const graphicsCreditsNeeded = selectedImageTypes.length * imageCreditPerUnit;
+  const graphicsCreditsNeeded = selectedGraphicsTypes.length * imageCreditPerUnit;
   const aplusCreditsNeeded = selectedAplusModules.length * imageCreditPerUnit;
   const totalCreditsNeeded = graphicsCreditsNeeded + aplusCreditsNeeded;
 
@@ -387,11 +397,11 @@ export default function CreateProject() {
   const canContinue = () => {
     if (step === 1) return brandName.trim().length > 0 && productName.trim().length > 0;
     if (step === 2) {
-      return selectedImageTypes.filter((id) => id !== "custom").length > 0;
+      return selectedGraphicsTypes.length > 0;
     }
     if (step === 3) {
       if (selectedAplusModules.length > 0 && !category.trim()) return false;
-      const creditsForRun = selectedImageTypes.length * imageCreditPerUnit + selectedAplusModules.length * imageCreditPerUnit;
+      const creditsForRun = selectedGraphicsTypes.length * imageCreditPerUnit + selectedAplusModules.length * imageCreditPerUnit;
       if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) return false;
       return true;
     }
@@ -399,7 +409,7 @@ export default function CreateProject() {
   };
 
   const runGenerate = (aplusModuleIds: AplusModuleId[]) => {
-    const creditsForRun = selectedImageTypes.length * imageCreditPerUnit + aplusModuleIds.length * imageCreditPerUnit;
+    const creditsForRun = selectedGraphicsTypes.length * imageCreditPerUnit + aplusModuleIds.length * imageCreditPerUnit;
     if (aplusModuleIds.length > 0 && !category.trim()) {
       toast({
         title: "Category required",
@@ -422,9 +432,9 @@ export default function CreateProject() {
         productName,
         category,
         sourceImageUrls: uploadedImages,
-        imageTypes: selectedImageTypes,
+        imageTypes: selectedGraphicsTypes,
       },
-      imageTypes: selectedImageTypes,
+      imageTypes: selectedGraphicsTypes,
       typeConfigs: graphicsTypeConfigsPayload,
       aplusModuleIds,
       aplusModuleConfigs: aplusModuleIds.length > 0 ? aplusModuleConfigsPayload : {},
@@ -646,11 +656,22 @@ export default function CreateProject() {
               return (
                 <div
                   key={type.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     if (!selectedImageTypes.includes(type.id)) {
                       setSelectedImageTypes((prev) => [...prev, type.id]);
                     }
                     setCustomizeTypeId(type.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (!selectedImageTypes.includes(type.id)) {
+                        setSelectedImageTypes((prev) => [...prev, type.id]);
+                      }
+                      setCustomizeTypeId(type.id);
+                    }
                   }}
                   className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
                     isSelected
@@ -681,19 +702,21 @@ export default function CreateProject() {
             })}
           </div>
 
-          {selectedImageTypes.length > 0 && (
+          {selectedGraphicsTypes.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
               <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold text-xs">
-                {selectedImageTypes.length} selected
+                {selectedGraphicsTypes.length} selected
               </span>
-              <span className="text-slate-400">~{selectedImageTypes.length * 30}s total</span>
+              <span className="text-slate-400">
+                ~{selectedGraphicsTypes.length * 30}s total
+              </span>
             </div>
           )}
 
-          {selectedImageTypes.length > 0 && (
+          {selectedGraphicsTypes.length > 0 && (
             <SelectedGraphicsTypesSummary
               imageTypes={IMAGE_TYPES}
-              selectedTypeIds={selectedImageTypes}
+              selectedTypeIds={selectedGraphicsTypes}
               getConfig={getImageTypeConfig}
               onEdit={setCustomizeTypeId}
               onRemove={(typeId) => {
@@ -704,14 +727,15 @@ export default function CreateProject() {
           )}
 
           <ImageTypeCustomizeDialog
-            open={customizeTypeId !== null}
+            open={customizeTypeId !== null && customizeTypeId !== "custom"}
             onOpenChange={(open) => { if (!open) setCustomizeTypeId(null); }}
-            type={IMAGE_TYPES.find((t) => t.id === customizeTypeId) ?? null}
+            type={CREATE_GRAPHICS_IMAGE_TYPES.find((t) => t.id === customizeTypeId) ?? null}
             config={customizeTypeId ? getImageTypeConfig(customizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
             onConfigChange={(patch) => {
               if (customizeTypeId) updateImageTypeConfig(customizeTypeId, patch);
             }}
             promptMaxChars={PROMPT_MAX_CHARS}
+            examplePrompts={GRAPHICS_CUSTOM_PROMPT_EXAMPLES}
           />
         </div>
       )}
@@ -799,7 +823,7 @@ export default function CreateProject() {
 
           <p className="text-xs text-slate-500">
             Estimated image credits: {totalCreditsNeeded}
-            {selectedAplusModules.length === 0 ? " (graphics only)" : ` (${selectedImageTypes.length} graphics + ${selectedAplusModules.length} A+)`}
+            {selectedAplusModules.length === 0 ? " (graphics only)" : ` (${selectedGraphicsTypes.length} graphics + ${selectedAplusModules.length} A+)`}
           </p>
         </div>
       )}

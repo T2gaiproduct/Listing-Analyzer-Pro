@@ -36,10 +36,9 @@ export function ImageTypeCustomizeDialog({
   examplePrompts,
   hideAspectRatio = false,
 }: ImageTypeCustomizeDialogProps) {
-  if (!type) return null;
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && Boolean(type)} onOpenChange={onOpenChange}>
+      {!type ? null : (
       <DialogContent className="max-w-lg max-h-[min(90vh,720px)] overflow-y-auto gap-4">
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2 text-lg">
@@ -74,6 +73,7 @@ export function ImageTypeCustomizeDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      )}
     </Dialog>
   );
 }
