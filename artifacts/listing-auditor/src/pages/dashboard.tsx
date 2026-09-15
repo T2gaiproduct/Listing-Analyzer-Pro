@@ -470,6 +470,24 @@ export default function Dashboard() {
     );
   }
 
+  const dashboardQueryDisabled =
+    clerkLoaded
+    && !!user
+    && !isBillingAccountOwner
+    && !featureWorkspaceId
+    && !activeWorkspaceId;
+
+  if (dashboardQueryDisabled && !wsLoading) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center max-w-lg mx-auto">
+        <p className="font-semibold text-amber-900">Dashboard is waiting on workspace access</p>
+        <p className="text-sm text-amber-800 mt-2">
+          We could not load your workspaces. Use &quot;Sign out &amp; retry&quot; at the top if you are on a Cloudflare preview link, then sign in again.
+        </p>
+      </div>
+    );
+  }
+
   if (provisioningWorkspace || (wsLoading && !memberWorkspaceId && !isBillingAccountOwner) || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
