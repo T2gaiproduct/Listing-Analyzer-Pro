@@ -162,7 +162,15 @@ export function ProductListingPreview({
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_minmax(0,1.1fr)] gap-4 p-4 lg:p-5">
           {/* Thumbnails */}
-          <div className="flex lg:flex-col gap-2 order-2 lg:order-1 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
+          <div
+            className={cn(
+              "flex lg:flex-col gap-2 order-2 lg:order-1 shrink-0",
+              "overflow-x-auto pb-1",
+              "lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0 lg:pr-0.5",
+              "lg:max-h-[min(420px,70vw)]",
+              "[scrollbar-width:thin]",
+            )}
+          >
             {hasImages ? (
               galleryImages.map((img, index) => (
                 <button
