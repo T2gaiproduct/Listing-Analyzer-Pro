@@ -7,6 +7,7 @@ import {
   Eye,
   Pencil,
   Upload,
+  Download,
   Loader2,
   Package,
   Trash2,
@@ -26,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useActionDialog } from "@/components/ui/action-dialog";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
+import { downloadAuditExport } from "@/lib/amazon-export";
 import { fetchAccountOverviewProducts, fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
@@ -138,6 +140,10 @@ function productDetailUrl(id: number, sourceType: ProductSourceType): string {
 function productOverviewEditUrl(detailUrl: string): string {
   const separator = detailUrl.includes("?") ? "&" : "?";
   return `${detailUrl}${separator}step=overview&edit=listing`;
+}
+
+function canExportListingProduct(product: ProductListItem): boolean {
+  return product.sourceType === "listing" || product.sourceType === "audit";
 }
 
 function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): ProductListItem {
@@ -259,6 +265,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [exportingKey, setExportingKey] = useState<string | null>(null);
   const { trigger: triggerDeleteDialog, dialog: deleteDialog } = useActionDialog();
 
   const productsQueryScope = showAccountProducts ? "owner-account" : featureWorkspaceId;
@@ -320,6 +327,41 @@ export default function ProductsPage() {
       });
     },
   });
+
+  async function handleExportProduct(product: ProductListItem) {
+    if (!canExportListingProduct(product)) {
+      toast({
+        title: "Export not available",
+        description: "Excel export is available for Build Your Brand and Audit Listing products.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const key = productKey(product);
+    setExportingKey(key);
+    try {
+      await downloadAuditExport({
+        auditId: product.id,
+        format: "excel",
+        platform: "amazon",
+        marketplace: "US",
+        basePath,
+      });
+      toast({
+        title: "Export downloaded",
+        description: `Amazon listing Excel for ${product.name}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: error instanceof Error ? error.message : "Could not export this product.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingKey(null);
+    }
+  }
 
   function requestDeleteProducts(productsToDelete: ProductListItem[]) {
     const deletable = productsToDelete.filter(canDeleteProduct);
@@ -656,6 +698,33 @@ export default function ProductsPage() {
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">
                             Open in Product Explorer
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={exportingKey === key || !canExportListingProduct(product)}
+                              onClick={() => void handleExportProduct(product)}
+                              className={cn(
+                                "w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card transition-colors disabled:opacity-50",
+                                canExportListingProduct(product)
+                                  ? "text-muted-foreground hover:text-foreground/90 hover:bg-muted"
+                                  : "text-muted-foreground/40 cursor-not-allowed",
+                              )}
+                              aria-label="Export listing Excel"
+                            >
+                              {exportingKey === key ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Download className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">
+                            {canExportListingProduct(product)
+                              ? "Export Amazon listing (Excel)"
+                              : "Export available for listing audits only"}
                           </TooltipContent>
                         </Tooltip>
                         {canDeleteProduct(product) && (
