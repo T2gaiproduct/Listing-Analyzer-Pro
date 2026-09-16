@@ -1910,9 +1910,14 @@ export default function AuditWorkflow() {
                     {/* Bullet Points */}
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Bullet Points</p>
-                      <ul className="list-disc pl-4 space-y-1.5 text-xs text-foreground leading-relaxed">
+                      <ul className="space-y-1.5">
                         {previewBullets.map((b, i) => (
-                          <li key={i}>{b}</li>
+                          <li key={i} className="text-xs text-foreground flex items-start gap-2 leading-relaxed">
+                            <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5" aria-hidden>
+                              {i + 1}
+                            </span>
+                            <span>{b}</span>
+                          </li>
                         ))}
                       </ul>
                     </div>

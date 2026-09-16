@@ -767,6 +767,9 @@ function ListingContentCard({
     ? "bg-orange-50 border-orange-100"
     : "bg-slate-50 border-slate-100";
   const headerTextClass = accent === "orange" ? "text-orange-900" : "text-slate-700";
+  const bulletBadgeClass = accent === "orange"
+    ? "bg-orange-100 text-orange-600"
+    : "bg-slate-100 text-slate-600";
   const keywordClass = accent === "orange"
     ? "bg-orange-50 text-orange-700 border-orange-100"
     : "bg-slate-50 text-slate-700 border-slate-200";
@@ -833,13 +836,21 @@ function ListingContentCard({
                 Copy
               </button>
             </div>
-            <ul className="list-disc pl-4 space-y-1.5">
+            <ul className="space-y-2">
               {contentBullets.map((bullet, index) => (
-                <li
-                  key={`${index}-${bullet.slice(0, 24)}`}
-                  className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words"
-                >
-                  {bullet}
+                <li key={`${index}-${bullet.slice(0, 24)}`} className="flex items-start gap-2">
+                  <span
+                    className={cn(
+                      "w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5",
+                      bulletBadgeClass,
+                    )}
+                    aria-hidden
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                    {bullet}
+                  </span>
                 </li>
               ))}
             </ul>

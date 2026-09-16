@@ -500,10 +500,13 @@ export default function AuditDetail({ id }: { id: number }) {
                   <CopyButton text={displayBullets.join("\n")} label="Bullet points" />
                 </CardHeader>
                 <CardContent>
-                  <ul className="list-disc pl-5 space-y-2.5">
+                  <ul className="space-y-3">
                     {displayBullets.map((bp, i) => (
-                      <li key={i} className="text-sm leading-relaxed text-foreground/90">
-                        {bp}
+                      <li key={i} className="flex gap-3">
+                        <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5" aria-hidden>
+                          {i + 1}
+                        </span>
+                        <span className="text-sm leading-relaxed text-foreground/90">{bp}</span>
                       </li>
                     ))}
                   </ul>
