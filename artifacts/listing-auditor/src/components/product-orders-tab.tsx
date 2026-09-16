@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar, CircleDot, Search, Store } from "lucide-react";
+import { CircleDot, Search, Store } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -48,13 +48,6 @@ const STATUS_OPTIONS = [
   { value: "shipped", label: "Shipped" },
   { value: "processing", label: "Processing" },
   { value: "returned", label: "Returned" },
-] as const;
-
-const DATE_OPTIONS = [
-  { value: "all", label: "All time" },
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "90d", label: "Last 90 days" },
 ] as const;
 
 function formatAmount(amount: number, currency: string): string {
@@ -130,7 +123,6 @@ export function ProductOrdersTab({
   const [search, setSearch] = useState("");
   const [marketplace, setMarketplace] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<string>("all");
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -138,13 +130,12 @@ export function ProductOrdersTab({
     if (search.trim()) params.set("search", search.trim());
     if (marketplace !== "all") params.set("marketplace", marketplace);
     if (status !== "all") params.set("status", status);
-    if (dateRange !== "all") params.set("dateRange", dateRange);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
-  }, [source, search, marketplace, status, dateRange]);
+  }, [source, search, marketplace, status]);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["product-orders", productId, source, search, marketplace, status, dateRange],
+    queryKey: ["product-orders", productId, source, search, marketplace, status],
     queryFn: () => fetchJson<ProductOrdersResponse>(`${basePath}/api/products/${productId}/orders${queryString}`),
     enabled: enabled && productId > 0,
     staleTime: 15_000,
@@ -157,7 +148,6 @@ export function ProductOrdersTab({
 
   const marketplaceLabel = marketplace === "all" ? "Marketplace" : marketplace;
   const statusLabel = STATUS_OPTIONS.find((o) => o.value === status)?.label ?? "Status";
-  const dateLabel = DATE_OPTIONS.find((o) => o.value === dateRange)?.label ?? "Date";
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -202,24 +192,6 @@ export function ProductOrdersTab({
                   key={option.value}
                   className="text-xs"
                   onClick={() => setStatus(option.value)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <div>
-                <FilterButton icon={Calendar} label={dateLabel} active={dateRange !== "all"} />
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[140px]">
-              {DATE_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  className="text-xs"
-                  onClick={() => setDateRange(option.value)}
                 >
                   {option.label}
                 </DropdownMenuItem>
