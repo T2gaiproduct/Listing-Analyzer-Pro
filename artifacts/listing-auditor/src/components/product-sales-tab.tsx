@@ -58,6 +58,8 @@ interface ProductSalesResponse {
   }>;
 }
 
+const AMAZON_SALES_COMING_SOON = true;
+
 const FALLBACK_MARKETPLACES: ProductSalesResponse["marketplaceRevenue"] = [
   { marketplace: "Amazon", revenue: 0, color: "#f59e0b", changePercent: 0, direction: "up", sharePercent: 0 },
   { marketplace: "Shopify", revenue: 0, color: "#0ea5e9", changePercent: 0, direction: "up", sharePercent: 0 },
@@ -321,7 +323,11 @@ export function ProductSalesTab({
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
                   <span className="text-slate-700 truncate">{item.marketplace}</span>
                 </div>
-                <span className="font-medium text-slate-900 tabular-nums">{item.percent}%</span>
+                {AMAZON_SALES_COMING_SOON && item.marketplace === "Amazon" ? (
+                  <span className="font-medium text-slate-500">Coming soon</span>
+                ) : (
+                  <span className="font-medium text-slate-900 tabular-nums">{item.percent}%</span>
+                )}
               </div>
             ))}
           </div>
@@ -333,6 +339,7 @@ export function ProductSalesTab({
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {marketplaceRevenue.map((item) => {
             const isUp = item.direction === "up";
+            const amazonComingSoon = AMAZON_SALES_COMING_SOON && item.marketplace === "Amazon";
             return (
               <div
                 key={item.marketplace}
@@ -341,23 +348,29 @@ export function ProductSalesTab({
                 <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
                   {item.marketplace}
                 </p>
-                <p className="text-xl font-bold text-slate-900 mt-1 tabular-nums">
-                  {formatCurrency(item.revenue, currency)}
-                </p>
-                <div className={cn(
-                  "inline-flex items-center gap-0.5 mt-1.5 text-[10px] font-medium",
-                  isUp ? "text-emerald-600" : "text-red-500",
+                {amazonComingSoon ? (
+                  <p className="text-lg font-semibold text-slate-500 mt-1">Coming soon</p>
+                ) : (
+                  <>
+                    <p className="text-xl font-bold text-slate-900 mt-1 tabular-nums">
+                      {formatCurrency(item.revenue, currency)}
+                    </p>
+                    <div className={cn(
+                      "inline-flex items-center gap-0.5 mt-1.5 text-[10px] font-medium",
+                      isUp ? "text-emerald-600" : "text-red-500",
+                    )}
+                    >
+                      {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                      {item.changePercent}%
+                    </div>
+                    <div className="mt-3 h-1 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-slate-300 transition-all"
+                        style={{ width: `${Math.max(item.sharePercent, item.revenue > 0 ? 4 : 0)}%` }}
+                      />
+                    </div>
+                  </>
                 )}
-                >
-                  {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                  {item.changePercent}%
-                </div>
-                <div className="mt-3 h-1 rounded-full bg-slate-100 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-slate-300 transition-all"
-                    style={{ width: `${Math.max(item.sharePercent, item.revenue > 0 ? 4 : 0)}%` }}
-                  />
-                </div>
               </div>
             );
           })}
