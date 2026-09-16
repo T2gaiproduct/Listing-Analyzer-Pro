@@ -1,6 +1,9 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type Theme = "dark" | "light";
+
+const STORAGE_KEY = "listingauditor-theme";
+const EXPLICIT_KEY = "listingauditor-theme-explicit";
 
 interface ThemeProviderState {
   theme: Theme;
@@ -23,32 +26,48 @@ function applyTheme(theme: Theme) {
   document.documentElement.classList.add(theme);
 }
 
-function loadStoredTheme(): "dark" | "light" {
+/** Default light; dark only when the user picks it in Settings (never OS auto). */
+export function readStoredTheme(): Theme {
   try {
-    const stored = localStorage.getItem("listingauditor-theme");
-    if (stored === "dark" || stored === "light") return stored;
-    // Migrate legacy "system" preference to the current OS appearance once.
-    if (stored === "system" || !stored) {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const explicit = localStorage.getItem(EXPLICIT_KEY) === "1";
+    if (stored === "dark" || stored === "light") {
+      if (explicit) return stored;
+      // Older builds followed prefers-color-scheme and saved dark without user intent.
+      return "light";
     }
-  } catch {}
+  } catch {
+    /* ignore */
+  }
   return "light";
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<"dark" | "light">(loadStoredTheme);
-  const [resolved, setResolved] = useState<"dark" | "light">(theme);
+  const [theme, setThemeState] = useState<Theme>(readStoredTheme);
+  const [resolved, setResolved] = useState<Theme>(theme);
+
+  const setTheme = useCallback((next: Theme) => {
+    setThemeState(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem(EXPLICIT_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     setResolved(theme);
     applyTheme(theme);
     try {
-      localStorage.setItem("listingauditor-theme", theme);
-    } catch {}
+      localStorage.setItem(STORAGE_KEY, theme);
+    } catch {
+      /* ignore */
+    }
   }, [theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolved, setTheme: setThemeState }}>
+    <ThemeContext.Provider value={{ theme, resolved, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
