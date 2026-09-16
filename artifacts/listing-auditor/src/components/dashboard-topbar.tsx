@@ -315,7 +315,7 @@ export function DashboardTopbar({
                   {creditsScopeLabel === "workspace"
                     ? "Credits in this workspace pool (spend and assign from Workspaces)."
                     : creditsScopeLabel === "default_workspace"
-                      ? "Usage in this workspace is charged to your account balance. Assign credits to the workspace pool only when you want a separate balance for members or reporting."
+                      ? "For your default workspace only: if you have not assigned credits to the pool, usage is charged to your account balance. Client workspaces use their pool balance instead."
                       : creditsScopeLabel === "member"
                         ? "Credits allocated to you in this workspace by your admin."
                         : creditsScopeLabel === "account_hub"
