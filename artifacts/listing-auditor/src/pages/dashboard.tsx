@@ -36,7 +36,12 @@ import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { DashboardDonutChart } from "@/components/dashboard-donut-chart";
-import { MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
+import { CREATE_VIDEOS_COMING_SOON, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
+import {
+  NewProjectDropdownMenuItems,
+  defaultNewProjectMenuItems,
+  filterNewProjectMenuItems,
+} from "@/components/new-project-dropdown-menu";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -349,15 +354,17 @@ export default function Dashboard() {
     { href: "/videos", label: "Create Videos", feature: "videos" as const },
     { href: "/ads/campaigns", label: "Manage Ads", feature: "ads" as const },
     { href: "/recent-projects", label: "Recent Projects", feature: "recent_projects" as const },
-  ].filter((item) => (isAccountOwner || canView(item.feature)) && !(MANAGE_ADS_COMING_SOON && item.feature === "ads"));
+  ].filter(
+    (item) =>
+      (isAccountOwner || canView(item.feature))
+      && !(MANAGE_ADS_COMING_SOON && item.feature === "ads")
+      && !(CREATE_VIDEOS_COMING_SOON && item.feature === "videos"),
+  );
 
-  const newProjectActions = [
-    { href: "/audits/new", label: "Build Your Brand", feature: "build_brand" as const },
-    { href: "/audit-listings", label: "Audit Listings", feature: "audits" as const },
-    { href: "/projects/create", label: "Create Graphics", feature: "graphics" as const },
-    { href: "/videos", label: "Create Videos", feature: "videos" as const },
-    { href: "/ads/campaigns", label: "Manage Ads", feature: "ads" as const },
-  ].filter((item) => (isAccountOwner || canView(item.feature)) && !(MANAGE_ADS_COMING_SOON && item.feature === "ads"));
+  const newProjectMenuItems = filterNewProjectMenuItems(
+    defaultNewProjectMenuItems,
+    (feature) => isAccountOwner || canView(feature),
+  );
 
   const defaultOwnedWorkspaceId =
     workspaces.find((w) => w.isAccountOwner && w.isDefault)?.id
@@ -646,17 +653,13 @@ export default function Dashboard() {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white shrink-0" disabled={newProjectActions.length === 0}>
+            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white shrink-0" disabled={newProjectMenuItems.length === 0}>
               <Plus className="w-4 h-4" />
               New Project
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            {newProjectActions.map((item) => (
-              <DropdownMenuItem key={item.href} asChild>
-                <Link href={item.href}>{item.label}</Link>
-              </DropdownMenuItem>
-            ))}
+            <NewProjectDropdownMenuItems items={newProjectMenuItems} />
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

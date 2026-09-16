@@ -19,6 +19,9 @@ export type ManageAdsNavItem = {
 /** When true, client sidebar blocks Manage Ads and /ads routes redirect away. */
 export const MANAGE_ADS_COMING_SOON = true;
 
+/** When true, Create Videos nav and New Project entry are disabled (coming soon). */
+export const CREATE_VIDEOS_COMING_SOON = true;
+
 export const MANAGE_ADS_HOME_HREF = "/ads";
 
 export const MANAGE_ADS_NAV_ITEMS: ManageAdsNavItem[] = [
