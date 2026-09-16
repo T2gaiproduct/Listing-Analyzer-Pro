@@ -35,6 +35,16 @@ export function auditAsinScopeFilter(
   asinColumn: typeof auditsTable.asin,
 ): SQL {
   return sourceType === "listing"
-    ? sql`(${asinColumn} IS NULL OR trim(${asinColumn}) = '' OR ${asinColumn} LIKE 'shopify:%')`
-    : sql`(${asinColumn} IS NOT NULL AND trim(${asinColumn}) != '' AND ${asinColumn} NOT LIKE 'shopify:%')`;
+    ? sql`(
+      ${asinColumn} IS NULL
+      OR trim(${asinColumn}) = ''
+      OR ${asinColumn} LIKE 'shopify:%'
+      OR ${asinColumn} LIKE 'woocommerce:%'
+    )`
+    : sql`(
+      ${asinColumn} IS NOT NULL
+      AND trim(${asinColumn}) != ''
+      AND ${asinColumn} NOT LIKE 'shopify:%'
+      AND ${asinColumn} NOT LIKE 'woocommerce:%'
+    )`;
 }

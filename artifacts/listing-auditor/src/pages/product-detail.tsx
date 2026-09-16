@@ -1334,7 +1334,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (isValidProductDetail(apiProduct)) {
       return normalizeStoreImportProductDetail(apiProduct, auditData);
     }
-    if (apiLoading || apiError) return null;
+    if (apiLoading || (shouldFetchAudit && auditLoading)) return null;
     if (auditData && shouldFetchAudit) {
       return normalizeStoreImportProductDetail(
         mapAuditToProductDetail(auditData, "Account Owner", {
@@ -1344,7 +1344,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       );
     }
     return null;
-  }, [apiProduct, apiLoading, apiError, auditData, shouldFetchAudit, source]);
+  }, [apiProduct, apiLoading, auditData, auditLoading, shouldFetchAudit, source]);
 
   const optimizeAuditId = useMemo(
     () => resolveOptimizeAuditId(product, auditData?.id, source),
