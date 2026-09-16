@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Package, PackageSearch, RotateCcw, Search } from "lucide-react";
+import { Loader2, Package, PackageSearch, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -66,10 +66,8 @@ export function BuildBrandProductSearch({
   onSkipToUpload,
 }: BuildBrandProductSearchProps) {
   const [query, setQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | ProductStatus>("");
   const [appliedQuery, setAppliedQuery] = useState("");
-  const [appliedCategory, setAppliedCategory] = useState("");
   const [appliedStatus, setAppliedStatus] = useState<"" | ProductStatus>("");
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -85,42 +83,21 @@ export function BuildBrandProductSearch({
     });
   }, [data?.products]);
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of listingProducts) {
-      if (p.category?.trim()) set.add(p.category.trim());
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [listingProducts]);
-
   const filteredProducts = useMemo(() => {
     const q = appliedQuery.trim().toLowerCase();
     return listingProducts.filter((p) => {
-      if (appliedCategory && (p.category ?? "").trim() !== appliedCategory) return false;
       if (appliedStatus && p.status !== appliedStatus) return false;
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q)
         || p.sku.toLowerCase().includes(q)
-        || (p.category ?? "").toLowerCase().includes(q)
       );
     });
-  }, [listingProducts, appliedQuery, appliedCategory, appliedStatus]);
+  }, [listingProducts, appliedQuery, appliedStatus]);
 
   function handleSearch() {
     setAppliedQuery(query);
-    setAppliedCategory(categoryFilter);
     setAppliedStatus(statusFilter);
-  }
-
-  function handleReset() {
-    setQuery("");
-    setCategoryFilter("");
-    setStatusFilter("");
-    setAppliedQuery("");
-    setAppliedCategory("");
-    setAppliedStatus("");
-    onSelectProduct(null);
   }
 
   return (
@@ -150,16 +127,6 @@ export function BuildBrandProductSearch({
             />
           </div>
           <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 min-w-[10rem]"
-          >
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as "" | ProductStatus)}
             className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 min-w-[9rem]"
@@ -170,23 +137,13 @@ export function BuildBrandProductSearch({
             <option value="draft">Draft</option>
             <option value="failed">Failed</option>
           </select>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white h-11 px-4"
-              onClick={handleSearch}
-            >
-              Search
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-xl border-slate-200 h-11 px-3"
-              onClick={handleReset}
-            >
-              <RotateCcw className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button
+            type="button"
+            className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white h-11 px-4"
+            onClick={handleSearch}
+          >
+            Search
+          </Button>
         </div>
 
         <div className="border border-slate-100 rounded-xl overflow-hidden">
@@ -209,7 +166,7 @@ export function BuildBrandProductSearch({
               <p className="text-xs text-slate-500">
                 {listingProducts.length === 0
                   ? "You have no Build Your Brand projects yet."
-                  : "Try different search terms or reset filters."}
+                  : "Try different search terms or status filter."}
               </p>
             </div>
           ) : (
