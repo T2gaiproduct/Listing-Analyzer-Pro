@@ -237,17 +237,21 @@ export async function getProductOrderStats(auditId: number): Promise<{
       currency: normalizeStoreCurrency(latestOrder?.currency),
     };
   } catch (err) {
-    if (!isMissingProductOrdersColumnError(err, "payment_status")) {
-      throw err;
+    if (isMissingProductOrdersColumnError(err, "payment_status")) {
+      try {
+        const { orders, revenue } = await listProductOrders(auditId, {});
+        const latestOrder = orders[0];
+        return {
+          totalOrders: orders.length,
+          revenue,
+          currency: normalizeStoreCurrency(latestOrder?.currency),
+        };
+      } catch {
+        // fall through to empty stats
+      }
     }
-
-    const { orders, revenue } = await listProductOrders(auditId, {});
-    const latestOrder = orders[0];
-    return {
-      totalOrders: orders.length,
-      revenue,
-      currency: normalizeStoreCurrency(latestOrder?.currency),
-    };
+    console.error("[getProductOrderStats] failed", { auditId, err });
+    return { totalOrders: 0, revenue: 0, currency: "USD" };
   }
 }
 

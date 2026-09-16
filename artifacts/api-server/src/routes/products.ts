@@ -431,14 +431,19 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     return;
   }
 
-  const product = await loadProductDetail(req, id, parseProductSourceFromRequest(req));
-  if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return;
-  }
+  try {
+    const product = await loadProductDetail(req, id, parseProductSourceFromRequest(req));
+    if (!product) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
 
-  res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
-  res.json(product);
+    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+    res.json(product);
+  } catch (err) {
+    req.log?.error?.({ err, productId: id }, "GET /products/:id failed");
+    res.status(500).json({ error: "Failed to load product" });
+  }
 });
 
 router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req: Request, res: Response): Promise<void> => {

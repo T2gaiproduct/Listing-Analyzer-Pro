@@ -14,6 +14,7 @@ import {
   getAccountOwnerId,
   getActiveWorkspaceId,
   getListScopeWorkspaceId,
+  isBillingOwnerAccountOverview,
   getWorkspaceCtx,
   loadWorkedProjects,
   viewOwnIdFilterAny,
@@ -27,7 +28,7 @@ import {
   resolveRevenueCurrency,
 } from "./product-orders.js";
 import {
-  listProductMarketplaces,
+  listProductMarketplacesSafe,
 } from "./product-marketplaces.js";
 import { pickProjectThumbnail } from "./scoped-recents-load.js";
 import {
@@ -233,6 +234,17 @@ async function projectScopeWhere(
   );
 }
 
+function resolveDetailWorkspaceId(
+  req: Request,
+  auditWorkspaceId: number | null | undefined,
+): number | null {
+  if (isBillingOwnerAccountOverview(req)) {
+    return auditWorkspaceId ?? null;
+  }
+  const active = getActiveWorkspaceId(req);
+  return active > 0 ? active : (auditWorkspaceId ?? null);
+}
+
 async function auditMatchesSourceScope(
   auditId: number,
   sourceType: "listing" | "audit",
@@ -260,7 +272,7 @@ async function loadAuditDetail(
     effectiveSource = alternate;
   }
 
-  const workspaceId = getActiveWorkspaceId(req);
+  const workspaceId = resolveDetailWorkspaceId(req, row.workspaceId);
 
   const competitors = await db
     .select({
@@ -309,7 +321,7 @@ async function loadAuditDetail(
     ? `/audits/${row.id}`
     : `/audits/workflow?resume=${row.id}`;
 
-  const marketplaceStats = await listProductMarketplaces(id);
+  const marketplaceStats = await listProductMarketplacesSafe(id);
 
   const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
   const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
@@ -558,7 +570,7 @@ async function loadGraphicsDetail(req: Request, id: number): Promise<ProductDeta
 
   if (statsAuditId) {
     const orderStats = await getProductOrderStats(statsAuditId);
-    const marketplaceStats = await listProductMarketplaces(statsAuditId);
+    const marketplaceStats = await listProductMarketplacesSafe(statsAuditId);
     const revenueCurrency = resolveRevenueCurrency({
       orderCurrency: orderStats.currency,
       listingCurrencies: marketplaceStats.listings.map((listing) => listing.currency),

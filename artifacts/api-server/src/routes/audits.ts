@@ -29,7 +29,7 @@ import {
 import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
 import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refresh.js";
 import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-product-listing-refresh.js";
-import { listProductMarketplaces } from "../lib/product-marketplaces.js";
+import { listProductMarketplacesSafe } from "../lib/product-marketplaces.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import {
   buildDefaultAplusPrompt,
@@ -54,6 +54,7 @@ import {
   resolveTeamAndWorkspace,
   getAccountOwnerId,
   getActiveWorkspaceId,
+  isBillingOwnerAccountOverview,
   getWorkspaceCtx,
   requireWorkspaceAction,
   requireWorkspaceActionAny,
@@ -656,7 +657,10 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
     return;
   }
 
-  const workspaceId = getActiveWorkspaceId(req);
+  const activeWorkspaceId = getActiveWorkspaceId(req);
+  const workspaceId = isBillingOwnerAccountOverview(req)
+    ? (audit.workspaceId ?? null)
+    : (activeWorkspaceId > 0 ? activeWorkspaceId : (audit.workspaceId ?? null));
 
   const [profile] = await db
     .select({ referenceLinks: productProfilesTable.referenceLinks })
@@ -664,7 +668,7 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
     .where(eq(productProfilesTable.auditId, audit.id))
     .limit(1);
 
-  const marketplaceStats = await listProductMarketplaces(audit.id);
+  const marketplaceStats = await listProductMarketplacesSafe(audit.id);
   const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
   const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
   const listingUrl = profile?.referenceLinks?.trim()

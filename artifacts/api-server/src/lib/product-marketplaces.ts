@@ -264,6 +264,22 @@ export async function listProductMarketplaces(auditId: number): Promise<{
   };
 }
 
+/** Non-throwing wrapper for product/audit detail routes (bad rows or DB blips must not 500 the page). */
+export async function listProductMarketplacesSafe(auditId: number): Promise<{
+  listings: MarketplaceListingRow[];
+  activeCount: number;
+  listedCount: number;
+  liveMarketplaces: string[];
+  listedMarketplaces: string[];
+}> {
+  try {
+    return await listProductMarketplaces(auditId);
+  } catch (err) {
+    console.error("[listProductMarketplaces] failed", { auditId, err });
+    return emptyProductMarketplacesResponse();
+  }
+}
+
 /** Live marketplace names per audit id from stored listing rows only. */
 export async function listLiveChannelsForAudits(
   auditIds: number[],
