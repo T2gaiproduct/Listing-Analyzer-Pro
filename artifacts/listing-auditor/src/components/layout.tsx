@@ -1079,8 +1079,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <div className="h-1 w-full bg-gradient-to-r from-primary to-orange-300 flex-shrink-0" />
-
         <DashboardTopbar
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
