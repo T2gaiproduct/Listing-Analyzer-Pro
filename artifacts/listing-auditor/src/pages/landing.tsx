@@ -27,7 +27,7 @@ import { YoutubePosterEmbed } from "@/components/youtube-poster-embed";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
-import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
+import { maxPlanYearlySavingsPercent, planCardCtaClassName, resolvePlanPriceDisplay } from "@/lib/plan-price";
 import { buildSignUpHref } from "@/lib/plan-selection";
 import { cn } from "@/lib/utils";
 import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
@@ -298,7 +298,7 @@ function PricingPlanCard({
   return (
     <div
       className={cn(
-        "rounded-2xl flex flex-col bg-white border relative h-full w-full min-w-[260px] text-left",
+        "rounded-2xl flex flex-col bg-white border relative h-full w-full min-w-[260px] text-left text-slate-900",
         compact ? "p-5" : "p-6 lg:p-7",
         highlighted ? "border-orange-400 shadow-xl shadow-orange-100" : "border-slate-200 shadow-sm",
       )}
@@ -352,7 +352,7 @@ function PricingPlanCard({
         </button>
       )}
       <Button
-        className={cn("w-full mt-auto", highlighted ? "bg-orange-500 hover:bg-orange-600" : "")}
+        className={planCardCtaClassName(highlighted)}
         variant={highlighted ? "default" : "outline"}
         asChild
       >

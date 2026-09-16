@@ -9,7 +9,7 @@ import { PageSeo } from "@/components/page-seo";
 import { cn } from "@/lib/utils";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
-import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
+import { maxPlanYearlySavingsPercent, planCardCtaClassName, resolvePlanPriceDisplay } from "@/lib/plan-price";
 import { appendPlanSelectionToPath, buildSignUpHref, coercePlanId } from "@/lib/plan-selection";
 import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
 
@@ -212,11 +212,12 @@ export default function Pricing() {
             return (
               <div
                 key={plan.name}
-                className={`relative rounded-2xl border p-6 flex flex-col ${
+                className={cn(
+                  "relative rounded-2xl border p-6 flex flex-col text-slate-900",
                   plan.isHighlighted
                     ? "border-orange-400 shadow-xl shadow-orange-100 bg-gradient-to-b from-orange-50 to-white"
-                    : "border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
-                }`}
+                    : "border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow",
+                )}
               >
                 {plan.tag && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -275,7 +276,7 @@ export default function Pricing() {
 
                 <Button
                   variant={plan.ctaVariant}
-                  className={`w-full ${plan.isHighlighted ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}`}
+                  className={planCardCtaClassName(plan.isHighlighted)}
                   asChild
                 >
                   <Link href={

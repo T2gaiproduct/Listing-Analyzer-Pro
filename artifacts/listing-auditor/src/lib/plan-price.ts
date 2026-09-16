@@ -26,3 +26,10 @@ export function maxPlanYearlySavingsPercent(plans: PlanPriceFields[]): number | 
   if (!values.length) return null;
   return Math.max(...values);
 }
+
+/** CTA on white plan cards — explicit colors so dark-mode body text does not wash out on mobile. */
+export function planCardCtaClassName(highlighted: boolean): string {
+  return highlighted
+    ? "w-full mt-auto bg-orange-500 hover:bg-orange-600 text-white border-0"
+    : "w-full mt-auto border-slate-300 bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900";
+}
