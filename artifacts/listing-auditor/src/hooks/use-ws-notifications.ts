@@ -15,13 +15,14 @@ export function useWsNotifications() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const url = buildNotificationWebSocketUrl();
-    if (!url) return;
+    const builtWsUrl = buildNotificationWebSocketUrl();
+    if (builtWsUrl === null) return;
+    const socketUrl: string = builtWsUrl;
 
     function connect() {
       if (pausedRef.current || wsRef.current?.readyState === WebSocket.OPEN) return;
 
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(socketUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {

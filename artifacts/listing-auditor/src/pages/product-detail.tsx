@@ -25,6 +25,10 @@ import {
   Type,
 } from "lucide-react";
 import { getAudit, useGenerateContent, type AuditWithResults, type GetAuditQueryResult } from "@workspace/api-client-react";
+
+function productAuditQueryKey(auditId: number) {
+  return ["product-audit", auditId] as const;
+}
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
 import type { ReferenceResearchData } from "@/lib/reference-research";
 import { formatAiErrorMessage } from "@/lib/ai-error-message";
@@ -1562,7 +1566,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (productImageUrls.length === 0) return;
     const auditId = optimizeAuditId ?? id;
     queryClient.setQueryData<GetAuditQueryResult>(
-      getGetAuditQueryKey(auditId),
+      productAuditQueryKey(auditId),
       (current) => {
         if (!current) return current;
         const merged = [...(current.imageUrls ?? [])];
@@ -1578,8 +1582,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
     await Promise.all([
       queryClient.refetchQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] }),
-      queryClient.refetchQueries({ queryKey: getGetAuditQueryKey(auditId) }),
-      queryClient.refetchQueries({ queryKey: getGetAuditQueryKey(id) }),
+      queryClient.refetchQueries({ queryKey: productAuditQueryKey(auditId) }),
+      queryClient.refetchQueries({ queryKey: productAuditQueryKey(id) }),
       queryClient.refetchQueries({ queryKey: ["product-marketplaces", id, resolvedSource] }),
     ]);
   }
@@ -2073,7 +2077,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       body: JSON.stringify({ currentStep: apiStep }),
     });
     void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
-    void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+    void queryClient.invalidateQueries({ queryKey: productAuditQueryKey(auditId) });
   }
 
   async function saveAndContinueWorkflowStep(
@@ -2271,12 +2275,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
   function handleReferenceResearchUpdated(data: ReferenceResearchData) {
     const auditId = optimizeAuditId ?? id;
     queryClient.setQueryData<GetAuditQueryResult>(
-      getGetAuditQueryKey(auditId),
+      productAuditQueryKey(auditId),
       (current) => (current ? { ...current, referenceResearch: data } as GetAuditQueryResult : current),
     );
     if (auditId !== id) {
       queryClient.setQueryData<GetAuditQueryResult>(
-        getGetAuditQueryKey(id),
+        productAuditQueryKey(id),
         (current) => (current ? { ...current, referenceResearch: data } as GetAuditQueryResult : current),
       );
     }
@@ -2308,7 +2312,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
             : undefined;
 
           queryClient.setQueryData<GetAuditQueryResult>(
-            getGetAuditQueryKey(optimizeAuditId),
+            productAuditQueryKey(optimizeAuditId),
             (current) => (current
               ? {
                   ...current,
@@ -2319,7 +2323,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           );
           if (optimizeAuditId !== id) {
             queryClient.setQueryData<GetAuditQueryResult>(
-              getGetAuditQueryKey(id),
+              productAuditQueryKey(id),
               (current) => (current
                 ? {
                     ...current,
@@ -2330,7 +2334,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
             );
           }
           void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
-          void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(optimizeAuditId) });
+          void queryClient.invalidateQueries({ queryKey: productAuditQueryKey(optimizeAuditId) });
           refreshCreditBalances(queryClient);
           toast({
             title: "Listing content regenerated",
