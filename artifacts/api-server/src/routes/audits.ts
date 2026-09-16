@@ -79,7 +79,6 @@ import {
 } from "../lib/amazon-listing-export.js";
 import { buildAuditExportPreview } from "../lib/build-brand-export-preview.js";
 import { createListingPreviewShareToken } from "../lib/listing-preview-share-token.js";
-import { resolveListingPreviewShareBaseUrl, resolvePublicBaseUrl } from "../lib/resolve-public-base-url.js";
 import {
   buildShopifyExportBundle,
   buildShopifyCsvBuffer,
@@ -90,7 +89,7 @@ import { loadAuditForExport } from "../lib/audit-export-loader.js";
 import { materializeAuditImagesForPublish } from "../lib/materialize-audit-images-for-publish.js";
 import {
   resolveAmazonExportImageBaseUrl,
-  resolvePublicBaseUrl as resolveExportPublicBaseUrl,
+  resolveListingPreviewShareBaseUrl,
 } from "../lib/resolve-public-base-url.js";
 
 export type ExportPlatform = "amazon" | "shopify";
