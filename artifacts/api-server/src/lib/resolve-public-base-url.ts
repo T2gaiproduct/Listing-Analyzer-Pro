@@ -53,6 +53,50 @@ export function resolvePublicBaseUrl(req: Request): string {
   return fromRequest;
 }
 
+/**
+ * Origin for public listing-preview share links (SPA route — never API port 8080).
+ */
+export function resolveListingPreviewShareBaseUrl(req: Request): string {
+  let base = resolvePublicBaseUrl(req).replace(/\/$/, "");
+
+  try {
+    const url = new URL(base);
+    if (url.port === "8080") {
+      url.protocol = "http:";
+      url.port = "3000";
+      base = url.origin;
+    }
+    if (
+      (url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1")
+      && base.startsWith("https:")
+    ) {
+      base = `http://${url.host.replace(/:8080$/, ":3000")}`;
+    }
+  } catch {
+    /* keep base */
+  }
+
+  if (/127\.0\.0\.1:8080|localhost:8080/i.test(base)) {
+    const tunnel = readDevTunnelPublicUrl();
+    if (tunnel) return tunnel.replace(/\/$/, "");
+    return base.replace(/:8080/i, ":3000").replace(/^https:/i, "http:");
+  }
+
+  if (isLocalhostOrigin(base)) {
+    const configured = getConfiguredAppUrl();
+    if (configured && !isLocalhostOrigin(configured)) {
+      try {
+        const cfg = new URL(configured.startsWith("http") ? configured : `https://${configured}`);
+        return cfg.origin;
+      } catch {
+        return configured.replace(/\/$/, "");
+      }
+    }
+  }
+
+  return base;
+}
+
 function resolveConfiguredHttpsBaseUrl(): string | undefined {
   const explicit = process.env.MARKETPLACE_PUBLISH_BASE_URL?.trim().replace(/\/$/, "");
   const configured = explicit || getConfiguredAppUrl();

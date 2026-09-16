@@ -79,7 +79,7 @@ import {
 } from "../lib/amazon-listing-export.js";
 import { buildAuditExportPreview } from "../lib/build-brand-export-preview.js";
 import { createListingPreviewShareToken } from "../lib/listing-preview-share-token.js";
-import { resolvePublicBaseUrl } from "../lib/resolve-public-base-url.js";
+import { resolveListingPreviewShareBaseUrl, resolvePublicBaseUrl } from "../lib/resolve-public-base-url.js";
 import {
   buildShopifyExportBundle,
   buildShopifyCsvBuffer,
@@ -658,7 +658,7 @@ router.get("/audits/:id/listing-preview-share", requireAuth, resolveTeamAndWorks
   }
 
   const token = createListingPreviewShareToken(audit.id);
-  const origin = resolvePublicBaseUrl(req).replace(/\/$/, "");
+  const origin = resolveListingPreviewShareBaseUrl(req).replace(/\/$/, "");
   const url = `${origin}/listing-preview/${audit.id}?token=${encodeURIComponent(token)}`;
   res.json({ url });
 });

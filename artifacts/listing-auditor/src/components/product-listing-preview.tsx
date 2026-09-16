@@ -116,7 +116,14 @@ export function ProductListingPreview({
         credentials: "include",
       });
       if (!res.ok) throw new Error("Could not create preview link");
-      const { url } = await res.json() as { url: string };
+      const { url: serverUrl } = await res.json() as { url: string };
+      const token = new URL(serverUrl, window.location.href).searchParams.get("token");
+      if (!token) throw new Error("Invalid share response");
+      let origin = window.location.origin.replace(/\/$/, "");
+      if (origin.endsWith(":8080")) {
+        origin = origin.replace(/:8080$/, ":3000");
+      }
+      const url = `${origin}/listing-preview/${auditId}?token=${encodeURIComponent(token)}`;
       await copyTextToClipboard(url);
       toast({
         title: "Preview link copied",
