@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   useGetAudit, useDeleteAudit, useDeleteCompetitor,
@@ -18,6 +18,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
+import {
+  formatHtmlDescriptionForPreview,
+  normalizeBulletPoints,
+} from "@/lib/listing-content-format";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -258,6 +262,16 @@ export default function AuditDetail({ id }: { id: number }) {
   ];
 
   const gc = audit.generatedContent;
+  const displayBullets = useMemo(
+    () => (gc ? normalizeBulletPoints(gc.bulletPoints) : []),
+    [gc],
+  );
+  const descriptionPreviewHtml = useMemo(
+    () => (gc
+      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(gc.htmlDescription))
+      : ""),
+    [gc],
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 w-full min-w-0 max-w-full">
@@ -483,14 +497,13 @@ export default function AuditDetail({ id }: { id: number }) {
                   <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                     <AlignLeft className="w-3.5 h-3.5" /> Bullet Points
                   </CardTitle>
-                  <CopyButton text={gc.bulletPoints.join("\n")} label="Bullet points" />
+                  <CopyButton text={displayBullets.join("\n")} label="Bullet points" />
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3">
-                    {gc.bulletPoints.map((bp, i) => (
-                      <li key={i} className="flex gap-3 group">
-                        <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                        <span className="text-sm leading-relaxed text-foreground/90">{bp}</span>
+                  <ul className="list-disc pl-5 space-y-2.5">
+                    {displayBullets.map((bp, i) => (
+                      <li key={i} className="text-sm leading-relaxed text-foreground/90">
+                        {bp}
                       </li>
                     ))}
                   </ul>
@@ -524,8 +537,8 @@ export default function AuditDetail({ id }: { id: number }) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div
-                    className="prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(gc.htmlDescription) }}
+                    className="amazon-listing-description prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
+                    dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
                   />
                   <details className="text-xs">
                     <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-mono">View raw HTML</summary>

@@ -1,6 +1,10 @@
 import { generateChatCompletion } from "./ai-provider";
 import type { GeneratedContent } from "@workspace/db";
 import { sanitizeHtmlDescription } from "./sanitize-html.js";
+import {
+  normalizeBulletPoints,
+  normalizeListingHtmlDescription,
+} from "./listing-content-format.js";
 
 /** Remove "Why You'll Love It" (and common variants) from generated HTML descriptions. */
 export function stripWhyYoullLoveItSection(html: string): string {
@@ -86,19 +90,19 @@ WRITING STYLE:
 Generate exactly 5 high-converting, SEO-friendly, Amazon-ready bullet points following these rules.
 
 OUTPUT REQUIREMENTS:
-- Exactly 5 bullet points.
+- Exactly 5 bullet points in the JSON array.
 - Each bullet approximately 180–250 characters.
-- Return only the bullet points without headings, numbering, introductions, explanations, or Markdown.
+- Plain text only: NO bullet symbols (•), NO numbering (1. 2.), NO Markdown (**bold**), NO HTML.
 
 BULLET POINT STRUCTURE:
 Each bullet must follow this exact format:
-• **FEATURE TITLE IN ALL CAPS:** Customer benefit → Supporting details → Practical value.
+FEATURE TITLE IN ALL CAPS – Customer benefit, supporting details, and practical value in one flowing sentence.
 
 Example:
-• **PREMIUM MATERIAL:** Crafted from food-grade stainless steel that delivers exceptional durability, resists rust, and provides reliable everyday performance for long-lasting use.
+PREMIUM MATERIAL – Crafted from food-grade stainless steel that delivers exceptional durability, resists rust, and provides reliable everyday performance for long-lasting use.
 
 WRITING GUIDELINES:
-1. Feature Title — Start with the • symbol, followed by a concise FEATURE TITLE in ALL CAPS, ending with a colon.
+1. Feature Title — Start with a concise FEATURE TITLE IN ALL CAPS, then an en-dash (–), then the benefit copy. Do not use a colon after the title.
 2. Sell Benefits, Not Just Features — Every bullet must explain why the feature matters, how it improves the customer's experience, and what problem it solves. Avoid listing specs alone.
 3. Naturally Include SEO Keywords — Include relevant keywords naturally without stuffing. Keywords should read naturally within sentences.
 4. Make Every Bullet Unique — Cover a different selling point in each bullet (e.g., Premium Material, Performance, Ease of Use, Comfort & Design, Versatility, Safety, Durability, Convenience, Compatibility, Purchase Confidence). Avoid repeating benefits or keywords.
@@ -129,6 +133,7 @@ HTML STRUCTURE:
 - Generate clean, lightweight HTML only.
 - Do not use CSS, JavaScript, tables, or external styling.
 - Use only Amazon-supported HTML tags: <h2>, <h3>, <p>, <strong>, <ul>, <li>, <br>.
+- Use <h2> for the main heading (not <h1>). Use <ul> for lists (not <ol>). Do not put numbers or bullet characters inside <li> text.
 
 CONTENT LAYOUT (follow this exact 5-section structure inside the htmlDescription string):
 
@@ -181,13 +186,15 @@ Return ONLY the JSON object, no markdown, no explanation.`;
 
   try {
     const parsed = JSON.parse(content);
+    const rawDescription = stripWhyYoullLoveItSection(
+      parsed.htmlDescription ?? "<p>Description not available.</p>",
+    );
+    const normalizedDescription = normalizeListingHtmlDescription(rawDescription);
     return {
       title: parsed.title ?? data.currentTitle,
-      bulletPoints: parsed.bulletPoints ?? data.currentBullets,
+      bulletPoints: normalizeBulletPoints(parsed.bulletPoints ?? data.currentBullets),
       keywords: parsed.keywords ?? data.currentKeywords,
-      htmlDescription: sanitizeHtmlDescription(
-        stripWhyYoullLoveItSection(parsed.htmlDescription ?? "<p>Description not available.</p>"),
-      ),
+      htmlDescription: sanitizeHtmlDescription(normalizedDescription),
     };
   } catch {
     return {

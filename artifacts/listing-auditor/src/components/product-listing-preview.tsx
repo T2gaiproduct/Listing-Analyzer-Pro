@@ -20,6 +20,10 @@ import {
   resolveListingPreviewImageUrl,
 } from "@/lib/collect-listing-preview-images";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
+import {
+  formatHtmlDescriptionForPreview,
+  normalizeBulletPoints,
+} from "@/lib/listing-content-format";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -104,15 +108,22 @@ export function ProductListingPreview({
 
   const bullets = useMemo(() => {
     const fromGenerated = generatedContent?.bulletPoints?.filter((b) => b.trim()) ?? [];
-    if (fromGenerated.length) return fromGenerated;
+    if (fromGenerated.length) return normalizeBulletPoints(fromGenerated);
     const fromAudit = audit?.generatedContent?.bulletPoints?.filter((b) => b.trim()) ?? [];
-    if (fromAudit.length) return fromAudit;
-    return (audit?.bulletPoints ?? []).filter((b) => b?.trim());
+    if (fromAudit.length) return normalizeBulletPoints(fromAudit);
+    return normalizeBulletPoints((audit?.bulletPoints ?? []).filter((b) => b?.trim()));
   }, [generatedContent, audit]);
 
   const htmlDescription = generatedContent?.htmlDescription?.trim()
     || audit?.generatedContent?.htmlDescription?.trim()
     || "";
+
+  const descriptionPreviewHtml = useMemo(
+    () => (htmlDescription
+      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(htmlDescription))
+      : ""),
+    [htmlDescription],
+  );
 
   const displayBrand = brandName?.trim() || audit?.brandName?.trim() || "Your brand";
   const displayCategory = category?.trim() || audit?.category?.trim() || "General";
@@ -450,8 +461,8 @@ export function ProductListingPreview({
           <div className="border-t border-slate-100 px-4 py-3 lg:px-5">
             <p className="text-[11px] font-semibold text-slate-900 mb-1.5">Product description</p>
             <div
-              className="prose prose-sm max-w-none text-slate-700 text-[11px]"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(htmlDescription) }}
+              className="amazon-listing-description prose prose-sm max-w-none text-slate-700 text-[11px]"
+              dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
             />
           </div>
         )}

@@ -293,4 +293,28 @@
     height: 0;
     background: transparent;
   }
+
+  .amazon-listing-description h2 {
+    @apply text-base font-semibold text-foreground mt-4 mb-2 first:mt-0;
+  }
+
+  .amazon-listing-description h3 {
+    @apply text-sm font-semibold text-foreground mt-3 mb-1.5;
+  }
+
+  .amazon-listing-description p {
+    @apply text-sm leading-relaxed text-foreground/90 mb-2 last:mb-0;
+  }
+
+  .amazon-listing-description ul {
+    @apply list-disc pl-5 space-y-1 mb-3;
+  }
+
+  .amazon-listing-description li {
+    @apply text-sm leading-relaxed text-foreground/90;
+  }
+
+  .amazon-listing-description strong {
+    @apply font-semibold text-foreground;
+  }
 }

@@ -42,6 +42,10 @@ import type { AmazonMarketplaceId } from "@/lib/amazon-export";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
+import {
+  formatHtmlDescriptionForPreview,
+  normalizeBulletPoints,
+} from "@/lib/listing-content-format";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
@@ -605,6 +609,16 @@ export default function AuditWorkflow() {
   const [currentAuditId, setCurrentAuditId] = useState<number | null>(null);
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
+  const previewBullets = useMemo(
+    () => (generatedContent ? normalizeBulletPoints(generatedContent.bulletPoints) : []),
+    [generatedContent],
+  );
+  const descriptionPreviewHtml = useMemo(
+    () => (generatedContent
+      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(generatedContent.htmlDescription))
+      : ""),
+    [generatedContent],
+  );
   const [isDirty, setIsDirty] = useState(false);
   const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
@@ -1896,12 +1910,9 @@ export default function AuditWorkflow() {
                     {/* Bullet Points */}
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Bullet Points</p>
-                      <ul className="space-y-1.5">
-                        {generatedContent.bulletPoints.map((b, i) => (
-                          <li key={i} className="text-xs text-foreground flex items-start gap-2">
-                            <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                            {b}
-                          </li>
+                      <ul className="list-disc pl-4 space-y-1.5 text-xs text-foreground leading-relaxed">
+                        {previewBullets.map((b, i) => (
+                          <li key={i}>{b}</li>
                         ))}
                       </ul>
                     </div>
@@ -1953,8 +1964,8 @@ export default function AuditWorkflow() {
                       </div>
                       {descViewMode === "preview" ? (
                         <div
-                          className="prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
-                          dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(generatedContent.htmlDescription) }}
+                          className="amazon-listing-description prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
+                          dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
                         />
                       ) : (
                         <pre className="text-xs text-slate-100 leading-relaxed border rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">{generatedContent.htmlDescription}</pre>

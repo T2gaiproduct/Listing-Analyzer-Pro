@@ -3,6 +3,7 @@ import type { GeneratedContent } from "@workspace/db";
 import { db, auditsTable, productMarketplaceListingsTable } from "@workspace/db";
 import { bulletsToHtmlDescription } from "./resolve-listing-content.js";
 import { sanitizeHtmlDescription } from "./sanitize-html.js";
+import { normalizeBulletPoints as normalizeListingBullets } from "./listing-content-format.js";
 
 export interface ProductListingPatchInput {
   listingTitle?: string;
@@ -14,7 +15,7 @@ export interface ProductListingPatchInput {
 }
 
 function normalizeBulletPoints(raw: string[]): string[] {
-  return raw.map((bullet) => bullet.trim()).filter(Boolean).slice(0, 10);
+  return normalizeListingBullets(raw).slice(0, 10);
 }
 
 function normalizeKeywords(raw: string[]): string[] {

@@ -29,6 +29,10 @@ import type { AuditResult, GeneratedContent } from "@workspace/api-client-react"
 import type { ReferenceResearchData } from "@/lib/reference-research";
 import { formatAiErrorMessage } from "@/lib/ai-error-message";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
+import {
+  formatHtmlDescriptionForPreview,
+  normalizeBulletPoints,
+} from "@/lib/listing-content-format";
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
@@ -724,9 +728,17 @@ function ListingContentCard({
 }) {
   const { toast } = useToast();
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
-  const contentBullets = hideBulletPoints ? [] : (content?.bulletPoints?.filter(Boolean) ?? []);
+  const contentBullets = hideBulletPoints
+    ? []
+    : normalizeBulletPoints(content?.bulletPoints?.filter(Boolean) ?? []);
   const keywords = content?.keywords?.filter(Boolean) ?? [];
   const htmlDescription = content?.htmlDescription?.trim() ?? "";
+  const descriptionPreviewHtml = useMemo(
+    () => (htmlDescription
+      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(htmlDescription))
+      : ""),
+    [htmlDescription],
+  );
   const category = content?.category?.trim() ?? "";
   const hasContent = Boolean(content?.title?.trim())
     || contentBullets.length > 0
@@ -755,9 +767,6 @@ function ListingContentCard({
     ? "bg-orange-50 border-orange-100"
     : "bg-slate-50 border-slate-100";
   const headerTextClass = accent === "orange" ? "text-orange-900" : "text-slate-700";
-  const bulletBadgeClass = accent === "orange"
-    ? "bg-orange-100 text-orange-600"
-    : "bg-slate-100 text-slate-600";
   const keywordClass = accent === "orange"
     ? "bg-orange-50 text-orange-700 border-orange-100"
     : "bg-slate-50 text-slate-700 border-slate-200";
@@ -824,19 +833,13 @@ function ListingContentCard({
                 Copy
               </button>
             </div>
-            <ul className="space-y-2">
+            <ul className="list-disc pl-4 space-y-1.5">
               {contentBullets.map((bullet, index) => (
-                <li key={`${index}-${bullet.slice(0, 24)}`} className="flex items-start gap-2">
-                  <span className={cn(
-                    "w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5",
-                    bulletBadgeClass,
-                  )}
-                  >
-                    {index + 1}
-                  </span>
-                  <span className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
-                    {bullet}
-                  </span>
+                <li
+                  key={`${index}-${bullet.slice(0, 24)}`}
+                  className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words"
+                >
+                  {bullet}
                 </li>
               ))}
             </ul>
@@ -917,8 +920,8 @@ function ListingContentCard({
             </div>
             {descViewMode === "preview" ? (
               <div
-                className="prose prose-sm max-w-none text-slate-800 border border-slate-200 rounded-md p-3 bg-slate-50/50"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(htmlDescription) }}
+                className="amazon-listing-description prose prose-sm max-w-none text-slate-800 border border-slate-200 rounded-md p-3 bg-slate-50/50"
+                dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
               />
             ) : (
               <pre className="text-[10px] text-slate-100 leading-relaxed border border-slate-700 rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">
