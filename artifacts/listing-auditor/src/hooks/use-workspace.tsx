@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -277,7 +277,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     && workspaceApiScopeActive
     && parseWorkspaceRouteId(location) == null;
 
-  useEffect(() => {
+  // Sync before child components fire API requests (useEffect runs too late).
+  if (isAgencyAccountOverview) {
+    setActiveWorkspaceId(null);
+  } else {
+    setActiveWorkspaceId(activeWorkspaceId);
+  }
+
+  useLayoutEffect(() => {
     if (isAgencyAccountOverview) {
       setActiveWorkspaceId(null);
       return;

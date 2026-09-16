@@ -24,7 +24,7 @@ import {
   Tag,
   Type,
 } from "lucide-react";
-import { useGetAudit, getGetAuditQueryKey, useGenerateContent, type GetAuditQueryResult } from "@workspace/api-client-react";
+import { getAudit, useGenerateContent, type AuditWithResults, type GetAuditQueryResult } from "@workspace/api-client-react";
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
 import type { ReferenceResearchData } from "@/lib/reference-research";
 import { formatAiErrorMessage } from "@/lib/ai-error-message";
@@ -91,6 +91,19 @@ function productDetailQueryString(source: ProductSourceType | null, scope: Produ
   if (scope.accountOverview) params.set("scope", "account");
   const qs = params.toString();
   return qs ? `?${qs}` : "";
+}
+
+async function fetchAuditForProductDetail(
+  id: number,
+  accountOverview: boolean,
+): Promise<AuditWithResults> {
+  if (accountOverview) {
+    return fetchJson<AuditWithResults>(
+      `${basePath}/api/audits/${id}?scope=account`,
+      { skipWorkspaceHeader: true },
+    );
+  }
+  return getAudit(id);
 }
 
 async function fetchProductDetail(
@@ -1271,6 +1284,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   );
   const productQueryScope = showAccountProducts ? "owner-account" : featureWorkspaceId;
   const productApiScope: ProductApiScope = { accountOverview: showAccountProducts };
+  const auditQueryScope = showAccountProducts ? "account" : String(featureWorkspaceId ?? "workspace");
   const [location, navigate] = useLocation();
   const [imageFailed, setImageFailed] = useState(false);
   const [isEditingListing, setIsEditingListing] = useState(false);
@@ -1322,12 +1336,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
     data: auditData,
     isLoading: auditLoading,
     isError: auditError,
-  } = useGetAudit(id, {
-    query: {
-      queryKey: getGetAuditQueryKey(id),
-      enabled: queryEnabled && shouldFetchAudit,
-      retry: 1,
-    },
+  } = useQuery({
+    queryKey: ["product-audit", id, auditQueryScope],
+    queryFn: () => fetchAuditForProductDetail(id, showAccountProducts),
+    enabled: queryEnabled && shouldFetchAudit,
+    retry: 1,
   });
 
   const product = useMemo((): ProductDetailView | null => {
@@ -1355,12 +1368,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
     && optimizeAuditId != null
     && optimizeAuditId !== id;
 
-  const { data: linkedAuditData } = useGetAudit(optimizeAuditId ?? 0, {
-    query: {
-      queryKey: getGetAuditQueryKey(optimizeAuditId ?? 0),
-      enabled: shouldFetchLinkedAudit,
-      retry: 1,
-    },
+  const { data: linkedAuditData } = useQuery({
+    queryKey: ["product-audit", optimizeAuditId ?? 0, auditQueryScope],
+    queryFn: () => fetchAuditForProductDetail(optimizeAuditId ?? 0, showAccountProducts),
+    enabled: shouldFetchLinkedAudit,
+    retry: 1,
   });
 
   const effectiveAudit = useMemo(() => {

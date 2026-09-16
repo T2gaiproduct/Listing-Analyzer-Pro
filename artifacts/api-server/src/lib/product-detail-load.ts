@@ -233,6 +233,18 @@ async function projectScopeWhere(
   );
 }
 
+async function auditMatchesSourceScope(
+  auditId: number,
+  sourceType: "listing" | "audit",
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: auditsTable.id })
+    .from(auditsTable)
+    .where(and(eq(auditsTable.id, auditId), auditAsinScopeFilter(sourceType, auditsTable.asin)))
+    .limit(1);
+  return Boolean(row);
+}
+
 async function loadAuditDetail(
   req: Request,
   id: number,
@@ -241,12 +253,12 @@ async function loadAuditDetail(
   const row = await loadAuditForRequest(req, id, "read");
   if (!row) return null;
 
-  const [asinScoped] = await db
-    .select({ id: auditsTable.id })
-    .from(auditsTable)
-    .where(and(eq(auditsTable.id, id), auditAsinScopeFilter(sourceType, auditsTable.asin)))
-    .limit(1);
-  if (!asinScoped) return null;
+  let effectiveSource = sourceType;
+  if (!(await auditMatchesSourceScope(id, sourceType))) {
+    const alternate = sourceType === "listing" ? "audit" : "listing";
+    if (!(await auditMatchesSourceScope(id, alternate))) return null;
+    effectiveSource = alternate;
+  }
 
   const workspaceId = getActiveWorkspaceId(req);
 
@@ -280,20 +292,20 @@ async function loadAuditDetail(
   const isWooCommerceImport = isWooCommerceImportAsin(row.asin);
   const isStoreImport = isShopifyImport || isWooCommerceImport;
   const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Project";
-  const sku = profile?.sku?.trim() || deriveSku(name, row.id, sourceType === "audit" ? "AUD" : undefined);
+  const sku = profile?.sku?.trim() || deriveSku(name, row.id, effectiveSource === "audit" ? "AUD" : undefined);
   const displayManagerName = profile?.assignedManager?.trim() || managerName;
   const mapped = mapProductStatus(row.status, row.currentStep);
   const stageLabel = isShopifyImport
     ? "Imported from Shopify"
     : isWooCommerceImport
       ? "Imported from WooCommerce"
-    : sourceType === "audit"
+    : effectiveSource === "audit"
       ? (row.status === "complete" ? "Audit Results" : "Audit in progress")
       : mapStageLabel(row.status, row.currentStep);
-  const progress = sourceType === "audit"
+  const progress = effectiveSource === "audit"
     ? (row.status === "complete" ? 100 : row.overallScore ? Math.min(95, row.overallScore) : 40)
     : calcProgress(row.status, row.currentStep);
-  const workflowUrl = sourceType === "audit"
+  const workflowUrl = effectiveSource === "audit"
     ? `/audits/${row.id}`
     : `/audits/workflow?resume=${row.id}`;
 
@@ -401,7 +413,7 @@ async function loadAuditDetail(
   );
   const displayStatus = storeLive ? "active" as const : mapped.status;
   const displayStatusLabel = storeLive ? "Live" : (mapped.status === "active" ? "Live" : mapped.label);
-  const effectiveSourceType = isStoreImport ? "listing" : sourceType;
+  const effectiveSourceType = isStoreImport ? "listing" : effectiveSource;
   const storeReferenceUrl = isShopifyImport
     ? (profile?.referenceLinks?.trim()
       || marketplaceStats.listings.find((l) => l.marketplace === "Shopify")?.listingUrl?.trim()
@@ -467,7 +479,7 @@ async function loadAuditDetail(
       ? "Shopify Import"
       : isWooCommerceImport
         ? "WooCommerce Import"
-        : SOURCE_TYPE_LABELS[sourceType],
+        : SOURCE_TYPE_LABELS[effectiveSource],
     isShopifyImport,
     isWooCommerceImport,
     referenceUrl: storeReferenceUrl,
