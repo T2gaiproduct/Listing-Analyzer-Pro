@@ -15,6 +15,7 @@ const PUBLIC_CMS_PREFIXES = [
   "/tutorials",
   "/sign-in",
   "/sign-up",
+  "/listing-preview",
 ];
 
 const PRIVATE_PREFIXES = [

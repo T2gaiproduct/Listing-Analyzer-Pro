@@ -77,6 +77,23 @@ function generatePassword(): string {
 
 // ─── Public ──────────────────────────────────────────────────────────────────
 
+router.get("/public/listing-preview/:auditId", async (req, res): Promise<void> => {
+  const auditId = Number.parseInt(String(req.params.auditId ?? ""), 10);
+  const token = String(req.query.token ?? "").trim();
+  if (!Number.isFinite(auditId) || auditId <= 0 || !token) {
+    res.status(400).json({ error: "Invalid preview link" });
+    return;
+  }
+
+  const { loadPublicListingPreview } = await import("../lib/public-listing-preview.js");
+  const payload = await loadPublicListingPreview(req, auditId, token);
+  if (!payload) {
+    res.status(404).json({ error: "Preview not found or link expired" });
+    return;
+  }
+  res.json(payload);
+});
+
 router.get("/plans", async (_req, res): Promise<void> => {
   const plans = await db.select().from(plansTable)
     .where(eq(plansTable.isActive, true))

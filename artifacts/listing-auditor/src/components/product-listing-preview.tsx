@@ -7,10 +7,12 @@ import {
   ChevronRight,
   ChevronUp,
   Eye,
+  Link2,
   RefreshCw,
   Star,
   X,
 } from "lucide-react";
+import { copyTextToClipboard } from "@/lib/project-share";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { ListingExportButton } from "@/components/listing-export-button";
@@ -25,6 +27,7 @@ import {
   normalizeBulletPoints,
 } from "@/lib/listing-content-format";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -71,6 +74,10 @@ export function ProductListingPreview({
   edgeToEdge = false,
   showExportButton = false,
   exportDisabled = false,
+  /** Skip authenticated graphics fetch (public share page). */
+  publicView = false,
+  /** Show "Copy preview link" for signed-in users (generates public no-auth URL). */
+  sharePreviewLink = false,
 }: {
   auditId: number;
   audit: AuditLike | null | undefined;
@@ -85,6 +92,8 @@ export function ProductListingPreview({
   /** Amazon listing Excel export (Product Explorer listing preview). */
   showExportButton?: boolean;
   exportDisabled?: boolean;
+  publicView?: boolean;
+  sharePreviewLink?: boolean;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -92,12 +101,35 @@ export function ProductListingPreview({
   const [lightboxStandaloneUrl, setLightboxStandaloneUrl] = useState<string | null>(null);
   const thumbRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
+  const { toast } = useToast();
+
   const { data: graphicsProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId, refreshKey],
     queryFn: () => fetchGraphicsProjectForAudit(auditId),
-    enabled: auditId > 0,
+    enabled: !publicView && auditId > 0,
     staleTime: 10_000,
   });
+
+  async function handleCopyPreviewLink() {
+    try {
+      const res = await fetch(`${basePath}/api/audits/${auditId}/listing-preview-share`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Could not create preview link");
+      const { url } = await res.json() as { url: string };
+      await copyTextToClipboard(url);
+      toast({
+        title: "Preview link copied",
+        description: "Anyone with this link can view the listing preview without signing in.",
+      });
+    } catch {
+      toast({
+        title: "Could not copy link",
+        description: "Make sure you are signed in and have access to this project.",
+        variant: "destructive",
+      });
+    }
+  }
 
   const title = useMemo(() => {
     const fromGenerated = generatedContent?.title?.trim()
@@ -255,16 +287,30 @@ export function ProductListingPreview({
               className="h-7 text-[10px] rounded-lg gap-1"
             />
           )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 text-[10px] rounded-lg gap-1"
-            onClick={() => setRefreshKey((k) => k + 1)}
-          >
-            <RefreshCw className="w-3 h-3" />
-            Refresh preview
-          </Button>
+          {sharePreviewLink && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] rounded-lg gap-1"
+              onClick={() => void handleCopyPreviewLink()}
+            >
+              <Link2 className="w-3 h-3" />
+              Copy preview link
+            </Button>
+          )}
+          {!publicView && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] rounded-lg gap-1"
+              onClick={() => setRefreshKey((k) => k + 1)}
+            >
+              <RefreshCw className="w-3 h-3" />
+              Refresh preview
+            </Button>
+          )}
         </div>
       </div>
 

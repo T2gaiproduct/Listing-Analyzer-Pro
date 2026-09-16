@@ -27,6 +27,7 @@ export const BlogPost = lazy(() => import("@/pages/blog-post"));
 export const Terms = lazy(() => import("@/pages/terms"));
 export const Privacy = lazy(() => import("@/pages/privacy"));
 export const Tutorials = lazy(() => import("@/pages/tutorials"));
+export const PublicListingPreviewPage = lazy(() => import("@/pages/public-listing-preview"));
 
 export const Dashboard = lazy(() => import("@/pages/dashboard"));
 export const ProductsPage = lazy(() => import("@/pages/products"));

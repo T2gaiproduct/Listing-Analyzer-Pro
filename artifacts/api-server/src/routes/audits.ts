@@ -78,6 +78,8 @@ import {
   exportFilename,
 } from "../lib/amazon-listing-export.js";
 import { buildAuditExportPreview } from "../lib/build-brand-export-preview.js";
+import { createListingPreviewShareToken } from "../lib/listing-preview-share-token.js";
+import { resolvePublicBaseUrl } from "../lib/resolve-public-base-url.js";
 import {
   buildShopifyExportBundle,
   buildShopifyCsvBuffer,
@@ -640,6 +642,25 @@ router.post("/audits/:id/analyze", requireAuth, resolveTeamAndWorkspace, require
   const creditCtx = buildTeamAwareCreditCtx(req);
   const outcome = await runListingAuditForAuditId(audit.id, creditCtx);
   await sendRunListingAuditResult(res, audit.id, outcome);
+});
+
+router.get("/audits/:id/listing-preview-share", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const params = GetAuditParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const audit = await loadScopedAudit(req, params.data.id, "read");
+  if (!audit) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const token = createListingPreviewShareToken(audit.id);
+  const origin = resolvePublicBaseUrl(req).replace(/\/$/, "");
+  const url = `${origin}/listing-preview/${audit.id}?token=${encodeURIComponent(token)}`;
+  res.json({ url });
 });
 
 router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {

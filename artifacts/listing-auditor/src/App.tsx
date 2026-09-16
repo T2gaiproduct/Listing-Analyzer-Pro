@@ -46,6 +46,7 @@ import {
   Terms,
   Privacy,
   Tutorials,
+  PublicListingPreviewPage,
   Dashboard,
   RecentProjectsPage,
   ProductsPage,
@@ -708,6 +709,11 @@ function Router() {
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/tutorials" component={Tutorials} />
+      <Route path="/listing-preview/:auditId">
+        {(params) => (
+          <PublicListingPreviewPage auditId={parseInt(params.auditId, 10)} />
+        )}
+      </Route>
 
       {/* Accept invite — full-page, works signed in or out */}
       <Route path="/accept-invite">
