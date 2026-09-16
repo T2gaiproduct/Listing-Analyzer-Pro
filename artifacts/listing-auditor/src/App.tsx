@@ -166,6 +166,7 @@ function AuthLoading() {
 }
 
 function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
+  const { signOut } = useClerk();
   const { data: apiHealth } = useQuery({
     queryKey: ["api-healthz"],
     queryFn: () =>
@@ -200,7 +201,14 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
             <span className="font-mono text-xs">bash scripts/dev-stack.sh</span>, then reload this page and sign in again.
           </p>
         )}
-        <div className="flex items-center justify-center gap-3">
+        {!apiStale && !clerkMisconfigured && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
+            On Cloudflare preview links, sign out and sign in again on the same hostname.{" "}
+            <span className="font-medium">Public listing preview links</span> (
+            <span className="font-mono text-xs">/listing-preview/…?token=…</span>) work without an account—open that URL in a private window or after signing out.
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
             className="text-sm font-medium text-orange-600 hover:text-orange-700"
@@ -214,6 +222,13 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
             onClick={() => window.location.reload()}
           >
             Reload page
+          </button>
+          <button
+            type="button"
+            className="text-sm font-medium text-slate-700 hover:text-slate-900 underline underline-offset-2"
+            onClick={() => void signOut({ redirectUrl: `${basePath}/sign-in` })}
+          >
+            Sign out
           </button>
         </div>
       </div>
