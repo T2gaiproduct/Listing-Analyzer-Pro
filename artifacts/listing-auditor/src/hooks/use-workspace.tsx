@@ -277,13 +277,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     && workspaceApiScopeActive
     && parseWorkspaceRouteId(location) == null;
 
-  // Sync before child components fire API requests (useEffect runs too late).
-  if (isAgencyAccountOverview) {
-    setActiveWorkspaceId(null);
-  } else {
-    setActiveWorkspaceId(activeWorkspaceId);
-  }
-
+  // Sync module header before paint so fetch interceptors see the right workspace (never during render — causes React #310).
   useLayoutEffect(() => {
     if (isAgencyAccountOverview) {
       setActiveWorkspaceId(null);
