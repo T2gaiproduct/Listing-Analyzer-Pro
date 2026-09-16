@@ -145,7 +145,7 @@ export function BuildBrandProductSearch({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-              placeholder="Search by name, SKU, or category…"
+              placeholder="Search by name or SKU…"
               className="pl-9 border-slate-200 rounded-xl h-11"
             />
           </div>
