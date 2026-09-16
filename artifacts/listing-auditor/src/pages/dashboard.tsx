@@ -34,6 +34,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
+import { appendReturnTo } from "@/lib/navigation-return";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { DashboardDonutChart } from "@/components/dashboard-donut-chart";
 import { CREATE_VIDEOS_COMING_SOON, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
@@ -770,7 +771,7 @@ export default function Dashboard() {
                   subtitleParts.push(format(new Date(activityDate), "MMM d, yyyy"));
                   return (
                   <li key={`${project.type}-${project.id}`}>
-                    <Link href={project.url}>
+                    <Link href={appendReturnTo(project.url, "/dashboard")}>
                       <div className="flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
                         <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           <DashboardProjectThumb imageUrl={thumb} alt="" />

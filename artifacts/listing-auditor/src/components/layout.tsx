@@ -267,6 +267,24 @@ export function Layout({ children }: { children: ReactNode }) {
     navigate("/recent-projects");
   }, [navigate]);
 
+  const handleRibbonBack = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get("returnTo")?.trim();
+    if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
+      navigate(returnTo);
+      return;
+    }
+    if (location === "/audits/workflow" && params.get("resume")) {
+      navigate(homeHref);
+      return;
+    }
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    navigate(homeHref);
+  }, [location, navigate, homeHref]);
+
   const handleFeatureNav = useCallback((href: string, comingSoon?: boolean) => {
     if (comingSoon) return;
     if (isAccountOwner && isWorkspaceAdminOverviewRoute(location) && needsWorkspaceSelection) {
@@ -1084,7 +1102,8 @@ export function Layout({ children }: { children: ReactNode }) {
         {isRibbonVisible(location) && (
           <div className="relative flex flex-wrap items-center gap-2 sm:gap-0 min-h-[44px] py-1.5 sm:py-0 px-5 sm:px-6 lg:px-8 bg-card border-b border-border flex-shrink-0">
             <button
-              onClick={() => window.history.back()}
+              type="button"
+              onClick={handleRibbonBack}
               className="flex items-center gap-2 text-sm font-semibold text-foreground/80 hover:text-foreground hover:bg-muted rounded-lg px-2 py-2 transition-colors z-10 min-h-11"
             >
               <ArrowLeft className="w-4 h-4" />

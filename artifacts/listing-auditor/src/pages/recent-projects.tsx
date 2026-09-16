@@ -39,6 +39,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useRecentProjectMutations } from "@/hooks/use-recent-project-mutations";
 import { RecentProjectMenu, type EnrichedRecentItem } from "@/components/recent-project-menu";
+import { appendReturnTo } from "@/lib/navigation-return";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const PAGE_SIZE = 12;
@@ -118,7 +119,7 @@ function ProjectFolderTile({
         "border border-transparent hover:bg-sky-50 hover:border-sky-100/80 transition-colors",
       )}
     >
-      <Link href={item.url} className="flex items-center gap-2.5 flex-1 min-w-0 pr-1">
+      <Link href={appendReturnTo(item.url, "/recent-projects")} className="flex items-center gap-2.5 flex-1 min-w-0 pr-1">
         <div className="relative flex-shrink-0">
           <ProjectFolderIcon imageUrl={image} alt={item.name} />
           {item.pinned && (
@@ -168,7 +169,7 @@ function ProjectListRow({
 
   return (
     <div className="flex items-center gap-4 px-4 py-3 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors group">
-      <Link href={item.url} className="flex items-center gap-4 flex-1 min-w-0">
+      <Link href={appendReturnTo(item.url, "/recent-projects")} className="flex items-center gap-4 flex-1 min-w-0">
         <div className="relative flex-shrink-0">
           <ProjectFolderIcon imageUrl={image} alt={item.name} />
           {item.pinned && (

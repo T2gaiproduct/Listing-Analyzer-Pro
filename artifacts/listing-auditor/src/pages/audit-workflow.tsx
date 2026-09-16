@@ -46,6 +46,7 @@ import {
   normalizeBulletPoints,
 } from "@/lib/listing-content-format";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
+import { getSafeReturnTo } from "@/lib/navigation-return";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
@@ -574,6 +575,11 @@ export default function AuditWorkflow() {
     const resume = params.get("resume");
     return resume ? parseInt(resume, 10) : null;
   });
+
+  const returnTo = useMemo(
+    () => getSafeReturnTo(search, resumeAuditId ? "/dashboard" : "/audits/new"),
+    [search, resumeAuditId],
+  );
 
   const [activeStep, setActiveStep] = useState<StepId>(() => (resumeAuditId && !isNaN(resumeAuditId) ? 2 : 1));
   const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
@@ -1444,11 +1450,16 @@ export default function AuditWorkflow() {
 
   /* ── Bottom bar ── */
   function handleBack() {
-    if (activeStep === 1) nav("/audits/new");
-    else {
-      autoSave((activeStep - 1) as StepId);
-      setActiveStep((s) => (s - 1) as StepId);
+    if (activeStep === 1) {
+      nav(returnTo);
+      return;
     }
+    if (resumeAuditId && activeStep === 2) {
+      nav(returnTo);
+      return;
+    }
+    autoSave((activeStep - 1) as StepId);
+    setActiveStep((s) => (s - 1) as StepId);
   }
 
   function handleSkipToUpload() {
