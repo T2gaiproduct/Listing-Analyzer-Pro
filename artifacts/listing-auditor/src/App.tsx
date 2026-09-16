@@ -164,6 +164,17 @@ function AuthLoading() {
 }
 
 function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
+  const { data: apiHealth } = useQuery({
+    queryKey: ["api-healthz"],
+    queryFn: () =>
+      fetch(`${basePath}/api/healthz`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    staleTime: 30_000,
+  });
+  const clerkMisconfigured =
+    apiHealth?.clerkProxySecret === "invalid" || apiHealth?.clerkProxySecret === "missing";
+
   return (
     <div className="flex min-h-[100dvh] items-center justify-center p-6">
       <div className="max-w-md space-y-3 text-center">
@@ -172,6 +183,14 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
           We could not verify your profile from the API. The server may be offline or the preview tunnel lost its
           connection to the backend.
         </p>
+        {clerkMisconfigured && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
+            This preview environment&apos;s <span className="font-medium">CLERK_SECRET_KEY</span> does not match{" "}
+            <span className="font-medium">VITE_CLERK_PUBLISHABLE_KEY</span> (API auth check failed). Update both secrets
+            in Cursor Cloud → Environment for this repo, then run{" "}
+            <span className="font-mono text-xs">bash scripts/dev-stack.sh</span> and sign in again on the new preview URL.
+          </p>
+        )}
         <div className="flex items-center justify-center gap-3">
           <button
             type="button"
