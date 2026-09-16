@@ -609,7 +609,7 @@ export function Layout({ children }: { children: ReactNode }) {
       fetch(`${basePath}/api/workspaces/${featureWorkspaceId}/members`, { credentials: "include" }).then(
         (r) => r.json(),
       ),
-    enabled: clerkLoaded && !!user && showWorkspacePoolCredits,
+    enabled: clerkLoaded && !!user && showWorkspacePoolCredits && !featureWorkspace?.isDefault,
     staleTime: 30_000,
     refetchOnMount: "always",
   });
@@ -639,30 +639,41 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const usesMemberCredits = featureWorkspace != null && !featureWorkspace.isAccountOwner;
   const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const isDefaultWorkspace = featureWorkspace?.isDefault === true;
+  /** Default ("My") workspace charges the account owner balance, not the workspace pool. */
+  const defaultWorkspaceAccountCredits =
+    showWorkspacePoolCredits && isDefaultWorkspace && isAccountOwner && !usesMemberCredits;
+
   const workspacePoolCredits = workspacePoolData?.poolCredits;
+  const accountSpendableCredits = accountCreditSummary?.unallocated ?? ownerCredits;
   const displayCredits = usesMemberCredits
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
+    : defaultWorkspaceAccountCredits
+      ? accountSpendableCredits
+      : showWorkspacePoolCredits
+        ? (workspacePoolCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
+        : isAgencyAccountOverview && accountCreditSummary?.unallocated
+          ? accountCreditSummary.unallocated
+          : accountSpendableCredits;
+  const creditsScopeLabel = defaultWorkspaceAccountCredits
+    ? "default_workspace"
     : showWorkspacePoolCredits
-      ? (workspacePoolCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
-      : isAgencyAccountOverview && accountCreditSummary?.unallocated
-        ? accountCreditSummary.unallocated
-        : accountCreditSummary?.unallocated ?? ownerCredits;
-  const creditsScopeLabel = showWorkspacePoolCredits
-    ? "workspace"
-    : usesMemberCredits
-      ? "member"
-      : isAccountOwner && isAgencyAccountOverview
-        ? "account_total"
-        : isAccountOwner && isAccountHubRoute
-          ? "account_hub"
-          : "account";
+      ? "workspace"
+      : usesMemberCredits
+        ? "member"
+        : isAccountOwner && isAgencyAccountOverview
+          ? "account_total"
+          : isAccountOwner && isAccountHubRoute
+            ? "account_hub"
+            : "account";
 
   const workspaceScopeName =
-    creditsScopeLabel === "workspace"
+    creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace"
       ? (featureWorkspace?.name ?? workspaces.find((w) => w.id === featureWorkspaceId)?.name ?? null)
       : null;
   const workspaceManageHref =
-    creditsScopeLabel === "workspace" && featureWorkspaceId != null
+    (creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace")
+    && featureWorkspaceId != null
       ? `/workspaces/${featureWorkspaceId}`
       : null;
 

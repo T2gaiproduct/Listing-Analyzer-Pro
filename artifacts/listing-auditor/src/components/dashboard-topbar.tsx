@@ -47,7 +47,7 @@ interface DashboardTopbarProps {
   planLabel: string;
   roleLabel: string;
   credits?: { aiCredits: number; imageCredits: number; auditCredits: number };
-  creditsScopeLabel?: "workspace" | "member" | "account" | "account_hub" | "account_total";
+  creditsScopeLabel?: "workspace" | "default_workspace" | "member" | "account" | "account_hub" | "account_total";
   accountCreditSummary?: {
     unallocatedTotal: number;
     inPoolsTotal: number;
@@ -111,7 +111,7 @@ export function DashboardTopbar({
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
   const creditBalanceLabel =
-    creditsScopeLabel === "workspace"
+    creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace"
       ? (workspaceScopeName?.trim() || "Workspace")
       : creditsScopeLabel === "account_hub"
         ? "Available to fund"
@@ -123,18 +123,22 @@ export function DashboardTopbar({
       ? accountCreditSummary.unallocatedTotal
       : creditsScopeLabel === "account_hub" && accountCreditSummary
         ? accountCreditSummary.unallocatedTotal
-        : accountCreditSummary && creditsScopeLabel === "account"
+        : creditsScopeLabel === "default_workspace" && accountCreditSummary
           ? accountCreditSummary.unallocatedTotal
-          : totalCredits;
+          : accountCreditSummary && creditsScopeLabel === "account"
+            ? accountCreditSummary.unallocatedTotal
+            : totalCredits;
 
   const breakdownCredits =
     creditsScopeLabel === "workspace" || creditsScopeLabel === "member"
       ? credits
-      : creditsScopeLabel === "account_total" && accountCreditSummary?.unallocated
+      : creditsScopeLabel === "default_workspace" && accountCreditSummary?.unallocated
         ? accountCreditSummary.unallocated
-        : creditsScopeLabel === "account_hub" && accountCreditSummary?.unallocated
+        : creditsScopeLabel === "account_total" && accountCreditSummary?.unallocated
           ? accountCreditSummary.unallocated
-          : accountCreditSummary?.unallocated ?? credits;
+          : creditsScopeLabel === "account_hub" && accountCreditSummary?.unallocated
+            ? accountCreditSummary.unallocated
+            : accountCreditSummary?.unallocated ?? credits;
 
   const typeBreakdownRows = [
     { label: "Audit", value: breakdownCredits?.auditCredits ?? 0 },
@@ -291,13 +295,15 @@ export function DashboardTopbar({
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   {creditsScopeLabel === "workspace"
                     ? (workspaceScopeName?.trim() || "This workspace")
-                    : creditsScopeLabel === "member"
-                      ? "Your credits"
-                      : creditsScopeLabel === "account_hub"
-                        ? "Available on account"
-                        : creditsScopeLabel === "account_total"
-                          ? "Credit balance"
-                          : "Credit balance"}
+                    : creditsScopeLabel === "default_workspace"
+                      ? (workspaceScopeName?.trim() || "My Workspace")
+                      : creditsScopeLabel === "member"
+                        ? "Your credits"
+                        : creditsScopeLabel === "account_hub"
+                          ? "Available on account"
+                          : creditsScopeLabel === "account_total"
+                            ? "Credit balance"
+                            : "Credit balance"}
                 </p>
                 <p className="text-lg font-bold text-foreground mt-0.5 tabular-nums">
                   {creditBalanceHeadline.toLocaleString()}
@@ -308,13 +314,15 @@ export function DashboardTopbar({
                 <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
                   {creditsScopeLabel === "workspace"
                     ? "Credits in this workspace pool (spend and assign from Workspaces)."
-                    : creditsScopeLabel === "member"
-                      ? "Credits allocated to you in this workspace by your admin."
-                      : creditsScopeLabel === "account_hub"
-                        ? "Not yet moved into client workspace pools."
-                        : creditsScopeLabel === "account_total"
-                          ? "On your account — fund workspaces or spend from your account balance."
-                          : "Credits available on your account."}
+                    : creditsScopeLabel === "default_workspace"
+                      ? "Usage in this workspace is charged to your account balance. Assign credits to the workspace pool only when you want a separate balance for members or reporting."
+                      : creditsScopeLabel === "member"
+                        ? "Credits allocated to you in this workspace by your admin."
+                        : creditsScopeLabel === "account_hub"
+                          ? "Not yet moved into client workspace pools."
+                          : creditsScopeLabel === "account_total"
+                            ? "On your account — fund workspaces or spend from your account balance."
+                            : "Credits available on your account."}
                 </p>
                 {accountCreditSummary && creditsScopeLabel === "account_total" && (
                   <div className="mt-2 pt-2 border-t border-border space-y-1.5 text-[11px] text-muted-foreground">
@@ -358,7 +366,7 @@ export function DashboardTopbar({
                     ? "View usage →"
                     : "Buy more credits →"}
                 </button>
-                {creditsScopeLabel === "workspace" && workspaceManageHref && (
+                {(creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace") && workspaceManageHref && (
                   <button
                     type="button"
                     className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-muted rounded-lg text-left transition-colors min-h-11"
