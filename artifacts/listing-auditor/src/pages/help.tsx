@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useUser } from "@clerk/react";
 import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
-import { getEmailValidationError } from "@/lib/email-validation";
 import { PageSeo } from "@/components/page-seo";
 import { Search, BookOpen, Video, MessageCircle, ChevronDown, ChevronUp, Ticket, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -60,7 +60,14 @@ const categories = [
   },
 ];
 
+function signInHrefForReturn(): string {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+  return `${basePath}/sign-in?redirect_url=${returnTo}`;
+}
+
 export default function Help() {
+  const { user, isLoaded, isSignedIn } = useUser();
   const [search, setSearch] = useState("");
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const { data: dbFaqs = [], isLoading: faqsLoading } = usePublicFaqs();
@@ -69,9 +76,14 @@ export default function Help() {
   const [ticketSent, setTicketSent] = useState(false);
   const [ticketError, setTicketError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
-
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const accountEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+
+  useEffect(() => {
+    if (isSignedIn && accountEmail) {
+      setTicketForm((f) => ({ ...f, email: accountEmail }));
+    }
+  }, [isSignedIn, accountEmail]);
 
   const filteredFaqs = faqs.filter(
     f => f.q.toLowerCase().includes(search.toLowerCase()) || f.a.toLowerCase().includes(search.toLowerCase())
@@ -79,10 +91,8 @@ export default function Help() {
 
   async function submitTicket(e: React.FormEvent) {
     e.preventDefault();
+    if (!isSignedIn) return;
     setTicketError("");
-    const nextEmailError = getEmailValidationError(ticketForm.email);
-    setEmailError(nextEmailError);
-    if (nextEmailError) return;
     setSubmitting(true);
     try {
       const res = await fetch(`${basePath}/api/forms`, {
@@ -90,7 +100,6 @@ export default function Help() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           formType: "support",
-          email: ticketForm.email,
           data: { subject: ticketForm.subject, message: ticketForm.message },
         }),
       });
@@ -188,7 +197,11 @@ export default function Help() {
             ))}
             {!faqsLoading && filteredFaqs.length === 0 && (
               <div className="text-center py-10 text-slate-400">
-                {search ? "No results found. Try a different search or submit a ticket below." : "No FAQs published yet."}
+                {search
+                  ? (isSignedIn
+                    ? "No results found. Try a different search or submit a ticket below."
+                    : "No results found. Sign in below to submit a support ticket.")
+                  : "No FAQs published yet."}
               </div>
             )}
           </div>
@@ -211,24 +224,24 @@ export default function Help() {
               <p className="text-slate-700 font-semibold">We've received your request.</p>
               <p className="text-slate-500 text-sm mt-1">Expect a reply within 1 business day.</p>
             </div>
+          ) : !isLoaded ? (
+            <p className="text-center text-slate-500 text-sm">Loading…</p>
+          ) : !isSignedIn ? (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center space-y-4">
+              <p className="text-slate-700 font-medium">Sign in to submit a support ticket</p>
+              <p className="text-slate-500 text-sm">
+                Support tickets are tied to your account so we can help you faster. Contact and sales forms on{" "}
+                <Link href="/contact" className="text-orange-600 hover:underline font-medium">Contact</Link> remain available without signing in.
+              </p>
+              <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
+                <a href={signInHrefForReturn()}>Sign in</a>
+              </Button>
+            </div>
           ) : (
             <form onSubmit={submitTicket} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Your email *</label>
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  required
-                  value={ticketForm.email}
-                  onChange={e => {
-                    const value = e.target.value;
-                    setTicketForm(f => ({ ...f, email: value }));
-                    setEmailError(value.trim() ? getEmailValidationError(value) : null);
-                  }}
-                  onBlur={() => setEmailError(getEmailValidationError(ticketForm.email))}
-                  aria-invalid={emailError ? true : undefined}
-                />
-                {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
+                <label className="block text-sm font-medium text-slate-700 mb-1">Your account email</label>
+                <Input type="email" value={accountEmail} readOnly disabled className="bg-slate-50 text-slate-600" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Subject *</label>
@@ -252,7 +265,7 @@ export default function Help() {
               <Button
                 type="submit"
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                disabled={submitting || !!getEmailValidationError(ticketForm.email)}
+                disabled={submitting || !ticketForm.subject.trim() || !ticketForm.message.trim()}
               >
                 {submitting ? "Submitting…" : "Submit Ticket"}
               </Button>

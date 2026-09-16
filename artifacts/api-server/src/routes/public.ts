@@ -247,13 +247,6 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
     return;
   }
 
-  const emailParsed = parseEmailForApi(email);
-  if ("error" in emailParsed) {
-    res.status(400).json({ error: emailParsed.error });
-    return;
-  }
-  const trimmedEmail = emailParsed.email;
-  const trimmedName = trimOptionalString(name);
   const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   const subject = trimOptionalString(payload.subject);
   const message = trimOptionalString(payload.message);
@@ -263,9 +256,41 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
   const teamSize = trimOptionalString(payload.teamSize);
 
   if (formType === "support") {
-    if (!subject || !message) {
-      res.status(400).json({ error: "Email, subject, and message are required" });
+    const auth = getAuth(req);
+    const userId = auth?.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Sign in to submit a support ticket" });
       return;
+    }
+    if (!subject || !message) {
+      res.status(400).json({ error: "Subject and message are required" });
+      return;
+    }
+
+    const sessionEmail = await resolveSessionEmail(
+      userId,
+      (auth.sessionClaims ?? null) as Record<string, unknown> | null,
+    );
+    if (!sessionEmail) {
+      res.status(400).json({
+        error: "Could not determine your account email. Sign in with an email address or update your profile, then try again.",
+      });
+      return;
+    }
+    const ticketEmailParsed = parseEmailForApi(sessionEmail);
+    if ("error" in ticketEmailParsed) {
+      res.status(400).json({ error: ticketEmailParsed.error });
+      return;
+    }
+    const trimmedEmail = ticketEmailParsed.email;
+    let trimmedName = trimOptionalString(name);
+    const [profile] = await db
+      .select({ fullName: userProfilesTable.fullName })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, userId))
+      .limit(1);
+    if (profile?.fullName?.trim()) {
+      trimmedName = profile.fullName.trim();
     }
 
     const [item] = await db.insert(formSubmissions).values({
@@ -293,6 +318,14 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
     res.status(201).json(item);
     return;
   }
+
+  const emailParsed = parseEmailForApi(email);
+  if ("error" in emailParsed) {
+    res.status(400).json({ error: emailParsed.error });
+    return;
+  }
+  const trimmedEmail = emailParsed.email;
+  const trimmedName = trimOptionalString(name);
 
   if (formType === "newsletter") {
     const source = trimOptionalString(payload.source) || "website";

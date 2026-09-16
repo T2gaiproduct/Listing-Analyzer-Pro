@@ -1,10 +1,9 @@
 import { CheckCircle2, Loader2, MessageCircle, Send, X } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useUser } from "@clerk/react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getEmailValidationError } from "@/lib/email-validation";
 
 const PUBLIC_PATHS = [
   "/",
@@ -29,9 +28,8 @@ function buildTicketSubject(message: string): string {
 }
 
 export function LiveChatWidget() {
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded, isSignedIn } = useUser();
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -40,16 +38,14 @@ export function LiveChatWidget() {
 
   const signedInEmail = user?.primaryEmailAddress?.emailAddress ?? "";
   const signedInName = user?.fullName?.trim() || undefined;
+  const signInHref = useMemo(() => {
+    const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+    return `${basePath}/sign-in?redirect_url=${returnTo}`;
+  }, []);
 
   const isPublicPage = PUBLIC_PATHS.some(
     (path) => window.location.pathname === path || window.location.pathname.endsWith(path),
   );
-
-  useEffect(() => {
-    if (isLoaded && signedInEmail) {
-      setEmail(signedInEmail);
-    }
-  }, [isLoaded, signedInEmail]);
 
   if (!isPublicPage) return null;
 
@@ -57,14 +53,11 @@ export function LiveChatWidget() {
     event.preventDefault();
     setError("");
 
-    const trimmedEmail = email.trim();
-    const trimmedMessage = message.trim();
-
-    const emailValidationError = getEmailValidationError(trimmedEmail);
-    if (emailValidationError) {
-      setError(emailValidationError);
+    if (!isSignedIn) {
+      setError("Sign in to send a support message.");
       return;
     }
+    const trimmedMessage = message.trim();
     if (!trimmedMessage) {
       setError("Please enter your question.");
       return;
@@ -77,7 +70,6 @@ export function LiveChatWidget() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           formType: "support",
-          email: trimmedEmail,
           name: signedInName,
           data: {
             subject: buildTicketSubject(trimmedMessage),
@@ -142,24 +134,29 @@ export function LiveChatWidget() {
                 </div>
                 <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-100 p-3 text-sm text-green-800">
                   <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>Thanks! We received your message and will reply to {email.trim()} shortly.</span>
+                  <span>Thanks! We received your message and will reply to {signedInEmail} shortly.</span>
                 </div>
               </div>
             )}
 
-            {!submitted && (
+            {!submitted && !isLoaded && (
+              <p className="text-xs text-slate-500 text-center py-2">Loading…</p>
+            )}
+            {!submitted && isLoaded && !isSignedIn && (
+              <div className="space-y-3 text-center py-1">
+                <p className="text-sm text-slate-700 font-medium">Sign in to contact support</p>
+                <p className="text-xs text-slate-500">
+                  Support messages create a ticket on your account. Browse{" "}
+                  <Link href="/contact" className="text-orange-600 hover:underline">Contact</Link> for general inquiries without signing in.
+                </p>
+                <Button asChild className="w-full h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm">
+                  <a href={signInHref}>Sign in</a>
+                </Button>
+              </div>
+            )}
+            {!submitted && isLoaded && isSignedIn && (
               <form onSubmit={handleSubmit} className="space-y-2">
-                {!signedInEmail && (
-                  <Input
-                    type="email"
-                    placeholder="Your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-9 text-sm"
-                    required
-                    disabled={submitting}
-                  />
-                )}
+                <p className="text-[11px] text-slate-500">Reply will go to {signedInEmail}</p>
                 <Textarea
                   placeholder="Type your question…"
                   value={message}
