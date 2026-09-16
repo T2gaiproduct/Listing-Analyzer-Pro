@@ -41,7 +41,16 @@ interface ProductOrdersResponse {
   syncWarnings?: string[];
 }
 
-const MARKETPLACE_OPTIONS = ["all", "Amazon", "Shopify", "WooCommerce"] as const;
+const MARKETPLACE_FILTER_OPTIONS: Array<{
+  value: string;
+  label: string;
+  disabled?: boolean;
+}> = [
+  { value: "all", label: "All marketplaces" },
+  { value: "Shopify", label: "Shopify" },
+  { value: "WooCommerce", label: "WooCommerce" },
+  { value: "Amazon", label: "Amazon — Coming soon", disabled: true },
+];
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
   { value: "delivered", label: "Delivered" },
@@ -146,7 +155,9 @@ export function ProductOrdersTab({
   const syncWarnings = data?.syncWarnings ?? [];
   const errorMessage = error instanceof Error ? error.message : "Could not load orders";
 
-  const marketplaceLabel = marketplace === "all" ? "Marketplace" : marketplace;
+  const marketplaceLabel = marketplace === "all"
+    ? "Marketplace"
+    : MARKETPLACE_FILTER_OPTIONS.find((o) => o.value === marketplace)?.label ?? marketplace;
   const statusLabel = STATUS_OPTIONS.find((o) => o.value === status)?.label ?? "Status";
 
   return (
@@ -168,14 +179,18 @@ export function ProductOrdersTab({
                 <FilterButton icon={Store} label={marketplaceLabel} active={marketplace !== "all"} />
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[140px]">
-              {MARKETPLACE_OPTIONS.map((option) => (
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              {MARKETPLACE_FILTER_OPTIONS.map((option) => (
                 <DropdownMenuItem
-                  key={option}
-                  className="text-xs"
-                  onClick={() => setMarketplace(option)}
+                  key={option.value}
+                  className={cn("text-xs", option.disabled && "text-slate-400 cursor-not-allowed opacity-70")}
+                  disabled={Boolean(option.disabled)}
+                  onClick={() => {
+                    if (option.disabled) return;
+                    setMarketplace(option.value);
+                  }}
                 >
-                  {option === "all" ? "All marketplaces" : option}
+                  {option.label}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
