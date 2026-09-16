@@ -5,6 +5,22 @@ import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 
 export type MarketplaceListingStatus = "live" | "pending" | "not_listed";
 
+export function emptyProductMarketplacesResponse(): {
+  listings: MarketplaceListingRow[];
+  activeCount: number;
+  listedCount: number;
+  liveMarketplaces: string[];
+  listedMarketplaces: string[];
+} {
+  return {
+    listings: [],
+    activeCount: 0,
+    listedCount: 0,
+    liveMarketplaces: [],
+    listedMarketplaces: [],
+  };
+}
+
 export interface MarketplaceListingRow {
   id: number;
   marketplace: string;
@@ -26,6 +42,18 @@ const STATUS_LABELS: Record<MarketplaceListingStatus, string> = {
   not_listed: "Not Listed",
 };
 
+function coerceTargetMarketplaces(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((marketplace): marketplace is string => typeof marketplace === "string");
+}
+
+function formatPublishedAt(value: Date | null | undefined): string | null {
+  if (!value) return null;
+  const ms = value.getTime();
+  if (Number.isNaN(ms)) return null;
+  return value.toISOString();
+}
+
 function mapListingRow(row: typeof productMarketplaceListingsTable.$inferSelect): MarketplaceListingRow {
   const status = row.status as MarketplaceListingStatus;
   return {
@@ -37,7 +65,7 @@ function mapListingRow(row: typeof productMarketplaceListingsTable.$inferSelect)
     price: row.priceCents != null ? row.priceCents / 100 : null,
     currency: row.currency,
     inventory: row.inventory,
-    publishedAt: row.publishedAt?.toISOString() ?? null,
+    publishedAt: formatPublishedAt(row.publishedAt),
     listingUrl: row.listingUrl,
   };
 }
@@ -189,9 +217,7 @@ export async function listProductMarketplaces(auditId: number): Promise<{
     .where(eq(productProfilesTable.auditId, auditId))
     .limit(1);
 
-  const targetMarketplaces = (profile?.targetMarketplaces ?? []).filter(
-    (marketplace): marketplace is string => typeof marketplace === "string",
-  );
+  const targetMarketplaces = coerceTargetMarketplaces(profile?.targetMarketplaces);
 
   const rows = await db
     .select()

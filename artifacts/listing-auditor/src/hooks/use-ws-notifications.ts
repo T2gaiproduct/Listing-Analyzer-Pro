@@ -2,8 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useUser, useAuth } from "@clerk/react";
-
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+import { buildNotificationWebSocketUrl } from "@/lib/notification-ws-url";
 
 export function useWsNotifications() {
   const qc = useQueryClient();
@@ -16,8 +15,8 @@ export function useWsNotifications() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const userId = user.id;
-    const url = `wss://${window.location.host}${basePath}/api/ws`;
+    const url = buildNotificationWebSocketUrl();
+    if (!url) return;
 
     function connect() {
       if (pausedRef.current || wsRef.current?.readyState === WebSocket.OPEN) return;
