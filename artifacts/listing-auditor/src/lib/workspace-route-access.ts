@@ -26,6 +26,7 @@ export function viewFeatureForPath(path: string): WorkspaceFeature | null {
   if (p === "/billing") return "billing";
   if (p === "/profile") return "profile";
   if (p === "/settings") return "settings";
+  if (p === "/support-ticket") return null;
   if (p === "/notifications") return "notifications";
   return null;
 }
@@ -69,7 +70,7 @@ export function canViewPath(
 export function pathRequiresCommittedWorkspace(path: string): boolean {
   const p = path.split("?")[0] ?? path;
   if (p === "/" || p === "/dashboard") return false;
-  if (p === "/billing" || p === "/profile" || p === "/settings" || p === "/notifications") return false;
+  if (p === "/billing" || p === "/profile" || p === "/settings" || p === "/support-ticket" || p === "/notifications") return false;
   if (p === "/workspaces" || p.startsWith("/workspaces/")) return false;
   return true;
 }

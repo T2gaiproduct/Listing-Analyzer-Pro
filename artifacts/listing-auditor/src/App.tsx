@@ -76,6 +76,7 @@ import {
   AdsNegativeTargetsConsolePage,
   AdsWorkflowPage,
   SettingsPage,
+  SupportTicketPage,
   WorkspacesPage,
   WorkspaceDetailPage,
   RolesPage,
@@ -896,6 +897,9 @@ function Router() {
       </Route>
       <Route path="/settings">
         <WorkspaceProtectedRoute><SettingsPage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/support-ticket">
+        <WorkspaceProtectedRoute><SupportTicketPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audits/new">
         <WorkspaceProtectedRoute requireCreate><AuditNew /></WorkspaceProtectedRoute>

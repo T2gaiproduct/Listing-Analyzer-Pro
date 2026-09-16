@@ -59,6 +59,7 @@ export const AdsPlacementsConsolePage = lazy(() => import("@/pages/ads-console-p
 export const AdsNegativeTargetsConsolePage = lazy(() => import("@/pages/ads-console-negative-targets"));
 export const AdsWorkflowPage = lazy(() => import("@/pages/ads-workflow"));
 export const SettingsPage = lazy(() => import("@/pages/settings"));
+export const SupportTicketPage = lazy(() => import("@/pages/support-ticket"));
 export const WorkspacesPage = lazy(() => import("@/pages/workspaces"));
 export const WorkspaceDetailPage = lazy(() => import("@/pages/workspace-detail"));
 export const RolesPage = lazy(() => import("@/pages/roles"));

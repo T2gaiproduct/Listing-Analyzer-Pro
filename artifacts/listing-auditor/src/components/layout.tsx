@@ -162,6 +162,7 @@ function getPageTitle(location: string): string {
   if (location === "/billing") return "Billing";
   if (location === "/profile") return "Profile";
   if (location === "/settings") return "Settings";
+  if (location === "/support-ticket") return "Support Ticket";
   if (location === "/team") return "Team";
   if (location === "/roles") return "Roles";
   if (location === "/workspaces") return WORKSPACES_HUB_LABEL;
@@ -187,6 +188,7 @@ function isRibbonVisible(location: string): boolean {
   if (location === "/billing") return false;
   if (location === "/profile") return false;
   if (location === "/settings") return false;
+  if (location === "/support-ticket") return false;
   if (location === "/team") return false;
   if (location === "/roles") return false;
   if (location === "/workspaces" || location.startsWith("/workspaces/")) return false;

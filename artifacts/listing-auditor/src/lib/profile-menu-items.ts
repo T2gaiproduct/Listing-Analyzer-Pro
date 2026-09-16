@@ -6,6 +6,7 @@ import {
   Building2,
   Settings,
   Shield,
+  LifeBuoy,
 } from "lucide-react";
 import type { WorkspaceAction, WorkspaceFeature } from "@workspace/workspace-permissions";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
@@ -74,6 +75,8 @@ export function buildProfileMenuItems(
       lockedHint: workspacesPlanLocked ? "Upgrade to unlock" : undefined,
     });
   }
+
+  items.push({ icon: LifeBuoy, label: "Support Ticket", href: "/support-ticket" });
 
   if (isAccountOwner || canView("settings")) {
     items.push({ icon: Settings, label: "Settings", href: "/settings" });

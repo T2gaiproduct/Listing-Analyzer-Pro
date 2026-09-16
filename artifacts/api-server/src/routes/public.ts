@@ -284,13 +284,15 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
     }
     const trimmedEmail = ticketEmailParsed.email;
     let trimmedName = trimOptionalString(name);
-    const [profile] = await db
-      .select({ fullName: userProfilesTable.fullName })
-      .from(userProfilesTable)
-      .where(eq(userProfilesTable.userId, userId))
-      .limit(1);
-    if (profile?.fullName?.trim()) {
-      trimmedName = profile.fullName.trim();
+    if (!trimmedName) {
+      const [profile] = await db
+        .select({ fullName: userProfilesTable.fullName })
+        .from(userProfilesTable)
+        .where(eq(userProfilesTable.userId, userId))
+        .limit(1);
+      if (profile?.fullName?.trim()) {
+        trimmedName = profile.fullName.trim();
+      }
     }
 
     const [item] = await db.insert(formSubmissions).values({
