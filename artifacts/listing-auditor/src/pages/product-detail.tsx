@@ -1281,6 +1281,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     canEdit: wsCanEdit,
     isBillingAccountOwner,
     isAgencyAccountOverview,
+    isLoading: workspaceLoading,
   } = useWorkspace();
   const showAccountProducts = isAgencyAccountOverviewDashboard(
     isBillingAccountOwner,
@@ -1318,8 +1319,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
     && (isAccountOwner || wsCanEdit("audits") || wsCanEdit("build_brand"));
 
   const validId = !Number.isNaN(id) && id > 0;
-  // Always allow querying product detail when signed in with a valid id (supports shared project links as well as workspace-scoped navigation)
-  const queryEnabled = clerkLoaded && !!user && validId;
+  const workspaceScopeReady = showAccountProducts || featureWorkspaceId != null;
+  // Wait for workspace context so the first /api request uses the correct x-workspace-id (avoids sticky 404s).
+  const queryEnabled = clerkLoaded && !!user && validId && !workspaceLoading && workspaceScopeReady;
 
   const {
     data: apiProduct,
