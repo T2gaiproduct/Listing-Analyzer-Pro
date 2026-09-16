@@ -17,7 +17,7 @@ import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { WorkspacePermissionGate } from "@/components/workspace-permission-gate";
 import { ManageAdsComingSoonGate } from "@/components/manage-ads-coming-soon-gate";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
-import { ApiTokenBridge } from "@/components/api-token-bridge";
+import { ApiTokenBridge, useApiAuthReady } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import { buildClerkLocalization } from "@/lib/clerk-localization";
@@ -174,6 +174,7 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
   });
   const clerkMisconfigured =
     apiHealth?.clerkProxySecret === "invalid" || apiHealth?.clerkProxySecret === "missing";
+  const apiStale = apiHealth?.staleProcess === true;
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center p-6">
@@ -189,6 +190,12 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
             <span className="font-medium">VITE_CLERK_PUBLISHABLE_KEY</span> (API auth check failed). Update both secrets
             in Cursor Cloud → Environment for this repo, then run{" "}
             <span className="font-mono text-xs">bash scripts/dev-stack.sh</span> and sign in again on the new preview URL.
+          </p>
+        )}
+        {apiStale && !clerkMisconfigured && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
+            The API server is running an older build. In the Cloud Agent VM run{" "}
+            <span className="font-mono text-xs">bash scripts/dev-stack.sh</span>, then reload this page and sign in again.
           </p>
         )}
         <div className="flex items-center justify-center gap-3">
@@ -323,13 +330,20 @@ function ClerkQueryClientCacheInvalidator() {
 
 function useOnboardingSummary() {
   const { user, isLoaded } = useUser();
+  const apiAuthReady = useApiAuthReady();
   return useQuery({
     queryKey: ["user-profile-summary"],
     queryFn: () =>
       fetchJson<ProfileSummaryForGate>(`${basePath}/api/profile/summary`),
-    enabled: isLoaded && !!user,
+    enabled: isLoaded && !!user && apiAuthReady,
     staleTime: 60_000,
-    retry: 3,
+    retry: (failureCount, error) => {
+      if (error instanceof Error && /session could not be verified/i.test(error.message)) {
+        return failureCount < 5;
+      }
+      return failureCount < 3;
+    },
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     refetchOnWindowFocus: false,
   });
 }
@@ -956,7 +970,7 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <ClerkQueryClientCacheInvalidator />
-      <ApiTokenBridge />
+      <ApiTokenBridge>
       <WorkspaceProvider>
       <TooltipProvider>
         <Suspense fallback={<AuthLoading />}>
@@ -971,6 +985,7 @@ function ClerkProviderWithRoutes() {
         <WsNotificationListener />
       </TooltipProvider>
       </WorkspaceProvider>
+      </ApiTokenBridge>
     </ClerkProvider>
   );
 }
