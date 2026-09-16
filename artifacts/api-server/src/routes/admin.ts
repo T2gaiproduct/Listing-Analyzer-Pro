@@ -44,6 +44,7 @@ import {
   type AdminRequest,
 } from "../lib/admin-auth";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
+import { parseEmailForApi } from "@workspace/email-validation";
 import { PLAN_CAPABILITY_CATALOG } from "@workspace/workspace-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import { reconcileUserPendingPayPalPayments, testPayPalCredentials } from "../lib/paypal-capture";
@@ -1276,7 +1277,12 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
 
   // Email assignments always create a shareable accept-admin-invite link (sign in to accept).
   if (!targetUserId && email) {
-    const normalizedEmail = normalizeAdminEmail(email);
+    const emailParsed = parseEmailForApi(email);
+    if ("error" in emailParsed) {
+      res.status(400).json({ error: emailParsed.error });
+      return;
+    }
+    const normalizedEmail = normalizeAdminEmail(emailParsed.email);
     const result = await clerkFetch(`/users?email_address=${encodeURIComponent(normalizedEmail)}&limit=1`) as Record<string, unknown> | unknown[];
     const usersList = Array.isArray(result) ? result : ((result as Record<string, unknown>).data as unknown[] ?? []);
     if (usersList.length) {

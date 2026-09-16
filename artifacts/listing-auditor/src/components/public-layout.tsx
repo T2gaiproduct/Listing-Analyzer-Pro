@@ -10,6 +10,7 @@ import { usePublicNav } from "@/hooks/use-public-nav";
 import { cmsText } from "@/lib/homepage-cms";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cn } from "@/lib/utils";
+import { getEmailValidationError } from "@/lib/email-validation";
 
 import type { NavLink } from "@/lib/public-nav";
 
@@ -296,13 +297,17 @@ function FooterNewsletter() {
   const [email, setEmail] = useState("");
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   return (
     <form
       className="flex flex-col gap-2.5 w-full sm:flex-row sm:max-w-md"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!email.trim() || loading) return;
+        if (loading) return;
+        const validationError = getEmailValidationError(email);
+        setEmailError(validationError);
+        if (validationError) return;
         setLoading(true);
         try {
           const { submitNewsletterSignup } = await import("@/lib/newsletter-signup");
@@ -317,15 +322,28 @@ function FooterNewsletter() {
         }
       }}
     >
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="your@email.com"
-        required
-        className="w-full shrink-0 sm:flex-1 sm:min-w-0 h-11 sm:h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-      />
-      <Button type="submit" disabled={loading} className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 h-11 sm:h-10 px-5 shrink-0">
+      <div className="w-full sm:flex-1 sm:min-w-0">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => {
+            const value = e.target.value;
+            setEmail(value);
+            setEmailError(value.trim() ? getEmailValidationError(value) : null);
+          }}
+          onBlur={() => setEmailError(getEmailValidationError(email))}
+          placeholder="your@email.com"
+          required
+          aria-invalid={emailError ? true : undefined}
+          className="w-full h-11 sm:h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+        />
+        {emailError && <p className="text-xs text-red-400 mt-1">{emailError}</p>}
+      </div>
+      <Button
+        type="submit"
+        disabled={loading || !!getEmailValidationError(email)}
+        className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 h-11 sm:h-10 px-5 shrink-0"
+      >
         {done ? "Subscribed!" : loading ? "..." : "Subscribe"}
       </Button>
     </form>

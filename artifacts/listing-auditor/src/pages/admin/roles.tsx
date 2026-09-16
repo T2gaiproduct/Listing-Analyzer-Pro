@@ -12,6 +12,7 @@ import { Plus, Trash2, Pencil, Shield, RefreshCw, UserPlus, ChevronDown, Users, 
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ADMIN_PERMISSION_META, type AdminPermissionGroup } from "@workspace/admin-permissions";
+import { getEmailValidationError } from "@/lib/email-validation";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -127,6 +128,7 @@ export default function AdminRoles() {
   // Assign role state
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignForm, setAssignForm] = useState({ email: "", roleId: "" });
+  const [assignEmailError, setAssignEmailError] = useState<string | null>(null);
   const [editAssignOpen, setEditAssignOpen] = useState(false);
   const [editingAssign, setEditingAssign] = useState<AssignedUser | null>(null);
   const [editRoleId, setEditRoleId] = useState("");
@@ -613,8 +615,15 @@ export default function AdminRoles() {
                 type="email"
                 placeholder="admin@example.com"
                 value={assignForm.email}
-                onChange={(e) => setAssignForm((p) => ({ ...p, email: e.target.value }))}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setAssignForm((p) => ({ ...p, email: value }));
+                  setAssignEmailError(value.trim() ? getEmailValidationError(value) : null);
+                }}
+                onBlur={() => setAssignEmailError(getEmailValidationError(assignForm.email))}
+                aria-invalid={assignEmailError ? true : undefined}
               />
+              {assignEmailError && <p className="text-xs text-red-600 mt-1">{assignEmailError}</p>}
               <p className="text-xs text-slate-400 mt-1">Creates a shareable link. The user opens it, signs in, and accepts to activate their admin role.</p>
             </div>
             <div>
@@ -632,8 +641,13 @@ export default function AdminRoles() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
             <Button
-              onClick={() => assignRole.mutate({ email: assignForm.email, roleId: Number(assignForm.roleId) })}
-              disabled={!assignForm.email || !assignForm.roleId || assignRole.isPending}
+              onClick={() => {
+                const err = getEmailValidationError(assignForm.email);
+                setAssignEmailError(err);
+                if (err || !assignForm.roleId) return;
+                assignRole.mutate({ email: assignForm.email.trim(), roleId: Number(assignForm.roleId) });
+              }}
+              disabled={!!getEmailValidationError(assignForm.email) || !assignForm.roleId || assignRole.isPending}
               className="bg-blue-600 hover:bg-blue-700"
             >
               {assignRole.isPending ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Assigning…</> : <><UserPlus className="w-4 h-4 mr-2" />Assign Role</>}

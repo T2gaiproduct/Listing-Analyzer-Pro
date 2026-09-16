@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
+import { getEmailValidationError } from "@/lib/email-validation";
 import { PageSeo } from "@/components/page-seo";
 import { Search, BookOpen, Video, MessageCircle, ChevronDown, ChevronUp, Ticket, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -68,6 +69,7 @@ export default function Help() {
   const [ticketSent, setTicketSent] = useState(false);
   const [ticketError, setTicketError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -78,6 +80,9 @@ export default function Help() {
   async function submitTicket(e: React.FormEvent) {
     e.preventDefault();
     setTicketError("");
+    const nextEmailError = getEmailValidationError(ticketForm.email);
+    setEmailError(nextEmailError);
+    if (nextEmailError) return;
     setSubmitting(true);
     try {
       const res = await fetch(`${basePath}/api/forms`, {
@@ -215,8 +220,15 @@ export default function Help() {
                   placeholder="you@example.com"
                   required
                   value={ticketForm.email}
-                  onChange={e => setTicketForm(f => ({ ...f, email: e.target.value }))}
+                  onChange={e => {
+                    const value = e.target.value;
+                    setTicketForm(f => ({ ...f, email: value }));
+                    setEmailError(value.trim() ? getEmailValidationError(value) : null);
+                  }}
+                  onBlur={() => setEmailError(getEmailValidationError(ticketForm.email))}
+                  aria-invalid={emailError ? true : undefined}
                 />
+                {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Subject *</label>
@@ -237,7 +249,11 @@ export default function Help() {
                   onChange={e => setTicketForm(f => ({ ...f, message: e.target.value }))}
                 />
               </div>
-              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white" disabled={submitting}>
+              <Button
+                type="submit"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={submitting || !!getEmailValidationError(ticketForm.email)}
+              >
                 {submitting ? "Submitting…" : "Submit Ticket"}
               </Button>
               {ticketError && <p className="text-sm text-red-600 text-center">{ticketError}</p>}

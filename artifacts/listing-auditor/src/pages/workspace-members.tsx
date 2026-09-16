@@ -16,6 +16,7 @@ import { accountRoleLabel } from "@/lib/role-display";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { memberCreditAssignmentErrorToast } from "@/lib/member-credit-assignment-errors";
 import { MemberEmailAutocomplete } from "@/components/member-email-autocomplete";
+import { getEmailValidationError } from "@/lib/email-validation";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -66,6 +67,7 @@ export default function WorkspaceMembersPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [roleId, setRoleId] = useState<string>("");
   const [editingCredits, setEditingCredits] = useState<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>({});
@@ -155,17 +157,24 @@ export default function WorkspaceMembersPage() {
       toast({ title: "Failed to resend invite", description: err.message, variant: "destructive" }),
   });
 
+  const inviteEmailValidationError = getEmailValidationError(email);
+
   const invite = useMutation({
-    mutationFn: () =>
-      fetchJson<InviteResponse>(`${basePath}/api/workspaces/${workspaceId}/members`, {
+    mutationFn: () => {
+      const validationError = getEmailValidationError(email);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+      return fetchJson<InviteResponse>(`${basePath}/api/workspaces/${workspaceId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          invitedEmail: email.trim(),
+          invitedEmail: email.trim().toLowerCase(),
           invitedName: name.trim() || email.split("@")[0],
           roleId: roleId ? Number(roleId) : undefined,
         }),
-      }),
+      });
+    },
     onSuccess: (data) => {
       const invitedEmail = email.trim();
       qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
@@ -353,9 +362,13 @@ export default function WorkspaceMembersPage() {
               <MemberEmailAutocomplete
                 workspaceId={workspaceId}
                 value={email}
-                onValueChange={setEmail}
+                onValueChange={(value) => {
+                  setEmail(value);
+                  setEmailError(value.trim() ? getEmailValidationError(value) : null);
+                }}
                 onSuggestionSelect={(suggestion) => setName(suggestion.name)}
               />
+              {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
             </div>
             <div>
               <Label>Name</Label>
@@ -375,7 +388,7 @@ export default function WorkspaceMembersPage() {
             <Button
               className="sm:col-span-3 w-fit"
               onClick={() => invite.mutate()}
-              disabled={!email.trim() || !roleId || roles.length === 0 || invite.isPending}
+              disabled={!!inviteEmailValidationError || !roleId || roles.length === 0 || invite.isPending}
             >
               Send invite
             </Button>

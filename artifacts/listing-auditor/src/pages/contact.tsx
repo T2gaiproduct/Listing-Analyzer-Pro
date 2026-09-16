@@ -10,6 +10,7 @@ import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { useCompanyContact } from "@/hooks/use-company-contact";
 import { DEFAULT_SUPPORT_HOURS } from "@/lib/company-contact";
 import { useToast } from "@/hooks/use-toast";
+import { getEmailValidationError } from "@/lib/email-validation";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -22,6 +23,7 @@ export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const contactInfo = useMemo(() => [
     { icon: Mail, label: "Email", value: contact.supportEmail, href: `mailto:${contact.supportEmail}` },
@@ -36,12 +38,19 @@ export default function Contact() {
   });
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm(f => ({ ...f, [name]: value }));
+    if (name === "email") {
+      setEmailError(value.trim() ? getEmailValidationError(value) : null);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError("");
+    const nextEmailError = getEmailValidationError(form.email);
+    setEmailError(nextEmailError);
+    if (nextEmailError) return;
     setLoading(true);
     try {
       const data: Record<string, string> = { message: form.message.trim() };
@@ -185,7 +194,19 @@ export default function Contact() {
                   </div>
                   <div>
                     <Label htmlFor="email">Email address *</Label>
-                    <Input id="email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@company.com" required className="mt-1" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      onBlur={() => setEmailError(getEmailValidationError(form.email))}
+                      placeholder="you@company.com"
+                      required
+                      aria-invalid={emailError ? true : undefined}
+                      className="mt-1"
+                    />
+                    {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
                   </div>
                 </div>
 
@@ -262,7 +283,11 @@ export default function Contact() {
                   <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{submitError}</p>
                 )}
 
-                <Button type="submit" disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600 text-white">
+                <Button
+                  type="submit"
+                  disabled={loading || !!getEmailValidationError(form.email)}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                >
                   {loading ? (
                     "Sending..."
                   ) : (

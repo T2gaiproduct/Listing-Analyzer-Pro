@@ -63,6 +63,7 @@ import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { listWorkspaceMemberInviteSuggestions } from "../lib/workspace-member-suggestions.js";
 import { createNotification } from "../lib/notifications.js";
+import { parseEmailForApi } from "@workspace/email-validation";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import { resolvePlanCreditPools, computePlanCreditsFromAllocations } from "../lib/plan-credits.js";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits.js";
@@ -767,8 +768,9 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     roleId?: number;
   };
 
-  if (!invitedEmail?.trim()) {
-    res.status(400).json({ error: "Email is required" });
+  const emailParsed = parseEmailForApi(invitedEmail);
+  if ("error" in emailParsed) {
+    res.status(400).json({ error: emailParsed.error });
     return;
   }
 
@@ -784,7 +786,7 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
   }
   const resolvedLegacyRole = accountRole.legacyRoleKey ?? "editor";
 
-  const normalizedEmail = invitedEmail.trim().toLowerCase();
+  const normalizedEmail = emailParsed.email;
   const displayName = invitedName?.trim() || normalizedEmail.split("@")[0] || "Member";
 
   const existingMembers = await db.select()

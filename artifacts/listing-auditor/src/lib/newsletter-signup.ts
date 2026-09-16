@@ -1,10 +1,13 @@
+import { getEmailValidationError, normalizeValidEmail } from "@/lib/email-validation";
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export async function submitNewsletterSignup(email: string, source: string): Promise<void> {
-  const trimmed = email.trim();
-  if (!trimmed) {
-    throw new Error("Email is required");
+  const validationError = getEmailValidationError(email);
+  if (validationError) {
+    throw new Error(validationError);
   }
+  const trimmed = normalizeValidEmail(email)!;
 
   const res = await fetch(`${basePath}/api/forms`, {
     method: "POST",

@@ -32,6 +32,7 @@ import { isAdminUser, resolveSessionEmail } from "../lib/admin-auth.js";
 import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
 import { sendSupportTicketCreatedEmails } from "../lib/support-ticket-email.js";
 import { planIncludesWorkspacesFromPlan, type PlanEnabledFeatures } from "@workspace/workspace-permissions";
+import { parseEmailForApi } from "@workspace/email-validation";
 import { listWorkspaceEntitledPlanNames } from "../lib/plan-workspaces.js";
 import { notifyAdminUsers } from "../lib/notify-admins.js";
 import { rateLimit } from "../lib/rate-limit";
@@ -246,7 +247,12 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
     return;
   }
 
-  const trimmedEmail = trimOptionalString(email);
+  const emailParsed = parseEmailForApi(email);
+  if ("error" in emailParsed) {
+    res.status(400).json({ error: emailParsed.error });
+    return;
+  }
+  const trimmedEmail = emailParsed.email;
   const trimmedName = trimOptionalString(name);
   const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   const subject = trimOptionalString(payload.subject);
@@ -255,11 +261,6 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
   const phone = trimOptionalString(payload.phone);
   const demoDate = trimOptionalString(payload.demoDate);
   const teamSize = trimOptionalString(payload.teamSize);
-
-  if (!trimmedEmail) {
-    res.status(400).json({ error: "Email is required" });
-    return;
-  }
 
   if (formType === "support") {
     if (!subject || !message) {

@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { sendEmail } from "../lib/email.js";
 import { inviteEmailTemplate, welcomeEmailTemplate } from "../lib/email-templates.js";
+import { parseEmailForApi } from "@workspace/email-validation";
 import { fetchClerkUserIdByEmail } from "../lib/clerk-user.js";
 import { createNotification } from "../lib/notifications.js";
 import {
@@ -222,7 +223,12 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
     roleId?: number;
   };
 
-  if (!invitedEmail || !invitedName) { res.status(400).json({ error: "Email and name are required" }); return; }
+  if (!invitedName?.trim()) { res.status(400).json({ error: "Name is required" }); return; }
+  const emailParsed = parseEmailForApi(invitedEmail);
+  if ("error" in emailParsed) {
+    res.status(400).json({ error: emailParsed.error });
+    return;
+  }
 
   const resolved = await resolveInviteRole(userId, { roleId, role });
   if ("error" in resolved) { res.status(400).json({ error: resolved.error }); return; }
@@ -244,13 +250,14 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
   }
 
   // Check if already invited (not revoked)
-  const alreadyInvited = existing.find((m) => m.invitedEmail.toLowerCase() === invitedEmail.toLowerCase() && m.status !== "revoked");
+  const normalizedInviteEmail = emailParsed.email;
+  const alreadyInvited = existing.find((m) => m.invitedEmail.toLowerCase() === normalizedInviteEmail && m.status !== "revoked");
   if (alreadyInvited) { res.status(409).json({ error: "This email has already been invited." }); return; }
 
   const token = randomBytes(32).toString("hex");
 
   // Check if previously revoked — reuse the row to preserve history
-  const revokedRecord = existing.find((m) => m.invitedEmail.toLowerCase() === invitedEmail.toLowerCase() && m.status === "revoked");
+  const revokedRecord = existing.find((m) => m.invitedEmail.toLowerCase() === normalizedInviteEmail && m.status === "revoked");
   let invite;
   if (revokedRecord) {
     const [updated] = await db.update(teamMembersTable)
@@ -270,7 +277,7 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
   } else {
     const [inserted] = await db.insert(teamMembersTable).values({
       ownerUserId: userId,
-      invitedEmail: invitedEmail.toLowerCase(),
+      invitedEmail: normalizedInviteEmail,
       invitedName,
       role: roleName,
       roleId: resolvedRoleId,
@@ -303,7 +310,7 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
 
   // Send invitation email (respect invitee notification preferences for existing accounts)
   try {
-    const shouldEmail = await shouldSendTeamInviteEmailToAddress(invitedEmail);
+    const shouldEmail = await shouldSendTeamInviteEmailToAddress(normalizedInviteEmail);
 
     if (shouldEmail) {
       const [profile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
@@ -311,14 +318,14 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
       const companyName = profile?.companyName ?? "SellerLens";
       const inviteUrl = `${process.env.APP_URL ?? "https://sellerlens.io"}/accept-invite?token=${token}`;
       const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role: roleName, invitedName });
-      await sendEmail({ to: invitedEmail, subject: `You have been invited to join ${companyName}`, html });
+      await sendEmail({ to: normalizedInviteEmail, subject: `You have been invited to join ${companyName}`, html });
     }
   } catch (emailErr) {
     req.log?.warn?.({ emailErr }, "Failed to send invite email");
   }
 
   try {
-    const inviteeUserId = await fetchClerkUserIdByEmail(invitedEmail);
+    const inviteeUserId = await fetchClerkUserIdByEmail(normalizedInviteEmail);
     if (inviteeUserId) {
       const [profile] = await db
         .select({ companyName: userProfilesTable.companyName })

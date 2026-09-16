@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calendar, Clock, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getEmailValidationError } from "@/lib/email-validation";
 
 const timeSlots = [
   "9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM",
@@ -12,10 +13,13 @@ export function DemoBookingForm() {
   const [company, setCompany] = useState("");
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !name.trim() || !selectedSlot) return;
+    const validationError = getEmailValidationError(email);
+    setEmailError(validationError);
+    if (validationError || !name.trim() || !selectedSlot) return;
     setSubmitted(true);
   };
 
@@ -51,11 +55,18 @@ export function DemoBookingForm() {
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setEmail(value);
+              setEmailError(value.trim() ? getEmailValidationError(value) : null);
+            }}
+            onBlur={() => setEmailError(getEmailValidationError(email))}
             className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
             placeholder="john@company.com"
             required
+            aria-invalid={emailError ? true : undefined}
           />
+          {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
         </div>
       </div>
       <div>

@@ -200,6 +200,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/email-validation':
+        specifier: workspace:*
+        version: link:../../lib/email-validation
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
@@ -448,6 +451,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/email-validation':
+        specifier: workspace:*
+        version: link:../../lib/email-validation
       '@workspace/workspace-permissions':
         specifier: workspace:*
         version: link:../../lib/workspace-permissions
@@ -757,6 +763,8 @@ importers:
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
+
+  lib/email-validation: {}
 
   lib/integrations-openai-ai-react: {}
 

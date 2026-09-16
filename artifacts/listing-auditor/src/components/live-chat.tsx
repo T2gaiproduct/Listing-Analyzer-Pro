@@ -4,6 +4,7 @@ import { useUser } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getEmailValidationError } from "@/lib/email-validation";
 
 const PUBLIC_PATHS = [
   "/",
@@ -59,8 +60,9 @@ export function LiveChatWidget() {
     const trimmedEmail = email.trim();
     const trimmedMessage = message.trim();
 
-    if (!trimmedEmail) {
-      setError("Please enter your email so we can reply.");
+    const emailValidationError = getEmailValidationError(trimmedEmail);
+    if (emailValidationError) {
+      setError(emailValidationError);
       return;
     }
     if (!trimmedMessage) {

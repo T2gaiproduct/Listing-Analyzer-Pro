@@ -51,6 +51,7 @@
     "@vitejs/plugin-react": "catalog:",
     "@workspace/admin-permissions": "workspace:*",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/email-validation": "workspace:*",
     "@workspace/workspace-permissions": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",

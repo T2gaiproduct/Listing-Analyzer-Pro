@@ -20,6 +20,7 @@
     "@workspace/admin-permissions": "workspace:*",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/email-validation": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
     "@workspace/workspace-permissions": "workspace:*",
     "archiver": "^8.0.0",
