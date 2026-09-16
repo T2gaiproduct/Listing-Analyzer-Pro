@@ -21,9 +21,23 @@ export function useRecentProjectMutations(recentsLimit = 200) {
         body: JSON.stringify({ type, id }),
       });
       if (!r.ok) throw new Error("Failed to pin project");
-      return r.json();
+      return r.json() as Promise<{ pinned: boolean }>;
     },
-    onSuccess: invalidateRecents,
+    onSuccess: (data, { type, id }) => {
+      queryClient.setQueriesData<{ items?: Array<{ type: string; id: number; pinned?: boolean }> }>(
+        { queryKey: recentsQueryKey },
+        (old) => {
+          if (!old?.items) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.type === type && item.id === id ? { ...item, pinned: data.pinned } : item,
+            ),
+          };
+        },
+      );
+      invalidateRecents();
+    },
   });
 
   const renameMutation = useMutation({

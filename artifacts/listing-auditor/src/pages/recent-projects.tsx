@@ -169,8 +169,13 @@ function ProjectListRow({
   return (
     <div className="flex items-center gap-4 px-4 py-3 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors group">
       <Link href={item.url} className="flex items-center gap-4 flex-1 min-w-0">
-        <div className="flex-shrink-0">
+        <div className="relative flex-shrink-0">
           <ProjectFolderIcon imageUrl={image} alt={item.name} />
+          {item.pinned && (
+            <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-white shadow flex items-center justify-center">
+              <Pin className="w-2.5 h-2.5 text-orange-500 fill-orange-500" />
+            </span>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-slate-900 truncate group-hover:text-orange-600 transition-colors">{item.name}</p>

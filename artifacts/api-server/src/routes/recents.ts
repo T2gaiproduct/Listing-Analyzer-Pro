@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, desc, ilike, sql, inArray } from "drizzle-orm";
+import { eq, and, or, isNull, desc, ilike, sql, inArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db,
@@ -16,6 +16,7 @@ import {
   getAccountOwnerId,
   getActiveWorkspaceId,
   getWorkspaceCtx,
+  getActiveWorkspaceId,
   workspaceOwnerFilter,
   isBillingOwnerAccountOverview,
 } from "../lib/workspace-route-helpers";
@@ -96,7 +97,10 @@ router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request
     ? eq(pinnedProjectsTable.userId, userId)
     : and(
       eq(pinnedProjectsTable.userId, userId),
-      eq(pinnedProjectsTable.workspaceId, workspaceId),
+      or(
+        eq(pinnedProjectsTable.workspaceId, workspaceId),
+        isNull(pinnedProjectsTable.workspaceId),
+      ),
     );
 
   const pins = await db
@@ -340,9 +344,11 @@ async function ensureProjectMutationAccess(
 }
 
 // POST /projects/pin — toggle pin for a project
-router.post("/projects/pin", requireAuth, resolveTeam, async (req: Request, res: Response) => {
+router.post("/projects/pin", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response) => {
   const userId = (req as AuthedRequest).userId;
   const team = (req as TeamAuthedRequest).team;
+  const accountOverview = isBillingOwnerAccountOverview(req);
+  const pinWorkspaceId = accountOverview ? null : getActiveWorkspaceId(req);
   const { type, id } = req.body as { type: string; id: number };
   if (!type || !id) {
     res.status(400).json({ error: "type and id required" });
@@ -375,7 +381,12 @@ router.post("/projects/pin", requireAuth, resolveTeam, async (req: Request, res:
 
   const isPinned = existing.length === 0;
   if (isPinned) {
-    await db.insert(pinnedProjectsTable).values({ userId, itemType: dbType, itemId: id });
+    await db.insert(pinnedProjectsTable).values({
+      userId,
+      itemType: dbType,
+      itemId: id,
+      workspaceId: pinWorkspaceId,
+    });
     await createNotification({
       userId,
       type: "project_pinned",
