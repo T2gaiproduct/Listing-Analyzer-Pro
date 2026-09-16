@@ -40,12 +40,11 @@ export interface ProductSalesData {
 
 const MARKETPLACE_COLORS: Record<string, string> = {
   Amazon: "#f59e0b",
-  Flipkart: "#3b82f6",
   Shopify: "#0ea5e9",
   WooCommerce: "#22c55e",
 };
 
-const MARKETPLACE_ORDER = ["Amazon", "Flipkart", "Shopify", "WooCommerce"];
+const MARKETPLACE_ORDER = ["Amazon", "Shopify", "WooCommerce"];
 
 function normalizeMarketplace(name: string): string {
   const trimmed = name.trim();

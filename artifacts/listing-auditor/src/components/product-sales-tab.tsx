@@ -60,7 +60,6 @@ interface ProductSalesResponse {
 
 const FALLBACK_MARKETPLACES: ProductSalesResponse["marketplaceRevenue"] = [
   { marketplace: "Amazon", revenue: 0, color: "#f59e0b", changePercent: 0, direction: "up", sharePercent: 0 },
-  { marketplace: "Flipkart", revenue: 0, color: "#3b82f6", changePercent: 0, direction: "up", sharePercent: 0 },
   { marketplace: "Shopify", revenue: 0, color: "#0ea5e9", changePercent: 0, direction: "up", sharePercent: 0 },
   { marketplace: "WooCommerce", revenue: 0, color: "#22c55e", changePercent: 0, direction: "up", sharePercent: 0 },
 ];
@@ -179,8 +178,8 @@ export function ProductSalesTab({
           <Skeleton className="h-80 rounded-xl xl:col-span-2" />
           <Skeleton className="h-80 rounded-xl" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
@@ -331,7 +330,7 @@ export function ProductSalesTab({
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-xs font-semibold text-slate-900 mb-3">Revenue by Marketplace</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {marketplaceRevenue.map((item) => {
             const isUp = item.direction === "up";
             return (

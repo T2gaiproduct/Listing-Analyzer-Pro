@@ -41,7 +41,7 @@ interface ProductOrdersResponse {
   syncWarnings?: string[];
 }
 
-const MARKETPLACE_OPTIONS = ["all", "Amazon", "Flipkart", "Shopify", "WooCommerce"] as const;
+const MARKETPLACE_OPTIONS = ["all", "Amazon", "Shopify", "WooCommerce"] as const;
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
   { value: "delivered", label: "Delivered" },
