@@ -153,6 +153,15 @@ function buildErrorMessage(response: Response, data: unknown): string {
 
   if (typeof data === "string") {
     const text = data.trim();
+    if (text.startsWith("<")) {
+      if (response.status === 502) {
+        return "The API server is not responding (502 Bad Gateway). On the server, check that the Node API is running (e.g. pm2 status) and that nginx proxies /api to the correct port.";
+      }
+      if (response.status === 503 || response.status === 504) {
+        return `The API is temporarily unavailable (${response.status}). Restart the API server or check nginx/upstream timeouts.`;
+      }
+      return `${prefix}: The server returned an HTML error page instead of JSON.`;
+    }
     return text ? `${prefix}: ${truncate(text)}` : prefix;
   }
 

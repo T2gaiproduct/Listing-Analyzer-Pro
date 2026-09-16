@@ -129,10 +129,12 @@ export async function readApiJson<T>(res: Response): Promise<T> {
   }
 
   if (text.trimStart().startsWith("<")) {
-    throw new ApiFetchError(
-      "The API returned a web page instead of JSON. Deploy/restart the API server with the latest code (support ticket replies need POST /api/admin/forms/:id/reply).",
-      res.status,
-    );
+    const message = res.status === 502
+      ? "The API server is not responding (502 Bad Gateway). On the server, check pm2 (or your process manager) and nginx /api upstream."
+      : res.status === 503 || res.status === 504
+        ? `The API is temporarily unavailable (${res.status}). Restart the API server or check nginx/upstream timeouts.`
+        : "The API returned a web page instead of JSON. Deploy/restart the API server with the latest code.";
+    throw new ApiFetchError(message, res.status);
   }
 
   try {
