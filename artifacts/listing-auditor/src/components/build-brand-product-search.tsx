@@ -68,7 +68,6 @@ export function BuildBrandProductSearch({
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | ProductStatus>("");
   const [appliedQuery, setAppliedQuery] = useState("");
-  const [appliedStatus, setAppliedStatus] = useState<"" | ProductStatus>("");
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["products", "build-brand-select"],
@@ -86,18 +85,17 @@ export function BuildBrandProductSearch({
   const filteredProducts = useMemo(() => {
     const q = appliedQuery.trim().toLowerCase();
     return listingProducts.filter((p) => {
-      if (appliedStatus && p.status !== appliedStatus) return false;
+      if (statusFilter && p.status !== statusFilter) return false;
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q)
         || p.sku.toLowerCase().includes(q)
       );
     });
-  }, [listingProducts, appliedQuery, appliedStatus]);
+  }, [listingProducts, appliedQuery, statusFilter]);
 
   function handleSearch() {
     setAppliedQuery(query);
-    setAppliedStatus(statusFilter);
   }
 
   return (
