@@ -4,10 +4,11 @@ import { Download, FileSpreadsheet, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AMAZON_MARKETPLACES,
   type AmazonMarketplaceId,
   downloadAuditExport,
 } from "@/lib/amazon-export";
+
+const DEFAULT_EXPORT_MARKETPLACE: AmazonMarketplaceId = "US";
 import { fetchJson } from "@/lib/api-fetch";
 import { cn } from "@/lib/utils";
 
@@ -53,14 +54,13 @@ function StatusPill({ status }: { status: ExportPreviewRow["status"] }) {
 
 export function BuildBrandExportStep({
   auditId,
-  marketplace,
-  onMarketplaceChange,
+  marketplace = DEFAULT_EXPORT_MARKETPLACE,
   onSaveProduct,
   isSaving,
 }: {
   auditId: number;
-  marketplace: AmazonMarketplaceId;
-  onMarketplaceChange: (id: AmazonMarketplaceId) => void;
+  /** Used for export preview/download field mapping (defaults to US). */
+  marketplace?: AmazonMarketplaceId;
   onSaveProduct: () => void;
   isSaving?: boolean;
 }) {
@@ -104,25 +104,11 @@ export function BuildBrandExportStep({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Export listing package</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Review Amazon upload fields, then download CSV or Excel. Image fields use public URLs.
-          </p>
-        </div>
-        <label className="text-sm text-muted-foreground flex flex-col gap-1 min-w-[12rem]">
-          Amazon marketplace
-          <select
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-            value={marketplace}
-            onChange={(e) => onMarketplaceChange(e.target.value as AmazonMarketplaceId)}
-          >
-            {AMAZON_MARKETPLACES.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
-        </label>
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Export listing package</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Review Amazon upload fields, then download CSV or Excel. Image fields use public URLs.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[12rem_1fr] gap-6">

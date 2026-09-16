@@ -38,7 +38,6 @@ import {
 import { BuildBrandProductSearch } from "@/components/build-brand-product-search";
 import { BuildBrandExportStep } from "@/components/build-brand-export-step";
 import { ProductListingPreview } from "@/components/product-listing-preview";
-import type { AmazonMarketplaceId } from "@/lib/amazon-export";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
@@ -577,7 +576,6 @@ export default function AuditWorkflow() {
   });
 
   const [activeStep, setActiveStep] = useState<StepId>(() => (resumeAuditId && !isNaN(resumeAuditId) ? 2 : 1));
-  const [exportMarketplace, setExportMarketplace] = useState<AmazonMarketplaceId>("US");
   const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
 
@@ -2346,8 +2344,6 @@ export default function AuditWorkflow() {
           {activeStep === 7 && currentAuditId && (
             <BuildBrandExportStep
               auditId={currentAuditId}
-              marketplace={exportMarketplace}
-              onMarketplaceChange={setExportMarketplace}
               onSaveProduct={handleSaveProductFromExport}
               isSaving={patchAudit.isPending}
             />
