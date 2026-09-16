@@ -59,6 +59,8 @@ interface WorkspaceContextValue {
   isWorkspaceAccountOwner: boolean;
   isTeamMemberAccount: boolean;
   isLoading: boolean;
+  /** Workspace role permissions still loading for the active workspace (members). */
+  permissionsLoading: boolean;
   setActiveWorkspaceId: (id: number) => void;
   can: (feature: WorkspaceFeature, action: WorkspaceAction) => boolean;
   canView: (feature: WorkspaceFeature) => boolean;
@@ -355,6 +357,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isWorkspaceAccountOwner,
     isTeamMemberAccount,
     isLoading: listLoading || (!skipPermLoadingForNav && permLoading) || (profileLoading && workspaces.length === 0) || !isLoaded,
+    permissionsLoading: Boolean(activeWorkspaceId && permLoading && !skipPermLoadingForNav),
     setActiveWorkspaceId: setWorkspace,
     can,
     canView,
@@ -372,7 +375,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
     permissions, roleName, isAccountOwner, isWorkspaceAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
-    listLoading, permLoading, skipPermLoadingForNav, isLoaded, setWorkspace, setAgencyAccountOverview, can, canView, canEdit, canDelete, refetchList,
+    listLoading, permLoading, skipPermLoadingForNav, isLoaded, activeWorkspaceId, setWorkspace, setAgencyAccountOverview, can, canView, canEdit, canDelete, refetchList,
     workspaceApiScopeActive, needsWorkspaceSelection, workspaceScopeCommitted, isAgencyAccountOverview,
   ]);
 

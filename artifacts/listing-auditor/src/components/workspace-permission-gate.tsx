@@ -5,7 +5,11 @@ import type { WorkspaceAction, WorkspaceFeature } from "@workspace/workspace-per
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { canCreateForPath, canViewPath } from "@/lib/workspace-route-access";
+import {
+  canCreateForPath,
+  canViewPath,
+  pathRequiresCommittedWorkspace,
+} from "@/lib/workspace-route-access";
 
 interface WorkspacePermissionGateProps {
   path: string;
@@ -13,23 +17,41 @@ interface WorkspacePermissionGateProps {
   children: ReactNode;
 }
 
-function AccessDenied({ title, description }: { title: string; description: string }) {
+function GateMessage({
+  title,
+  description,
+  primaryHref,
+  primaryLabel,
+}: {
+  title: string;
+  description: string;
+  primaryHref: string;
+  primaryLabel: string;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center max-w-md mx-auto">
       <ShieldOff className="w-12 h-12 text-slate-300 mb-4" />
       <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
       <p className="text-sm text-slate-500 mt-2">{description}</p>
       <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
-        <Link href="/dashboard">Back to dashboard</Link>
+        <Link href={primaryHref}>{primaryLabel}</Link>
       </Button>
     </div>
   );
 }
 
 export function WorkspacePermissionGate({ path, requireCreate, children }: WorkspacePermissionGateProps) {
-  const { isWorkspaceAccountOwner, isBillingAccountOwner, isLoading, can, canView } = useWorkspace();
+  const {
+    isWorkspaceAccountOwner,
+    isBillingAccountOwner,
+    isLoading,
+    permissionsLoading,
+    needsWorkspaceSelection,
+    can,
+    canView,
+  } = useWorkspace();
 
-  if (isLoading && !isWorkspaceAccountOwner && !isBillingAccountOwner) {
+  if ((isLoading || permissionsLoading) && !isWorkspaceAccountOwner && !isBillingAccountOwner) {
     return (
       <div className="space-y-4 p-6">
         <Skeleton className="h-10 w-64" />
@@ -38,20 +60,35 @@ export function WorkspacePermissionGate({ path, requireCreate, children }: Works
     );
   }
 
-  if (!canViewPath(path, isWorkspaceAccountOwner, isBillingAccountOwner, canView, can)) {
+  if (needsWorkspaceSelection && pathRequiresCommittedWorkspace(path)) {
     return (
-      <AccessDenied
-        title="Access restricted"
-        description="Your workspace role does not include permission to open this page. Ask your workspace owner to update your role if you need access."
+      <GateMessage
+        title="Select a workspace"
+        description="Choose a workspace from the header switcher (or open Workspaces) before using this page. Account overview shows rollups on the dashboard only."
+        primaryHref="/workspaces"
+        primaryLabel="Go to workspaces"
       />
     );
   }
 
-  if (requireCreate && !canCreateForPath(path, isWorkspaceAccountOwner, can)) {
+  if (!canViewPath(path, isWorkspaceAccountOwner, isBillingAccountOwner, canView, can)) {
     return (
-      <AccessDenied
+      <GateMessage
+        title="Access restricted"
+        description="Your workspace role does not include permission to open this page. Ask your workspace owner to update your role if you need access."
+        primaryHref="/dashboard"
+        primaryLabel="Back to dashboard"
+      />
+    );
+  }
+
+  if (requireCreate && !canCreateForPath(path, isWorkspaceAccountOwner, isBillingAccountOwner, can)) {
+    return (
+      <GateMessage
         title="Create not allowed"
         description="Your role can view this area but cannot create new items here. Ask your workspace owner to enable Create for this feature."
+        primaryHref="/dashboard"
+        primaryLabel="Back to dashboard"
       />
     );
   }

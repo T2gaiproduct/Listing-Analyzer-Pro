@@ -37,7 +37,7 @@ export function canViewPath(
   canView: CanViewFn,
   can: CanFn,
 ): boolean {
-  if (isWorkspaceAccountOwner) return true;
+  if (isWorkspaceAccountOwner || isBillingAccountOwner) return true;
   const p = path.split("?")[0] ?? path;
   if (p === "/" || p === "/dashboard") return true;
   if (p === "/roles") return false;
@@ -48,8 +48,6 @@ export function canViewPath(
   if (p.startsWith("/audits/") || p.startsWith("/projects/") || p.startsWith("/products/")) {
     return true;
   }
-
-  if (p === "/billing" && isBillingAccountOwner) return true;
 
   if (p === "/team") return can("team", "viewGlobal");
   if (p === "/workspaces" || p.startsWith("/workspaces/")) return canView("workspaces");
@@ -67,12 +65,22 @@ export function canViewPath(
   return canView(feature);
 }
 
+/** True when the route needs a committed workspace (not account-wide dashboard / admin hub). */
+export function pathRequiresCommittedWorkspace(path: string): boolean {
+  const p = path.split("?")[0] ?? path;
+  if (p === "/" || p === "/dashboard") return false;
+  if (p === "/billing" || p === "/profile" || p === "/settings" || p === "/notifications") return false;
+  if (p === "/workspaces" || p.startsWith("/workspaces/")) return false;
+  return true;
+}
+
 export function canCreateForPath(
   path: string,
   isWorkspaceAccountOwner: boolean,
+  isBillingAccountOwner: boolean,
   can: CanFn,
 ): boolean {
-  if (isWorkspaceAccountOwner) return true;
+  if (isWorkspaceAccountOwner || isBillingAccountOwner) return true;
   const p = path.split("?")[0] ?? path;
   if (p === "/audits/workflow") {
     // Opening an existing project via /audits/workflow?resume=... is viewing an existing workflow project,
