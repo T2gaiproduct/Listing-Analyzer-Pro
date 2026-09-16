@@ -25,6 +25,7 @@ SKIP_CLOUDFLARE_TUNNEL="${SKIP_CLOUDFLARE_TUNNEL:-}"
 LOCAL_DEV_PUBLIC_URL="${LOCAL_DEV_PUBLIC_URL:-http://127.0.0.1:3000}"
 
 # Keep API and frontend on the same Clerk instance (required for PATCH /api/profile, onboarding, etc.)
+# Cloud Agent may inject a dummy CLERK_PUBLISHABLE_KEY — always prefer VITE (real UI key).
 CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
 CLERK_SEC_FOR_STACK="${CLERK_SECRET_KEY:-}"
 ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-}"
@@ -32,6 +33,15 @@ ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-}"
 if [[ -n "$CLERK_PUB_FOR_STACK" ]]; then
   export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
 fi
+
+clerk_instance_from_publishable_key() {
+  local key="$1"
+  [[ "$key" =~ ^pk_(test|live)_ ]] || return 0
+  local b64="${key#pk_test_}"
+  b64="${b64#pk_live_}"
+  local pad=$(( (4 - ${#b64} % 4) % 4 ))
+  python3 -c "import base64,sys; print(base64.b64decode(sys.argv[1]+'='*int(sys.argv[2])).decode().rstrip('$'))" "$b64" "$pad" 2>/dev/null || true
+}
 
 if [[ -z "$CLERK_SEC_FOR_STACK" || -z "$CLERK_PUB_FOR_STACK" ]]; then
   echo "WARNING: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY missing — signed-in API calls will return 401" >&2
@@ -267,9 +277,14 @@ configure_clerk_proxy_for_tunnel() {
   local domains_json
   domains_json=$(curl -sf -H "Authorization: Bearer $secret" "https://api.clerk.com/v1/domains" 2>/dev/null || true)
   if [[ -z "$domains_json" ]] || echo "$domains_json" | rg -q '"clerk_key_invalid"'; then
+    local expected_instance
+    expected_instance="$(clerk_instance_from_publishable_key "$CLERK_PUB_FOR_STACK")"
     echo "ERROR: CLERK_SECRET_KEY is invalid or does not match VITE_CLERK_PUBLISHABLE_KEY." >&2
-    echo "       Update CLERK_SECRET_KEY in environment secrets with the secret for fitting-ox / your Clerk app." >&2
-    echo "       Sign-up on Cloudflare preview will not work until this is fixed." >&2
+    if [[ -n "$expected_instance" ]]; then
+      echo "       Clerk Dashboard → instance: $expected_instance → API Keys → Secret key" >&2
+    fi
+    echo "       Set CLERK_SECRET_KEY in Cursor Cloud → Environment secrets, then start a NEW agent run." >&2
+    echo "       Sign-in and dashboard on Cloudflare preview will not work until this is fixed." >&2
     return 1
   fi
 
