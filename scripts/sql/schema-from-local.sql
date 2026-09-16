@@ -131,7 +131,8 @@ CREATE TABLE IF NOT EXISTS "audits" (
   "workspace_id" integer,
   "created_by_user_id" text,
   "store_description_html" text,
-  "source_listing_content" jsonb
+  "source_listing_content" jsonb,
+  "reference_research" jsonb
 );
 
 CREATE TABLE IF NOT EXISTS "blog_posts" (
@@ -303,7 +304,8 @@ CREATE TABLE IF NOT EXISTS "graphics_projects" (
   "deleted_at" timestamp,
   "created_at" timestamp DEFAULT now() NOT NULL,
   "updated_at" timestamp DEFAULT now() NOT NULL,
-  "workspace_id" integer
+  "workspace_id" integer,
+  "created_by_user_id" text
 );
 
 CREATE TABLE IF NOT EXISTS "invoices" (
@@ -447,11 +449,11 @@ CREATE TABLE IF NOT EXISTS "product_orders" (
   "amount_cents" integer NOT NULL,
   "currency" text DEFAULT 'USD'::text NOT NULL,
   "status" text NOT NULL,
+  "payment_status" text DEFAULT 'pending'::text NOT NULL,
   "ordered_at" timestamp NOT NULL,
   "tracking_number" text,
   "is_deleted" integer DEFAULT 0 NOT NULL,
-  "created_at" timestamp DEFAULT now() NOT NULL,
-  "payment_status" text DEFAULT 'pending'::text NOT NULL
+  "created_at" timestamp DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "product_profiles" (
@@ -827,6 +829,7 @@ ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "workspace_id" integer;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "created_by_user_id" text;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "store_description_html" text;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "source_listing_content" jsonb;
+ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "reference_research" jsonb;
 
 ALTER TABLE "blog_posts" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "blog_posts" ADD COLUMN IF NOT EXISTS "title" varchar(255);
@@ -1097,11 +1100,11 @@ ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "quantity" integer DEFAULT
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "amount_cents" integer;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "currency" text DEFAULT 'USD'::text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "status" text;
+ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "payment_status" text DEFAULT 'pending'::text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "ordered_at" timestamp;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "tracking_number" text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
-ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "payment_status" text DEFAULT 'pending'::text;
 
 ALTER TABLE "product_profiles" ADD COLUMN IF NOT EXISTS "audit_id" integer;
 ALTER TABLE "product_profiles" ADD COLUMN IF NOT EXISTS "sku" text;
