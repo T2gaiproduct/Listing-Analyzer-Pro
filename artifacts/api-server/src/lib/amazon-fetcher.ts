@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { extractKeywordsFromListing } from "./listing-keyword-suggester.js";
 
 export interface FetchedListing {
   productName: string;
@@ -201,7 +202,7 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
     $("#aplus p").first().text().trim() ||
     null;
 
-  const keywords = extractKeywords(title, bulletPoints);
+  const keywords = extractKeywordsFromListing(title, bulletPoints);
   const productName = title.split(",")[0]?.trim() || title.slice(0, 60) || "Product";
 
   return {
@@ -216,39 +217,6 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
     price,
     rating,
   };
-}
-
-function extractKeywords(title: string, bullets: string[]): string[] {
-  const stopWords = new Set([
-    "the", "and", "for", "with", "that", "this", "from", "have", "will",
-    "are", "not", "but", "all", "can", "your", "our", "has", "use",
-    "more", "also", "each", "its", "any", "was", "one", "new", "high",
-    "great", "best", "top", "free", "easy", "made", "help", "make",
-    "get", "set", "kit", "pro", "pack", "quality", "product", "features",
-  ]);
-
-  const combined = [title, ...bullets].join(" ").toLowerCase();
-  const words = combined.match(/\b[a-z]{3,}\b/g) || [];
-  const freq: Record<string, number> = {};
-  for (const w of words) {
-    if (!stopWords.has(w)) freq[w] = (freq[w] || 0) + 1;
-  }
-
-  const phrases: string[] = [];
-  const titleWords = title.toLowerCase().split(/\s+/);
-  for (let i = 0; i < titleWords.length - 1; i++) {
-    const bigram = `${titleWords[i]} ${titleWords[i + 1]}`;
-    if (!bigram.split(" ").some((w) => stopWords.has(w))) {
-      phrases.push(bigram);
-    }
-  }
-
-  const singles = Object.entries(freq)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 8)
-    .map(([w]) => w);
-
-  return [...new Set([...phrases.slice(0, 4), ...singles])].slice(0, 10);
 }
 
 const ASIN_ONLY_MARKETPLACE_FALLBACKS = [

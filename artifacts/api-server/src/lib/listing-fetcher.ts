@@ -5,6 +5,10 @@ import {
   type FetchedListing,
 } from "./amazon-fetcher";
 import { normalizeShopifyTags } from "./shopify-product-sync.js";
+import {
+  extractKeywordsFromListing,
+  resolveTargetKeywordsForListing,
+} from "./listing-keyword-suggester.js";
 
 export type { FetchedListing };
 
@@ -148,7 +152,7 @@ async function fetchShopifyProductJson(url: string): Promise<FetchedListing | nu
       title,
       bulletPoints: bulletPoints.slice(0, 7),
       imageUrls,
-      targetKeywords: extractKeywords(title, bulletPoints),
+      targetKeywords: extractKeywordsFromListing(title, bulletPoints),
       description,
       price,
       rating: null,
@@ -275,37 +279,6 @@ function uniqueUrls(urls: string[]): string[] {
     }
   }
   return out;
-}
-
-function extractKeywords(title: string, bullets: string[]): string[] {
-  const stopWords = new Set([
-    "the", "and", "for", "with", "that", "this", "from", "have", "will",
-    "are", "not", "but", "all", "can", "your", "our", "has", "use",
-    "more", "also", "each", "its", "any", "was", "one", "new", "high",
-    "great", "best", "top", "free", "easy", "made", "help", "make",
-    "get", "set", "kit", "pro", "pack", "quality", "product", "features",
-  ]);
-
-  const combined = [title, ...bullets].join(" ").toLowerCase();
-  const words = combined.match(/\b[a-z]{3,}\b/g) || [];
-  const freq: Record<string, number> = {};
-  for (const w of words) {
-    if (!stopWords.has(w)) freq[w] = (freq[w] || 0) + 1;
-  }
-
-  const phrases: string[] = [];
-  const titleWords = title.toLowerCase().split(/\s+/);
-  for (let i = 0; i < titleWords.length - 1; i++) {
-    const bigram = `${titleWords[i]} ${titleWords[i + 1]}`;
-    if (!bigram.split(" ").some((w) => stopWords.has(w))) phrases.push(bigram);
-  }
-
-  const singles = Object.entries(freq)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 8)
-    .map(([w]) => w);
-
-  return [...new Set([...phrases.slice(0, 4), ...singles])].slice(0, 10);
 }
 
 function parseFromJsonLd(product: JsonLdNode, pageUrl: string): Partial<FetchedListing> {
@@ -486,7 +459,7 @@ function mergeListing(
     title,
     bulletPoints,
     imageUrls: merged.imageUrls ?? [],
-    targetKeywords: extractKeywords(title, bulletPoints),
+    targetKeywords: extractKeywordsFromListing(title, bulletPoints),
     description: merged.description ?? null,
     price: merged.price ?? null,
     rating: merged.rating ?? null,
@@ -513,10 +486,20 @@ async function fetchNonAmazonListing(url: string, platform: ListingPlatform): Pr
   return mergeListing(platform, url, ogPartial, jsonLdPartial, platformPartial);
 }
 
+async function enrichListingTargetKeywords(listing: FetchedListing): Promise<FetchedListing> {
+  const targetKeywords = await resolveTargetKeywordsForListing({
+    title: listing.title,
+    bulletPoints: listing.bulletPoints,
+    category: listing.category,
+    productName: listing.productName,
+  });
+  return { ...listing, targetKeywords };
+}
+
 export async function fetchListing(input: { asin?: string; url?: string }): Promise<FetchedListing> {
   if (input.asin?.trim()) {
     if (isAmazonAsin(input.asin)) {
-      return fetchListingByAsin(input.asin.trim());
+      return enrichListingTargetKeywords(await fetchListingByAsin(input.asin.trim()));
     }
     throw new Error(
       "That value is not a valid Amazon ASIN. Paste a full product URL from Amazon, Shopify, Walmart, eBay, Etsy, or another store.",
@@ -544,8 +527,8 @@ export async function fetchListing(input: { asin?: string; url?: string }): Prom
 
   const platform = detectListingPlatform(normalizedUrl);
   if (platform === "amazon") {
-    return fetchListingByUrl(normalizedUrl);
+    return enrichListingTargetKeywords(await fetchListingByUrl(normalizedUrl));
   }
 
-  return fetchNonAmazonListing(normalizedUrl, platform);
+  return enrichListingTargetKeywords(await fetchNonAmazonListing(normalizedUrl, platform));
 }
