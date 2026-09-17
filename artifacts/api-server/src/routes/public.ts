@@ -136,6 +136,15 @@ router.get("/cms/homepage", async (_req, res): Promise<void> => {
   res.json(map);
 });
 
+router.get("/cms/help", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(cmsContent).where(eq(cmsContent.pageSlug, "help"));
+  const map: Record<string, string> = {};
+  for (const r of rows) {
+    map[`${r.sectionKey}.${r.fieldKey}`] = r.value ?? "";
+  }
+  res.json(map);
+});
+
 router.get("/seo/:pageSlug", async (req, res): Promise<void> => {
   const pageSlug = String(req.params.pageSlug ?? "");
   const [setting] = await db.select().from(seoSettings).where(eq(seoSettings.pageSlug, pageSlug));

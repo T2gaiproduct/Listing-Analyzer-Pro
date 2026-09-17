@@ -97,6 +97,7 @@ const navSections: Array<{
       { href: "/admin/marketing/blog", label: "Blog", icon: BookOpen, permission: "manage_blog" },
       { href: "/admin/marketing/seo", label: "SEO", icon: TrendingUp, permission: "manage_seo" },
       { href: "/admin/marketing/testimonials", label: "Testimonials", icon: MessageSquare, permission: "manage_testimonials" },
+      { href: "/admin/marketing/help-center", label: "Help Center", icon: HelpCircle, permission: "manage_homepage_cms" },
       { href: "/admin/marketing/faqs", label: "FAQ", icon: HelpCircle, permission: "manage_faqs" },
       { href: "/admin/marketing/media", label: "Media Library", icon: Image, permission: "manage_media" },
     ],

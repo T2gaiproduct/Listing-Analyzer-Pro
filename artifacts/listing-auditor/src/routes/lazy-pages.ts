@@ -116,6 +116,7 @@ export const AdminMarketingForms = lazy(() => import("@/pages/admin/marketing/fo
 export const AdminSupportTickets = lazy(() => import("@/pages/admin/help/support-tickets"));
 export const AdminMarketingNavigation = lazy(() => import("@/pages/admin/marketing/navigation"));
 export const AdminFaqs = lazy(() => import("@/pages/admin/marketing/faqs"));
+export const AdminMarketingHelpCenter = lazy(() => import("@/pages/admin/marketing/help-center"));
 export const RevenueReport = lazy(() => import("@/pages/admin/reports/revenue"));
 export const CustomerReport = lazy(() => import("@/pages/admin/reports/customer"));
 export const SubscriptionReport = lazy(() => import("@/pages/admin/reports/subscription"));

@@ -131,6 +131,7 @@ import {
   AdminSupportTickets,
   AdminMarketingNavigation,
   AdminFaqs,
+  AdminMarketingHelpCenter,
   RevenueReport,
   CustomerReport,
   SubscriptionReport,
@@ -699,6 +700,9 @@ function Router() {
       </Route>
       <Route path="/admin/marketing/faqs">
         <AdminRoute><AdminFaqs /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/help-center">
+        <AdminRoute><AdminMarketingHelpCenter /></AdminRoute>
       </Route>
       <Route path="/admin/reports/revenue">
         <AdminRoute><RevenueReport /></AdminRoute>
