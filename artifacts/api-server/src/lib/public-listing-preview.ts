@@ -2,21 +2,28 @@ import type { Request } from "express";
 import { and, eq } from "drizzle-orm";
 import { db, auditsTable, graphicsProjectsTable, type Audit } from "@workspace/db";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
-import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
-import { resolvePublicBaseUrl } from "./resolve-public-base-url.js";
 import { verifyListingPreviewShareToken } from "./listing-preview-share-token.js";
+import { buildSignedPublishImagePath } from "./marketplace-publish-image-token.js";
 import type { AplusModule } from "./aplus-generator.js";
 
 export type PublicListingPreviewImage = { url: string; label: string };
 
-function signImageUrl(publicBase: string, auditId: number, sourceUrl: string): string | null {
-  const signed = buildSignedPublishImageUrl({
-    publicBaseUrl: publicBase,
+function signImageUrl(auditId: number, sourceUrl: string): string | null {
+  const signed = buildSignedPublishImagePath({
     auditId,
     sourceUrl,
     exportListing: true,
   });
-  return signed ?? sourceUrl;
+  if (signed) return signed;
+  const trimmed = sourceUrl.trim();
+  if (
+    trimmed.startsWith("http://")
+    || trimmed.startsWith("https://")
+    || trimmed.startsWith("data:")
+  ) {
+    return trimmed;
+  }
+  return null;
 }
 
 function legacyGeneratedUrls(generatedImages: unknown): string[] {
@@ -49,7 +56,6 @@ function recordTypeLabel(type: string | undefined): string {
 function collectPreviewImages(
   audit: Audit,
   graphicsRecords: Array<{ type?: string; currentUrl?: string }> | null,
-  publicBase: string,
 ): PublicListingPreviewImage[] {
   const auditId = audit.id;
   const items: PublicListingPreviewImage[] = [];
@@ -59,7 +65,7 @@ function collectPreviewImages(
     const trimmed = rawUrl.trim();
     if (!trimmed || seen.has(trimmed)) return;
     seen.add(trimmed);
-    const signed = signImageUrl(publicBase, auditId, trimmed);
+    const signed = signImageUrl(auditId, trimmed);
     if (!signed) return;
     items.push({ url: signed, label });
   };
@@ -96,7 +102,7 @@ function readAplusModules(generatedImages: unknown): AplusModule[] {
 }
 
 export async function loadPublicListingPreview(
-  req: Request,
+  _req: Request,
   auditId: number,
   token: string,
 ): Promise<
@@ -121,8 +127,6 @@ export async function loadPublicListingPreview(
 
   if (!audit) return null;
 
-  const publicBase = resolvePublicBaseUrl(req);
-
   const [graphics] = await db
     .select({ imageRecords: graphicsProjectsTable.imageRecords })
     .from(graphicsProjectsTable)
@@ -135,7 +139,7 @@ export async function loadPublicListingPreview(
     .limit(1);
 
   const graphicsRecords = (graphics?.imageRecords ?? null) as Array<{ type?: string; currentUrl?: string }> | null;
-  const gallery = collectPreviewImages(audit, graphicsRecords, publicBase);
+  const gallery = collectPreviewImages(audit, graphicsRecords);
 
   const signedRecords = gallery.map((img) => ({
     type: img.label === "Upload" ? "main" : "lifestyle",
@@ -145,7 +149,7 @@ export async function loadPublicListingPreview(
   const aplusModules = readAplusModules(audit.generatedImages).map((mod) => ({
     ...mod,
     imageUrl: mod.imageUrl
-      ? (signImageUrl(publicBase, auditId, mod.imageUrl) ?? mod.imageUrl)
+      ? (signImageUrl(auditId, mod.imageUrl) ?? mod.imageUrl)
       : mod.imageUrl,
   }));
 

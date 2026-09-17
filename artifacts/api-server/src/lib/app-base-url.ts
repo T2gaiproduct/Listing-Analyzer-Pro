@@ -3,6 +3,12 @@ import { isAllowedOrigin, isAllowedRedirectUrl } from "./allowed-origins.js";
 
 const DEFAULT_APP_URL = "https://sellerlens.io";
 
+function isIpHostname(hostname: string): boolean {
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return true;
+  if (hostname.includes(":") && !hostname.includes(".")) return true;
+  return false;
+}
+
 /** Canonical public site URL from env (no trailing slash). */
 export function getConfiguredAppUrl(): string | undefined {
   const raw = process.env.APP_URL ?? process.env.PUBLIC_APP_URL;
@@ -38,9 +44,15 @@ function originFromRequest(req: Request): string | undefined {
 
   const host = req.get("host");
   if (host) {
-    const proto = req.get("x-forwarded-proto")?.split(",")[0]?.trim()
-      ?? (host.includes("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
     const hostname = host.split(":")[0] ?? host;
+    const proto = req.get("x-forwarded-proto")?.split(",")[0]?.trim()
+      ?? (
+        host.includes("localhost")
+        || host.startsWith("127.0.0.1")
+        || isIpHostname(hostname)
+        ? "http"
+        : "https"
+      );
     if (hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1") {
       try {
         return new URL(`${proto}://${host}`).origin;

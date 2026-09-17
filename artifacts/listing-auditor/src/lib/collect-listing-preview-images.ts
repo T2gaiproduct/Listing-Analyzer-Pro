@@ -4,11 +4,20 @@ export type ListingPreviewImage = { url: string; label: string };
 
 export function resolveListingPreviewImageUrl(url: string): string {
   const trimmed = url.trim();
-  if (
-    trimmed.startsWith("http://")
-    || trimmed.startsWith("https://")
-    || trimmed.startsWith("data:")
-  ) {
+  if (trimmed.startsWith("data:")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    if (typeof window !== "undefined") {
+      try {
+        const parsed = new URL(trimmed);
+        if (parsed.pathname.includes("/api/marketplace-publish/images")) {
+          return `${window.location.origin}${parsed.pathname}${parsed.search}`;
+        }
+      } catch {
+        /* keep absolute url */
+      }
+    }
     return trimmed;
   }
   return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;

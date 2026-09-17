@@ -63,16 +63,13 @@ export function verifyPublishImageToken(token: string): PublishImageTokenPayload
   }
 }
 
-export function buildSignedPublishImageUrl(input: {
-  publicBaseUrl: string;
+/** Same-origin path (no host) for signed publish images — safe for IP/HTTP and domain previews. */
+export function buildSignedPublishImagePath(input: {
   auditId: number;
   sourceUrl: string;
   graphicsProjectId?: number | null;
   exportListing?: boolean;
 }): string | null {
-  const base = input.publicBaseUrl.trim().replace(/\/$/, "");
-  if (!base) return null;
-
   const graphicsMatch = input.sourceUrl.match(/\/api\/images\/graphics\/(\d+)\/([^/?]+)/i);
   if (graphicsMatch) {
     const projectId = Number.parseInt(graphicsMatch[1]!, 10);
@@ -84,14 +81,14 @@ export function buildSignedPublishImageUrl(input: {
       graphicsProjectId: projectId,
       exportListing: input.exportListing,
     });
-    return `${base}/api/marketplace-publish/images/graphics/${projectId}/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}`;
+    return `/api/marketplace-publish/images/graphics/${projectId}/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}`;
   }
 
   const auditMatch = input.sourceUrl.match(/\/api\/images\/(\d+)\/([^/?]+)/i);
-  const filename = auditMatch
-    ? decodeURIComponent(auditMatch[2]!)
-    : decodeURIComponent((input.sourceUrl.split("?")[0] ?? input.sourceUrl).split("/").pop() ?? "");
-  const auditId = auditMatch ? Number.parseInt(auditMatch[1]!, 10) : input.auditId;
+  if (!auditMatch) return null;
+
+  const filename = decodeURIComponent(auditMatch[2]!);
+  const auditId = Number.parseInt(auditMatch[1]!, 10);
   if (!filename || !Number.isFinite(auditId)) return null;
 
   const token = createPublishImageToken({
@@ -100,5 +97,19 @@ export function buildSignedPublishImageUrl(input: {
     graphicsProjectId: input.graphicsProjectId ?? null,
     exportListing: input.exportListing,
   });
-  return `${base}/api/marketplace-publish/images/${auditId}/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}`;
+  return `/api/marketplace-publish/images/${auditId}/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}`;
+}
+
+export function buildSignedPublishImageUrl(input: {
+  publicBaseUrl: string;
+  auditId: number;
+  sourceUrl: string;
+  graphicsProjectId?: number | null;
+  exportListing?: boolean;
+}): string | null {
+  const path = buildSignedPublishImagePath(input);
+  if (!path) return null;
+  const base = input.publicBaseUrl.trim().replace(/\/$/, "");
+  if (!base) return null;
+  return `${base}${path}`;
 }
