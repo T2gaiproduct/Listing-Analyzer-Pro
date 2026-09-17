@@ -51,7 +51,10 @@ export function planHasCapability(
   capability: PlanCapabilityKey,
 ): boolean {
   if (hasExplicitEnabledFeatures(enabledFeatures)) {
-    return Boolean(enabledFeatures[capability]);
+    const explicit = enabledFeatures[capability];
+    if (explicit !== undefined) {
+      return Boolean(explicit);
+    }
   }
 
   if (capability === "workspaces") {

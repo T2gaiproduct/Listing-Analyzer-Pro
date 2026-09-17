@@ -16,6 +16,7 @@ import {
   canViewInWorkspace,
   canWriteInWorkspace,
   normalizeRolePermissions,
+  type WorkspaceAction,
 } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
 import { displayWorkspaceRoleLabel } from "./role-display.js";
@@ -429,6 +430,18 @@ export function requireWorkspacePerm(
 ): boolean {
   if (ctx.isAccountOwner) return true;
   return hasWorkspacePermission(ctx.permissions, feature, action, workspacePermOpts(ctx));
+}
+
+/** Workspace admin actions may be granted on the account role (team seat) or workspace role. */
+export async function canWorkspacesFeatureOnAccount(
+  userId: string,
+  ctx: WorkspaceContext,
+  action: WorkspaceAction,
+): Promise<boolean> {
+  if (ctx.isAccountOwner) return true;
+  if (requireWorkspacePerm(ctx, "workspaces", action)) return true;
+  const accountPerms = await resolveTeamMemberAccountPermissions(userId, ctx.accountOwnerId);
+  return accountPerms != null && hasWorkspacePermission(accountPerms, "workspaces", action);
 }
 
 export { hasWorkspacePermission, canViewInWorkspace, canWriteInWorkspace };

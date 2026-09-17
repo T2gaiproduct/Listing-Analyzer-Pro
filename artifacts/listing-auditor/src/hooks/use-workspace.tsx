@@ -131,6 +131,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     retry: 1,
   });
 
+  const { data: accountPermPayload } = useQuery<{
+    permissions: WorkspaceRolePermissions;
+    workspacesEnabled: boolean;
+  }>({
+    queryKey: ["team-account-permissions"],
+    queryFn: () =>
+      fetchJson<{ permissions: WorkspaceRolePermissions; workspacesEnabled: boolean }>(
+        `${basePath}/api/team/account-permissions`,
+      ),
+    enabled: isLoaded && !!user && profileSummary?.accountRole?.type === "team_member",
+    staleTime: 30_000,
+  });
+
   useEffect(() => {
     if (isWorkspaceAdminOverviewRoute(location)) {
       overviewVisitedThisSession.current = true;
@@ -286,12 +299,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setActiveWorkspaceId(activeWorkspaceId);
   }, [activeWorkspaceId, isAgencyAccountOverview]);
 
+  const accountPermissions = accountPermPayload?.permissions;
+
   const can = useCallback(
     (feature: WorkspaceFeature, action: WorkspaceAction) => {
       if (isWorkspaceAccountOwner) return true;
+      if (
+        feature === "workspaces"
+        && accountPermissions
+        && hasWorkspacePermission(accountPermissions, feature, action)
+      ) {
+        return true;
+      }
       return hasWorkspacePermission(permissions, feature, action);
     },
-    [permissions, isWorkspaceAccountOwner],
+    [permissions, isWorkspaceAccountOwner, accountPermissions],
   );
 
   const canView = useCallback(

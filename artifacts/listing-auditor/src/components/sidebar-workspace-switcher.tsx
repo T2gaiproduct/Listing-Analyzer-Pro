@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -28,6 +29,7 @@ export function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: SidebarWorks
     refetch,
     isLoading,
   } = useWorkspace();
+  const { workspacesEnabled } = useWorkspacesPlan();
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -37,7 +39,7 @@ export function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: SidebarWorks
   const collapsedRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({ name: "", description: "", clientLabel: "" });
 
-  const canCreate = isAccountOwner || can("workspaces", "create");
+  const canCreate = workspacesEnabled && (isAccountOwner || can("workspaces", "create"));
   const showSection = workspaces.length > 0 || canCreate;
 
   useEffect(() => {

@@ -53,6 +53,7 @@ export function TopbarWorkspaceSwitcher() {
   } = useWorkspace();
   const { workspacesEnabled, upgradeShort } = useWorkspacesPlan();
   const workspacesLocked = isAccountOwner && !workspacesEnabled;
+  const accountWorkspacesAvailable = workspacesEnabled;
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -64,7 +65,7 @@ export function TopbarWorkspaceSwitcher() {
   const [sort, setSort] = useState<SortMode>("az");
   const [form, setForm] = useState({ name: "", description: "", clientLabel: "" });
 
-  const canCreate = !workspacesLocked && (isAccountOwner || can("workspaces", "create"));
+  const canCreate = accountWorkspacesAvailable && (isAccountOwner || can("workspaces", "create"));
 
   useEffect(() => {
     if (!open) return;

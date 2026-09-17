@@ -1,5 +1,5 @@
-import { eq, desc } from "drizzle-orm";
-import { db, subscriptionsTable, plansTable } from "@workspace/db";
+import { eq, desc, and, count } from "drizzle-orm";
+import { db, subscriptionsTable, plansTable, workspacesTable } from "@workspace/db";
 import {
   planIncludesWorkspacesFromPlan,
   workspacesPlanGateBody,
@@ -44,7 +44,13 @@ export function isWorkspacesPlanEntitled(plan: AccountOwnerPlan): boolean {
 
 export async function accountWorkspacesEnabled(accountOwnerId: string): Promise<boolean> {
   const plan = await resolveAccountOwnerPlan(accountOwnerId);
-  return isWorkspacesPlanEntitled(plan);
+  if (isWorkspacesPlanEntitled(plan)) return true;
+
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(workspacesTable)
+    .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 0)));
+  return Number(total) > 0;
 }
 
 export async function listWorkspaceEntitledPlanNames(): Promise<string[]> {

@@ -31,11 +31,12 @@ import {
   resolveAccountOwnerId,
   resolveTeamMemberAccountPermissions,
   hasWorkspacePermission,
+  canWorkspacesFeatureOnAccount,
   WORKSPACE_HEADER,
   requireWorkspacePerm as checkPerm,
 } from "../lib/workspace-context";
 import { syncAllActiveTeamMembersForOwner } from "../lib/team-workspace-sync.js";
-import { notifyAccountOwnerWorkspaceCreated } from "../lib/workspace-created-notify-owner.js";
+import { notifyMemberCreatedWorkspace } from "../lib/workspace-created-notify-owner.js";
 import { fetchClerkUserEmailAndName } from "../lib/clerk-user.js";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
 import { ensureAccountRolesMigrated, listAccountRoles, getAccountRole } from "../lib/ensure-account-roles";
@@ -408,13 +409,11 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
   await syncAllActiveTeamMembersForOwner(accountOwnerId);
 
   if (!isOwner) {
-    const clerk = await fetchClerkUserEmailAndName(userId);
-    const creatorDisplayName = clerk?.name?.trim() || clerk?.email || "A team member";
-    void notifyAccountOwnerWorkspaceCreated({
+    void notifyMemberCreatedWorkspace({
       accountOwnerId,
       createdByUserId: userId,
+      workspaceId: ws!.id,
       workspaceName: ws!.name,
-      creatorDisplayName,
     });
   }
 
@@ -521,8 +520,9 @@ router.get("/workspaces/:id/summary", requireAuth, requireWorkspaceAccess, async
 
 router.patch("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!checkPerm(ctx, "workspaces", "edit") && !ctx.isAccountOwner) {
-    res.status(403).json({ error: "Forbidden" });
+  const userId = (req as AuthedRequest).userId;
+  if (!await canWorkspacesFeatureOnAccount(userId, ctx, "edit")) {
+    res.status(403).json({ error: "You do not have permission to update this workspace" });
     return;
   }
 
@@ -549,7 +549,8 @@ router.patch("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req,
 
 router.delete("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!checkPerm(ctx, "workspaces", "delete")) {
+  const userId = (req as AuthedRequest).userId;
+  if (!await canWorkspacesFeatureOnAccount(userId, ctx, "delete")) {
     res.status(403).json({ error: "You do not have permission to delete this workspace" });
     return;
   }

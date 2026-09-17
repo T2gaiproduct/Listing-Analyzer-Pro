@@ -34,10 +34,20 @@ export function useWorkspacesPlan() {
     staleTime: 30_000,
   });
 
+  const { data: teamAccountPerms } = useQuery<{ workspacesEnabled?: boolean } | null>({
+    queryKey: ["team-account-permissions"],
+    queryFn: () =>
+      fetch(`${basePath}/api/team/account-permissions`, { credentials: "include" }).then((r) =>
+        r.ok ? r.json() : null,
+      ),
+    staleTime: 30_000,
+  });
+
   const planName = data?.planName ?? null;
   const enabledFeatures = data?.enabledFeatures ?? null;
   const workspacesEnabled =
-    data?.workspacesEnabled
+    teamAccountPerms?.workspacesEnabled
+    ?? data?.workspacesEnabled
     ?? planIncludesWorkspacesFromPlan({ planName, enabledFeatures });
 
   const upgradePlanNames = data?.workspacesUpgradePlanNames ?? [];

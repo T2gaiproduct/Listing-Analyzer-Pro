@@ -34,6 +34,9 @@ import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-r
 import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
 import { syncTeamMemberWorkspaceMemberships, syncPendingTeamInviteToWorkspaces } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
+import { resolveAccountOwnerId, resolveTeamMemberAccountPermissions } from "../lib/workspace-context.js";
+import { hasWorkspacePermission, ownerPermissions } from "@workspace/workspace-permissions";
+import { accountWorkspacesEnabled } from "../lib/plan-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { resolveSessionEmail } from "../lib/admin-auth.js";
 import {
@@ -541,6 +544,26 @@ router.get("/team/membership", requireAuth, async (req, res): Promise<void> => {
   }));
 
   res.json(enriched);
+});
+
+/** Account-wide role permissions (team seat) — used for workspaces create/edit/delete. */
+router.get("/team/account-permissions", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const accountOwnerId = await resolveAccountOwnerId(userId);
+  const isAccountOwner = accountOwnerId === userId;
+  const permissions = isAccountOwner
+    ? ownerPermissions()
+    : (await resolveTeamMemberAccountPermissions(userId, accountOwnerId) ?? {});
+  const workspacesEnabled = await accountWorkspacesEnabled(accountOwnerId);
+  res.json({
+    accountOwnerId,
+    isAccountOwner,
+    permissions,
+    workspacesEnabled,
+    canCreateWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacePermission(permissions, "workspaces", "create")),
+    canEditWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacePermission(permissions, "workspaces", "edit")),
+    canDeleteWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacePermission(permissions, "workspaces", "delete")),
+  });
 });
 
 // ─── Member usage for billing period (team members) ────────────────────────────
