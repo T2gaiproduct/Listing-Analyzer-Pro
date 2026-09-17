@@ -20,6 +20,7 @@ import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge, useApiAuthReady } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
 import { clerkAppearance } from "@/lib/clerk-appearance";
+import { shouldUseSameOriginClerkProxy } from "@/lib/clerk-proxy-host";
 import { buildClerkLocalization } from "@/lib/clerk-localization";
 import {
   isSharedProjectDeepLink,
@@ -251,21 +252,11 @@ function resolveClerkProxyUrl(): string | undefined {
   if (typeof window === "undefined") return undefined;
 
   const host = window.location.hostname;
-  // Ephemeral *.trycloudflare.com hosts are never registered in Clerk proxy_url (doing so would
-  // break production sellerlens.io). Always use Clerk CDN here; API auth uses Bearer JWTs.
-  if (host.endsWith(".trycloudflare.com")) {
-    return undefined;
-  }
-  // Production SellerLens domain: route Clerk FAPI through our API proxy.
-  if (
-    host === "sellerlens.io"
-    || host === "www.sellerlens.io"
-    || host.endsWith(".sellerlens.io")
-  ) {
+  if (shouldUseSameOriginClerkProxy(host, clerkPubKey)) {
     return sameOriginClerkProxyPath();
   }
 
-  // Local Vite (localhost): pk_test can use Clerk CDN directly.
+  // Local / dev: pk_test uses Clerk CDN directly (no proxy registration required).
   if (clerkPubKey.startsWith("pk_test_")) {
     return undefined;
   }

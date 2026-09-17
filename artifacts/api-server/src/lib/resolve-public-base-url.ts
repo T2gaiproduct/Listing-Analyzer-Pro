@@ -23,6 +23,10 @@ function readStableTunnelPublicUrl(): string | undefined {
 }
 
 function readDevTunnelPublicUrl(): string | undefined {
+  if (process.env.NODE_ENV === "production" && getConfiguredAppUrl()) {
+    return undefined;
+  }
+
   const stable = readStableTunnelPublicUrl();
   if (stable) return stable;
 

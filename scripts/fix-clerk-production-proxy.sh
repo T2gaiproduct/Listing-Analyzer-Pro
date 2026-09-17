@@ -3,7 +3,8 @@
 set -euo pipefail
 
 PRODUCTION_URL="${1:-https://sellerlens.io}"
-PROXY_URL="${PRODUCTION_URL%/}/api/__clerk"
+PRODUCTION_URL="${PRODUCTION_URL%/}"
+PROXY_URL="${PRODUCTION_URL}/api/__clerk"
 SECRET="${CLERK_SECRET_KEY:-}"
 
 if [[ -z "$SECRET" ]]; then
