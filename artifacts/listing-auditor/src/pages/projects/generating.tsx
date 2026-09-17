@@ -61,7 +61,11 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
         creditsRefreshedRef.current = true;
         refreshCreditBalances(queryClient);
       }
-      setTimeout(() => nav(`/projects/${id}`), 1000);
+      const returnTo = encodeURIComponent("/projects");
+      setTimeout(
+        () => nav(`/projects/${id}?returnTo=${returnTo}`, { replace: true }),
+        1000,
+      );
       return;
     }
     if (project.status === "failed") return;

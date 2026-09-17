@@ -317,7 +317,7 @@ export default function CreateProject() {
         nav(`/audits/${auditId}?returnTo=${encodeURIComponent("/projects")}`);
         return;
       }
-      nav(`/projects/${project.id}/generating`);
+      nav(`/projects/${project.id}/generating?returnTo=${encodeURIComponent("/projects")}`);
     },
     onError: (err) => {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to create", variant: "destructive" });

@@ -274,6 +274,10 @@ export function Layout({ children }: { children: ReactNode }) {
       navigate(returnTo);
       return;
     }
+    if (location === "/projects/create" || location.startsWith("/projects/")) {
+      navigate("/projects");
+      return;
+    }
     if (location === "/audits/workflow" && params.get("resume")) {
       navigate(homeHref);
       return;
