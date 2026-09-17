@@ -81,6 +81,42 @@ export async function resolveAccountOwnerId(userId: string): Promise<string> {
   return team.ownerUserId;
 }
 
+/** Account-level role permissions for an active team seat (not workspace-scoped). */
+export async function resolveTeamMemberAccountPermissions(
+  userId: string,
+  accountOwnerId: string,
+): Promise<WorkspaceRolePermissions | null> {
+  await ensureTeamMembersSchema();
+  const team = await resolveTeamContext(userId);
+  if (!team.isTeamMember || team.ownerUserId !== accountOwnerId) return null;
+
+  const [teamMember] = await db
+    .select()
+    .from(teamMembersTable)
+    .where(and(
+      eq(teamMembersTable.memberUserId, userId),
+      eq(teamMembersTable.ownerUserId, accountOwnerId),
+      eq(teamMembersTable.status, "active"),
+    ))
+    .limit(1);
+  if (!teamMember) return null;
+
+  let legacyRole = normalizeLegacyRole(team.role);
+  let permissions = legacyRolePermissions(legacyRole);
+
+  if (teamMember.roleId) {
+    const accountRole = await getAccountRole(accountOwnerId, teamMember.roleId);
+    if (accountRole) {
+      legacyRole = normalizeLegacyRole(accountRole.legacyRoleKey ?? legacyRole);
+      permissions = normalizeRolePermissions(
+        accountRole.permissions ?? legacyRolePermissions(legacyRole),
+      );
+    }
+  }
+
+  return permissions;
+}
+
 export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
   id: number;
   name: string;

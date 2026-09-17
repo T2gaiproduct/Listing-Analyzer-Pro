@@ -140,7 +140,7 @@ export default function WorkspacesPage() {
 
   const canCreate = !workspacesLocked && (isAccountOwner || can("workspaces", "create"));
   const canEdit = !workspacesLocked && (isAccountOwner || can("workspaces", "edit"));
-  const canDelete = !workspacesLocked && isAccountOwner;
+  const canDeleteWorkspace = !workspacesLocked && (isAccountOwner || can("workspaces", "delete"));
   const canFundPools = !workspacesLocked && isAccountOwner;
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -270,7 +270,12 @@ export default function WorkspacesPage() {
       qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
       refetch();
       setOpen(false);
-      toast({ title: editing ? "Workspace updated" : "Workspace created" });
+      toast({
+        title: editing ? "Workspace updated" : "Workspace created",
+        description: !editing && !isAccountOwner
+          ? "The account owner was notified. They can fund this workspace from the Workspaces hub."
+          : undefined,
+      });
     },
     onError: (err: Error) => toast({ title: "Failed to save workspace", description: err.message, variant: "destructive" }),
   });
@@ -320,9 +325,13 @@ export default function WorkspacesPage() {
       const returnedTotal = result?.creditsReturnedTotal ?? 0;
       toast({
         title: "Workspace deleted",
-        description: returnedTotal > 0
-          ? `${returnedTotal.toLocaleString()} unused credits were returned to your account balance. The workspace was moved to Archive → Workspaces.`
-          : "It was moved to Archive → Workspaces. You can restore it from there.",
+        description: isAccountOwner
+          ? (returnedTotal > 0
+            ? `${returnedTotal.toLocaleString()} unused credits were returned to your account balance. The workspace was moved to Archive → Workspaces.`
+            : "It was moved to Archive → Workspaces. You can restore it from there.")
+          : (returnedTotal > 0
+            ? `${returnedTotal.toLocaleString()} unused credits were returned to the account owner's balance. The workspace was archived.`
+            : "The workspace was moved to Archive → Workspaces."),
         action: (
           <Button variant="outline" size="sm" onClick={() => navigate("/archive?tab=workspaces")}>
             View Archive
@@ -588,7 +597,7 @@ export default function WorkspacesPage() {
                                       <Pencil className="w-3.5 h-3.5" />
                                     </Button>
                                   )}
-                                  {canDelete && (
+                                  {canDeleteWorkspace && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -714,6 +723,32 @@ export default function WorkspacesPage() {
                       Members
                     </Button>
                   </Link>
+                  {canEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => openEdit(workspaces.find((w) => w.id === ws.id)!)}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit
+                    </Button>
+                  )}
+                  {canDeleteWorkspace && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => {
+                        if (confirm(`Delete workspace "${ws.name}"? It will be moved to Archive.`)) {
+                          deleteWorkspace.mutate(ws.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

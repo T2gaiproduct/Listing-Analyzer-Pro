@@ -29,9 +29,14 @@ import {
   listAccessibleWorkspaces,
   resolveWorkspaceContext,
   resolveAccountOwnerId,
+  resolveTeamMemberAccountPermissions,
+  hasWorkspacePermission,
   WORKSPACE_HEADER,
   requireWorkspacePerm as checkPerm,
 } from "../lib/workspace-context";
+import { syncAllActiveTeamMembersForOwner } from "../lib/team-workspace-sync.js";
+import { notifyAccountOwnerWorkspaceCreated } from "../lib/workspace-created-notify-owner.js";
+import { fetchClerkUserEmailAndName } from "../lib/clerk-user.js";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
 import { ensureAccountRolesMigrated, listAccountRoles, getAccountRole } from "../lib/ensure-account-roles";
 import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
@@ -344,15 +349,20 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   });
 });
 
-// ─── Create workspace (account owner only) ───────────────────────────────────
+// ─── Create workspace (owner or team member with workspaces.create) ───────────
 
 router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   await ensureWorkspacesMigrated();
   const accountOwnerId = await resolveAccountOwnerId(userId);
-  if (accountOwnerId !== userId) {
-    res.status(403).json({ error: "Only the account owner can create workspaces" });
-    return;
+  const isOwner = accountOwnerId === userId;
+
+  if (!isOwner) {
+    const permissions = await resolveTeamMemberAccountPermissions(userId, accountOwnerId);
+    if (!permissions || !hasWorkspacePermission(permissions, "workspaces", "create")) {
+      res.status(403).json({ error: "You do not have permission to create workspaces" });
+      return;
+    }
   }
 
   if (!await accountWorkspacesEnabled(accountOwnerId)) {
@@ -395,6 +405,18 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
 
   const { ensureWorkspaceDefaultAgents } = await import("../lib/workspace-agents.js");
   await ensureWorkspaceDefaultAgents(ws!.id);
+  await syncAllActiveTeamMembersForOwner(accountOwnerId);
+
+  if (!isOwner) {
+    const clerk = await fetchClerkUserEmailAndName(userId);
+    const creatorDisplayName = clerk?.name?.trim() || clerk?.email || "A team member";
+    void notifyAccountOwnerWorkspaceCreated({
+      accountOwnerId,
+      createdByUserId: userId,
+      workspaceName: ws!.name,
+      creatorDisplayName,
+    });
+  }
 
   res.status(201).json(ws);
 });
@@ -527,8 +549,8 @@ router.patch("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req,
 
 router.delete("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!ctx.isAccountOwner) {
-    res.status(403).json({ error: "Only the account owner can delete workspaces" });
+  if (!checkPerm(ctx, "workspaces", "delete")) {
+    res.status(403).json({ error: "You do not have permission to delete this workspace" });
     return;
   }
 

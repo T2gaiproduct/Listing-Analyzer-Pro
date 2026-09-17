@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { db, workspacesTable, workspaceMembersTable } from "@workspace/db";
+import { db, workspacesTable, workspaceMembersTable, teamMembersTable } from "@workspace/db";
 
 function normalizeLegacyRole(role: string | null | undefined): string {
   if (role === "admin" || role === "editor" || role === "viewer") return role;
@@ -170,5 +170,28 @@ export async function syncTeamMemberWorkspaceMemberships(input: {
         .set(patch)
         .where(eq(workspaceMembersTable.id, retry.id));
     }
+  }
+}
+
+/** After a new workspace is added, mirror every active team seat into workspace_members. */
+export async function syncAllActiveTeamMembersForOwner(ownerUserId: string): Promise<void> {
+  const members = await db
+    .select()
+    .from(teamMembersTable)
+    .where(and(
+      eq(teamMembersTable.ownerUserId, ownerUserId),
+      eq(teamMembersTable.status, "active"),
+    ));
+
+  for (const tm of members) {
+    if (!tm.memberUserId) continue;
+    await syncTeamMemberWorkspaceMemberships({
+      ownerUserId,
+      memberUserId: tm.memberUserId,
+      invitedEmail: tm.invitedEmail,
+      invitedName: tm.invitedName,
+      roleId: tm.roleId,
+      legacyRole: tm.role,
+    });
   }
 }

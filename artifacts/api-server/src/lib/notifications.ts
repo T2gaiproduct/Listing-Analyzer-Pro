@@ -24,6 +24,7 @@ export type NotificationType =
   | "payment_received"
   | "team_invite"
   | "team_invite_accepted"
+  | "workspace_created"
   | "support_ticket_new"
   | "admin_role_invite"
   | "admin_role_assigned"
