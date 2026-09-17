@@ -335,11 +335,22 @@ export function ProductListingPreview({
         className={cn(
           "bg-white shadow-sm overflow-hidden",
           edgeToEdge
-            ? "rounded-none border-0 -mx-3.5 border-y border-slate-200"
+            ? cn(
+                "rounded-none border-0 border-y border-slate-200",
+                publicView
+                  ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-12 2xl:-mx-16"
+                  : "-mx-3.5",
+              )
             : "rounded-lg border border-slate-200",
         )}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,28rem)_minmax(0,1fr)] gap-4 lg:gap-5 items-start px-4 pt-4 pb-2 lg:px-5 lg:pt-5 lg:pb-3">
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-4 items-start px-4 pt-4 pb-2 lg:gap-6 lg:px-5 lg:pt-5 lg:pb-3",
+            "lg:grid-cols-[auto_minmax(0,min(36rem,42vw))_minmax(0,1fr)]",
+            "xl:grid-cols-[auto_minmax(0,min(40rem,38vw))_minmax(0,1fr)]",
+          )}
+        >
           {/* Thumbnails */}
           <div className="flex flex-col items-center gap-1 order-2 lg:order-1 shrink-0">
             {canStepGallery && (
@@ -426,7 +437,7 @@ export function ProductListingPreview({
           </div>
 
           {/* Main image */}
-          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:justify-self-start rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden group/main-image">
+          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] lg:justify-self-stretch rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden group/main-image">
             {selected ? (
               <>
                 {canStepGallery && (
@@ -479,7 +490,7 @@ export function ProductListingPreview({
           </div>
 
           {/* Product details */}
-          <div className="order-3 space-y-3 min-w-0 lg:max-w-2xl">
+          <div className="order-3 space-y-3 min-w-0 w-full max-w-none">
             <h4 className="text-base sm:text-lg font-semibold text-slate-900 leading-snug">{title}</h4>
 
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">

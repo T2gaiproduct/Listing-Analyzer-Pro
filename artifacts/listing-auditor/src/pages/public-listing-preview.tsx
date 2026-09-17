@@ -54,7 +54,7 @@ export default function PublicListingPreviewPage({ auditId }: { auditId: number 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
       <PublicNav />
-      <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 sm:py-10">
+      <div className="flex-1 w-full min-w-0 px-4 py-8 sm:py-10 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Listing preview</p>
