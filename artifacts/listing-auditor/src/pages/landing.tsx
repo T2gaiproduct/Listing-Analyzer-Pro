@@ -30,6 +30,7 @@ import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
 import { maxPlanYearlySavingsPercent, planCardCtaClassName, resolvePlanPriceDisplay } from "@/lib/plan-price";
 import { buildSignUpHref } from "@/lib/plan-selection";
 import { cn } from "@/lib/utils";
+import { LANDING_SECTION_CLASS, LANDING_SECTION_PAD } from "@/lib/landing-layout";
 import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -197,7 +198,7 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5 lg:gap-6">
         {items.map((item, index) => (
           <button
             key={item.id}
@@ -447,11 +448,11 @@ function LandingPricingSection() {
 
   if (isLoading) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
-        <div className="max-w-[1400px] mx-auto text-center w-full">
+      <section id="pricing" className={cn("bg-slate-50 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8", LANDING_SECTION_PAD)}>
+        <div className={cn(LANDING_SECTION_CLASS, "text-center")}>
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-8">{heading}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 w-full">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-[28rem] min-w-[260px] rounded-2xl" />
             ))}
@@ -463,8 +464,8 @@ function LandingPricingSection() {
 
   if (plans.length === 0) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
-        <div className="max-w-[1400px] mx-auto text-center w-full">
+      <section id="pricing" className={cn("bg-slate-50 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8", LANDING_SECTION_PAD)}>
+        <div className={cn(LANDING_SECTION_CLASS, "text-center")}>
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">{heading}</h2>
           <p className="text-slate-500">Plans are configured in Admin → Plans.</p>
@@ -474,8 +475,8 @@ function LandingPricingSection() {
   }
 
   return (
-    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
-      <div className="max-w-[1400px] mx-auto text-center w-full">
+    <section id="pricing" className={cn("bg-slate-50 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8", LANDING_SECTION_PAD)}>
+      <div className={cn(LANDING_SECTION_CLASS, "text-center")}>
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-8">{heading}</h2>
         <BillingCycleToggle
@@ -525,8 +526,8 @@ function LandingTestimonialsSection() {
   if (isLoading || items.length === 0) return null;
 
   return (
-    <section className="px-4 sm:px-6 py-12 sm:py-16 lg:py-20 bg-slate-50 border-t border-slate-100">
-      <div className="max-w-6xl mx-auto">
+    <section className={cn("py-12 sm:py-16 lg:py-20 bg-slate-50 border-t border-slate-100", LANDING_SECTION_PAD)}>
+      <div className={LANDING_SECTION_CLASS}>
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-8 sm:mb-10">{heading}</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -583,8 +584,8 @@ function LandingFaqSection() {
   if (faqs.length === 0) return null;
 
   return (
-    <section className="px-4 sm:px-6 pt-4 pb-12 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-24 bg-white">
-      <div className="max-w-2xl mx-auto">
+    <section className={cn("pt-4 pb-12 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-24 bg-white", LANDING_SECTION_PAD)}>
+      <div className={cn(LANDING_SECTION_CLASS, "max-w-4xl")}>
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">{heading}</h2>
         <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white">
           {faqs.map((faq, i) => (
@@ -644,7 +645,7 @@ export default function Landing() {
             />
           </div>
         )}
-        <div className="relative px-4 sm:px-6 lg:px-10 max-w-6xl mx-auto">
+        <div className={cn("relative", LANDING_SECTION_PAD, LANDING_SECTION_CLASS)}>
           <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
             {heroStats.map((s) => (
               <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
@@ -661,8 +662,8 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "features") && features.length > 0 && (
-      <section className="px-4 sm:px-6 lg:px-10 py-12 sm:py-16 lg:py-20 border-t border-slate-100 bg-white">
-        <div className="max-w-7xl mx-auto">
+      <section className={cn("py-12 sm:py-16 lg:py-20 border-t border-slate-100 bg-white", LANDING_SECTION_PAD)}>
+        <div className={LANDING_SECTION_CLASS}>
           <div className="text-center mb-8 sm:mb-10 lg:mb-12">
             <p className="lg:hidden text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500 mb-3">
               {cmsText(cms, "features.eyebrow")}
@@ -688,8 +689,8 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "portfolio") && portfolioItems.length > 0 && (
-      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-white">
-        <div className="max-w-7xl mx-auto">
+      <section className={cn("pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-white", LANDING_SECTION_PAD)}>
+        <div className={LANDING_SECTION_CLASS}>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-3 sm:mb-4">
             {cmsText(cms, "portfolio.heading")}
           </h2>
@@ -731,8 +732,8 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "cta") && (
-      <section className="px-4 sm:px-6 py-16 sm:py-20 text-center bg-white border-t border-slate-100">
-        <div className="max-w-2xl mx-auto">
+      <section className={cn("py-16 sm:py-20 text-center bg-white border-t border-slate-100", LANDING_SECTION_PAD)}>
+        <div className={cn(LANDING_SECTION_CLASS, "max-w-3xl")}>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
             {cmsText(cms, "cta.heading")}
           </h2>

@@ -264,7 +264,7 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
       </div>
 
       {/* Desktop — preview panel sizes to CMS image; tabs stretch to match */}
-      <div className="hidden lg:grid lg:grid-cols-[minmax(250px,270px)_1fr] lg:gap-6 xl:gap-8 items-stretch max-w-6xl mx-auto w-full">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(260px,320px)_1fr] lg:gap-6 xl:gap-10 2xl:gap-12 items-stretch w-full max-w-[1920px] mx-auto">
         <div role="tablist" aria-label="Services" className="flex flex-col gap-3.5 h-full min-h-0">
           {features.map((feature, i) => (
             <ServiceTab

@@ -120,7 +120,7 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
         }
       `}</style>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 relative">
+      <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 relative">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center">
           {heading}
         </h2>

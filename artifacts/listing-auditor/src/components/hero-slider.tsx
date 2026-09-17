@@ -458,7 +458,10 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     ref={(el) => {
                       slideMeasureRefs.current[slideIndex] = el;
                     }}
-                    className={cn("flex w-full flex-col lg:items-stretch", hasDesktopMedia && "lg:flex-row")}
+                    className={cn(
+                      "flex w-full max-w-[1920px] mx-auto flex-col lg:items-stretch",
+                      hasDesktopMedia && "lg:flex-row",
+                    )}
                   >
                     <div className="lg:hidden px-4 sm:px-6 pt-4 pb-0 text-center">
                       <HeroSlideCopy slide={slide} />

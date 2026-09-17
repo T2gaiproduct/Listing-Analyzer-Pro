@@ -199,7 +199,8 @@ export function PublicNav() {
   return (
     <>
       <PromoBanner />
-      <header className="sticky top-0 z-50 flex w-full items-center justify-between px-4 sm:px-6 lg:px-10 py-3 sm:py-3.5 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm gap-2 sm:gap-4 min-w-0">
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-sm">
+      <div className="flex w-full max-w-[1920px] mx-auto items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-3 sm:py-3.5 gap-2 sm:gap-4 min-w-0">
       <div className="flex items-center gap-3 sm:gap-6 lg:gap-10 min-w-0 flex-1">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 font-bold text-base sm:text-lg tracking-tight flex-shrink-0 text-slate-900 min-w-0">
           <SiteLogo imageClassName={NAV_LOGO_CLASS} />
@@ -239,6 +240,7 @@ export function PublicNav() {
         >
           <Menu className="w-5 h-5" />
         </button>
+      </div>
       </div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -394,7 +396,7 @@ export function PublicFooter() {
 
   return (
     <footer className="bg-[#0B0E11] text-slate-400">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-16 min-w-0">
+      <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-12 sm:py-16 min-w-0">
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-8 sm:gap-10 mb-10 sm:mb-12 min-w-0">
           <div className="col-span-2 lg:col-span-2 min-w-0">
             <Link
