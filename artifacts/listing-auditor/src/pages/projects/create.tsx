@@ -99,12 +99,16 @@ function visibleSelectedImageTypes(ids: string[]): string[] {
 type AplusModuleId = (typeof APLUS_MODULE_CARDS)[number]["id"];
 
 type Step = 1 | 2 | 3;
+type CreatePath = "graphics" | "aplus";
 
-const STEPS = [
-  { id: 1, label: "Upload Product" },
-  { id: 2, label: "Select Graphics" },
-  { id: 3, label: "A+ Content" },
-];
+function stepLabels(path: CreatePath | null): { id: number; label: string }[] {
+  const step3Label = path === "aplus" ? "A+ Content" : path === "graphics" ? "Select Graphics" : "Create";
+  return [
+    { id: 1, label: "Upload Product" },
+    { id: 2, label: "Choose what to create" },
+    { id: 3, label: step3Label },
+  ];
+}
 
 export default function CreateProject() {
   const [, nav] = useLocation();
@@ -114,6 +118,7 @@ export default function CreateProject() {
   const categoryRef = useRef<HTMLDivElement>(null);
 
   const [step, setStep] = useState<Step>(1);
+  const [createPath, setCreatePath] = useState<CreatePath | null>(null);
   const [brandName, setBrandName] = useState("");
   const [productName, setProductName] = useState("");
   const [category, setCategory] = useState("");
@@ -203,7 +208,6 @@ export default function CreateProject() {
 
   const graphicsCreditsNeeded = selectedGraphicsTypes.length * imageCreditPerUnit;
   const aplusCreditsNeeded = selectedAplusModules.length * imageCreditPerUnit;
-  const totalCreditsNeeded = graphicsCreditsNeeded + aplusCreditsNeeded;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -265,18 +269,20 @@ export default function CreateProject() {
       }
       const project = await res.json();
 
-      const genRes = await fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          imageTypes: input.imageTypes,
-          typeConfigs: input.typeConfigs,
-        }),
-      });
-      if (!genRes.ok) {
-        const err = await genRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to start graphics generation");
+      if (input.imageTypes.length > 0) {
+        const genRes = await fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            imageTypes: input.imageTypes,
+            typeConfigs: input.typeConfigs,
+          }),
+        });
+        if (!genRes.ok) {
+          const err = await genRes.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to start graphics generation");
+        }
       }
 
       if (auditId != null && input.aplusModuleIds.length > 0) {
@@ -295,10 +301,22 @@ export default function CreateProject() {
         }
       }
 
-      return { project };
+      return {
+        project,
+        auditId,
+        flow: input.imageTypes.length > 0 ? "graphics" as const : "aplus" as const,
+      };
     },
-    onSuccess: ({ project }) => {
+    onSuccess: ({ project, auditId, flow }) => {
       refreshCreditBalances(queryClient);
+      if (flow === "aplus" && auditId != null) {
+        toast({
+          title: "A+ generation started",
+          description: "Opening your listing project to track A+ progress.",
+        });
+        nav(`/audits/${auditId}?returnTo=${encodeURIComponent("/projects")}`);
+        return;
+      }
       nav(`/projects/${project.id}/generating`);
     },
     onError: (err) => {
@@ -396,26 +414,37 @@ export default function CreateProject() {
 
   const canContinue = () => {
     if (step === 1) return brandName.trim().length > 0 && productName.trim().length > 0;
-    if (step === 2) {
-      return selectedGraphicsTypes.length > 0;
-    }
-    if (step === 3) {
-      if (selectedAplusModules.length > 0 && !category.trim()) return false;
-      const creditsForRun = selectedGraphicsTypes.length * imageCreditPerUnit + selectedAplusModules.length * imageCreditPerUnit;
+    if (step === 2) return false;
+    if (step === 3 && createPath === "graphics") {
+      if (selectedGraphicsTypes.length === 0) return false;
+      const creditsForRun = selectedGraphicsTypes.length * imageCreditPerUnit;
       if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) return false;
       return true;
     }
-    return true;
+    if (step === 3 && createPath === "aplus") {
+      if (selectedAplusModules.length === 0 || !category.trim()) return false;
+      const creditsForRun = selectedAplusModules.length * imageCreditPerUnit;
+      if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) return false;
+      return true;
+    }
+    return false;
   };
 
-  const runGenerate = (aplusModuleIds: AplusModuleId[]) => {
-    const creditsForRun = selectedGraphicsTypes.length * imageCreditPerUnit + aplusModuleIds.length * imageCreditPerUnit;
-    if (aplusModuleIds.length > 0 && !category.trim()) {
+  const runGenerate = (input: {
+    imageTypes: string[];
+    aplusModuleIds: AplusModuleId[];
+  }) => {
+    const creditsForRun =
+      input.imageTypes.length * imageCreditPerUnit + input.aplusModuleIds.length * imageCreditPerUnit;
+    if (input.aplusModuleIds.length > 0 && !category.trim()) {
       toast({
         title: "Category required",
         description: "Select a category on step 1 to generate A+ content.",
         variant: "destructive",
       });
+      return;
+    }
+    if (input.imageTypes.length === 0 && input.aplusModuleIds.length === 0) {
       return;
     }
     if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) {
@@ -432,29 +461,40 @@ export default function CreateProject() {
         productName,
         category,
         sourceImageUrls: uploadedImages,
-        imageTypes: selectedGraphicsTypes,
+        imageTypes: input.imageTypes,
       },
-      imageTypes: selectedGraphicsTypes,
-      typeConfigs: graphicsTypeConfigsPayload,
-      aplusModuleIds,
-      aplusModuleConfigs: aplusModuleIds.length > 0 ? aplusModuleConfigsPayload : {},
+      imageTypes: input.imageTypes,
+      typeConfigs: input.imageTypes.length > 0 ? graphicsTypeConfigsPayload : {},
+      aplusModuleIds: input.aplusModuleIds,
+      aplusModuleConfigs: input.aplusModuleIds.length > 0 ? aplusModuleConfigsPayload : {},
     });
   };
 
   const handleContinue = () => {
-    if (step === 3) {
-      runGenerate(selectedAplusModules);
+    if (step === 3 && createPath === "graphics") {
+      runGenerate({ imageTypes: selectedGraphicsTypes, aplusModuleIds: [] });
       return;
     }
-    if (step === 2) {
-      setStep(3);
+    if (step === 3 && createPath === "aplus") {
+      runGenerate({ imageTypes: [], aplusModuleIds: selectedAplusModules });
       return;
     }
-    setStep((s) => (s + 1) as Step);
+    if (step === 1) {
+      setStep(2);
+    }
   };
 
-  const handleSkipAplus = () => {
-    runGenerate([]);
+  const choosePath = (path: CreatePath) => {
+    if (path === "aplus" && !category.trim()) {
+      toast({
+        title: "Category required",
+        description: "Select a category on step 1 before creating A+ content.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCreatePath(path);
+    setStep(3);
   };
 
   return (
@@ -462,7 +502,7 @@ export default function CreateProject() {
       {/* Step indicator */}
       <div className="mb-4">
         <div className="flex items-center">
-          {STEPS.map((s, idx) => (
+          {stepLabels(createPath).map((s, idx) => (
             <div key={s.id} className="flex items-center flex-1">
               <div className="flex flex-col items-center">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
@@ -474,14 +514,14 @@ export default function CreateProject() {
                 </div>
                 <div className="mt-1 text-center">
                   <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-orange-600" : "text-slate-400"}`}>
-                    Step {s.id} of {STEPS.length}
+                    Step {s.id} of 3
                   </p>
                   <p className={`text-xs font-medium ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
                     {s.label}
                   </p>
                 </div>
               </div>
-              {idx < STEPS.length - 1 && (
+              {idx < 2 && (
                 <div className={`flex-1 h-0.5 mx-2 mb-5 ${s.id < step ? "bg-orange-600" : "bg-slate-200"}`} />
               )}
             </div>
@@ -637,8 +677,48 @@ export default function CreateProject() {
         </div>
       )}
 
-      {/* Step 2: Select Graphics */}
+      {/* Step 2: Choose graphics or A+ (shared upload on step 1) */}
       {step === 2 && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">What do you want to create?</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Your uploads apply to either path. Pick product graphics or A+ content — not both in one flow.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => choosePath("graphics")}
+              className="rounded-xl border-2 border-slate-200 bg-white p-5 text-left hover:border-orange-400 hover:bg-orange-50/30 transition-all"
+            >
+              <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
+                <Wand2 className="w-5 h-5 text-orange-600" />
+              </div>
+              <p className="text-base font-semibold text-slate-900">Product graphics</p>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Lifestyle shots, infographics, and listing images generated from your uploads.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => choosePath("aplus")}
+              className="rounded-xl border-2 border-slate-200 bg-white p-5 text-left hover:border-orange-400 hover:bg-orange-50/30 transition-all"
+            >
+              <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
+                <Sparkles className="w-5 h-5 text-orange-600" />
+              </div>
+              <p className="text-base font-semibold text-slate-900">A+ content</p>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Amazon A+ modules (hero, features, comparison, brand story). Requires category on step 1.
+              </p>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Select Graphics */}
+      {step === 3 && createPath === "graphics" && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
@@ -740,7 +820,7 @@ export default function CreateProject() {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 3 && createPath === "aplus" && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
@@ -749,14 +829,14 @@ export default function CreateProject() {
             <div>
               <h2 className="text-lg font-bold text-slate-900">A+ Content</h2>
               <p className="text-xs text-slate-500">
-                Optional — choose modules to generate A+ images, or skip to create product graphics only.
+                Choose the A+ modules to generate from your uploaded product images.
               </p>
             </div>
           </div>
 
           {!category.trim() && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              A+ generation requires a category. Go back to step 1 and select one, or skip this step.
+              A+ generation requires a category. Go back to step 1 and select one.
             </p>
           )}
 
@@ -822,58 +902,55 @@ export default function CreateProject() {
           />
 
           <p className="text-xs text-slate-500">
-            Estimated image credits: {totalCreditsNeeded}
-            {selectedAplusModules.length === 0 ? " (graphics only)" : ` (${selectedGraphicsTypes.length} graphics + ${selectedAplusModules.length} A+)`}
+            Estimated image credits: {aplusCreditsNeeded}
+            {selectedAplusModules.length > 0 ? ` (${selectedAplusModules.length} A+ module${selectedAplusModules.length === 1 ? "" : "s"})` : ""}
           </p>
         </div>
       )}
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-3 gap-2">
-        {step === 3 ? (
-          <Button
-            variant="ghost"
-            className="text-slate-500 h-8 text-xs"
-            disabled={createProject.isPending || createAuditDraft.isPending}
-            onClick={handleSkipAplus}
-          >
-            Skip A+ — graphics only
-          </Button>
-        ) : (
-          <span />
-        )}
+      <div className="flex items-center justify-end pt-3 gap-2">
         <div className="flex items-center gap-2">
           {step > 1 && (
             <Button
               variant="outline"
               className="text-slate-500 border-slate-200 rounded-lg h-8 text-xs"
               disabled={createProject.isPending || createAuditDraft.isPending}
-              onClick={() => setStep((s) => (s - 1) as Step)}
+              onClick={() => {
+                if (step === 3) {
+                  setCreatePath(null);
+                  setStep(2);
+                  return;
+                }
+                setStep((s) => (s - 1) as Step);
+              }}
             >
               Back
             </Button>
           )}
-          <Button
-            className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-8 text-xs"
-            disabled={!canContinue() || createProject.isPending || createAuditDraft.isPending}
-            onClick={handleContinue}
-          >
-            {createProject.isPending || createAuditDraft.isPending ? (
-              <>
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                {step === 3
-                  ? (selectedAplusModules.length > 0
-                    ? `Generate all (${totalCreditsNeeded} credits)`
-                    : "Generate graphics")
-                  : "Continue"}
-                <ArrowRight className="w-3 h-3 ml-1" />
-              </>
-            )}
-          </Button>
+          {step !== 2 && (
+            <Button
+              className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-8 text-xs"
+              disabled={!canContinue() || createProject.isPending || createAuditDraft.isPending}
+              onClick={handleContinue}
+            >
+              {createProject.isPending || createAuditDraft.isPending ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  {step === 3 && createPath === "aplus"
+                    ? `Generate A+ (${aplusCreditsNeeded} credits)`
+                    : step === 3 && createPath === "graphics"
+                      ? `Generate graphics (${graphicsCreditsNeeded} credits)`
+                      : "Continue"}
+                  <ArrowRight className="w-3 h-3 ml-1" />
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>
