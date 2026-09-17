@@ -154,6 +154,18 @@ export default function AuditDetail({ id }: { id: number }) {
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : ownerCredits;
 
+  const gc = audit?.generatedContent;
+  const displayBullets = useMemo(
+    () => (gc ? normalizeBulletPoints(gc.bulletPoints) : []),
+    [gc],
+  );
+  const descriptionPreviewHtml = useMemo(
+    () => (gc
+      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(gc.htmlDescription))
+      : ""),
+    [gc],
+  );
+
   if (isLoading) {
     return (
       <div className="space-y-8 animate-in fade-in">
@@ -260,18 +272,6 @@ export default function AuditDetail({ id }: { id: number }) {
     { icon: Image, title: "Images", ...result.imageScore },
     { icon: Tag, title: "Keywords", ...result.keywordScore },
   ];
-
-  const gc = audit.generatedContent;
-  const displayBullets = useMemo(
-    () => (gc ? normalizeBulletPoints(gc.bulletPoints) : []),
-    [gc],
-  );
-  const descriptionPreviewHtml = useMemo(
-    () => (gc
-      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(gc.htmlDescription))
-      : ""),
-    [gc],
-  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 w-full min-w-0 max-w-full">
