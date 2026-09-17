@@ -251,13 +251,10 @@ function resolveClerkProxyUrl(): string | undefined {
   if (typeof window === "undefined") return undefined;
 
   const host = window.location.hostname;
-  // Quick Cloudflare tunnels get a new hostname on every restart — pk_test can use Clerk CDN
-  // directly (same as localhost). Same-origin proxy requires Clerk proxy_url for that host.
+  // Ephemeral *.trycloudflare.com hosts are never registered in Clerk proxy_url (doing so would
+  // break production sellerlens.io). Always use Clerk CDN here; API auth uses Bearer JWTs.
   if (host.endsWith(".trycloudflare.com")) {
-    if (clerkPubKey.startsWith("pk_test_")) {
-      return undefined;
-    }
-    return sameOriginClerkProxyPath();
+    return undefined;
   }
   // Production SellerLens domain: route Clerk FAPI through our API proxy.
   if (
