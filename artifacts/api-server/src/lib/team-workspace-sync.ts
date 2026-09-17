@@ -1,6 +1,8 @@
 import { randomBytes } from "crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { db, workspacesTable, workspaceMembersTable, teamMembersTable } from "@workspace/db";
+import { getAccountRole } from "./ensure-account-roles.js";
+import { ensureTeamMembersSchema } from "./ensure-workspaces.js";
 
 function normalizeLegacyRole(role: string | null | undefined): string {
   if (role === "admin" || role === "editor" || role === "viewer") return role;
@@ -171,6 +173,82 @@ export async function syncTeamMemberWorkspaceMemberships(input: {
         .where(eq(workspaceMembersTable.id, retry.id));
     }
   }
+}
+
+/**
+ * Keep team_members.role_id in sync when a role is assigned on workspace_members
+ * (account-wide permissions are enforced from the team seat).
+ */
+export async function syncWorkspaceMemberRoleToTeamSeat(input: {
+  ownerUserId: string;
+  invitedEmail: string;
+  invitedName: string;
+  memberUserId: string | null;
+  roleId: number | null;
+  legacyRole: string | null;
+}): Promise<void> {
+  await ensureTeamMembersSchema();
+  const emailLower = input.invitedEmail.trim().toLowerCase();
+  const legacyRole = normalizeLegacyRole(input.legacyRole);
+
+  let roleLabel = legacyRole;
+  if (input.roleId != null) {
+    const accountRole = await getAccountRole(input.ownerUserId, input.roleId);
+    if (accountRole) roleLabel = accountRole.name;
+  }
+
+  let existing: typeof teamMembersTable.$inferSelect | undefined;
+  if (input.memberUserId) {
+    [existing] = await db
+      .select()
+      .from(teamMembersTable)
+      .where(and(
+        eq(teamMembersTable.ownerUserId, input.ownerUserId),
+        eq(teamMembersTable.memberUserId, input.memberUserId),
+      ))
+      .limit(1);
+  }
+  if (!existing) {
+    [existing] = await db
+      .select()
+      .from(teamMembersTable)
+      .where(and(
+        eq(teamMembersTable.ownerUserId, input.ownerUserId),
+        sql`lower(${teamMembersTable.invitedEmail}) = ${emailLower}`,
+      ))
+      .limit(1);
+  }
+
+  if (existing) {
+    if (existing.status === "revoked") return;
+    await db.update(teamMembersTable)
+      .set({
+        roleId: input.roleId,
+        role: roleLabel,
+        invitedName: input.invitedName,
+        ...(input.memberUserId
+          ? {
+            memberUserId: input.memberUserId,
+            status: "active",
+            acceptedAt: existing.acceptedAt ?? new Date(),
+          }
+          : {}),
+      })
+      .where(eq(teamMembersTable.id, existing.id));
+    return;
+  }
+
+  await db.insert(teamMembersTable).values({
+    ownerUserId: input.ownerUserId,
+    invitedEmail: emailLower,
+    invitedName: input.invitedName,
+    role: roleLabel,
+    roleId: input.roleId,
+    status: input.memberUserId ? "active" : "pending",
+    memberUserId: input.memberUserId,
+    inviteToken: randomBytes(32).toString("hex"),
+    acceptedAt: input.memberUserId ? new Date() : null,
+  });
 }
 
 /** After a new workspace is added, mirror every active team seat into workspace_members. */

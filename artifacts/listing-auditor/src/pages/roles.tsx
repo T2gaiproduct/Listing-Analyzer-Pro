@@ -137,6 +137,8 @@ export default function RolesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["account-roles"] });
       qc.invalidateQueries({ queryKey: ["workspace-roles"] });
+      qc.invalidateQueries({ queryKey: ["team-account-permissions"] });
+      qc.invalidateQueries({ queryKey: ["workspace-permissions"] });
       setDialogOpen(false);
       toast({ title: editing ? "Role updated" : "Role created" });
     },
@@ -181,7 +183,7 @@ export default function RolesPage() {
             <h1 className="text-2xl font-bold text-slate-900">Roles</h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
-            Create account-wide roles used across all workspaces. Assign them to members from each workspace&apos;s Members page.
+            Create account-wide roles used across all workspaces. Assign them on the Team page or any workspace Members page — both update the same account role for that person.
           </p>
         </div>
         <Button onClick={openCreate} className="gap-2 flex-shrink-0">

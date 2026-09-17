@@ -131,6 +131,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     retry: 1,
   });
 
+  const sharedWorkspaceMember =
+    (listData?.workspaces?.length ?? 0) > 0
+    && !(listData?.workspaces?.some((w) => w.isAccountOwner) ?? false);
+
   const { data: accountPermPayload } = useQuery<{
     permissions: WorkspaceRolePermissions;
     workspacesEnabled: boolean;
@@ -140,7 +144,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       fetchJson<{ permissions: WorkspaceRolePermissions; workspacesEnabled: boolean }>(
         `${basePath}/api/team/account-permissions`,
       ),
-    enabled: isLoaded && !!user && profileSummary?.accountRole?.type === "team_member",
+    enabled:
+      isLoaded
+      && !!user
+      && (profileSummary?.accountRole?.type === "team_member" || sharedWorkspaceMember),
     staleTime: 30_000,
   });
 

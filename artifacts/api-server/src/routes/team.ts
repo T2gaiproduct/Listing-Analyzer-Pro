@@ -34,7 +34,7 @@ import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-r
 import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
 import { syncTeamMemberWorkspaceMemberships, syncPendingTeamInviteToWorkspaces } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
-import { resolveAccountOwnerId, resolveTeamMemberAccountPermissions } from "../lib/workspace-context.js";
+import { resolveAccountOwnerId, resolveAccountPermissionsForOwner } from "../lib/workspace-context.js";
 import { hasWorkspacePermission, ownerPermissions } from "@workspace/workspace-permissions";
 import { accountWorkspacesEnabled } from "../lib/plan-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
@@ -553,7 +553,7 @@ router.get("/team/account-permissions", requireAuth, async (req, res): Promise<v
   const isAccountOwner = accountOwnerId === userId;
   const permissions = isAccountOwner
     ? ownerPermissions()
-    : (await resolveTeamMemberAccountPermissions(userId, accountOwnerId) ?? {});
+    : (await resolveAccountPermissionsForOwner(userId, accountOwnerId) ?? {});
   const workspacesEnabled = await accountWorkspacesEnabled(accountOwnerId);
   res.json({
     accountOwnerId,

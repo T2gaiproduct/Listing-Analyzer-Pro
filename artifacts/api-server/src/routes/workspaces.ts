@@ -29,13 +29,13 @@ import {
   listAccessibleWorkspaces,
   resolveWorkspaceContext,
   resolveAccountOwnerId,
-  resolveTeamMemberAccountPermissions,
+  resolveAccountPermissionsForOwner,
   hasWorkspacePermission,
   canWorkspacesFeatureOnAccount,
   WORKSPACE_HEADER,
   requireWorkspacePerm as checkPerm,
 } from "../lib/workspace-context";
-import { syncAllActiveTeamMembersForOwner } from "../lib/team-workspace-sync.js";
+import { syncAllActiveTeamMembersForOwner, syncWorkspaceMemberRoleToTeamSeat } from "../lib/team-workspace-sync.js";
 import { notifyMemberCreatedWorkspace } from "../lib/workspace-created-notify-owner.js";
 import { fetchClerkUserEmailAndName } from "../lib/clerk-user.js";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
@@ -359,7 +359,7 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
   const isOwner = accountOwnerId === userId;
 
   if (!isOwner) {
-    const permissions = await resolveTeamMemberAccountPermissions(userId, accountOwnerId);
+    const permissions = await resolveAccountPermissionsForOwner(userId, accountOwnerId);
     if (!permissions || !hasWorkspacePermission(permissions, "workspaces", "create")) {
       res.status(403).json({ error: "You do not have permission to create workspaces" });
       return;
@@ -889,6 +889,15 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     req,
   });
 
+  await syncWorkspaceMemberRoleToTeamSeat({
+    ownerUserId: ctx.accountOwnerId,
+    invitedEmail: normalizedEmail,
+    invitedName: displayName,
+    memberUserId: member.userId,
+    roleId: accountRole.id,
+    legacyRole: resolvedLegacyRole,
+  });
+
   res.status(201).json({ ...member, ...delivery });
 });
 
@@ -963,6 +972,17 @@ router.patch("/workspaces/:workspaceId/members/:memberId", requireAuth, requireW
   if (!updated) {
     res.status(404).json({ error: "Member not found" });
     return;
+  }
+
+  if (updates.roleId !== undefined) {
+    await syncWorkspaceMemberRoleToTeamSeat({
+      ownerUserId: ctx.accountOwnerId,
+      invitedEmail: updated.invitedEmail,
+      invitedName: updated.invitedName,
+      memberUserId: updated.userId,
+      roleId: updated.roleId,
+      legacyRole: updated.legacyRole,
+    });
   }
 
   if (updates.invitedName) {
@@ -1248,6 +1268,15 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
     }
 
     await upsertUserProfile(userId, { onboardingCompleted: true });
+
+    await syncWorkspaceMemberRoleToTeamSeat({
+      ownerUserId: row.accountOwnerId,
+      invitedEmail: invite.invitedEmail,
+      invitedName: invite.invitedName ?? invite.invitedEmail,
+      memberUserId: userId,
+      roleId: invite.roleId,
+      legacyRole: invite.legacyRole,
+    });
 
     const roleName = row.roleName ?? "Unassigned";
     void createNotification({

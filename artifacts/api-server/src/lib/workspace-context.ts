@@ -22,7 +22,7 @@ import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
 import { displayWorkspaceRoleLabel } from "./role-display.js";
 import { getDefaultWorkspaceId, ensureTeamMembersSchema, ensureSubscriberDefaultWorkspace, dedupeRacedDefaultWorkspaces } from "./ensure-workspaces";
 import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
-import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
+import { syncTeamMemberWorkspaceMemberships, syncWorkspaceMemberRoleToTeamSeat } from "./team-workspace-sync.js";
 import { fetchClerkUserEmailAndName } from "./clerk-user.js";
 
 async function resolveAccountOwnerEmails(ownerIds: string[]): Promise<Map<string, string>> {
@@ -77,9 +77,27 @@ export interface WorkspaceContext {
 
 export const WORKSPACE_HEADER = "x-workspace-id";
 
+async function resolveAccountOwnerIdFromWorkspaceMembership(userId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ accountOwnerId: workspacesTable.accountOwnerId })
+    .from(workspaceMembersTable)
+    .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+    .where(and(
+      eq(workspaceMembersTable.userId, userId),
+      eq(workspaceMembersTable.status, "active"),
+      eq(workspaceMembersTable.isDeleted, 0),
+      eq(workspacesTable.isDeleted, 0),
+    ))
+    .limit(1);
+  return row?.accountOwnerId ?? null;
+}
+
 export async function resolveAccountOwnerId(userId: string): Promise<string> {
   const team = await resolveTeamContext(userId);
-  return team.ownerUserId;
+  if (team.isTeamMember) return team.ownerUserId;
+  const ownerFromWorkspace = await resolveAccountOwnerIdFromWorkspaceMembership(userId);
+  if (ownerFromWorkspace) return ownerFromWorkspace;
+  return userId;
 }
 
 /** Account-level role permissions for an active team seat (not workspace-scoped). */
@@ -113,9 +131,78 @@ export async function resolveTeamMemberAccountPermissions(
         accountRole.permissions ?? legacyRolePermissions(legacyRole),
       );
     }
+  } else {
+    const wsPerms = await resolveWorkspaceMemberAccountPermissions(userId, accountOwnerId);
+    if (wsPerms) {
+      const [wm] = await db
+        .select({
+          roleId: workspaceMembersTable.roleId,
+          legacyRole: workspaceMembersTable.legacyRole,
+          invitedEmail: workspaceMembersTable.invitedEmail,
+          invitedName: workspaceMembersTable.invitedName,
+        })
+        .from(workspaceMembersTable)
+        .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+        .where(and(
+          eq(workspaceMembersTable.userId, userId),
+          eq(workspaceMembersTable.status, "active"),
+          eq(workspaceMembersTable.isDeleted, 0),
+          eq(workspacesTable.accountOwnerId, accountOwnerId),
+          eq(workspacesTable.isDeleted, 0),
+        ))
+        .limit(1);
+      if (wm?.roleId) {
+        void syncWorkspaceMemberRoleToTeamSeat({
+          ownerUserId: accountOwnerId,
+          invitedEmail: wm.invitedEmail,
+          invitedName: wm.invitedName,
+          memberUserId: userId,
+          roleId: wm.roleId,
+          legacyRole: wm.legacyRole,
+        }).catch((err) => console.error("[team-workspace-sync] backfill team seat failed", err));
+      }
+      return wsPerms;
+    }
   }
 
   return permissions;
+}
+
+/** Workspace-only members: permissions from an active workspace_members role under the owner. */
+async function resolveWorkspaceMemberAccountPermissions(
+  userId: string,
+  accountOwnerId: string,
+): Promise<WorkspaceRolePermissions | null> {
+  const [row] = await db
+    .select({ role: workspaceRolesTable })
+    .from(workspaceMembersTable)
+    .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+    .leftJoin(workspaceRolesTable, eq(workspaceMembersTable.roleId, workspaceRolesTable.id))
+    .where(and(
+      eq(workspaceMembersTable.userId, userId),
+      eq(workspaceMembersTable.status, "active"),
+      eq(workspaceMembersTable.isDeleted, 0),
+      eq(workspacesTable.accountOwnerId, accountOwnerId),
+      eq(workspacesTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  if (!row?.role) return null;
+  const legacyRole = normalizeLegacyRole(row.role.legacyRoleKey);
+  return normalizeRolePermissions(
+    row.role.permissions ?? legacyRolePermissions(legacyRole),
+  );
+}
+
+/** Team seat role, or workspace member role under the same account owner. */
+export async function resolveAccountPermissionsForOwner(
+  userId: string,
+  accountOwnerId: string,
+): Promise<WorkspaceRolePermissions | null> {
+  if (userId === accountOwnerId) return ownerPermissions();
+  const teamPerms = await resolveTeamMemberAccountPermissions(userId, accountOwnerId);
+  if (teamPerms) return teamPerms;
+  return resolveWorkspaceMemberAccountPermissions(userId, accountOwnerId);
 }
 
 export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
