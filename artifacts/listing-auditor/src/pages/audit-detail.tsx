@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  useGetAudit, useDeleteAudit, useDeleteCompetitor,
+  useGetAudit, useDeleteAudit,
   useGenerateContent,
   getListAuditsQueryKey, getGetAuditStatsQueryKey, getGetAuditQueryKey,
 } from "@workspace/api-client-react";
@@ -28,8 +28,8 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  ArrowLeft, Plus, Trash2, CheckCircle2, AlertCircle, Lightbulb,
-  Type, AlignLeft, Image, Tag, Users, ChevronDown, ChevronUp,
+  CheckCircle2, AlertCircle, Lightbulb,
+  Type, AlignLeft, Image, Tag, ChevronDown, ChevronUp,
   Wand2, Loader2, Copy, Download, ImageIcon, FileText,
 } from "lucide-react";
 import { downloadAuditReportPdf } from "@/lib/audit-report-pdf";
@@ -140,7 +140,6 @@ export default function AuditDetail({ id }: { id: number }) {
   }, [audit, id, setLocation]);
 
   const deleteAudit = useDeleteAudit();
-  const deleteCompetitor = useDeleteCompetitor();
   const generateContent = useGenerateContent();
 
   const { data: creditsData } = useQuery({
@@ -208,15 +207,6 @@ export default function AuditDetail({ id }: { id: number }) {
     });
   };
 
-  const handleDeleteCompetitor = (competitorId: number) => {
-    deleteCompetitor.mutate({ id: competitorId }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
-        toast({ title: "Competitor removed" });
-      },
-    });
-  };
-
   const formatAiError = (err: unknown): string => {
     const raw = err instanceof Error ? err.message : String(err);
     if (raw.toLowerCase().includes("spend limit") || raw.includes("403")) {
@@ -232,7 +222,6 @@ export default function AuditDetail({ id }: { id: number }) {
   };
 
   const aiLow = !(isTeamMember && memberCreditsLoading) && credits.aiCredits < 1;
-  const auditLow = !(isTeamMember && memberCreditsLoading) && credits.auditCredits < 1;
 
   const handleDownloadPdf = async () => {
     try {
@@ -319,12 +308,7 @@ export default function AuditDetail({ id }: { id: number }) {
               <span className="sm:hidden">A+ / EBC</span>
               <span className="hidden sm:inline">A+ / EBC Content</span>
             </TabsTrigger>
-            <TabsTrigger value="competitors" className="whitespace-nowrap">
-              Competitors
-              {audit.competitors.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs px-1.5 py-0">{audit.competitors.length}</Badge>
-              )}
-            </TabsTrigger>
+            {/* Competitors tab hidden — re-enable TabsTrigger + TabsContent below when needed */}
             </TabsList>
           </div>
           <Button variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0 min-h-11" onClick={handleDownloadPdf}>
@@ -580,99 +564,6 @@ export default function AuditDetail({ id }: { id: number }) {
           />
         </TabsContent>
 
-        {/* ── COMPETITORS TAB ── */}
-        <TabsContent value="competitors" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-              <Users className="w-5 h-5 text-muted-foreground" />Competitor Analysis
-            </h2>
-            <div className="flex items-center gap-3">
-              {canEditAudits && (
-                <Button asChild size="sm" variant="outline" disabled={auditLow}>
-                  <Link href={auditLow ? "/billing" : `/audits/${id}/competitors/new`}>
-                    <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor
-                  </Link>
-                </Button>
-              )}
-              {auditLow ? (
-                isTeamMember ? (
-                  <span className="text-xs text-destructive">1 audit credit required — ask your workspace owner for more</span>
-                ) : (
-                  <span className="text-xs text-destructive">1 audit credit required — <Link href="/billing" className="hover:underline">buy credits</Link></span>
-                )
-              ) : (
-                <Badge variant="secondary" className="text-xs font-normal">1 audit credit</Badge>
-              )}
-            </div>
-          </div>
-
-          {audit.competitors.length === 0 ? (
-            <Card className="border-dashed bg-muted/20">
-              <CardContent className="py-10 text-center">
-                <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="font-semibold text-foreground/70 mb-1">No competitors added</p>
-                <p className="text-sm text-muted-foreground mb-4">Compare your listing against top competitors to find gaps.</p>
-                {canEditAudits && (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/audits/${id}/competitors/new`}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Competitor</Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              <div className="table-responsive">
-              <div className="min-w-[40rem]">
-              <div className="grid grid-cols-5 gap-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4">
-                <span className="col-span-2">Competitor</span>
-                <span className="text-center">Score</span>
-                <span className="col-span-2">Strengths / Weaknesses</span>
-              </div>
-              {audit.competitors.map(competitor => (
-                <Card key={competitor.id} className="border-border/50">
-                  <CardContent className="p-5">
-                    <div className="grid grid-cols-5 gap-4 items-start">
-                      <div className="col-span-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-sm">{competitor.productName}</p>
-                          {competitor.asin && <Badge variant="outline" className="font-mono text-[10px]">{competitor.asin}</Badge>}
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{competitor.title}</p>
-                      </div>
-                      <div className="flex justify-center">
-                        <ScoreRing score={competitor.overallScore} size="sm" showLabel={false} />
-                      </div>
-                      <div className="col-span-2 space-y-2">
-                        {competitor.strengths.slice(0, 2).map((s, i) => (
-                          <div key={i} className="flex gap-1.5 items-start">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" />
-                            <span className="text-xs text-foreground/80">{s}</span>
-                          </div>
-                        ))}
-                        {(competitor.weaknesses ?? []).slice(0, 2).map((w, i) => (
-                          <div key={i} className="flex gap-1.5 items-start">
-                            <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                            <span className="text-xs text-foreground/80">{w}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    {canEditAudits && (
-                      <div className="flex justify-end mt-3 border-t pt-3">
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 text-xs"
-                          onClick={() => handleDeleteCompetitor(competitor.id)} disabled={deleteCompetitor.isPending}>
-                          <Trash2 className="w-3 h-3 mr-1" /> Remove
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-              </div>
-              </div>
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   );
