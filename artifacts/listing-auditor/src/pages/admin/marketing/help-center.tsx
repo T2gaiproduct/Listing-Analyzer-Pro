@@ -4,12 +4,16 @@ import { HelpCircle, Save, RefreshCw, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { mergeHelpCms, type HelpCmsMap } from "@/lib/help-cms";
-import { HelpCmsEditor } from "./help-cms-editor";
+import { HelpCmsEditor, type AdminFaqRef } from "./help-cms-editor";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function fetchHelpCms(): Promise<HelpCmsMap> {
   return fetch(`${basePath}/api/admin/cms/help`, { credentials: "include" }).then((r) => r.json());
+}
+
+function fetchAdminFaqs(): Promise<AdminFaqRef[]> {
+  return fetch(`${basePath}/api/admin/faqs`, { credentials: "include" }).then((r) => r.json());
 }
 
 export default function AdminMarketingHelpCenter() {
@@ -21,6 +25,11 @@ export default function AdminMarketingHelpCenter() {
   const { isLoading, data: cmsData } = useQuery({
     queryKey: ["admin-cms-help"],
     queryFn: fetchHelpCms,
+  });
+
+  const { data: faqs = [] } = useQuery({
+    queryKey: ["admin-faqs"],
+    queryFn: fetchAdminFaqs,
   });
 
   useEffect(() => {
@@ -51,6 +60,11 @@ export default function AdminMarketingHelpCenter() {
 
   function handleChange(key: string, val: string) {
     setLocalData((p) => ({ ...p, [key]: val }));
+    setDirty(true);
+  }
+
+  function handleBatchChange(updates: Record<string, string>) {
+    setLocalData((p) => ({ ...p, ...updates }));
     setDirty(true);
   }
 
@@ -90,7 +104,7 @@ export default function AdminMarketingHelpCenter() {
       {isLoading ? (
         <div className="h-40 bg-slate-100 rounded-xl animate-pulse" />
       ) : (
-        <HelpCmsEditor data={localData} onChange={handleChange} />
+        <HelpCmsEditor data={localData} onChange={handleChange} onBatchChange={handleBatchChange} faqs={faqs} />
       )}
     </div>
   );

@@ -50,9 +50,10 @@ export function mergeHelpCms(data?: HelpCmsMap | null): HelpCmsMap {
 }
 
 export function helpCmsText(cms: HelpCmsMap, key: string): string {
-  const v = cms[key]?.trim();
-  if (v) return v;
-  return HELP_CMS_DEFAULTS[key] ?? "";
+  if (Object.prototype.hasOwnProperty.call(cms, key)) {
+    return (cms[key] ?? "").trim();
+  }
+  return (HELP_CMS_DEFAULTS[key] ?? "").trim();
 }
 
 export function helpCategoryIndices(): number[] {
@@ -64,7 +65,39 @@ export function helpArticleKeys(catIndex: number, artIndex: number) {
   return {
     title: `${c}.art${artIndex}_title`,
     link: `${c}.art${artIndex}_link`,
+    faqId: `${c}.art${artIndex}_faq_id`,
   };
+}
+
+/** Link target for a help article (FAQ id wins over manual link). */
+export function resolveHelpArticleLink(cms: HelpCmsMap, catIndex: number, artIndex: number): string {
+  const ak = helpArticleKeys(catIndex, artIndex);
+  const rawFaq = Object.prototype.hasOwnProperty.call(cms, ak.faqId)
+    ? (cms[ak.faqId] ?? "").trim()
+    : (cms[ak.faqId] ?? "").trim();
+  const faqDigits = rawFaq.replace(/^#?faq-?/i, "").trim();
+  if (faqDigits && /^\d+$/.test(faqDigits)) {
+    return `#faq-${faqDigits}`;
+  }
+  if (Object.prototype.hasOwnProperty.call(cms, ak.link)) {
+    return (cms[ak.link] ?? "").trim();
+  }
+  return (cms[ak.link] ?? "").trim();
+}
+
+export function clearHelpCategoryKeys(catIndex: number): string[] {
+  const keys = helpCategoryKeys(catIndex);
+  const out = [keys.title, keys.icon, keys.color, keys.bg];
+  for (let j = 1; j <= MAX_HELP_ARTICLES_PER_CATEGORY; j++) {
+    const ak = helpArticleKeys(catIndex, j);
+    out.push(ak.title, ak.link, ak.faqId);
+  }
+  return out;
+}
+
+export function clearHelpArticleKeys(catIndex: number, artIndex: number): string[] {
+  const ak = helpArticleKeys(catIndex, artIndex);
+  return [ak.title, ak.link, ak.faqId];
 }
 
 export function helpCategoryKeys(catIndex: number) {
@@ -83,7 +116,7 @@ export interface HelpCategoryView {
   icon: string;
   color: string;
   bg: string;
-  articles: { title: string; link: string }[];
+  articles: { title: string; link: string; faqId: string }[];
 }
 
 export function parseHelpCategories(cms: HelpCmsMap): HelpCategoryView[] {
@@ -92,14 +125,15 @@ export function parseHelpCategories(cms: HelpCmsMap): HelpCategoryView[] {
     const keys = helpCategoryKeys(i);
     const title = helpCmsText(cms, keys.title);
     if (!title) continue;
-    const articles: { title: string; link: string }[] = [];
+    const articles: { title: string; link: string; faqId: string }[] = [];
     for (let j = 1; j <= MAX_HELP_ARTICLES_PER_CATEGORY; j++) {
       const ak = helpArticleKeys(i, j);
       const artTitle = helpCmsText(cms, ak.title);
       if (!artTitle) continue;
       articles.push({
         title: artTitle,
-        link: (cms[ak.link] ?? "").trim(),
+        link: resolveHelpArticleLink(cms, i, j),
+        faqId: Object.prototype.hasOwnProperty.call(cms, ak.faqId) ? (cms[ak.faqId] ?? "").trim() : "",
       });
     }
     out.push({

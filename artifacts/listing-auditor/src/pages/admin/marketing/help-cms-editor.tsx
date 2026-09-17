@@ -2,13 +2,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2 } from "lucide-react";
 import {
-  HELP_CMS_DEFAULTS,
   MAX_HELP_ARTICLES_PER_CATEGORY,
   MAX_HELP_CATEGORIES,
+  clearHelpArticleKeys,
+  clearHelpCategoryKeys,
   helpArticleKeys,
   helpCategoryKeys,
+  helpCmsText,
   type HelpCmsMap,
 } from "@/lib/help-cms";
 
@@ -19,13 +23,93 @@ const ICON_OPTIONS = [
   { value: "message", label: "Message" },
 ];
 
+export type AdminFaqRef = { id: number; question: string };
+
+function categoryVisible(data: HelpCmsMap, catIndex: number): boolean {
+  const keys = helpCategoryKeys(catIndex);
+  if (helpCmsText(data, keys.title)) return true;
+  for (let j = 1; j <= MAX_HELP_ARTICLES_PER_CATEGORY; j++) {
+    const ak = helpArticleKeys(catIndex, j);
+    if (helpCmsText(data, ak.title)) return true;
+  }
+  return false;
+}
+
+function articleVisible(data: HelpCmsMap, catIndex: number, artIndex: number): boolean {
+  const ak = helpArticleKeys(catIndex, artIndex);
+  return Boolean(helpCmsText(data, ak.title));
+}
+
+function firstEmptyCategoryIndex(data: HelpCmsMap): number | null {
+  for (let i = 1; i <= MAX_HELP_CATEGORIES; i++) {
+    if (!categoryVisible(data, i)) return i;
+  }
+  return null;
+}
+
+function firstEmptyArticleIndex(data: HelpCmsMap, catIndex: number): number | null {
+  for (let j = 1; j <= MAX_HELP_ARTICLES_PER_CATEGORY; j++) {
+    if (!articleVisible(data, catIndex, j)) return j;
+  }
+  return null;
+}
+
 export function HelpCmsEditor({
   data,
   onChange,
+  onBatchChange,
+  faqs = [],
 }: {
   data: HelpCmsMap;
   onChange: (key: string, val: string) => void;
+  onBatchChange: (updates: Record<string, string>) => void;
+  faqs?: AdminFaqRef[];
 }) {
+  const visibleCategories = Array.from({ length: MAX_HELP_CATEGORIES }, (_, i) => i + 1).filter((i) =>
+    categoryVisible(data, i),
+  );
+  const canAddCategory = firstEmptyCategoryIndex(data) !== null;
+
+  function addCategory() {
+    const idx = firstEmptyCategoryIndex(data);
+    if (idx === null) return;
+    const keys = helpCategoryKeys(idx);
+    onBatchChange({
+      [keys.title]: "New category",
+      [keys.icon]: "book",
+      [keys.color]: "text-slate-600",
+      [keys.bg]: "bg-slate-50",
+    });
+  }
+
+  function removeCategory(catIndex: number) {
+    const updates: Record<string, string> = {};
+    for (const key of clearHelpCategoryKeys(catIndex)) {
+      updates[key] = "";
+    }
+    onBatchChange(updates);
+  }
+
+  function addArticle(catIndex: number) {
+    const artIndex = firstEmptyArticleIndex(data, catIndex);
+    if (artIndex === null) return;
+    const ak = helpArticleKeys(catIndex, artIndex);
+    onBatchChange({ [ak.title]: "New article" });
+  }
+
+  function removeArticle(catIndex: number, artIndex: number) {
+    const updates: Record<string, string> = {};
+    for (const key of clearHelpArticleKeys(catIndex, artIndex)) {
+      updates[key] = "";
+    }
+    onBatchChange(updates);
+  }
+
+  function applyFaqPick(catIndex: number, artIndex: number, faqId: string) {
+    const ak = helpArticleKeys(catIndex, artIndex);
+    onBatchChange({ [ak.faqId]: faqId });
+  }
+
   return (
     <div className="space-y-6">
       <Card className="border-0 shadow-sm">
@@ -43,24 +127,40 @@ export function HelpCmsEditor({
         </CardContent>
       </Card>
 
-      {Array.from({ length: MAX_HELP_CATEGORIES }, (_, idx) => idx + 1).map((catIndex) => {
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-slate-700">Categories ({visibleCategories.length})</p>
+        <Button type="button" variant="outline" size="sm" disabled={!canAddCategory} onClick={addCategory}>
+          <Plus className="w-4 h-4 mr-1" /> Add category
+        </Button>
+      </div>
+
+      {visibleCategories.map((catIndex) => {
         const keys = helpCategoryKeys(catIndex);
-        const title = data[keys.title] ?? HELP_CMS_DEFAULTS[keys.title] ?? "";
-        if (catIndex > 4 && !title.trim()) return null;
+        const articles = Array.from({ length: MAX_HELP_ARTICLES_PER_CATEGORY }, (_, j) => j + 1).filter((j) =>
+          articleVisible(data, catIndex, j),
+        );
+        const canAddArticle = firstEmptyArticleIndex(data, catIndex) !== null;
+
         return (
           <Card key={catIndex} className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-sm font-semibold text-slate-700">Category {catIndex}</CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => removeCategory(catIndex)}
+              >
+                <Trash2 className="w-4 h-4 mr-1" /> Delete category
+              </Button>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Field label="Title" value={data[keys.title] ?? ""} onChange={(v) => onChange(keys.title, v)} />
+              <Field label="Title" value={helpCmsText(data, keys.title)} onChange={(v) => onChange(keys.title, v)} />
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-slate-500">Icon</Label>
-                  <Select
-                    value={data[keys.icon] ?? HELP_CMS_DEFAULTS[keys.icon] ?? "book"}
-                    onValueChange={(v) => onChange(keys.icon, v)}
-                  >
+                  <Select value={helpCmsText(data, keys.icon) || "book"} onValueChange={(v) => onChange(keys.icon, v)}>
                     <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {ICON_OPTIONS.map((o) => (
@@ -69,28 +169,79 @@ export function HelpCmsEditor({
                     </SelectContent>
                   </Select>
                 </div>
-                <Field label="Icon color (Tailwind class)" value={data[keys.color] ?? ""} onChange={(v) => onChange(keys.color, v)} />
+                <Field label="Icon color (Tailwind class)" value={helpCmsText(data, keys.color)} onChange={(v) => onChange(keys.color, v)} />
               </div>
-              <Field label="Icon background (Tailwind class)" value={data[keys.bg] ?? ""} onChange={(v) => onChange(keys.bg, v)} />
-              <p className="text-xs font-medium text-slate-500 pt-2">Articles (leave link empty or use #faq-123 to scroll to an FAQ)</p>
-              {Array.from({ length: MAX_HELP_ARTICLES_PER_CATEGORY }, (_, j) => j + 1).map((artIndex) => {
+              <Field label="Icon background (Tailwind class)" value={helpCmsText(data, keys.bg)} onChange={(v) => onChange(keys.bg, v)} />
+
+              <div className="flex items-center justify-between gap-2 pt-2">
+                <p className="text-xs font-medium text-slate-500">Articles — paste FAQ ID or link (FAQ ID wins)</p>
+                <Button type="button" variant="outline" size="sm" disabled={!canAddArticle} onClick={() => addArticle(catIndex)}>
+                  <Plus className="w-4 h-4 mr-1" /> Add article
+                </Button>
+              </div>
+
+              {articles.map((artIndex) => {
                 const ak = helpArticleKeys(catIndex, artIndex);
-                const artTitle = data[ak.title] ?? "";
-                const defaultTitle = HELP_CMS_DEFAULTS[ak.title];
-                if (artIndex > 4 && !artTitle.trim() && !defaultTitle) return null;
+                const faqIdRaw = Object.prototype.hasOwnProperty.call(data, ak.faqId) ? (data[ak.faqId] ?? "") : "";
+                const linkRaw = Object.prototype.hasOwnProperty.call(data, ak.link) ? (data[ak.link] ?? "") : "";
+
                 return (
-                  <div key={artIndex} className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-slate-100 pt-2">
+                  <div key={artIndex} className="border border-slate-100 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-slate-600">Article {artIndex}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-red-600 hover:text-red-700"
+                        onClick={() => removeArticle(catIndex, artIndex)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                      </Button>
+                    </div>
                     <Field
-                      label={`Article ${artIndex} title`}
-                      value={artTitle}
+                      label="Title"
+                      value={helpCmsText(data, ak.title)}
                       onChange={(v) => onChange(ak.title, v)}
                     />
-                    <Field
-                      label="Link (optional)"
-                      value={data[ak.link] ?? ""}
-                      onChange={(v) => onChange(ak.link, v)}
-                      placeholder="/tutorials or #faq-12"
-                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Field
+                        label="FAQ ID (optional)"
+                        value={faqIdRaw}
+                        onChange={(v) => onChange(ak.faqId, v.replace(/^#?faq-?/i, "").trim())}
+                        placeholder="e.g. 12"
+                      />
+                      <Field
+                        label="Link (optional)"
+                        value={linkRaw}
+                        onChange={(v) => onChange(ak.link, v)}
+                        placeholder="/tutorials or https://..."
+                      />
+                    </div>
+                    {faqs.length > 0 && (
+                      <div>
+                        <Label className="text-xs text-slate-500">Pick from FAQ admin</Label>
+                        <Select
+                          value={faqIdRaw && /^\d+$/.test(faqIdRaw) ? faqIdRaw : "__none__"}
+                          onValueChange={(v) => {
+                            if (v === "__none__") onChange(ak.faqId, "");
+                            else applyFaqPick(catIndex, artIndex, v);
+                          }}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm">
+                            <SelectValue placeholder="Select FAQ…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">None</SelectItem>
+                            {faqs.map((f) => (
+                              <SelectItem key={f.id} value={String(f.id)}>
+                                #{f.id} — {f.question.slice(0, 60)}{f.question.length > 60 ? "…" : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 );
               })}
