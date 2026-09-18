@@ -347,6 +347,7 @@ export function ProductWorkflowStepContent({
           exportDisabled={!canExportListingSource(productSource)}
           sharePreviewLink
           generatedOnly
+          referenceIntelligence={referenceResearch?.intelligence ?? null}
         />
       </WorkflowStepShell>
     );

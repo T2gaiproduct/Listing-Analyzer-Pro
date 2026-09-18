@@ -46,6 +46,7 @@ import {
   normalizeBulletPoints,
 } from "@/lib/listing-content-format";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
+import type { ReferenceIntelligenceRow } from "@/lib/reference-research";
 import { getSafeReturnTo } from "@/lib/navigation-return";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
@@ -2355,6 +2356,10 @@ export default function AuditWorkflow() {
               fallbackImageUrls={uploadedImages}
               sharePreviewLink
               generatedOnly
+              referenceIntelligence={
+                (auditData as { referenceResearch?: { intelligence?: ReferenceIntelligenceRow[] } } | undefined)
+                  ?.referenceResearch?.intelligence ?? null
+              }
             />
           )}
 

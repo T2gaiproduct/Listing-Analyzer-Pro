@@ -1,6 +1,12 @@
 import type { Request } from "express";
 import { and, eq } from "drizzle-orm";
-import { db, auditsTable, graphicsProjectsTable, type Audit } from "@workspace/db";
+import {
+  db,
+  auditsTable,
+  graphicsProjectsTable,
+  type Audit,
+  type ReferenceIntelligenceRow,
+} from "@workspace/db";
 import { readGeneratedContent } from "./listing-export-shared.js";
 import { verifyListingPreviewShareToken } from "./listing-preview-share-token.js";
 import { buildSignedPublishImagePath } from "./marketplace-publish-image-token.js";
@@ -101,10 +107,16 @@ export async function loadPublicListingPreview(
       productName: string;
       brandName: string | null;
       category: string | null;
-      generatedContent: ReturnType<typeof resolveListingContentForExport>;
+      generatedContent: {
+        title: string;
+        bulletPoints: string[];
+        keywords: string[];
+        htmlDescription: string;
+      };
       imageUrls: string[];
       imageRecords: Array<{ type?: string; currentUrl?: string }>;
       generatedImages: unknown;
+      referenceIntelligence: ReferenceIntelligenceRow[];
     }
   | null
 > {
@@ -177,6 +189,10 @@ export async function loadPublicListingPreview(
     };
   }
 
+  const referenceIntelligence = (audit.referenceResearch as { intelligence?: ReferenceIntelligenceRow[] } | null)
+    ?.intelligence
+    ?.filter((row) => row.attribute?.trim()) ?? [];
+
   return {
     productName: audit.productName,
     brandName: audit.brandName,
@@ -185,5 +201,6 @@ export async function loadPublicListingPreview(
     imageUrls: gallery.map((g) => g.url),
     imageRecords: signedRecords,
     generatedImages,
+    referenceIntelligence,
   };
 }

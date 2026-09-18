@@ -28,6 +28,8 @@ import {
 } from "@/lib/listing-content-format";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ReferenceIntelligenceTable } from "@/components/reference-intelligence-table";
+import type { ReferenceIntelligenceRow } from "@/lib/reference-research";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -80,6 +82,8 @@ export function ProductListingPreview({
   sharePreviewLink = false,
   /** Preview tab: only generated copy and graphics (no scraped listing / import fallbacks). */
   generatedOnly = false,
+  /** AI reference intelligence rows (Reference Listings analyze). */
+  referenceIntelligence = null,
 }: {
   auditId: number;
   audit: AuditLike | null | undefined;
@@ -97,6 +101,7 @@ export function ProductListingPreview({
   publicView?: boolean;
   sharePreviewLink?: boolean;
   generatedOnly?: boolean;
+  referenceIntelligence?: ReferenceIntelligenceRow[] | null;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -206,6 +211,12 @@ export function ProductListingPreview({
       refreshKey,
     ],
   );
+
+  const referenceRows = useMemo(
+    () => (referenceIntelligence ?? []).filter((row) => row.attribute?.trim()),
+    [referenceIntelligence],
+  );
+  const hasReferenceIntelligence = referenceRows.length > 0;
 
   const hasListingCopy = Boolean(
     title.trim() || bullets.length > 0 || descriptionPreviewHtml.length > 0,
@@ -334,11 +345,11 @@ export function ProductListingPreview({
         </div>
       </div>
 
-      {(!hasListingCopy || !hasImages) && (
+      {(!hasListingCopy || !hasImages) && !hasReferenceIntelligence && (
         <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2">
           {generatedOnly
             ? !hasListingCopy && !hasImages
-              ? "This preview shows only generated listing copy, graphics, and A+ content. Complete the Listing, Graphics, and A+ steps to fill it in."
+              ? "This preview shows generated listing copy, reference attributes, graphics, and A+ content. Complete earlier workflow steps to fill it in."
               : !hasListingCopy
                 ? "Generate listing copy on the Listing step to preview title, bullets, and description here."
                 : "Generate graphics on the Graphics step to preview the image gallery here."
@@ -548,6 +559,24 @@ export function ProductListingPreview({
               dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
             />
           </div>
+        )}
+
+        {hasReferenceIntelligence && (
+          <section className="border-t border-slate-200 bg-slate-50/40" aria-label="Reference intelligence">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 lg:px-5 py-2.5 bg-white">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-800">
+                Reference intelligence
+              </p>
+              <span className="text-[9px] font-medium uppercase tracking-wide text-orange-600">
+                AI extracted / research signal
+              </span>
+            </div>
+            <ReferenceIntelligenceTable rows={referenceRows} compact />
+            <p className="text-[9px] text-slate-400 px-4 lg:px-5 py-2 border-t border-slate-100 leading-relaxed">
+              Research values are prompts for seller confirmation. Exact dimensions, weight, batteries, included items,
+              origin, compliance and safety claims always require product evidence.
+            </p>
+          </section>
         )}
 
         {aplusModules.length > 0 && (

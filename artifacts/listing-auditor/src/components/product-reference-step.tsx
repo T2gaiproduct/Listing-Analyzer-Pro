@@ -2,35 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import {
   REFERENCE_RESEARCH_SLOT_COUNT,
-  type ReferenceIntelligenceDecision,
   type ReferenceIntelligenceRow,
   type ReferenceResearchData,
   type ReferenceResearchSlot,
 } from "@/lib/reference-research";
+import { ReferenceIntelligenceTable } from "@/components/reference-intelligence-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
-import { cn } from "@/lib/utils";
-
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-const DECISION_LABELS: Record<ReferenceIntelligenceDecision, string> = {
-  safe_research: "Safe research signal",
-  seller_confirmation: "Seller confirmation",
-  ask_seller: "Ask seller",
-  product_evidence_required: "Product evidence req.",
-  research_only: "Research only",
-};
-
-const DECISION_CLASS: Record<ReferenceIntelligenceDecision, string> = {
-  safe_research: "text-emerald-700 bg-emerald-50 border-emerald-200",
-  seller_confirmation: "text-amber-700 bg-amber-50 border-amber-200",
-  ask_seller: "text-amber-700 bg-amber-50 border-amber-200",
-  product_evidence_required: "text-red-600 bg-red-50 border-red-200",
-  research_only: "text-emerald-700 bg-emerald-50 border-emerald-200",
-};
 
 function normalizeSlots(slots: ReferenceResearchSlot[] | undefined): ReferenceResearchSlot[] {
   const out: ReferenceResearchSlot[] = [];
@@ -262,39 +244,7 @@ export function ProductReferenceStep({
             Run Analyze references to generate attribute patterns for verification.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-[10px]">
-              <thead>
-                <tr className="border-b border-slate-100 text-slate-500 uppercase tracking-wide">
-                  <th className="px-3 py-2 font-semibold w-[18%]">Attribute</th>
-                  <th className="px-3 py-2 font-semibold w-[32%]">Reference pattern / notes</th>
-                  <th className="px-3 py-2 font-semibold w-[32%]">Allowed use</th>
-                  <th className="px-3 py-2 font-semibold w-[18%]">Decision</th>
-                </tr>
-              </thead>
-              <tbody>
-                {intelligence.map((row) => (
-                  <tr key={row.attribute} className="border-b border-slate-50 align-top">
-                    <td className="px-3 py-2.5 font-medium text-slate-800">{row.attribute}</td>
-                    <td className="px-3 py-2.5 text-slate-600 leading-relaxed whitespace-pre-wrap">
-                      {row.referencePatternNotes}
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-500 leading-relaxed">{row.allowedUse}</td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className={cn(
-                          "inline-block rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
-                          DECISION_CLASS[row.decision],
-                        )}
-                      >
-                        {DECISION_LABELS[row.decision]}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ReferenceIntelligenceTable rows={intelligence} />
         )}
 
         <p className="text-[9px] text-slate-400 px-3.5 py-2.5 border-t border-slate-100 leading-relaxed">
