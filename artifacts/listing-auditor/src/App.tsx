@@ -256,8 +256,8 @@ function resolveClerkProxyUrl(): string | undefined {
     return sameOriginClerkProxyPath();
   }
 
-  // Local / dev: pk_test uses Clerk CDN directly (no proxy registration required).
-  if (clerkPubKey.startsWith("pk_test_")) {
+  // Localhost pk_test: Clerk CDN (dev-stack does not register a tunnel proxy).
+  if (clerkPubKey.startsWith("pk_test_") && (host === "localhost" || host === "127.0.0.1")) {
     return undefined;
   }
 

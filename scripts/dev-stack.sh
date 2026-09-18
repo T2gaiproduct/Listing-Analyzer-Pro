@@ -501,6 +501,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
     export BASE_PATH=/
     export VITE_DISABLE_HMR=true
     export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+    export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'
     export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
     while true; do
       pnpm --filter @workspace/listing-auditor run dev || true
