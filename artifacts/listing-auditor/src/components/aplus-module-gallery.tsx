@@ -34,14 +34,14 @@ export interface AplusModuleItem {
   headline: string;
   body: string;
   imageUrl: string;
-  aspectRatio?: "16:10" | "9:16" | "1:1";
+  aspectRatio?: "970:300" | "16:10" | "9:16" | "1:1";
   versions?: AplusModuleVersion[];
 }
 
 type NormalizedAplusModuleItem = AplusModuleItem & { versions: AplusModuleVersion[] };
 
 function normalizeModule(module: AplusModuleItem): NormalizedAplusModuleItem {
-  const aspectRatio = module.aspectRatio ?? (module.id === "brand_story" ? "9:16" : "16:10");
+  const aspectRatio = module.aspectRatio ?? "970:300";
   return { ...module, aspectRatio, versions: module.versions ?? [] };
 }
 
@@ -122,7 +122,7 @@ function AplusImageCard({
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white">
-      <div className="group relative w-full aspect-[16/10] bg-slate-100">
+      <div className="group relative w-full aspect-[970/300] bg-slate-100">
         <img
           src={resolveImageUrl(normalized.imageUrl)}
           alt={normalized.title}
@@ -345,13 +345,13 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-2">Current</p>
-                  <div className="rounded-lg border bg-slate-50 aspect-[16/10] overflow-hidden">
+                  <div className="rounded-lg border bg-slate-50 aspect-[970/300] overflow-hidden">
                     <img src={resolveImageUrl(editModule.imageUrl)} alt="Current" className="w-full h-full object-cover" />
                   </div>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-2">After (shown on apply)</p>
-                  <div className="rounded-lg border bg-slate-50/50 aspect-[16/10] flex flex-col items-center justify-center gap-3 text-slate-400">
+                  <div className="rounded-lg border bg-slate-50/50 aspect-[970/300] flex flex-col items-center justify-center gap-3 text-slate-400">
                     {loadingIds.has(editModule.id) ? (
                       <>
                         <RefreshCw className="h-8 w-8 animate-spin text-orange-500" />

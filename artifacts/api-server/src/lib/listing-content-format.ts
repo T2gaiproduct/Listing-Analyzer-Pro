@@ -71,3 +71,21 @@ export function normalizeListingHtmlDescription(html: string): string {
 
   return $.root().html()?.trim() ?? "";
 }
+
+/** Remove <strong> inside body paragraphs (keeps headings and Key Features list labels). */
+export function stripInlineStrongFromParagraphs(html: string): string {
+  const input = html.trim();
+  if (!input) return "";
+
+  const $ = cheerio.load(input, { xml: false }, false);
+
+  $("p").each((_i, el) => {
+    const $el = $(el);
+    $el.find("strong, b").each((_j, strong) => {
+      const $strong = $(strong);
+      $strong.replaceWith($strong.text());
+    });
+  });
+
+  return $.root().html()?.trim() ?? "";
+}

@@ -4,6 +4,7 @@ import { sanitizeHtmlDescription } from "./sanitize-html.js";
 import {
   normalizeBulletPoints,
   normalizeListingHtmlDescription,
+  stripInlineStrongFromParagraphs,
 } from "./listing-content-format.js";
 
 /** Remove "Why You'll Love It" (and common variants) from generated HTML descriptions. */
@@ -143,6 +144,7 @@ CONTENT LAYOUT (follow this exact 5-section structure inside the htmlDescription
 
 2. Opening Summary
    - Write a short paragraph (2-4 sentences) explaining: what the product is, who it is for, the primary benefit, and why it stands out.
+   - Use plain text inside <p> tags only — no <strong>, no bold, no emphasized words mid-sentence.
 
 3. Key Features
    - Use heading: <h3><strong>Key Features</strong></h3>
@@ -157,16 +159,18 @@ CONTENT LAYOUT (follow this exact 5-section structure inside the htmlDescription
 5. Pitch Summary (Mandatory)
    - Use heading: <h3><strong>Why Choose This Product?</strong></h3>
    - Write a concise sales-oriented paragraph that reinforces the biggest benefits, builds confidence, and encourages purchase naturally.
+   - Plain text only in the paragraph — no <strong> inside <p>.
    - Avoid exaggerated or misleading claims.
 
 DO NOT include a "Why You'll Love It" section or any separate benefits section — customer benefits belong in the bullet points and Key Features only.
 
 FORMATTING RULES:
-- Every section heading must be bold.
+- Section headings may use <strong> inside <h2>/<h3> only.
 - Use headings to break content into easy-to-scan sections.
 - Use bullet points wherever possible instead of long paragraphs.
 - Keep paragraphs short (2-3 sentences maximum).
-- Highlight important keywords using <strong>.
+- Never use <strong> inside <p> tags — no bold words in body paragraphs (e.g. do not bold product category, "premium", or random keywords).
+- Key Features list items may use <strong> only for the feature label at the start of each <li>.
 - Write naturally for humans while incorporating relevant SEO keywords.
 - Maintain a premium, professional, and trustworthy tone.
 - Avoid keyword stuffing, emojis, and ALL CAPS (except brand names if required).
@@ -189,7 +193,9 @@ Return ONLY the JSON object, no markdown, no explanation.`;
     const rawDescription = stripWhyYoullLoveItSection(
       parsed.htmlDescription ?? "<p>Description not available.</p>",
     );
-    const normalizedDescription = normalizeListingHtmlDescription(rawDescription);
+    const normalizedDescription = stripInlineStrongFromParagraphs(
+      normalizeListingHtmlDescription(rawDescription),
+    );
     return {
       title: parsed.title ?? data.currentTitle,
       bulletPoints: normalizeBulletPoints(parsed.bulletPoints ?? data.currentBullets),

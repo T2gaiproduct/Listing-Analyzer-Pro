@@ -10,6 +10,7 @@ import {
   imageUrlPath,
   resolveAuditImagePath,
 } from "./image-storage";
+import { resizeAplusModuleBuffer } from "./aplus-image-size.js";
 
 const MIN_FILE_SIZE = 1024;
 const MAX_CONCURRENT_APLUS_IMAGES = 4;
@@ -33,7 +34,9 @@ export interface AplusModuleVersion {
   generatedAt: string;
 }
 
-export type AplusAspectRatio = "16:10" | "9:16" | "1:1";
+export type AplusAspectRatio = "970:300" | "16:10" | "9:16" | "1:1";
+
+const APLUS_GENERATION_SIZE = "1792x1024" as const;
 
 export interface AplusModule {
   id: "hero" | "features" | "comparison" | "brand_story";
@@ -87,7 +90,7 @@ type ModuleSpec = {
   id: AplusModule["id"];
   title: string;
   description: string;
-  size: "1024x1024" | "1792x1024" | "1024x1792";
+  size: typeof APLUS_GENERATION_SIZE;
   buildPrompt: (productDesc: string, content: EbcContent) => string;
   headline: (content: EbcContent) => string;
   body: (content: EbcContent) => string;
@@ -98,9 +101,9 @@ const MODULE_SPECS: ModuleSpec[] = [
     id: "hero",
     title: "Hero Banner",
     description: "Full-width product hero image with headline",
-    size: "1792x1024",
+    size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ Enhanced Brand Content hero banner for ${productDesc}. Wide cinematic composition with the product as the hero. Space for headline "${c.heroHeadline}" and subheadline "${c.heroSubheadline}". Premium e-commerce design, clean layout, professional commercial photography. Text areas for headline and subheadline are allowed.`,
+      `Amazon A+ Enhanced Brand Content wide banner (970x300 px) for ${productDesc}. Horizontal strip layout with the product as the hero. Space for headline "${c.heroHeadline}" and subheadline "${c.heroSubheadline}". Premium e-commerce design, clean layout, professional commercial photography. Text areas for headline and subheadline are allowed.`,
     headline: (c) => c.heroHeadline,
     body: (c) => c.heroSubheadline,
   },
@@ -108,9 +111,9 @@ const MODULE_SPECS: ModuleSpec[] = [
     id: "features",
     title: "Feature Highlights",
     description: "Icon + text modules showcasing key features",
-    size: "1792x1024",
+    size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ feature highlights module for ${productDesc}. Three-column layout with product and feature callouts: "${c.feature1Title}", "${c.feature2Title}", "${c.feature3Title}". Clean modern e-commerce infographic style. Short benefit text for each feature is allowed.`,
+      `Amazon A+ feature highlights wide banner (970x300 px) for ${productDesc}. Three-column layout with product and feature callouts: "${c.feature1Title}", "${c.feature2Title}", "${c.feature3Title}". Clean modern e-commerce infographic style. Short benefit text for each feature is allowed.`,
     headline: (c) => c.feature1Title,
     body: (c) => `${c.feature1Body} · ${c.feature2Body}`,
   },
@@ -118,9 +121,9 @@ const MODULE_SPECS: ModuleSpec[] = [
     id: "comparison",
     title: "Comparison Chart",
     description: "Compare your product against competitors",
-    size: "1792x1024",
+    size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ comparison chart module for ${productDesc}. Side-by-side comparison layout highlighting advantages. Section title "${c.gridTitle}". Features: "${c.grid1Title}", "${c.grid2Title}", "${c.grid3Title}", "${c.grid4Title}". Clean chart-style e-commerce design. Comparison labels and feature names are allowed.`,
+      `Amazon A+ comparison chart wide banner (970x300 px) for ${productDesc}. Side-by-side comparison layout highlighting advantages. Section title "${c.gridTitle}". Features: "${c.grid1Title}", "${c.grid2Title}", "${c.grid3Title}", "${c.grid4Title}". Clean chart-style e-commerce design. Comparison labels and feature names are allowed.`,
     headline: (c) => c.gridTitle,
     body: (c) => `${c.grid1Title}: ${c.grid1Desc}`,
   },
@@ -128,18 +131,16 @@ const MODULE_SPECS: ModuleSpec[] = [
     id: "brand_story",
     title: "Brand Story",
     description: "Tell your brand story with rich imagery",
-    size: "1024x1792",
+    size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ brand story module for ${productDesc}. Emotional brand storytelling layout with rich imagery and product integration. Headline "${c.storyHeadline}". Warm aspirational atmosphere, premium brand aesthetic. Headline and short story text are allowed.`,
+      `Amazon A+ brand story wide banner (970x300 px) for ${productDesc}. Emotional brand storytelling layout with rich imagery and product integration. Headline "${c.storyHeadline}". Warm aspirational atmosphere, premium brand aesthetic. Headline and short story text are allowed.`,
     headline: (c) => c.storyHeadline,
     body: (c) => c.storyBody,
   },
 ];
 
-function specToAspectRatio(size: ModuleSpec["size"]): AplusAspectRatio {
-  if (size === "1024x1792") return "9:16";
-  if (size === "1792x1024") return "16:10";
-  return "1:1";
+function specToAspectRatio(_size: ModuleSpec["size"]): AplusAspectRatio {
+  return "970:300";
 }
 
 export function getModuleSpec(id: AplusModule["id"]): ModuleSpec | undefined {
@@ -150,7 +151,7 @@ export function normalizeAplusModule(module: AplusModule): AplusModule {
   const spec = getModuleSpec(module.id);
   return {
     ...module,
-    aspectRatio: module.aspectRatio ?? specToAspectRatio(spec?.size ?? "1792x1024"),
+    aspectRatio: module.aspectRatio ?? specToAspectRatio(spec?.size ?? APLUS_GENERATION_SIZE),
     versions: module.versions ?? [],
   };
 }
@@ -182,14 +183,17 @@ async function generateModuleBuffer(
   const sourceValid = isValidSourcePath(sourcePath);
   const prompt = data.prompt ?? spec.buildPrompt(productDesc, data.content);
 
+  let raw: Buffer;
   if (sourceValid) {
-    return generateImageWithReferenceProxy(
+    raw = await generateImageWithReferenceProxy(
       `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
       sourcePath!,
       spec.size,
     );
+  } else {
+    raw = await generateImageBuffer(prompt, spec.size);
   }
-  return generateImageBuffer(prompt, spec.size);
+  return resizeAplusModuleBuffer(raw);
 }
 
 function buildAplusModuleFromSpec(
@@ -268,8 +272,9 @@ export async function editAplusModule(data: {
   const refPaths = saveReferenceImageUrls(dir, data.referenceImageUrls);
   const filename = `aplus_${spec.id}_edit_${Date.now()}.png`;
   const filePath = path.join(dir, filename);
-  const buffer = await editImagesProxy([sourceFilePath, ...refPaths], data.editPrompt.trim(), filePath);
-  if (!buffer?.length) throw new Error("No image data returned from AI edit");
+  const edited = await editImagesProxy([sourceFilePath, ...refPaths], data.editPrompt.trim(), filePath);
+  if (!edited?.length) throw new Error("No image data returned from AI edit");
+  const buffer = await resizeAplusModuleBuffer(edited);
   fs.writeFileSync(filePath, buffer);
 
   const imageUrl = urlPath(data.auditId, filename);
@@ -451,7 +456,8 @@ export async function generateAplusModuleImages(data: {
           buffer = await generateImageBuffer(prompt, spec.size);
         }
         if (!buffer?.length) throw new Error("No image data returned");
-        fs.writeFileSync(filePath, buffer);
+        const sized = await resizeAplusModuleBuffer(buffer);
+        fs.writeFileSync(filePath, sized);
 
         const module = buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl);
         await progressLock(async () => {
