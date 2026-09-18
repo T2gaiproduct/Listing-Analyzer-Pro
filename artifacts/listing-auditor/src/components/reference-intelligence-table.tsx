@@ -1,4 +1,8 @@
-import type { ReferenceIntelligenceDecision, ReferenceIntelligenceRow } from "@/lib/reference-research";
+import type {
+  ListingPreviewProductDetailRow,
+  ReferenceIntelligenceDecision,
+  ReferenceIntelligenceRow,
+} from "@/lib/reference-research";
 import {
   Accordion,
   AccordionContent,
@@ -27,7 +31,7 @@ export const REFERENCE_INTELLIGENCE_DECISION_CLASS: Record<ReferenceIntelligence
 export function ReferenceIntelligenceListingPreview({
   rows,
 }: {
-  rows: ReferenceIntelligenceRow[];
+  rows: ListingPreviewProductDetailRow[] | ReferenceIntelligenceRow[];
 }) {
   if (rows.length === 0) return null;
 

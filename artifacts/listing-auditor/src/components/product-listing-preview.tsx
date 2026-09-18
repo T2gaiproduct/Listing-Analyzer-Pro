@@ -353,7 +353,7 @@ export function ProductListingPreview({
         </div>
       </div>
 
-      {(!hasListingCopy || (!hasImages && aplusModules.length === 0)) && !hasReferenceIntelligence && (
+      {(!hasListingCopy || (!hasImages && aplusModules.length === 0)) && !hasPreviewProductDetails && (
         <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2">
           {generatedOnly
             ? !hasListingCopy && !hasImages
