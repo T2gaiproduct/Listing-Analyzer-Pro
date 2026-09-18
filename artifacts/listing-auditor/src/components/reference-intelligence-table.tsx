@@ -20,26 +20,39 @@ export const REFERENCE_INTELLIGENCE_DECISION_CLASS: Record<ReferenceIntelligence
 export function ReferenceIntelligenceTable({
   rows,
   compact = false,
+  /** Listing preview: attribute + notes only (no internal allowed-use / decision columns). */
+  variant = "research",
 }: {
   rows: ReferenceIntelligenceRow[];
   compact?: boolean;
+  variant?: "research" | "listingPreview";
 }) {
   if (rows.length === 0) return null;
+
+  const showComplianceColumns = variant === "research";
 
   return (
     <div className="overflow-x-auto">
       <table
         className={cn(
-          "w-full min-w-[640px] text-left",
-          compact ? "text-[10px]" : "text-[10px]",
+          "w-full text-left text-[10px]",
+          showComplianceColumns ? "min-w-[640px]" : "min-w-[320px]",
         )}
       >
         <thead>
           <tr className="border-b border-slate-100 text-slate-500 uppercase tracking-wide">
-            <th className="px-3 py-2 font-semibold w-[18%]">Attribute</th>
-            <th className="px-3 py-2 font-semibold w-[32%]">Reference pattern / notes</th>
-            <th className="px-3 py-2 font-semibold w-[32%]">Allowed use</th>
-            <th className="px-3 py-2 font-semibold w-[18%]">Decision</th>
+            <th className={cn("px-3 py-2 font-semibold", showComplianceColumns ? "w-[18%]" : "w-[28%]")}>
+              Attribute
+            </th>
+            <th className={cn("px-3 py-2 font-semibold", showComplianceColumns ? "w-[32%]" : "w-[72%]")}>
+              Reference pattern / notes
+            </th>
+            {showComplianceColumns && (
+              <>
+                <th className="px-3 py-2 font-semibold w-[32%]">Allowed use</th>
+                <th className="px-3 py-2 font-semibold w-[18%]">Decision</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -49,17 +62,21 @@ export function ReferenceIntelligenceTable({
               <td className="px-3 py-2.5 text-slate-600 leading-relaxed whitespace-pre-wrap">
                 {row.referencePatternNotes}
               </td>
-              <td className="px-3 py-2.5 text-slate-500 leading-relaxed">{row.allowedUse}</td>
-              <td className="px-3 py-2.5">
-                <span
-                  className={cn(
-                    "inline-block rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
-                    REFERENCE_INTELLIGENCE_DECISION_CLASS[row.decision],
-                  )}
-                >
-                  {REFERENCE_INTELLIGENCE_DECISION_LABELS[row.decision]}
-                </span>
-              </td>
+              {showComplianceColumns && (
+                <>
+                  <td className="px-3 py-2.5 text-slate-500 leading-relaxed">{row.allowedUse}</td>
+                  <td className="px-3 py-2.5">
+                    <span
+                      className={cn(
+                        "inline-block rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                        REFERENCE_INTELLIGENCE_DECISION_CLASS[row.decision],
+                      )}
+                    >
+                      {REFERENCE_INTELLIGENCE_DECISION_LABELS[row.decision]}
+                    </span>
+                  </td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>

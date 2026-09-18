@@ -571,7 +571,7 @@ export function ProductListingPreview({
                 AI extracted / research signal
               </span>
             </div>
-            <ReferenceIntelligenceTable rows={referenceRows} compact />
+            <ReferenceIntelligenceTable rows={referenceRows} variant="listingPreview" />
             <p className="text-[9px] text-slate-400 px-4 lg:px-5 py-2 border-t border-slate-100 leading-relaxed">
               Research values are prompts for seller confirmation. Exact dimensions, weight, batteries, included items,
               origin, compliance and safety claims always require product evidence.
