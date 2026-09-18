@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, TrendingUp, DollarSign, Trophy, Star, Check, ArrowUpRight, Link as LinkIcon, Users, BarChart3, LineChart, Target, Sparkles, Wrench, Zap } from "lucide-react";
+import { Loader2, TrendingUp, Trophy, Star, Check, ArrowUpRight, Link as LinkIcon, Users, Target, Sparkles, Wrench, Zap } from "lucide-react";
 import { useFetchListing, useCreateAudit, getGetAuditStatsQueryKey, getListAuditsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -10,39 +10,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { MarketplaceLogos } from "@/components/marketplace-logos";
-
-const features = [
-  {
-    icon: Star,
-    title: "Listing Score",
-    desc: "Overall quality rating from 1-100",
-    chart: true,
-  },
-  {
-    icon: Wrench,
-    title: "Top Fixes",
-    desc: "Personalized, high-impact improvements",
-    items: ["Optimize your title", "Improve main images", "Enhance bullet points", "Strengthen description"],
-  },
-  {
-    icon: Users,
-    title: "Competitor Intel",
-    desc: "Benchmark against top-performing sellers",
-    bars: true,
-  },
-  {
-    icon: Zap,
-    title: "Action Plan",
-    desc: "Step-by-step roadmap to grow your sales",
-    steps: ["Prioritize high-impact fixes", "Implement changes", "Track performance & grow"],
-  },
-];
-
-const stats = [
-  { icon: BarChart3, value: "2M+", label: "Listings Analyzed" },
-  { icon: Users, value: "150K+", label: "Sellers Helped" },
-  { icon: DollarSign, value: "$250M+", label: "Revenue Impacted" },
-];
 
 export default function AuditListings() {
   const [url, setUrl] = useState("");
@@ -401,81 +368,6 @@ export default function AuditListings() {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* Trust Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        {/* Left - Stats */}
-        <div className="space-y-5">
-          <h3 className="text-lg font-bold text-foreground">Trusted by sellers worldwide</h3>
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="w-8 h-8 rounded-full bg-slate-100 border-2 border-background flex items-center justify-center text-xs font-bold text-slate-600"
-                >
-                  {String.fromCharCode(64 + i)}
-                </div>
-              ))}
-            </div>
-            <span className="text-xs text-muted-foreground">+2K</span>
-          </div>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Star key={i} className="w-4 h-4 text-amber-500 fill-amber-500" />
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">4.9/5 from 2,500+ reviews</p>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-violet-600" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-foreground">2M+</p>
-                <p className="text-xs text-muted-foreground">Listings Analyzed</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Users className="w-4 h-4 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-foreground">150K+</p>
-                <p className="text-xs text-muted-foreground">Sellers Helped</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-foreground">$250M+</p>
-                <p className="text-xs text-muted-foreground">Revenue Impacted</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right - Testimonial */}
-        <Card className="border border-border/60 bg-orange-50/30">
-          <CardContent className="p-6 space-y-4">
-            <div className="text-4xl text-orange-300 font-serif">&ldquo;</div>
-            <p className="text-sm text-foreground leading-relaxed">
-              ListingAudit helped us uncover critical issues we didn&apos;t even know were hurting our sales. Our conversion rate increased by 27% in just 30 days!
-            </p>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-sm font-bold text-orange-600">
-                J
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Jessica M.</p>
-                <p className="text-xs text-muted-foreground">Amazon Top Seller</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
