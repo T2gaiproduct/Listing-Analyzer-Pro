@@ -7,7 +7,7 @@ import {
   appendImagesToZip,
   collectAplusImages,
   slugify,
-  stripHtml,
+  htmlForListingExport,
   truncate,
   type ExportImageAsset,
 } from "./listing-export-shared.js";
@@ -128,7 +128,7 @@ export function buildAuditExportBundle(opts: {
   while (bullets.length < 5) bullets.push("");
 
   const keywords = truncate(content.keywords.join(" ").replace(/\s+/g, " "), KEYWORDS_MAX);
-  const description = truncate(stripHtml(content.htmlDescription || ""), DESCRIPTION_MAX);
+  const description = htmlForListingExport(content.htmlDescription || "", DESCRIPTION_MAX);
 
   const imageUrlColumns: string[] = ["", "", "", "", "", "", "", "", ""];
   publishUrls.forEach((url, index) => {

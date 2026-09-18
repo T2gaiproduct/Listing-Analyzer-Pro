@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { GeneratedContent } from "@workspace/db";
-import { stripHtml, type ExportImageAsset } from "./listing-export-shared.js";
+import { htmlForListingExport, stripHtml, type ExportImageAsset } from "./listing-export-shared.js";
 
 export const AMAZON_PRODUCT_DESCRIPTION_MAX = 2000;
 
@@ -10,18 +10,23 @@ export interface ListingReviewRow {
   value: string;
 }
 
-/** Split generated HTML description into human-readable sections for Excel review. */
-export function parseHtmlDescriptionSections(html: string): Array<{ title: string; plainText: string }> {
+function rootChildren($: cheerio.CheerioAPI): cheerio.Element[] {
+  if ($("body").length > 0) return $("body").children().toArray();
+  return $.root().children().toArray();
+}
+
+/** Split generated HTML description into sections for Excel review (values stay HTML). */
+export function parseHtmlDescriptionSections(html: string): Array<{ title: string; html: string }> {
   const trimmed = html.trim();
   if (!trimmed) return [];
 
-  const $ = cheerio.load(trimmed);
-  const rootChildren = $("body").length > 0 ? $("body").children().toArray() : $.root().children().toArray();
+  const $ = cheerio.load(trimmed, undefined, false);
+  const children = rootChildren($);
 
-  const sections: Array<{ title: string; plainText: string }> = [];
+  const sections: Array<{ title: string; html: string }> = [];
   const openingParts: string[] = [];
 
-  for (const node of rootChildren) {
+  for (const node of children) {
     const el = $(node);
     const tag = node.tagName?.toLowerCase();
     if (tag === "h3") {
@@ -29,37 +34,29 @@ export function parseHtmlDescriptionSections(html: string): Array<{ title: strin
       const bodyParts: string[] = [];
       let sibling = el.next();
       while (sibling.length > 0 && !sibling.is("h3")) {
-        if (sibling.is("ul") || sibling.is("ol")) {
-          sibling.find("li").each((_, li) => {
-            const line = $(li).text().trim();
-            if (line) bodyParts.push(`• ${line}`);
-          });
-        } else {
-          const text = sibling.text().trim();
-          if (text) bodyParts.push(text);
-        }
+        bodyParts.push($.html(sibling));
         sibling = sibling.next();
       }
       if (title) {
-        sections.push({ title, plainText: bodyParts.join("\n") });
+        sections.push({ title, html: bodyParts.join("\n").trim() });
       }
       continue;
     }
     if (sections.length > 0) continue;
-    if (tag === "h2") {
-      const t = el.text().trim();
-      if (t) openingParts.push(t);
-    } else if (tag === "p") {
-      const t = el.text().trim();
-      if (t) openingParts.push(t);
+    if (tag === "h2" || tag === "p" || tag === "ul" || tag === "ol") {
+      openingParts.push($.html(el));
     }
   }
 
   if (openingParts.length > 0) {
     sections.unshift({
       title: "Opening summary",
-      plainText: openingParts.join("\n\n"),
+      html: openingParts.join("\n").trim(),
     });
+  }
+
+  if (sections.length === 0) {
+    return [{ title: "Product description", html: trimmed }];
   }
 
   return sections;
@@ -71,6 +68,7 @@ export function buildListingContentReviewRows(
   images: ExportImageAsset[],
 ): ListingReviewRow[] {
   const rows: ListingReviewRow[] = [];
+  const descriptionHtml = (content.htmlDescription ?? "").trim();
 
   rows.push({ section: "Listing", field: "Product title", value: content.title.trim() });
   for (let i = 0; i < 5; i++) {
@@ -86,26 +84,29 @@ export function buildListingContentReviewRows(
     value: content.keywords.join(" ").trim(),
   });
 
-  for (const block of parseHtmlDescriptionSections(content.htmlDescription ?? "")) {
-    rows.push({ section: "Description", field: block.title, value: block.plainText });
+  for (const block of parseHtmlDescriptionSections(descriptionHtml)) {
+    rows.push({ section: "Description", field: block.title, value: block.html });
   }
 
-  const fullPlain = stripHtml(content.htmlDescription ?? "");
   rows.push({
     section: "Description",
-    field: "Full product description (complete)",
-    value: fullPlain,
+    field: "Full product description (HTML)",
+    value: descriptionHtml,
   });
 
   rows.push({
     section: "Note",
     field: "Amazon Upload sheet",
     value:
-      `The "Amazon Upload" worksheet product_description is limited to ${AMAZON_PRODUCT_DESCRIPTION_MAX} characters for flat-file compatibility. ` +
-      "End sections (e.g. Why Choose This Product?) may be cut there — use this sheet for the full text.",
+      `The "Amazon Upload" worksheet product_description is limited to ${AMAZON_PRODUCT_DESCRIPTION_MAX} visible characters for flat-file compatibility. ` +
+      "When HTML fits that limit it is exported as HTML; otherwise plain text is truncated. Image columns remain URLs only.",
   });
 
-  rows.push({ section: "Amazon Upload", field: "Product description (truncated for upload)", value: row.product_description ?? "" });
+  rows.push({
+    section: "Amazon Upload",
+    field: "Product description (for upload)",
+    value: row.product_description ?? "",
+  });
 
   const mainUrl = row.main_image_url?.trim();
   if (mainUrl) rows.push({ section: "Images", field: "Main image URL", value: mainUrl });
@@ -123,4 +124,9 @@ export function buildListingContentReviewRows(
   }
 
   return rows;
+}
+
+/** Visible character count for Amazon description limits (tags excluded). */
+export function listingDescriptionVisibleLength(html: string): number {
+  return stripHtml(html).length;
 }

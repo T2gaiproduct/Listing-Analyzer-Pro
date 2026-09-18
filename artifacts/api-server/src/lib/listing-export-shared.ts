@@ -37,6 +37,19 @@ export function truncate(value: string, max: number): string {
   return `${trimmed.slice(0, max - 1)}…`;
 }
 
+/**
+ * Use generated listing HTML in Excel/CSV exports. When a visible-character cap applies
+ * (Amazon flat-file), keep HTML if it fits; otherwise fall back to truncated plain text.
+ */
+export function htmlForListingExport(html: string, maxVisibleChars?: number): string {
+  const trimmed = html.trim();
+  if (!trimmed) return "";
+  if (maxVisibleChars == null) return trimmed;
+  const visible = stripHtml(trimmed);
+  if (visible.length <= maxVisibleChars) return trimmed;
+  return truncate(visible, maxVisibleChars);
+}
+
 export function slugify(value: string): string {
   return value
     .toLowerCase()
