@@ -59,6 +59,19 @@ function recordTypeLabel(type: string | undefined): string {
   return "Graphic";
 }
 
+function isAppGeneratedImageUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("data:image/")) return true;
+  if (trimmed.includes("/api/images/")) return true;
+  return !/^https?:\/\//i.test(trimmed);
+}
+
+function auditImageRecords(audit: Audit): Array<{ type?: string; currentUrl?: string }> {
+  const raw = audit.imageRecords;
+  return Array.isArray(raw) ? (raw as Array<{ type?: string; currentUrl?: string }>) : [];
+}
+
 /** Public listing preview: generated graphics only (no scrape/import/upload URLs). */
 function collectGeneratedPreviewImages(
   audit: Audit,
@@ -80,6 +93,13 @@ function collectGeneratedPreviewImages(
   for (const record of graphicsRecords ?? []) {
     if (record.currentUrl?.trim()) {
       push(record.currentUrl, recordTypeLabel(record.type));
+    }
+  }
+
+  for (const record of auditImageRecords(audit)) {
+    const url = record.currentUrl?.trim();
+    if (url && isAppGeneratedImageUrl(url)) {
+      push(url, recordTypeLabel(record.type));
     }
   }
 
