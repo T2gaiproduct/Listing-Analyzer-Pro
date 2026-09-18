@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   useGetAudit,
+  usePatchAudit,
   getGetAuditQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +17,11 @@ import {
   CheckCircle2, AlertCircle, Lightbulb,
   Type, AlignLeft, Image, Tag, ChevronDown, ChevronUp,
   Download,
+  Loader2,
+  Package,
 } from "lucide-react";
 import { downloadAuditReportPdf } from "@/lib/audit-report-pdf";
+import { useTeam } from "@/hooks/use-team";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
 
@@ -89,6 +94,9 @@ function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardP
 export default function AuditDetail({ id }: { id: number }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const patchAudit = usePatchAudit();
+  const { canEditAudits } = useTeam();
   const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/";
 
   const { data: audit, isLoading } = useGetAudit(id, {
@@ -147,6 +155,38 @@ export default function AuditDetail({ id }: { id: number }) {
     }
   };
 
+  const handleSaveToProductExplorer = useCallback(() => {
+    if (!canEditAudits) {
+      toast({
+        title: "Read-only",
+        description: "Ask your workspace admin to save this audit to Product Explorer.",
+        variant: "destructive",
+      });
+      return;
+    }
+    patchAudit.mutate(
+      { id, data: { currentStep: 2 } },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+          void queryClient.invalidateQueries({ queryKey: ["products"] });
+          setLocation(`${basePath}/products/${id}?source=audit&step=listing`);
+          toast({
+            title: "Saved to Product Explorer",
+            description: "Continue on the Listing step to optimize your listing copy.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Could not save",
+            description: "Please try again.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  }, [canEditAudits, id, patchAudit, queryClient, setLocation, toast]);
+
   const hasAnalysis = audit.result != null;
   const result = audit.result ?? {
     titleScore: { score: 0, issues: [], suggestions: [] },
@@ -191,9 +231,26 @@ export default function AuditDetail({ id }: { id: number }) {
       )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 w-full min-w-0">
         <h2 className="text-lg font-semibold tracking-tight text-foreground">Audit Results</h2>
-        <Button variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0 min-h-11" onClick={handleDownloadPdf}>
-          <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {hasAnalysis && (
+            <Button
+              size="sm"
+              className="w-full sm:w-auto flex-shrink-0 min-h-11"
+              disabled={patchAudit.isPending}
+              onClick={handleSaveToProductExplorer}
+            >
+              {patchAudit.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Package className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Save to Product Explorer
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0 min-h-11" onClick={handleDownloadPdf}>
+            <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-6">

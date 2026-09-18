@@ -1309,6 +1309,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const params = new URLSearchParams(window.location.search);
     return {
       forceOverview: params.get("step") === "overview",
+      openListingStep: params.get("step") === "listing",
       openListingEdit: params.get("edit") === "listing",
     };
   }, [location, id]);
@@ -1909,6 +1910,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!product?.id) return;
     if (workflowProductIdRef.current === product.id) return;
     workflowProductIdRef.current = product.id;
+    if (urlWorkflowIntent.openListingStep) {
+      setSelectedWorkflowStep(3);
+      return;
+    }
     setSelectedWorkflowStep(
       resolveInitialProductExplorerStep(
         workflowStepCompleted,
@@ -1916,7 +1921,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
         { forceOverview: urlWorkflowIntent.forceOverview },
       ),
     );
-  }, [product?.id, product?.currentStep, urlWorkflowIntent.forceOverview, workflowStepCompleted]);
+  }, [
+    product?.id,
+    product?.currentStep,
+    urlWorkflowIntent.forceOverview,
+    urlWorkflowIntent.openListingStep,
+    workflowStepCompleted,
+  ]);
 
   useEffect(() => {
     listingEditFromUrlRef.current = false;
