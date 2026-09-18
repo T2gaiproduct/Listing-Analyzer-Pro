@@ -69,6 +69,41 @@ export function isAppGeneratedImageUrl(url: string): boolean {
   return false;
 }
 
+function generatedImageFilename(url: string): string {
+  const withoutQuery = url.split("?")[0] ?? url;
+  return withoutQuery.split("/").pop() ?? "";
+}
+
+/** Graphics / AI-generated listing images — excludes uploads and reference/source files. */
+export function isGeneratedListingPreviewImageUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.includes("/api/images/graphics/")) return true;
+  if (!isAppGeneratedImageUrl(trimmed)) return false;
+
+  const name = generatedImageFilename(trimmed).toLowerCase();
+  if (!name) return false;
+  if (name.startsWith("source_") || name.includes("aplus_source") || name.startsWith("edit_ref")) {
+    return false;
+  }
+  if (/^publish_\d+_\d+\.[a-z0-9]+$/i.test(name)) return false;
+  if (/^(lifestyle|feature|main|infographic)_/i.test(name)) return true;
+  if (name.startsWith("aplus_")) return false;
+  return false;
+}
+
+function isGeneratedListingPreviewRecord(record: GraphicsImageRecord): boolean {
+  const url = record.currentUrl?.trim() ?? "";
+  if (!url) return false;
+  const type = record.type?.toLowerCase() ?? "";
+  if (type === "source" || type === "upload") return false;
+  if (["lifestyle", "feature", "infographic"].includes(type)) {
+    return isGeneratedListingPreviewImageUrl(url);
+  }
+  if (type === "main") return isGeneratedListingPreviewImageUrl(url);
+  return isGeneratedListingPreviewImageUrl(url);
+}
+
 /** Gallery images for listing preview: generated graphics first, then uploads. */
 export function collectListingPreviewImages(opts: {
   imageUrls?: string[] | null;
@@ -103,20 +138,19 @@ export function collectListingPreviewImages(opts: {
 
   if (opts.generatedOnly) {
     for (const record of opts.graphicsProjectRecords ?? []) {
-      add(record.currentUrl, recordTypeLabel(record.type));
-    }
-    for (const record of opts.imageRecords ?? []) {
       const url = record.currentUrl?.trim();
-      if (url && isAppGeneratedImageUrl(url)) {
+      if (url && isGeneratedListingPreviewImageUrl(url)) {
         add(url, recordTypeLabel(record.type));
       }
     }
-    for (const url of legacyGeneratedUrls(opts.generatedImages)) {
-      add(url, "Generated");
+    for (const record of opts.imageRecords ?? []) {
+      if (isGeneratedListingPreviewRecord(record)) {
+        add(record.currentUrl, recordTypeLabel(record.type));
+      }
     }
-    for (const url of opts.imageUrls ?? []) {
-      if (isAppGeneratedImageUrl(url)) {
-        add(url, "Main");
+    for (const url of legacyGeneratedUrls(opts.generatedImages)) {
+      if (isGeneratedListingPreviewImageUrl(url) || url.startsWith("data:image/")) {
+        add(url, "Generated");
       }
     }
   } else {

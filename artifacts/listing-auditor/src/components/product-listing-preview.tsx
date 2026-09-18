@@ -197,7 +197,7 @@ export function ProductListingPreview({
 
   const galleryImages = useMemo(
     () => collectListingPreviewImages({
-      imageUrls: audit?.imageUrls,
+      imageUrls: generatedOnly ? null : audit?.imageUrls,
       imageRecords: audit?.imageRecords,
       generatedImages: audit?.generatedImages,
       graphicsProjectRecords: graphicsProject?.imageRecords ?? null,

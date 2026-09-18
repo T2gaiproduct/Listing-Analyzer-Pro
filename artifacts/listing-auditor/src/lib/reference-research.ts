@@ -40,6 +40,35 @@ export type ListingPreviewProductDetailRow = {
   referencePatternNotes: string;
 };
 
+/** Strip research phrasing from AI notes on customer-facing listing preview only. */
+export function sanitizeReferenceNotesForListingPreview(notes: string): string {
+  let text = notes.trim();
+  if (!text) return text;
+
+  const leadIns = [
+    /^(the\s+)?references?\s+suggest(s)?\s+(that\s+)?/i,
+    /^(the\s+)?references?\s+indicate(s)?\s+(that\s+)?/i,
+    /^(the\s+)?references?\s+point(s)?\s+to\s+(the\s+fact\s+that\s+)?/i,
+    /^(the\s+)?reference\s+suggest(s)?\s+(that\s+)?/i,
+    /^(the\s+)?reference\s+indicates?\s+(that\s+)?/i,
+    /^(the\s+)?reference\s+points?\s+to\s+/i,
+    /^references?\s+(commonly|often|typically)\s+/i,
+  ];
+
+  for (const pattern of leadIns) {
+    if (pattern.test(text)) {
+      text = text.replace(pattern, "");
+      break;
+    }
+  }
+
+  const cleaned = text.trim();
+  if (cleaned.length > 0) {
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  return notes.trim();
+}
+
 /** AI reference intelligence + seller overrides for listing preview Product details. */
 export function mergeListingPreviewProductDetails(
   intelligence: ReferenceIntelligenceRow[] | null | undefined,
@@ -62,8 +91,9 @@ export function mergeListingPreviewProductDetails(
     const key = attribute.toLowerCase();
     seen.add(key);
     const seller = sellerByKey.get(key);
-    const notes = seller?.value ?? row.referencePatternNotes?.trim() ?? "";
-    if (!notes) continue;
+    const rawNotes = seller?.value ?? row.referencePatternNotes?.trim() ?? "";
+    if (!rawNotes) continue;
+    const notes = seller ? rawNotes : sanitizeReferenceNotesForListingPreview(rawNotes);
     merged.push({
       attribute: seller?.attribute ?? attribute,
       referencePatternNotes: notes,

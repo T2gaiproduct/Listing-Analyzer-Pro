@@ -141,7 +141,7 @@ Seller category: ${input.audit.category ?? "—"}
 ${sellerNotes ? `Seller research notes:\n${sellerNotes}\n` : ""}
 ${fetched ? `Fetched reference signals (summarize patterns; never quote):\n${fetched}\n` : ""}
 
-For each attribute below, write a short "referencePatternNotes" field (1-2 sentences) describing what references suggest or "No notes supplied" / "May vary between references" / "Awaiting notes" when appropriate.
+For each attribute below, write a short "referencePatternNotes" field (1-2 sentences) in neutral product language. Do NOT start with phrases like "Reference suggests" or "The reference indicates". Use "No notes supplied" / "May vary between references" / "Awaiting notes" when appropriate.
 
 Return ONLY JSON:
 {

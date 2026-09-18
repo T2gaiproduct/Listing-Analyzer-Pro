@@ -2340,7 +2340,7 @@ export default function AuditWorkflow() {
             <ProductListingPreview
               auditId={currentAuditId}
               audit={{
-                imageUrls: uploadedImages,
+                imageUrls: undefined,
                 imageRecords: auditData?.imageRecords ?? null,
                 generatedImages: auditData?.generatedImages,
                 generatedContent,

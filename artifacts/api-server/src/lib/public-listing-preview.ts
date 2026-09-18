@@ -69,6 +69,39 @@ function isAppGeneratedImageUrl(url: string): boolean {
   return !/^https?:\/\//i.test(trimmed);
 }
 
+function generatedImageFilename(url: string): string {
+  const withoutQuery = url.split("?")[0] ?? url;
+  return withoutQuery.split("/").pop() ?? "";
+}
+
+function isGeneratedListingPreviewImageUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.includes("/api/images/graphics/")) return true;
+  if (!isAppGeneratedImageUrl(trimmed)) return false;
+
+  const name = generatedImageFilename(trimmed).toLowerCase();
+  if (!name) return false;
+  if (name.startsWith("source_") || name.includes("aplus_source") || name.startsWith("edit_ref")) {
+    return false;
+  }
+  if (/^publish_\d+_\d+\.[a-z0-9]+$/i.test(name)) return false;
+  if (/^(lifestyle|feature|main|infographic)_/i.test(name)) return true;
+  if (name.startsWith("aplus_")) return false;
+  return false;
+}
+
+function isGeneratedListingPreviewRecord(record: { type?: string; currentUrl?: string }): boolean {
+  const url = record.currentUrl?.trim() ?? "";
+  if (!url) return false;
+  const type = record.type?.toLowerCase() ?? "";
+  if (type === "source" || type === "upload") return false;
+  if (["lifestyle", "feature", "infographic", "main"].includes(type)) {
+    return isGeneratedListingPreviewImageUrl(url);
+  }
+  return isGeneratedListingPreviewImageUrl(url);
+}
+
 function auditImageRecords(audit: Audit): Array<{ type?: string; currentUrl?: string }> {
   const raw = audit.imageRecords;
   return Array.isArray(raw) ? (raw as Array<{ type?: string; currentUrl?: string }>) : [];
@@ -93,20 +126,22 @@ function collectGeneratedPreviewImages(
   };
 
   for (const record of graphicsRecords ?? []) {
-    if (record.currentUrl?.trim()) {
-      push(record.currentUrl, recordTypeLabel(record.type));
-    }
-  }
-
-  for (const record of auditImageRecords(audit)) {
     const url = record.currentUrl?.trim();
-    if (url && isAppGeneratedImageUrl(url)) {
+    if (url && isGeneratedListingPreviewImageUrl(url)) {
       push(url, recordTypeLabel(record.type));
     }
   }
 
+  for (const record of auditImageRecords(audit)) {
+    if (isGeneratedListingPreviewRecord(record)) {
+      push(record.currentUrl!, recordTypeLabel(record.type));
+    }
+  }
+
   for (const url of legacyGeneratedUrls(audit.generatedImages)) {
-    push(url, "Generated");
+    if (isGeneratedListingPreviewImageUrl(url) || url.startsWith("data:image/")) {
+      push(url, "Generated");
+    }
   }
 
   return items;

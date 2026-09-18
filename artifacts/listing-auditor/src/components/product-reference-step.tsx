@@ -73,43 +73,49 @@ export function ProductReferenceStep({
     [slots],
   );
 
-  const saveSlots = useCallback(async () => {
-    if (!canEdit || auditId <= 0) return;
-    setSaving(true);
-    try {
-      const trimmedDetails = productDetails
-        .map((row) => ({
-          attribute: row.attribute.trim(),
-          value: row.value.trim(),
-        }))
-        .filter((row) => row.attribute || row.value);
+  const trimProductDetailsForSave = (rows: SellerProductDetail[]) => {
+    const trimmed = rows
+      .map((row) => ({
+        attribute: row.attribute.trim(),
+        value: row.value.trim(),
+      }))
+      .filter((row) => row.attribute || row.value);
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
 
-      const payload: ReferenceResearchData = {
-        slots,
-        intelligence,
-        productDetails: trimmedDetails.length > 0 ? trimmedDetails : undefined,
-        analyzedAt,
-        fetchErrors,
-      };
-      const saved = await fetchJson<ReferenceResearchData>(
-        `${basePath}/api/audits/${auditId}/reference-research`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
-      onResearchUpdated?.(saved);
-    } catch (err) {
-      toast({
-        title: "Could not save references",
-        description: err instanceof ApiFetchError ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [auditId, analyzedAt, canEdit, fetchErrors, intelligence, onResearchUpdated, productDetails, slots, toast]);
+  const saveSlots = useCallback(
+    async (productDetailsOverride?: SellerProductDetail[]) => {
+      if (!canEdit || auditId <= 0) return;
+      setSaving(true);
+      try {
+        const payload: ReferenceResearchData = {
+          slots,
+          intelligence,
+          productDetails: trimProductDetailsForSave(productDetailsOverride ?? productDetails),
+          analyzedAt,
+          fetchErrors,
+        };
+        const saved = await fetchJson<ReferenceResearchData>(
+          `${basePath}/api/audits/${auditId}/reference-research`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
+        onResearchUpdated?.(saved);
+      } catch (err) {
+        toast({
+          title: "Could not save references",
+          description: err instanceof ApiFetchError ? err.message : "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [auditId, analyzedAt, canEdit, fetchErrors, intelligence, onResearchUpdated, productDetails, slots, toast],
+  );
 
   const updateSlot = (index: number, patch: Partial<ReferenceResearchSlot>) => {
     setSlots((prev) => prev.map((slot, i) => (i === index ? { ...slot, ...patch } : slot)));
@@ -331,13 +337,12 @@ export function ProductReferenceStep({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 shrink-0 text-slate-400 hover:text-red-600 sm:mt-5"
-                disabled={!canEdit || productDetails.length <= 1}
+                disabled={!canEdit}
                 onClick={() => {
-                  setProductDetails((prev) => {
-                    const next = prev.filter((_, i) => i !== index);
-                    return next.length > 0 ? next : [{ attribute: "", value: "" }];
-                  });
-                  window.setTimeout(() => void saveSlots(), 0);
+                  const next = productDetails.filter((_, i) => i !== index);
+                  const normalized = next.length > 0 ? next : [{ attribute: "", value: "" }];
+                  setProductDetails(normalized);
+                  void saveSlots(next);
                 }}
                 aria-label="Remove attribute"
               >
