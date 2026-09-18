@@ -64,6 +64,7 @@ function isAppGeneratedImageUrl(url: string): boolean {
   if (!trimmed) return false;
   if (trimmed.startsWith("data:image/")) return true;
   if (trimmed.includes("/api/images/")) return true;
+  if (trimmed.includes("/api/marketplace-publish/images/")) return true;
   return !/^https?:\/\//i.test(trimmed);
 }
 
