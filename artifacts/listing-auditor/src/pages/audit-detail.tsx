@@ -103,6 +103,38 @@ export default function AuditDetail({ id }: { id: number }) {
     query: { enabled: !!id, queryKey: getGetAuditQueryKey(id) },
   });
 
+  const handleSaveToProductExplorer = useCallback(() => {
+    if (!canEditAudits) {
+      toast({
+        title: "Read-only",
+        description: "Ask your workspace admin to save this audit to Product Explorer.",
+        variant: "destructive",
+      });
+      return;
+    }
+    patchAudit.mutate(
+      { id, data: { currentStep: 2 } },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+          void queryClient.invalidateQueries({ queryKey: ["products"] });
+          setLocation(`${basePath}/products/${id}?source=audit&step=listing`);
+          toast({
+            title: "Saved to Product Explorer",
+            description: "Continue on the Listing step to optimize your listing copy.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Could not save",
+            description: "Please try again.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  }, [canEditAudits, id, patchAudit, queryClient, setLocation, toast]);
+
   useEffect(() => {
     if (!audit) return;
     const isStoreImport = isShopifyImportAsin(audit.asin) || isWooCommerceImportAsin(audit.asin);
@@ -154,38 +186,6 @@ export default function AuditDetail({ id }: { id: number }) {
       });
     }
   };
-
-  const handleSaveToProductExplorer = useCallback(() => {
-    if (!canEditAudits) {
-      toast({
-        title: "Read-only",
-        description: "Ask your workspace admin to save this audit to Product Explorer.",
-        variant: "destructive",
-      });
-      return;
-    }
-    patchAudit.mutate(
-      { id, data: { currentStep: 2 } },
-      {
-        onSuccess: () => {
-          void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
-          void queryClient.invalidateQueries({ queryKey: ["products"] });
-          setLocation(`${basePath}/products/${id}?source=audit&step=listing`);
-          toast({
-            title: "Saved to Product Explorer",
-            description: "Continue on the Listing step to optimize your listing copy.",
-          });
-        },
-        onError: () => {
-          toast({
-            title: "Could not save",
-            description: "Please try again.",
-            variant: "destructive",
-          });
-        },
-      },
-    );
-  }, [canEditAudits, id, patchAudit, queryClient, setLocation, toast]);
 
   const hasAnalysis = audit.result != null;
   const result = audit.result ?? {
