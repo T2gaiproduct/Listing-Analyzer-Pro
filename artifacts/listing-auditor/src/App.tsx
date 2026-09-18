@@ -256,8 +256,8 @@ function resolveClerkProxyUrl(): string | undefined {
     return sameOriginClerkProxyPath();
   }
 
-  // Localhost pk_test: Clerk CDN (dev-stack does not register a tunnel proxy).
-  if (clerkPubKey.startsWith("pk_test_") && (host === "localhost" || host === "127.0.0.1")) {
+  // pk_test on quick Cloudflare tunnels and localhost: Clerk CDN (no same-origin proxy).
+  if (clerkPubKey.startsWith("pk_test_")) {
     return undefined;
   }
 
