@@ -1,7 +1,7 @@
 import type { Request } from "express";
 import { and, eq } from "drizzle-orm";
 import { db, auditsTable, graphicsProjectsTable, type Audit } from "@workspace/db";
-import { resolveListingContentForExport } from "./resolve-listing-content.js";
+import { readGeneratedContent } from "./listing-export-shared.js";
 import { verifyListingPreviewShareToken } from "./listing-preview-share-token.js";
 import { buildSignedPublishImagePath } from "./marketplace-publish-image-token.js";
 import type { AplusModule } from "./aplus-generator.js";
@@ -53,7 +53,8 @@ function recordTypeLabel(type: string | undefined): string {
   return "Graphic";
 }
 
-function collectPreviewImages(
+/** Public listing preview: generated graphics only (no scrape/import/upload URLs). */
+function collectGeneratedPreviewImages(
   audit: Audit,
   graphicsRecords: Array<{ type?: string; currentUrl?: string }> | null,
 ): PublicListingPreviewImage[] {
@@ -76,18 +77,8 @@ function collectPreviewImages(
     }
   }
 
-  for (const record of audit.imageRecords ?? []) {
-    if (record.currentUrl?.trim()) {
-      push(record.currentUrl, recordTypeLabel(record.type));
-    }
-  }
-
   for (const url of legacyGeneratedUrls(audit.generatedImages)) {
-    push(url, "Graphic");
-  }
-
-  for (const url of audit.imageUrls ?? []) {
-    push(url, "Upload");
+    push(url, "Generated");
   }
 
   return items;
@@ -139,7 +130,7 @@ export async function loadPublicListingPreview(
     .limit(1);
 
   const graphicsRecords = (graphics?.imageRecords ?? null) as Array<{ type?: string; currentUrl?: string }> | null;
-  const gallery = collectPreviewImages(audit, graphicsRecords);
+  const gallery = collectGeneratedPreviewImages(audit, graphicsRecords);
 
   const signedRecords = gallery.map((img) => ({
     type: img.label === "Upload" ? "main" : "lifestyle",
@@ -153,7 +144,20 @@ export async function loadPublicListingPreview(
       : mod.imageUrl,
   }));
 
-  const generatedContent = resolveListingContentForExport(audit);
+  const generated = readGeneratedContent(audit);
+  const generatedContent = generated?.title?.trim()
+    ? {
+        title: generated.title.trim(),
+        bulletPoints: (generated.bulletPoints ?? []).filter((b) => typeof b === "string" && b.trim()),
+        keywords: (generated.keywords ?? []).filter((k) => typeof k === "string" && k.trim()),
+        htmlDescription: generated.htmlDescription?.trim() ?? "",
+      }
+    : {
+        title: "",
+        bulletPoints: [],
+        keywords: [],
+        htmlDescription: "",
+      };
 
   let generatedImages: unknown = audit.generatedImages;
   if (aplusModules.length > 0) {

@@ -71,6 +71,10 @@ export function collectListingPreviewImages(opts: {
   excludeUrls?: Iterable<string> | null;
   /** A+ module images appended after product/graphics images in the gallery. */
   aplusModules?: Array<{ url: string; label?: string | null }> | null;
+  /**
+   * Listing preview tab: only SellerLens-generated graphics (no scrape/import/upload URLs).
+   */
+  generatedOnly?: boolean;
 }): ListingPreviewImage[] {
   const items: ListingPreviewImage[] = [];
   const seen = new Set<string>();
@@ -87,24 +91,33 @@ export function collectListingPreviewImages(opts: {
     items.push({ url: trimmed, label });
   };
 
-  const records = [
-    ...(opts.graphicsProjectRecords ?? []),
-    ...(opts.imageRecords ?? []),
-  ];
-  for (const record of records) {
-    add(record.currentUrl, recordTypeLabel(record.type));
-  }
+  if (opts.generatedOnly) {
+    for (const record of opts.graphicsProjectRecords ?? []) {
+      add(record.currentUrl, recordTypeLabel(record.type));
+    }
+    for (const url of legacyGeneratedUrls(opts.generatedImages)) {
+      add(url, "Generated");
+    }
+  } else {
+    const records = [
+      ...(opts.graphicsProjectRecords ?? []),
+      ...(opts.imageRecords ?? []),
+    ];
+    for (const record of records) {
+      add(record.currentUrl, recordTypeLabel(record.type));
+    }
 
-  for (const url of legacyGeneratedUrls(opts.generatedImages)) {
-    add(url, "Generated");
-  }
+    for (const url of legacyGeneratedUrls(opts.generatedImages)) {
+      add(url, "Generated");
+    }
 
-  add(opts.productImageUrl, "Product");
-  for (const url of opts.imageUrls ?? []) {
-    add(url, "Product");
-  }
-  for (const url of opts.fallbackImageUrls ?? []) {
-    add(url, "Product");
+    add(opts.productImageUrl, "Product");
+    for (const url of opts.imageUrls ?? []) {
+      add(url, "Product");
+    }
+    for (const url of opts.fallbackImageUrls ?? []) {
+      add(url, "Product");
+    }
   }
 
   for (const module of opts.aplusModules ?? []) {

@@ -78,6 +78,8 @@ export function ProductListingPreview({
   publicView = false,
   /** Show "Copy preview link" for signed-in users (generates public no-auth URL). */
   sharePreviewLink = false,
+  /** Preview tab: only generated copy and graphics (no scraped listing / import fallbacks). */
+  generatedOnly = false,
 }: {
   auditId: number;
   audit: AuditLike | null | undefined;
@@ -94,6 +96,7 @@ export function ProductListingPreview({
   exportDisabled?: boolean;
   publicView?: boolean;
   sharePreviewLink?: boolean;
+  generatedOnly?: boolean;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -142,20 +145,26 @@ export function ProductListingPreview({
     const fromGenerated = generatedContent?.title?.trim()
       || audit?.generatedContent?.title?.trim();
     if (fromGenerated) return fromGenerated;
+    if (generatedOnly) return "";
     return audit?.title?.trim() || productName?.trim() || "Product title";
-  }, [generatedContent, audit, productName]);
+  }, [generatedContent, audit, productName, generatedOnly]);
 
   const bullets = useMemo(() => {
     const fromGenerated = generatedContent?.bulletPoints?.filter((b) => b.trim()) ?? [];
     if (fromGenerated.length) return normalizeBulletPoints(fromGenerated);
     const fromAudit = audit?.generatedContent?.bulletPoints?.filter((b) => b.trim()) ?? [];
     if (fromAudit.length) return normalizeBulletPoints(fromAudit);
+    if (generatedOnly) return [];
     return normalizeBulletPoints((audit?.bulletPoints ?? []).filter((b) => b?.trim()));
-  }, [generatedContent, audit]);
+  }, [generatedContent, audit, generatedOnly]);
 
-  const htmlDescription = generatedContent?.htmlDescription?.trim()
-    || audit?.generatedContent?.htmlDescription?.trim()
-    || "";
+  const htmlDescription = useMemo(() => {
+    const fromProps = generatedContent?.htmlDescription?.trim()
+      || audit?.generatedContent?.htmlDescription?.trim()
+      || "";
+    if (fromProps || !generatedOnly) return fromProps;
+    return "";
+  }, [generatedContent, audit, generatedOnly]);
 
   const descriptionPreviewHtml = useMemo(
     () => (htmlDescription
@@ -176,12 +185,13 @@ export function ProductListingPreview({
 
   const galleryImages = useMemo(
     () => collectListingPreviewImages({
-      imageUrls: audit?.imageUrls,
-      imageRecords: audit?.imageRecords,
+      imageUrls: generatedOnly ? null : audit?.imageUrls,
+      imageRecords: generatedOnly ? null : audit?.imageRecords,
       generatedImages: audit?.generatedImages,
       graphicsProjectRecords: graphicsProject?.imageRecords ?? null,
-      productImageUrl,
-      fallbackImageUrls,
+      productImageUrl: generatedOnly ? null : productImageUrl,
+      fallbackImageUrls: generatedOnly ? null : fallbackImageUrls,
+      generatedOnly,
       // A+ modules render full-width below the PDP block (not in the thumbnail carousel).
       aplusModules: null,
     }),
@@ -192,11 +202,14 @@ export function ProductListingPreview({
       graphicsProject?.imageRecords,
       productImageUrl,
       fallbackImageUrls,
+      generatedOnly,
       refreshKey,
     ],
   );
 
-  const hasListingCopy = Boolean(title && (bullets.length > 0 || htmlDescription));
+  const hasListingCopy = Boolean(
+    title.trim() || bullets.length > 0 || descriptionPreviewHtml.length > 0,
+  );
   const hasImages = galleryImages.length > 0;
   const imageCount = galleryImages.length;
   const safeSelectedIndex = imageCount > 0 ? Math.min(selectedIndex, imageCount - 1) : 0;
@@ -323,11 +336,17 @@ export function ProductListingPreview({
 
       {(!hasListingCopy || !hasImages) && (
         <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2">
-          {!hasListingCopy && !hasImages
-            ? "Generate listing content and graphics in the earlier steps to see a full preview."
-            : !hasListingCopy
-              ? "Add or generate listing copy on the Listing step to preview title and bullets."
-              : "Add product images or generate graphics to preview the image gallery."}
+          {generatedOnly
+            ? !hasListingCopy && !hasImages
+              ? "This preview shows only generated listing copy, graphics, and A+ content. Complete the Listing, Graphics, and A+ steps to fill it in."
+              : !hasListingCopy
+                ? "Generate listing copy on the Listing step to preview title, bullets, and description here."
+                : "Generate graphics on the Graphics step to preview the image gallery here."
+            : !hasListingCopy && !hasImages
+              ? "Generate listing content and graphics in the earlier steps to see a full preview."
+              : !hasListingCopy
+                ? "Add or generate listing copy on the Listing step to preview title and bullets."
+                : "Add product images or generate graphics to preview the image gallery."}
         </p>
       )}
 

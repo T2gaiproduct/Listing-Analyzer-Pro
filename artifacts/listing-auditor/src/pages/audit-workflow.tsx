@@ -2354,6 +2354,7 @@ export default function AuditWorkflow() {
               productImageUrl={uploadedImages[0] ?? null}
               fallbackImageUrls={uploadedImages}
               sharePreviewLink
+              generatedOnly
             />
           )}
 

@@ -99,10 +99,9 @@ export default function PublicListingPreviewPage({ auditId }: { auditId: number 
             productName={data!.productName}
             brandName={data!.brandName}
             category={data!.category}
-            productImageUrl={data!.imageUrls[0] ?? null}
-            fallbackImageUrls={data!.imageUrls}
             edgeToEdge
             publicView
+            generatedOnly
           />
         )}
       </div>

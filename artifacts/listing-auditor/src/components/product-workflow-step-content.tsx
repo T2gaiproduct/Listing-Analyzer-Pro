@@ -346,6 +346,7 @@ export function ProductWorkflowStepContent({
           showExportButton
           exportDisabled={!canExportListingSource(productSource)}
           sharePreviewLink
+          generatedOnly
         />
       </WorkflowStepShell>
     );
