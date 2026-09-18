@@ -28,7 +28,7 @@ import {
 } from "@/lib/listing-content-format";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { ReferenceIntelligenceTable } from "@/components/reference-intelligence-table";
+import { ReferenceIntelligenceListingPreview } from "@/components/reference-intelligence-table";
 import type { ReferenceIntelligenceRow } from "@/lib/reference-research";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -562,20 +562,11 @@ export function ProductListingPreview({
         )}
 
         {hasReferenceIntelligence && (
-          <section className="border-t border-slate-200 bg-slate-50/40" aria-label="Reference intelligence">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 lg:px-5 py-2.5 bg-white">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-800">
-                Reference intelligence
-              </p>
-              <span className="text-[9px] font-medium uppercase tracking-wide text-orange-600">
-                AI extracted / research signal
-              </span>
+          <section className="border-t border-slate-200 bg-white" aria-label="Product details">
+            <div className="border-b border-slate-200 px-4 lg:px-5 bg-white">
+              <p className="py-2.5 text-[11px] font-semibold text-slate-900">Product details</p>
             </div>
-            <ReferenceIntelligenceTable rows={referenceRows} variant="listingPreview" />
-            <p className="text-[9px] text-slate-400 px-4 lg:px-5 py-2 border-t border-slate-100 leading-relaxed">
-              Research values are prompts for seller confirmation. Exact dimensions, weight, batteries, included items,
-              origin, compliance and safety claims always require product evidence.
-            </p>
+            <ReferenceIntelligenceListingPreview rows={referenceRows} />
           </section>
         )}
 
@@ -589,24 +580,26 @@ export function ProductListingPreview({
                 </span>
               </div>
             </div>
-            <div className="flex flex-col w-full max-w-none [&_img]:block [&_img]:w-full [&_img]:max-w-none [&_img]:h-auto [&_img]:align-top">
-              {aplusModules.map((module) => (
-                module.imageUrl ? (
-                  <button
-                    key={module.id}
-                    type="button"
-                    className="block w-full max-w-none cursor-zoom-in p-0 m-0 border-0 bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500"
-                    onClick={() => openStandaloneLightbox(module.imageUrl)}
-                    aria-label={`View full size ${module.title}`}
-                  >
-                    <img
-                      src={resolveListingPreviewImageUrl(module.imageUrl)}
-                      alt={module.title}
-                      className="w-full h-auto"
-                    />
-                  </button>
-                ) : null
-              ))}
+            <div className="px-4 sm:px-8 lg:px-12 py-4 bg-white">
+              <div className="mx-auto w-full max-w-3xl flex flex-col gap-4">
+                {aplusModules.map((module) => (
+                  module.imageUrl ? (
+                    <button
+                      key={module.id}
+                      type="button"
+                      className="block w-full cursor-zoom-in p-0 m-0 border-0 bg-transparent rounded-md overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                      onClick={() => openStandaloneLightbox(module.imageUrl)}
+                      aria-label={`View full size ${module.title}`}
+                    >
+                      <img
+                        src={resolveListingPreviewImageUrl(module.imageUrl)}
+                        alt={module.title}
+                        className="w-full h-auto block"
+                      />
+                    </button>
+                  ) : null
+                ))}
+              </div>
             </div>
           </section>
         )}

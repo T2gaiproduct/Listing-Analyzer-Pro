@@ -1,4 +1,10 @@
 import type { ReferenceIntelligenceDecision, ReferenceIntelligenceRow } from "@/lib/reference-research";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 
 export const REFERENCE_INTELLIGENCE_DECISION_LABELS: Record<ReferenceIntelligenceDecision, string> = {
@@ -16,6 +22,39 @@ export const REFERENCE_INTELLIGENCE_DECISION_CLASS: Record<ReferenceIntelligence
   product_evidence_required: "text-red-600 bg-red-50 border-red-200",
   research_only: "text-emerald-700 bg-emerald-50 border-emerald-200",
 };
+
+/** Amazon-style collapsible attribute rows for listing preview. */
+export function ReferenceIntelligenceListingPreview({
+  rows,
+}: {
+  rows: ReferenceIntelligenceRow[];
+}) {
+  if (rows.length === 0) return null;
+
+  const firstKey = rows[0]!.attribute;
+
+  return (
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue={firstKey}
+      className="px-4 lg:px-5 bg-white"
+    >
+      {rows.map((row) => (
+        <AccordionItem key={row.attribute} value={row.attribute} className="border-slate-200">
+          <AccordionTrigger
+            className="py-2.5 text-[11px] font-semibold text-slate-900 hover:no-underline [&>svg]:w-3.5 [&>svg]:h-3.5"
+          >
+            {row.attribute}
+          </AccordionTrigger>
+          <AccordionContent className="text-[11px] text-slate-700 leading-relaxed pb-3 pt-0">
+            {row.referencePatternNotes}
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  );
+}
 
 export function ReferenceIntelligenceTable({
   rows,
