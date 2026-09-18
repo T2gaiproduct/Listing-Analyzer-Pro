@@ -141,23 +141,41 @@ export function resolveMarketplacePublishBaseUrl(req: Request): string {
 }
 
 /**
+ * Many VPS setups serve the SPA on :7000 while nginx exposes /api on port 80.
+ * Signed export image URLs must hit the API origin, not the frontend-only port.
+ */
+export function normalizeAmazonExportImageBaseUrl(base: string): string {
+  const trimmed = base.trim().replace(/\/$/, "");
+  try {
+    const url = new URL(trimmed);
+    if (url.port === "7000") {
+      url.port = "";
+      return url.origin;
+    }
+  } catch {
+    /* keep trimmed */
+  }
+  return trimmed;
+}
+
+/**
  * Base URL for Amazon export flat-file image columns.
  * Prefers configured HTTPS app URL so Excel/CSV links are not tied to a raw IP:port from the browser.
  */
 export function resolveAmazonExportImageBaseUrl(req: Request): string {
   const explicit = process.env.MARKETPLACE_PUBLISH_BASE_URL?.trim().replace(/\/$/, "");
   if (explicit && !isLocalhostOrigin(explicit)) {
-    return explicit;
+    return normalizeAmazonExportImageBaseUrl(explicit);
   }
 
   const configured = resolveConfiguredHttpsBaseUrl() ?? getConfiguredAppUrl();
   if (configured && !isLocalhostOrigin(configured)) {
-    return configured;
+    return normalizeAmazonExportImageBaseUrl(configured);
   }
 
   try {
-    return resolveMarketplacePublishBaseUrl(req);
+    return normalizeAmazonExportImageBaseUrl(resolveMarketplacePublishBaseUrl(req));
   } catch {
-    return resolvePublicBaseUrl(req);
+    return normalizeAmazonExportImageBaseUrl(resolvePublicBaseUrl(req));
   }
 }
