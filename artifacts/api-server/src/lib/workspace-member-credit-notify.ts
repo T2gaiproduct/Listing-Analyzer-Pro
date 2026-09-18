@@ -10,27 +10,50 @@ function getAppBaseUrl(): string {
   return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
 }
 
-function formatCreditAssignmentMessage(
+/** Per-type increases from this assignment (ignores decreases). */
+export function creditAssignmentIncreaseDelta(
+  previous: CreditTotals,
+  assigned: CreditTotals,
+): CreditTotals {
+  return {
+    auditCredits: Math.max(0, assigned.auditCredits - previous.auditCredits),
+    aiCredits: Math.max(0, assigned.aiCredits - previous.aiCredits),
+    imageCredits: Math.max(0, assigned.imageCredits - previous.imageCredits),
+  };
+}
+
+function creditPhrase(amount: number, label: string): string {
+  const n = Number(amount) || 0;
+  if (n <= 0) return "";
+  const unit = n === 1 ? "credit" : "credits";
+  return `${n} ${unit} for ${label}`;
+}
+
+/** Build in-app and email copy from amounts assigned in this save only. */
+export function formatCreditAssignmentMessage(
   workspaceName: string,
-  credits: CreditTotals,
+  increase: CreditTotals,
 ): { title: string; message: string } {
-  const parts: string[] = [];
-  if (credits.auditCredits > 0) parts.push(`${credits.auditCredits} audit`);
-  if (credits.aiCredits > 0) parts.push(`${credits.aiCredits} text`);
-  if (credits.imageCredits > 0) parts.push(`${credits.imageCredits} image`);
-  const summary = parts.length > 0 ? parts.join(", ") : "0 credits";
+  const parts = [
+    creditPhrase(increase.auditCredits, "audits"),
+    creditPhrase(increase.aiCredits, "text content"),
+    creditPhrase(increase.imageCredits, "images"),
+  ].filter(Boolean);
+
+  const summary = parts.length > 0 ? parts.join(" and ") : "0 credits";
+  const verb = parts.length === 1 && increase.auditCredits + increase.aiCredits + increase.imageCredits === 1
+    ? "has"
+    : "have";
+
   return {
     title: "Credits assigned",
-    message: `You have been assigned ${summary} credit${parts.length === 1 ? "" : "s"} in ${workspaceName}.`,
+    message: `${summary} ${verb} been assigned in ${workspaceName}.`,
   };
 }
 
 function creditTotalsIncreased(previous: CreditTotals, assigned: CreditTotals): boolean {
-  return (
-    assigned.auditCredits > previous.auditCredits
-    || assigned.aiCredits > previous.aiCredits
-    || assigned.imageCredits > previous.imageCredits
-  );
+  const delta = creditAssignmentIncreaseDelta(previous, assigned);
+  return delta.auditCredits > 0 || delta.aiCredits > 0 || delta.imageCredits > 0;
 }
 
 export async function notifyWorkspaceMemberCreditsAssigned(opts: {
@@ -40,6 +63,8 @@ export async function notifyWorkspaceMemberCreditsAssigned(opts: {
   assignedCredits: CreditTotals;
 }): Promise<void> {
   if (!creditTotalsIncreased(opts.previousCredits, opts.assignedCredits)) return;
+
+  const increase = creditAssignmentIncreaseDelta(opts.previousCredits, opts.assignedCredits);
 
   const [row] = await db
     .select({
@@ -55,7 +80,7 @@ export async function notifyWorkspaceMemberCreditsAssigned(opts: {
 
   if (!row) return;
 
-  const { title, message } = formatCreditAssignmentMessage(row.workspaceName, opts.assignedCredits);
+  const { title, message } = formatCreditAssignmentMessage(row.workspaceName, increase);
   const link = "/billing";
 
   let recipientUserId = row.userId;
