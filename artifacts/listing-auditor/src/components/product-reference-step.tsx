@@ -283,8 +283,10 @@ export function ProductReferenceStep({
             3. Product details for listing preview
           </p>
           <p className="text-[11px] text-slate-600 mt-0.5">
-            Add confirmed specs (material, dimensions, weight, colour, etc.). These appear{" "}
-            <span className="font-medium text-slate-800">as you type them</span> in the Listing preview and shared preview link — not copied from competitors.
+            Optional overrides for listing preview. After you run{" "}
+            <span className="font-medium text-slate-800">Analyze references</span>, AI attributes already appear under
+            Product details on the preview. Add rows here only to replace or add specs (e.g. confirmed material or
+            dimensions) — your value wins when the attribute name matches.
           </p>
         </div>
 

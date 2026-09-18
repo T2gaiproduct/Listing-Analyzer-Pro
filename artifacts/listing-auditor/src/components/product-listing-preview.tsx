@@ -29,7 +29,11 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ReferenceIntelligenceListingPreview } from "@/components/reference-intelligence-table";
-import type { ReferenceIntelligenceRow, SellerProductDetail } from "@/lib/reference-research";
+import {
+  mergeListingPreviewProductDetails,
+  type ReferenceIntelligenceRow,
+  type SellerProductDetail,
+} from "@/lib/reference-research";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -215,26 +219,10 @@ export function ProductListingPreview({
     ],
   );
 
-  const sellerDetailRows = useMemo(
-    () =>
-      (productDetails ?? []).filter((row) => row.attribute?.trim() && row.value?.trim()),
-    [productDetails],
+  const previewDetailRows = useMemo(
+    () => mergeListingPreviewProductDetails(referenceIntelligence, productDetails),
+    [referenceIntelligence, productDetails],
   );
-
-  const referenceRows = useMemo(
-    () => (referenceIntelligence ?? []).filter((row) => row.attribute?.trim()),
-    [referenceIntelligence],
-  );
-
-  const previewDetailRows = useMemo(() => {
-    if (sellerDetailRows.length > 0) {
-      return sellerDetailRows.map((row) => ({
-        attribute: row.attribute.trim(),
-        referencePatternNotes: row.value.trim(),
-      }));
-    }
-    return referenceRows;
-  }, [sellerDetailRows, referenceRows]);
 
   const hasPreviewProductDetails = previewDetailRows.length > 0;
 
