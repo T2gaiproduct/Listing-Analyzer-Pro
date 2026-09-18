@@ -10,7 +10,7 @@ export interface ListingReviewRow {
   value: string;
 }
 
-function rootChildren($: cheerio.CheerioAPI): cheerio.Element[] {
+function rootChildren($: cheerio.CheerioAPI) {
   if ($("body").length > 0) return $("body").children().toArray();
   return $.root().children().toArray();
 }
