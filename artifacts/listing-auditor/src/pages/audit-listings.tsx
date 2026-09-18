@@ -242,8 +242,9 @@ export default function AuditListings() {
           </Button>
         </div>
         <p className="text-center text-sm text-muted-foreground mt-3">
-          Works with <span className="text-orange-500 font-medium">Amazon</span> and{" "}
-          <span className="text-orange-500 font-medium">Shopify</span> product pages
+          Works with <span className="text-orange-500 font-medium">Amazon</span>,{" "}
+          <span className="text-orange-500 font-medium">Shopify</span>, and{" "}
+          <span className="text-orange-500 font-medium">WooCommerce</span> product pages
         </p>
       </div>
 
