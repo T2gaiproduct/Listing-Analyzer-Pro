@@ -162,7 +162,7 @@ export function ProductReferenceStep({
               2. Reference listings
             </p>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              Add comparable Amazon URLs and short notes. Fetched data is used for research signals only — never copied into your listing.
+              Add comparable product URLs and short notes. Fetched data is used for research signals only — never copied into your listing.
             </p>
           </div>
           <span className="text-[9px] font-medium uppercase tracking-wide text-slate-400 border border-slate-200 rounded px-2 py-0.5">
@@ -188,11 +188,11 @@ export function ProductReferenceStep({
                 <span className="text-[9px] text-slate-400">Optional</span>
               </div>
               <label className="block space-y-1">
-                <span className="text-[9px] font-medium text-slate-500">Amazon URL</span>
+                <span className="text-[9px] font-medium text-slate-500">Product URL</span>
                 <Input
                   value={slot.url}
                   disabled={!canEdit}
-                  placeholder="https://www.amazon.com/dp/…"
+                  placeholder="Product page URL or Amazon ASIN…"
                   className="h-8 text-[11px]"
                   onChange={(e) => updateSlot(index, { url: e.target.value })}
                   onBlur={() => void saveSlots()}
