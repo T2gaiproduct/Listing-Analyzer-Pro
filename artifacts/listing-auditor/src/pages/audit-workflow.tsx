@@ -35,7 +35,7 @@ import {
   uiStepToApiStep,
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
-import { BuildBrandProductSearch } from "@/components/build-brand-product-search";
+import { BuildBrandProductSearch, type BuildBrandProductPick } from "@/components/build-brand-product-search";
 import { BuildBrandExportStep } from "@/components/build-brand-export-step";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { cn } from "@/lib/utils";
@@ -583,7 +583,7 @@ export default function AuditWorkflow() {
 
   const [activeStep, setActiveStep] = useState<StepId>(() => (resumeAuditId && !isNaN(resumeAuditId) ? 2 : 1));
   const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<BuildBrandProductPick | null>(null);
 
   /* ── Creating panel state ── */
   const [isCreating, setIsCreating]         = useState(false);
@@ -1463,7 +1463,7 @@ export default function AuditWorkflow() {
   }
 
   function handleSkipToUpload() {
-    setSelectedProductId(null);
+    setSelectedProduct(null);
     setCurrentAuditId(null);
     stepRestoredForAuditIdRef.current = null;
     lastRestoredAtRef.current = null;
@@ -1477,9 +1477,13 @@ export default function AuditWorkflow() {
   /* ── Next step ── */
   function handleNextStep() {
     if (activeStep === 1) {
-      if (selectedProductId !== null) {
+      if (selectedProduct !== null) {
+        if (selectedProduct.sourceType === "graphics") {
+          nav(selectedProduct.workflowUrl);
+          return;
+        }
         forceUploadStepRef.current = true;
-        setCurrentAuditId(selectedProductId);
+        setCurrentAuditId(selectedProduct.id);
         setActiveStep(2);
         return;
       }
@@ -1572,8 +1576,8 @@ export default function AuditWorkflow() {
           {/* STEP 1: Select existing product ── */}
           {activeStep === 1 && (
             <BuildBrandProductSearch
-              selectedProductId={selectedProductId}
-              onSelectProduct={setSelectedProductId}
+              selectedProduct={selectedProduct}
+              onSelectProduct={setSelectedProduct}
               onSkipToUpload={handleSkipToUpload}
             />
           )}

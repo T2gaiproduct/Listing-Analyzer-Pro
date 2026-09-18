@@ -10,6 +10,8 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
+type SelectableSourceType = "listing" | "audit" | "graphics";
+
 interface ProductListItem {
   id: number;
   name: string;
@@ -18,13 +20,20 @@ interface ProductListItem {
   category?: string | null;
   status: ProductStatus;
   statusLabel: string;
-  sourceType?: string;
+  sourceType?: SelectableSourceType | string;
+  sourceTypeLabel?: string;
   workflowUrl?: string;
 }
 
 interface ProductsResponse {
   products: ProductListItem[];
 }
+
+export type BuildBrandProductPick = {
+  id: number;
+  sourceType: SelectableSourceType;
+  workflowUrl: string;
+};
 
 function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
@@ -54,14 +63,34 @@ function statusBadgeClass(status: ProductStatus): string {
   }
 }
 
+function isSelectableProduct(p: ProductListItem): boolean {
+  const source = (p.sourceType ?? "listing") as SelectableSourceType;
+  return source === "listing" || source === "audit" || source === "graphics";
+}
+
+function toProductPick(p: ProductListItem): BuildBrandProductPick {
+  const source = (p.sourceType ?? "listing") as SelectableSourceType;
+  const workflowUrl = p.workflowUrl
+    ?? (source === "graphics"
+      ? `/projects/${p.id}`
+      : source === "audit"
+        ? `/audits/${p.id}`
+        : `/audits/workflow?resume=${p.id}`);
+  return { id: p.id, sourceType: source, workflowUrl };
+}
+
+function picksMatch(a: BuildBrandProductPick | null, b: BuildBrandProductPick): boolean {
+  return a != null && a.id === b.id && a.sourceType === b.sourceType;
+}
+
 interface BuildBrandProductSearchProps {
-  selectedProductId: number | null;
-  onSelectProduct: (productId: number | null) => void;
+  selectedProduct: BuildBrandProductPick | null;
+  onSelectProduct: (product: BuildBrandProductPick | null) => void;
   onSkipToUpload: () => void;
 }
 
 export function BuildBrandProductSearch({
-  selectedProductId,
+  selectedProduct,
   onSelectProduct,
   onSkipToUpload,
 }: BuildBrandProductSearchProps) {
@@ -75,16 +104,13 @@ export function BuildBrandProductSearch({
     staleTime: 30_000,
   });
 
-  const listingProducts = useMemo(() => {
-    return (data?.products ?? []).filter((p) => {
-      const source = p.sourceType ?? "listing";
-      return source === "listing" || (p.workflowUrl ?? "").includes("/audits/workflow");
-    });
+  const selectableProducts = useMemo(() => {
+    return (data?.products ?? []).filter(isSelectableProduct);
   }, [data?.products]);
 
   const filteredProducts = useMemo(() => {
     const q = appliedQuery.trim().toLowerCase();
-    return listingProducts.filter((p) => {
+    return selectableProducts.filter((p) => {
       if (statusFilter && p.status !== statusFilter) return false;
       if (!q) return true;
       return (
@@ -92,7 +118,7 @@ export function BuildBrandProductSearch({
         || p.sku.toLowerCase().includes(q)
       );
     });
-  }, [listingProducts, appliedQuery, statusFilter]);
+  }, [selectableProducts, appliedQuery, statusFilter]);
 
   function handleSearch() {
     setAppliedQuery(query);
@@ -107,7 +133,7 @@ export function BuildBrandProductSearch({
         <div>
           <h2 className="text-base font-semibold text-slate-900">Select Existing Product</h2>
           <p className="text-xs text-slate-500">
-            Search your workspace for a Build Your Brand project, or continue to upload a new product
+            Search Build Your Brand, Audit Listing, or Create Graphics projects — or start a new product
           </p>
         </div>
       </div>
@@ -162,19 +188,20 @@ export function BuildBrandProductSearch({
               <Package className="w-10 h-10 text-slate-300 mx-auto" />
               <p className="text-sm font-medium text-slate-700">No products found</p>
               <p className="text-xs text-slate-500">
-                {listingProducts.length === 0
-                  ? "You have no Build Your Brand projects yet."
+                {selectableProducts.length === 0
+                  ? "No Build Your Brand, Audit Listing, or Graphics projects in this workspace yet."
                   : "Try different search terms or status filter."}
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100 max-h-[22rem] overflow-y-auto">
               {filteredProducts.map((product) => {
-                const isSelected = selectedProductId === product.id;
+                const pick = toProductPick(product);
+                const isSelected = picksMatch(selectedProduct, pick);
                 const imageUrl = resolveImageUrl(product.imageUrl);
                 return (
                   <label
-                    key={product.id}
+                    key={`${product.sourceType ?? "listing"}-${product.id}`}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors",
                       isSelected ? "bg-orange-50" : "hover:bg-slate-50",
@@ -184,7 +211,7 @@ export function BuildBrandProductSearch({
                       type="radio"
                       name="build-brand-product"
                       checked={isSelected}
-                      onChange={() => onSelectProduct(product.id)}
+                      onChange={() => onSelectProduct(pick)}
                       className="accent-orange-500"
                     />
                     <div className="w-12 h-12 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -201,9 +228,16 @@ export function BuildBrandProductSearch({
                         {product.category ? ` · ${product.category}` : ""}
                       </p>
                     </div>
-                    <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border", statusBadgeClass(product.status))}>
-                      {product.statusLabel}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {product.sourceTypeLabel && (
+                        <span className="text-[9px] font-medium text-slate-500 uppercase tracking-wide">
+                          {product.sourceTypeLabel}
+                        </span>
+                      )}
+                      <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border", statusBadgeClass(product.status))}>
+                        {product.statusLabel}
+                      </span>
+                    </div>
                   </label>
                 );
               })}
@@ -214,8 +248,10 @@ export function BuildBrandProductSearch({
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
         <p className="text-xs text-slate-500">
-          {selectedProductId
-            ? "Selected product will load on the next step so you can continue where you left off."
+          {selectedProduct
+            ? selectedProduct.sourceType === "graphics"
+              ? "Opens your graphics project when you continue."
+              : "Selected project will load on the next step so you can continue where you left off."
             : "Optional — skip this step to create a brand-new product."}
         </p>
         <Button
