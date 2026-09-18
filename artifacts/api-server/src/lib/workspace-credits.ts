@@ -10,6 +10,7 @@ import {
   workspaceMembersTable,
 } from "@workspace/db";
 import type { CreditType } from "./credits.js";
+import { notifyCreditBalanceIfNeeded } from "./credit-balance-notify.js";
 
 export interface CreditTotals {
   aiCredits: number;
@@ -776,7 +777,10 @@ export async function deductWorkspaceMemberCredits(
     createdAt: now,
   });
 
-  return { success: true, remaining: memberBal - amount };
+  const remaining = updated.balance;
+  await notifyCreditBalanceIfNeeded(userId, type, remaining, memberBal);
+
+  return { success: true, remaining };
 }
 
 export async function deductWorkspacePoolForOwner(
@@ -820,7 +824,10 @@ export async function deductWorkspacePoolForOwner(
     createdAt: now,
   });
 
-  return { success: true, remaining: bal - amount };
+  const remaining = updated.balance;
+  await notifyCreditBalanceIfNeeded(ownerUserId, type, remaining, bal);
+
+  return { success: true, remaining };
 }
 
 /** Match a team_members row to workspace_members in a given workspace. */
