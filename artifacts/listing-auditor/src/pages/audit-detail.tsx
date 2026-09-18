@@ -1,50 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  useGetAudit, useDeleteAudit,
-  useGenerateContent,
-  getListAuditsQueryKey, getGetAuditStatsQueryKey, getGetAuditQueryKey,
+  useGetAudit,
+  getGetAuditQueryKey,
 } from "@workspace/api-client-react";
-import { GraphicsWizard } from "@/components/graphics-wizard";
-import { EbcStudio } from "@/components/ebc-studio";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScoreRing, ScoreBadge } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { refreshCreditBalances } from "@/lib/credit-queries";
-import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
-import {
-  formatHtmlDescriptionForPreview,
-  normalizeBulletPoints,
-} from "@/lib/listing-content-format";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import {
   CheckCircle2, AlertCircle, Lightbulb,
   Type, AlignLeft, Image, Tag, ChevronDown, ChevronUp,
-  Wand2, Loader2, Copy, Download, ImageIcon, FileText,
+  Download,
 } from "lucide-react";
 import { downloadAuditReportPdf } from "@/lib/audit-report-pdf";
-import { cn } from "@/lib/utils";
-import { useTeam } from "@/hooks/use-team";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function copyToClipboard(text: string, label: string, toast: ReturnType<typeof useToast>["toast"]) {
-  navigator.clipboard.writeText(text).then(() => {
-    toast({ title: `${label} copied` });
-  });
-}
 
 interface ScoreCardProps {
   icon: React.ElementType;
@@ -110,21 +86,10 @@ function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardP
   );
 }
 
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const { toast } = useToast();
-  return (
-    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copyToClipboard(text, label, toast)}>
-      <Copy className="w-3 h-3 mr-1" /> Copy
-    </Button>
-  );
-}
-
 export default function AuditDetail({ id }: { id: number }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/";
-  const { canEditAudits, isTeamMember, role, memberCredits, memberCreditsLoading } = useTeam();
 
   const { data: audit, isLoading } = useGetAudit(id, {
     query: { enabled: !!id, queryKey: getGetAuditQueryKey(id) },
@@ -138,32 +103,6 @@ export default function AuditDetail({ id }: { id: number }) {
       setLocation(`/audits/workflow?resume=${id}`);
     }
   }, [audit, id, setLocation]);
-
-  const deleteAudit = useDeleteAudit();
-  const generateContent = useGenerateContent();
-
-  const { data: creditsData } = useQuery({
-    queryKey: ["user-credits"],
-    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
-    enabled: !isTeamMember,
-  });
-  const ownerCredits = (creditsData as { credits?: { aiCredits: number; imageCredits: number; auditCredits: number } } | undefined)?.credits
-    ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const credits = isTeamMember
-    ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
-    : ownerCredits;
-
-  const gc = audit?.generatedContent;
-  const displayBullets = useMemo(
-    () => (gc ? normalizeBulletPoints(gc.bulletPoints) : []),
-    [gc],
-  );
-  const descriptionPreviewHtml = useMemo(
-    () => (gc
-      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(gc.htmlDescription))
-      : ""),
-    [gc],
-  );
 
   if (isLoading) {
     return (
@@ -196,33 +135,6 @@ export default function AuditDetail({ id }: { id: number }) {
     );
   }
 
-  const handleDeleteAudit = () => {
-    deleteAudit.mutate({ id }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
-        setLocation(returnTo);
-        toast({ title: "Audit deleted" });
-      },
-    });
-  };
-
-  const formatAiError = (err: unknown): string => {
-    const raw = err instanceof Error ? err.message : String(err);
-    if (raw.toLowerCase().includes("spend limit") || raw.includes("403")) {
-      return "OpenAI API usage limit reached. Check your OpenAI account billing or try again later.";
-    }
-    if (raw.includes("402") || raw.toLowerCase().includes("insufficient credits")) {
-      return "You don't have enough credits for this action. Go to Billing to purchase more.";
-    }
-    if (raw.toLowerCase().includes("api key") || raw.includes("401") || raw.includes("authentication")) {
-      return "OpenAI API key is invalid or missing. Please check your AI Settings in the admin panel.";
-    }
-    return raw || "Something went wrong. Please try again.";
-  };
-
-  const aiLow = !(isTeamMember && memberCreditsLoading) && credits.aiCredits < 1;
-
   const handleDownloadPdf = async () => {
     try {
       await downloadAuditReportPdf(audit, basePath);
@@ -233,17 +145,6 @@ export default function AuditDetail({ id }: { id: number }) {
         variant: "destructive",
       });
     }
-  };
-
-  const handleGenerateContent = () => {
-    generateContent.mutate({ id }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
-        refreshCreditBalances(queryClient);
-        toast({ title: "Content generated", description: "Your optimized listing content is ready." });
-      },
-      onError: (err) => toast({ title: "Content generation failed", description: formatAiError(err), variant: "destructive" }),
-    });
   };
 
   const hasAnalysis = audit.result != null;
@@ -288,36 +189,14 @@ export default function AuditDetail({ id }: { id: number }) {
           </div>
         </div>
       )}
-      {/* Tabs */}
-      <Tabs defaultValue="audit">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 w-full min-w-0">
-          <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain pb-1 -mx-1 px-1 scrollbar-hide">
-            <TabsList className="inline-flex w-max h-auto flex-nowrap">
-            <TabsTrigger value="audit" className="whitespace-nowrap">Audit Results</TabsTrigger>
-            <TabsTrigger value="content" className="whitespace-nowrap">
-              <span className="sm:hidden">Listing</span>
-              <span className="hidden sm:inline">Listing Optimization</span>
-              {gc && <span className="ml-2 w-2 h-2 rounded-full bg-orange-500 inline-block" />}
-            </TabsTrigger>
-            <TabsTrigger value="images" className="whitespace-nowrap">
-              <span className="sm:hidden">Graphics</span>
-              <span className="hidden sm:inline">Graphics Creation</span>
-              {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-orange-500 inline-block" />}
-            </TabsTrigger>
-            <TabsTrigger value="ebc" className="whitespace-nowrap">
-              <span className="sm:hidden">A+ / EBC</span>
-              <span className="hidden sm:inline">A+ / EBC Content</span>
-            </TabsTrigger>
-            {/* Competitors tab hidden — re-enable TabsTrigger + TabsContent below when needed */}
-            </TabsList>
-          </div>
-          <Button variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0 min-h-11" onClick={handleDownloadPdf}>
-            <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
-          </Button>
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 w-full min-w-0">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Audit Results</h2>
+        <Button variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0 min-h-11" onClick={handleDownloadPdf}>
+          <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
+        </Button>
+      </div>
 
-        {/* ── AUDIT TAB ── */}
-        <TabsContent value="audit" className="space-y-6">
+      <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="md:col-span-1 flex items-center justify-center p-6 border-border/50">
               <div className="text-center space-y-3">
@@ -393,178 +272,7 @@ export default function AuditDetail({ id }: { id: number }) {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        {/* ── CONTENT TAB ── */}
-        <TabsContent value="content" className="space-y-6">
-          {!gc ? (
-            <Card className="border-dashed">
-              <CardContent className="py-16 flex flex-col items-center gap-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Wand2 className="w-7 h-7 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-1">Generate Optimized Listing Content</h3>
-                  <p className="text-muted-foreground text-sm max-w-md">
-                    Our AI will create an Amazon-ready title (200 chars), 5 keyword-rich bullet points, 10 backend search terms, and a full HTML product description — all following Amazon guidelines.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 mt-2">
-                  {canEditAudits && (
-                    <Button onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow} size="lg">
-                      {generateContent.isPending ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
-                      ) : (
-                        <><Wand2 className="w-4 h-4 mr-2" />Generate Content</>
-                      )}
-                    </Button>
-                  )}
-                  {aiLow ? (
-                    isTeamMember ? (
-                      <span className="text-sm text-destructive">1 text credit required — ask your workspace owner for more</span>
-                    ) : (
-                      <Link href="/billing" className="text-sm text-destructive hover:underline">1 AI credit required — buy credits</Link>
-                    )
-                  ) : (
-                    <Badge variant="secondary" className="text-xs font-normal">1 text credit</Badge>
-                  )}
-                  {!canEditAudits && (
-                    <Badge variant="outline" className="text-xs font-normal">Read-only — contact your team admin</Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-muted-foreground" />
-                  Amazon-Ready Content
-                </h2>
-                <div className="flex items-center gap-3">
-                  {canEditAudits && (
-                    <Button variant="outline" size="sm" onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow}>
-                      {generateContent.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Regenerate</>}
-                    </Button>
-                  )}
-                  {aiLow ? (
-                    isTeamMember ? (
-                      <span className="text-xs text-destructive">1 text credit required — ask your workspace owner for more</span>
-                    ) : (
-                      <Link href="/billing" className="text-xs text-destructive hover:underline">1 AI credit required — buy credits</Link>
-                    )
-                  ) : (
-                    <Badge variant="secondary" className="text-xs font-normal">1 text credit</Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* Title */}
-              <Card className="border-border/50">
-                <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                    <Type className="w-3.5 h-3.5" /> Title
-                    <Badge variant="outline" className={cn("text-xs font-mono ml-2", gc.title.length > 200 ? "text-destructive" : "text-muted-foreground")}>
-                      {gc.title.length}/200
-                    </Badge>
-                  </CardTitle>
-                  <CopyButton text={gc.title} label="Title" />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-foreground font-medium leading-relaxed">{gc.title}</p>
-                </CardContent>
-              </Card>
-
-              {/* Bullet Points */}
-              <Card className="border-border/50">
-                <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                    <AlignLeft className="w-3.5 h-3.5" /> Bullet Points
-                  </CardTitle>
-                  <CopyButton text={displayBullets.join("\n")} label="Bullet points" />
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {displayBullets.map((bp, i) => (
-                      <li key={i} className="flex gap-3">
-                        <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5" aria-hidden>
-                          {i + 1}
-                        </span>
-                        <span className="text-sm leading-relaxed text-foreground/90">{bp}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
-              {/* Keywords */}
-              <Card className="border-border/50">
-                <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                    <Tag className="w-3.5 h-3.5" /> Backend Search Keywords
-                  </CardTitle>
-                  <CopyButton text={gc.keywords.join(", ")} label="Keywords" />
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {gc.keywords.map((kw, i) => (
-                      <Badge key={i} className="text-xs bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary/20 cursor-default">{kw}</Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* HTML Description */}
-              <Card className="border-border/50">
-                <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">HTML Description</CardTitle>
-                  <div className="flex gap-2">
-                    <CopyButton text={gc.htmlDescription} label="HTML description" />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div
-                    className="amazon-listing-description prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
-                    dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
-                  />
-                  <details className="text-xs">
-                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-mono">View raw HTML</summary>
-                    <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-x-auto whitespace-pre-wrap font-mono">{gc.htmlDescription}</pre>
-                  </details>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ── IMAGES TAB ── */}
-        <TabsContent value="images" className="space-y-6 w-full min-w-0">
-          <GraphicsWizard
-            auditId={audit.id}
-            productName={audit.productName}
-            imageUrls={audit.imageUrls}
-            category={audit.category ?? null}
-            targetKeywords={audit.targetKeywords}
-          />
-        </TabsContent>
-
-        {/* ── EBC / A+ CONTENT TAB ── */}
-        <TabsContent value="ebc" className="space-y-6 w-full min-w-0 max-w-full overflow-x-hidden">
-          <EbcStudio
-            auditId={id}
-            audit={{
-              productName: audit.productName,
-              summary: result.summary,
-              bulletPoints: audit.bulletPoints,
-              keywords: audit.targetKeywords,
-              generatedBullets: audit.generatedContent?.bulletPoints,
-              generatedTitle: audit.generatedContent?.title,
-              imageUrls: audit.imageUrls,
-            }}
-          />
-        </TabsContent>
-
-      </Tabs>
+      </div>
     </div>
   );
 }
