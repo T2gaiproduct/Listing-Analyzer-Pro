@@ -3,7 +3,7 @@ import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import type { GeneratedContent } from "@workspace/api-client-react";
-import type { ReferenceIntelligenceRow } from "@/lib/reference-research";
+import type { ReferenceIntelligenceRow, SellerProductDetail } from "@/lib/reference-research";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { Link } from "wouter";
@@ -19,6 +19,7 @@ type PublicListingPreviewResponse = {
   imageRecords: Array<{ type?: string; currentUrl?: string }>;
   generatedImages: unknown;
   referenceIntelligence?: ReferenceIntelligenceRow[];
+  productDetails?: SellerProductDetail[];
 };
 
 export default function PublicListingPreviewPage({ auditId }: { auditId: number }) {
@@ -105,6 +106,7 @@ export default function PublicListingPreviewPage({ auditId }: { auditId: number 
             publicView
             generatedOnly
             referenceIntelligence={data!.referenceIntelligence ?? null}
+            productDetails={data!.productDetails ?? null}
           />
         )}
       </div>

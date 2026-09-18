@@ -29,7 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ReferenceIntelligenceListingPreview } from "@/components/reference-intelligence-table";
-import type { ReferenceIntelligenceRow } from "@/lib/reference-research";
+import type { ReferenceIntelligenceRow, SellerProductDetail } from "@/lib/reference-research";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -84,6 +84,8 @@ export function ProductListingPreview({
   generatedOnly = false,
   /** AI reference intelligence rows (Reference Listings analyze). */
   referenceIntelligence = null,
+  /** Seller-confirmed specs — shown on preview instead of AI research when present. */
+  productDetails = null,
 }: {
   auditId: number;
   audit: AuditLike | null | undefined;
@@ -102,6 +104,7 @@ export function ProductListingPreview({
   sharePreviewLink?: boolean;
   generatedOnly?: boolean;
   referenceIntelligence?: ReferenceIntelligenceRow[] | null;
+  productDetails?: SellerProductDetail[] | null;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -212,11 +215,28 @@ export function ProductListingPreview({
     ],
   );
 
+  const sellerDetailRows = useMemo(
+    () =>
+      (productDetails ?? []).filter((row) => row.attribute?.trim() && row.value?.trim()),
+    [productDetails],
+  );
+
   const referenceRows = useMemo(
     () => (referenceIntelligence ?? []).filter((row) => row.attribute?.trim()),
     [referenceIntelligence],
   );
-  const hasReferenceIntelligence = referenceRows.length > 0;
+
+  const previewDetailRows = useMemo(() => {
+    if (sellerDetailRows.length > 0) {
+      return sellerDetailRows.map((row) => ({
+        attribute: row.attribute.trim(),
+        referencePatternNotes: row.value.trim(),
+      }));
+    }
+    return referenceRows;
+  }, [sellerDetailRows, referenceRows]);
+
+  const hasPreviewProductDetails = previewDetailRows.length > 0;
 
   const hasListingCopy = Boolean(
     title.trim() || bullets.length > 0 || descriptionPreviewHtml.length > 0,
@@ -561,12 +581,12 @@ export function ProductListingPreview({
           </div>
         )}
 
-        {hasReferenceIntelligence && (
+        {hasPreviewProductDetails && (
           <section className="border-t border-slate-200 bg-white" aria-label="Product details">
             <div className="border-b border-slate-200 px-4 lg:px-5 bg-white">
               <p className="py-2.5 text-[11px] font-semibold text-slate-900">Product details</p>
             </div>
-            <ReferenceIntelligenceListingPreview rows={referenceRows} />
+            <ReferenceIntelligenceListingPreview rows={previewDetailRows} />
           </section>
         )}
 

@@ -28,9 +28,20 @@ export const referenceResearchSlotSchema = z.object({
 
 export type ReferenceResearchSlot = z.infer<typeof referenceResearchSlotSchema>;
 
+export const sellerProductDetailSchema = z.object({
+  attribute: z.string(),
+  value: z.string(),
+});
+
+export type SellerProductDetail = z.infer<typeof sellerProductDetailSchema>;
+
+export const SELLER_PRODUCT_DETAIL_MAX = 24;
+
 export const referenceResearchDataSchema = z.object({
   slots: z.array(referenceResearchSlotSchema).max(REFERENCE_RESEARCH_SLOT_COUNT),
   intelligence: z.array(referenceIntelligenceRowSchema).optional(),
+  /** Seller-confirmed specs (material, dimensions, etc.) — shown as-is on listing preview. */
+  productDetails: z.array(sellerProductDetailSchema).max(SELLER_PRODUCT_DETAIL_MAX).optional(),
   analyzedAt: z.string().optional(),
   fetchErrors: z
     .array(z.object({ index: z.number().int(), message: z.string() }))
@@ -54,9 +65,17 @@ export function normalizeReferenceResearchData(
       notes: slot?.notes?.trim() ?? "",
     };
   }
+  const productDetails = (raw?.productDetails ?? [])
+    .slice(0, SELLER_PRODUCT_DETAIL_MAX)
+    .map((row) => ({
+      attribute: row.attribute?.trim() ?? "",
+      value: row.value?.trim() ?? "",
+    }));
+
   return {
     slots,
     intelligence: raw?.intelligence,
+    productDetails: productDetails.length > 0 ? productDetails : undefined,
     analyzedAt: raw?.analyzedAt,
     fetchErrors: raw?.fetchErrors,
   };

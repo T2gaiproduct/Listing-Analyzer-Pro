@@ -6,6 +6,7 @@ import {
   graphicsProjectsTable,
   type Audit,
   type ReferenceIntelligenceRow,
+  type SellerProductDetail,
 } from "@workspace/db";
 import { readGeneratedContent } from "./listing-export-shared.js";
 import { verifyListingPreviewShareToken } from "./listing-preview-share-token.js";
@@ -138,6 +139,7 @@ export async function loadPublicListingPreview(
       imageRecords: Array<{ type?: string; currentUrl?: string }>;
       generatedImages: unknown;
       referenceIntelligence: ReferenceIntelligenceRow[];
+      productDetails: SellerProductDetail[];
     }
   | null
 > {
@@ -210,9 +212,15 @@ export async function loadPublicListingPreview(
     };
   }
 
-  const referenceIntelligence = (audit.referenceResearch as { intelligence?: ReferenceIntelligenceRow[] } | null)
-    ?.intelligence
-    ?.filter((row) => row.attribute?.trim()) ?? [];
+  const referenceResearch = audit.referenceResearch as {
+    intelligence?: ReferenceIntelligenceRow[];
+    productDetails?: SellerProductDetail[];
+  } | null;
+
+  const referenceIntelligence = referenceResearch?.intelligence?.filter((row) => row.attribute?.trim()) ?? [];
+
+  const productDetails =
+    referenceResearch?.productDetails?.filter((row) => row.attribute?.trim() && row.value?.trim()) ?? [];
 
   return {
     productName: audit.productName,
@@ -223,5 +231,6 @@ export async function loadPublicListingPreview(
     imageRecords: signedRecords,
     generatedImages,
     referenceIntelligence,
+    productDetails,
   };
 }

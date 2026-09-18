@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import {
   REFERENCE_RESEARCH_SLOT_COUNT,
+  SELLER_PRODUCT_DETAIL_MAX,
   type ReferenceIntelligenceRow,
   type ReferenceResearchData,
   type ReferenceResearchSlot,
+  type SellerProductDetail,
 } from "@/lib/reference-research";
 import { ReferenceIntelligenceTable } from "@/components/reference-intelligence-table";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,14 @@ function normalizeSlots(slots: ReferenceResearchSlot[] | undefined): ReferenceRe
     out.push({ url: slot?.url ?? "", notes: slot?.notes ?? "" });
   }
   return out;
+}
+
+function normalizeProductDetails(rows: SellerProductDetail[] | undefined): SellerProductDetail[] {
+  if (!rows?.length) return [{ attribute: "", value: "" }];
+  return rows.map((row) => ({
+    attribute: row.attribute ?? "",
+    value: row.value ?? "",
+  }));
 }
 
 export function ProductReferenceStep({
@@ -44,6 +54,9 @@ export function ProductReferenceStep({
   );
   const [fetchErrors, setFetchErrors] = useState(initialData?.fetchErrors);
   const [analyzedAt, setAnalyzedAt] = useState(initialData?.analyzedAt);
+  const [productDetails, setProductDetails] = useState<SellerProductDetail[]>(() =>
+    normalizeProductDetails(initialData?.productDetails),
+  );
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -52,6 +65,7 @@ export function ProductReferenceStep({
     setIntelligence(initialData?.intelligence);
     setFetchErrors(initialData?.fetchErrors);
     setAnalyzedAt(initialData?.analyzedAt);
+    setProductDetails(normalizeProductDetails(initialData?.productDetails));
   }, [initialData, auditId]);
 
   const hasAnalyzeInput = useMemo(
@@ -63,9 +77,17 @@ export function ProductReferenceStep({
     if (!canEdit || auditId <= 0) return;
     setSaving(true);
     try {
+      const trimmedDetails = productDetails
+        .map((row) => ({
+          attribute: row.attribute.trim(),
+          value: row.value.trim(),
+        }))
+        .filter((row) => row.attribute || row.value);
+
       const payload: ReferenceResearchData = {
         slots,
         intelligence,
+        productDetails: trimmedDetails.length > 0 ? trimmedDetails : undefined,
         analyzedAt,
         fetchErrors,
       };
@@ -87,7 +109,7 @@ export function ProductReferenceStep({
     } finally {
       setSaving(false);
     }
-  }, [auditId, analyzedAt, canEdit, fetchErrors, intelligence, onResearchUpdated, slots, toast]);
+  }, [auditId, analyzedAt, canEdit, fetchErrors, intelligence, onResearchUpdated, productDetails, slots, toast]);
 
   const updateSlot = (index: number, patch: Partial<ReferenceResearchSlot>) => {
     setSlots((prev) => prev.map((slot, i) => (i === index ? { ...slot, ...patch } : slot)));
@@ -110,6 +132,9 @@ export function ProductReferenceStep({
       setIntelligence(result.intelligence);
       setFetchErrors(result.fetchErrors);
       setAnalyzedAt(result.analyzedAt);
+      if (result.productDetails?.length) {
+        setProductDetails(normalizeProductDetails(result.productDetails));
+      }
       onResearchUpdated?.(result);
       toast({
         title: "Reference intelligence ready",
@@ -250,6 +275,92 @@ export function ProductReferenceStep({
         <p className="text-[9px] text-slate-400 px-3.5 py-2.5 border-t border-slate-100 leading-relaxed">
           Research values are prompts for seller confirmation. Exact dimensions, weight, batteries, included items, origin, compliance and safety claims always require product evidence.
         </p>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm space-y-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            3. Product details for listing preview
+          </p>
+          <p className="text-[11px] text-slate-600 mt-0.5">
+            Add confirmed specs (material, dimensions, weight, colour, etc.). These appear{" "}
+            <span className="font-medium text-slate-800">as you type them</span> in the Listing preview and shared preview link — not copied from competitors.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {productDetails.map((row, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-1 sm:grid-cols-[minmax(0,34%)_minmax(0,1fr)_auto] gap-2 items-start rounded-lg border border-slate-200 bg-slate-50/50 p-2.5"
+            >
+              <label className="block space-y-1 min-w-0">
+                <span className="text-[9px] font-medium text-slate-500">Attribute name</span>
+                <Input
+                  value={row.attribute}
+                  disabled={!canEdit}
+                  placeholder="e.g. Material, Item dimensions"
+                  className="h-8 text-[11px]"
+                  onChange={(e) =>
+                    setProductDetails((prev) =>
+                      prev.map((r, i) => (i === index ? { ...r, attribute: e.target.value } : r)),
+                    )
+                  }
+                  onBlur={() => void saveSlots()}
+                />
+              </label>
+              <label className="block space-y-1 min-w-0">
+                <span className="text-[9px] font-medium text-slate-500">Seller value</span>
+                <Textarea
+                  value={row.value}
+                  disabled={!canEdit}
+                  placeholder="e.g. ABS plastic; 24 × 18 × 5 cm; 450 g"
+                  className="min-h-[36px] text-[11px] resize-y"
+                  onChange={(e) =>
+                    setProductDetails((prev) =>
+                      prev.map((r, i) => (i === index ? { ...r, value: e.target.value } : r)),
+                    )
+                  }
+                  onBlur={() => void saveSlots()}
+                />
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-slate-400 hover:text-red-600 sm:mt-5"
+                disabled={!canEdit || productDetails.length <= 1}
+                onClick={() => {
+                  setProductDetails((prev) => {
+                    const next = prev.filter((_, i) => i !== index);
+                    return next.length > 0 ? next : [{ attribute: "", value: "" }];
+                  });
+                  window.setTimeout(() => void saveSlots(), 0);
+                }}
+                aria-label="Remove attribute"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-[11px]"
+            disabled={!canEdit || productDetails.length >= SELLER_PRODUCT_DETAIL_MAX}
+            onClick={() => setProductDetails((prev) => [...prev, { attribute: "", value: "" }])}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            Add attribute
+          </Button>
+          <p className="text-[10px] text-slate-400">
+            Up to {SELLER_PRODUCT_DETAIL_MAX} rows. Tab away from a field to save.
+          </p>
+        </div>
       </div>
     </div>
   );

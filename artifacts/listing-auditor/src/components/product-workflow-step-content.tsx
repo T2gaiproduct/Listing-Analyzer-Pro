@@ -348,6 +348,7 @@ export function ProductWorkflowStepContent({
           sharePreviewLink
           generatedOnly
           referenceIntelligence={referenceResearch?.intelligence ?? null}
+          productDetails={referenceResearch?.productDetails ?? null}
         />
       </WorkflowStepShell>
     );

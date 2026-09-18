@@ -1254,6 +1254,7 @@ router.post("/audits/:id/reference-research/analyze", requireAuth, resolveTeamAn
     const referenceResearch = normalizeReferenceResearchData({
       slots,
       intelligence,
+      productDetails: audit.referenceResearch?.productDetails,
       analyzedAt: new Date().toISOString(),
       fetchErrors: fetchErrors.length > 0 ? fetchErrors : undefined,
     });
