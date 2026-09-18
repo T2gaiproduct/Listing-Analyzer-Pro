@@ -10,7 +10,7 @@ export function planIncludesWorkspaces(planName: string | null | undefined): boo
   return planIncludesWorkspacesFromPlan({ planName });
 }
 
-export const WORKSPACES_INCLUDED_PLANS_LABEL = "Growth, Pro, and Enterprise";
+export const WORKSPACES_INCLUDED_PLANS_LABEL = "Pro and Agencies";
 
 export const WORKSPACES_UPGRADE_MESSAGE =
   `Multiple workspaces and client credit pools are available on ${WORKSPACES_INCLUDED_PLANS_LABEL} plans. Upgrade to manage workspaces, fund pools, and invite members per client.`;

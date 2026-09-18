@@ -1,10 +1,8 @@
 import { Link } from "wouter";
 import { Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  WORKSPACES_INCLUDED_PLANS_LABEL,
-  WORKSPACES_UPGRADE_MESSAGE,
-} from "@workspace/workspace-permissions";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
+import { WORKSPACES_INCLUDED_PLANS_LABEL } from "@workspace/workspace-permissions";
 
 interface WorkspacesPlanUpgradeBannerProps {
   className?: string;
@@ -12,6 +10,8 @@ interface WorkspacesPlanUpgradeBannerProps {
 }
 
 export function WorkspacesPlanUpgradeBanner({ className, compact }: WorkspacesPlanUpgradeBannerProps) {
+  const { upgradeMessage, includedPlansLabel } = useWorkspacesPlan();
+  const message = upgradeMessage || `Multiple workspaces are available on ${includedPlansLabel} plans. Upgrade your current plan to unlock workspaces.`;
   if (compact) {
     return (
       <div
@@ -24,7 +24,7 @@ export function WorkspacesPlanUpgradeBanner({ className, compact }: WorkspacesPl
       >
         <Lock className="w-4 h-4 text-amber-700 shrink-0" />
         <p className="text-sm text-amber-900 flex-1 min-w-0">
-          {WORKSPACES_UPGRADE_MESSAGE}
+          {message}
         </p>
         <Button asChild size="sm" className="bg-orange-500 hover:bg-orange-600 shrink-0">
           <Link href="/billing">Upgrade plan</Link>
@@ -51,10 +51,10 @@ export function WorkspacesPlanUpgradeBanner({ className, compact }: WorkspacesPl
             Unlock multiple workspaces
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed">
-            {WORKSPACES_UPGRADE_MESSAGE}
+            {message}
           </p>
           <p className="text-xs text-slate-500">
-            Available on {WORKSPACES_INCLUDED_PLANS_LABEL} plans.
+            Available on {includedPlansLabel || WORKSPACES_INCLUDED_PLANS_LABEL} plans.
           </p>
           <Button asChild className="mt-2 bg-orange-500 hover:bg-orange-600">
             <Link href="/billing">View plans & upgrade</Link>

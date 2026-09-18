@@ -14,7 +14,9 @@ import {
 } from "@/lib/plan-credits";
 import {
   PLAN_CAPABILITY_CATALOG,
+  adminCanEnableCapability,
   planHasCapability,
+  sanitizeEnabledFeaturesForPlan,
   type PlanCapabilityKey,
   type PlanEnabledFeatures,
 } from "@workspace/workspace-permissions";
@@ -188,21 +190,33 @@ function PlanForm({
           Toggle functional access per plan. Marketing bullets below are display-only on the pricing page.
         </p>
         <div className="space-y-2">
-          {PLAN_CAPABILITY_CATALOG.map((cap) => (
-            <div
-              key={cap.key}
-              className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-800">{cap.label}</p>
-                <p className="text-xs text-slate-500">{cap.description}</p>
+          {PLAN_CAPABILITY_CATALOG.map((cap) => {
+            const canEnable = adminCanEnableCapability(form.name, cap.key);
+            return (
+              <div
+                key={cap.key}
+                className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">{cap.label}</p>
+                  <p className="text-xs text-slate-500">{cap.description}</p>
+                  {!canEnable && cap.key === "workspaces" && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      Not available on Free or Starter. Enable on Pro or Agencies plans only.
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  checked={canEnable ? Boolean(form.enabledFeatures[cap.key]) : false}
+                  disabled={!canEnable}
+                  onCheckedChange={(v) => {
+                    if (!canEnable) return;
+                    setCapability(cap.key, v);
+                  }}
+                />
               </div>
-              <Switch
-                checked={Boolean(form.enabledFeatures[cap.key])}
-                onCheckedChange={(v) => setCapability(cap.key, v)}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -295,13 +309,13 @@ function PlanForm({
 
 function mergeEnabledFeatures(plan: Plan | null | undefined): PlanEnabledFeatures {
   const base = emptyEnabledFeatures();
-  if (!plan?.enabledFeatures) return base;
+  if (!plan?.enabledFeatures) return sanitizeEnabledFeaturesForPlan(plan?.name ?? "", base) ?? base;
   for (const cap of PLAN_CAPABILITY_CATALOG) {
     if (cap.key in plan.enabledFeatures) {
       base[cap.key] = Boolean(plan.enabledFeatures[cap.key]);
     }
   }
-  return base;
+  return sanitizeEnabledFeaturesForPlan(plan?.name ?? "", base) ?? base;
 }
 
 export default function AdminPlans() {
@@ -388,7 +402,7 @@ export default function AdminPlans() {
       teamMembers: Number(form.teamMembers),
       features: form.featuresText ? form.featuresText.split(",").map((s) => s.trim()).filter(Boolean) : [],
       excludedFeatures: form.excludedFeaturesText ? form.excludedFeaturesText.split(",").map((s) => s.trim()).filter(Boolean) : [],
-      enabledFeatures: form.enabledFeatures,
+      enabledFeatures: sanitizeEnabledFeaturesForPlan(form.name, form.enabledFeatures) ?? form.enabledFeatures,
       isTrial: form.isTrial,
       trialDays: form.isTrial ? Number(form.trialDays) : 0,
       tag: form.tag || null,

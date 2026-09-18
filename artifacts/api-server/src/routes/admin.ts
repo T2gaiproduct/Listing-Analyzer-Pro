@@ -45,7 +45,7 @@ import {
 } from "../lib/admin-auth";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { parseEmailForApi } from "@workspace/email-validation";
-import { PLAN_CAPABILITY_CATALOG } from "@workspace/workspace-permissions";
+import { PLAN_CAPABILITY_CATALOG, sanitizeEnabledFeaturesForPlan } from "@workspace/workspace-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import { reconcileUserPendingPayPalPayments, testPayPalCredentials } from "../lib/paypal-capture";
 import { enrichPaymentCouponAsync } from "../lib/gateway-payment";
@@ -723,7 +723,7 @@ router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
         creditAllocations: allocations,
         features: features ?? [],
         excludedFeatures: excludedFeatures ?? [],
-        enabledFeatures: enabledFeatures ?? null,
+        enabledFeatures: sanitizeEnabledFeaturesForPlan(name.trim(), enabledFeatures ?? null),
         isActive: true,
         isTrial: isTrial ?? false,
         trialDays: trialDays ?? 0,
@@ -764,7 +764,19 @@ router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> =
   if (isHighlighted !== undefined) setObj.isHighlighted = isHighlighted;
   if (ctaText !== undefined) setObj.ctaText = ctaText;
   if (enabledFeatures !== undefined) {
-    setObj.enabledFeatures = enabledFeatures;
+    let planNameForSanitize = typeof name === "string" ? name.trim() : name;
+    if (planNameForSanitize === undefined || planNameForSanitize === "") {
+      const [existing] = await db
+        .select({ name: plansTable.name })
+        .from(plansTable)
+        .where(eq(plansTable.id, id))
+        .limit(1);
+      planNameForSanitize = existing?.name ?? "";
+    }
+    setObj.enabledFeatures = sanitizeEnabledFeaturesForPlan(
+      typeof planNameForSanitize === "string" ? planNameForSanitize : String(planNameForSanitize ?? ""),
+      enabledFeatures,
+    );
   }
   if (creditAllocations !== undefined) {
     setObj.creditAllocations = creditAllocations;

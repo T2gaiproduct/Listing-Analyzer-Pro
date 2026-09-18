@@ -251,12 +251,18 @@ export {
 } from "./plan-workspaces.js";
 export {
   PLAN_CAPABILITY_CATALOG,
+  WORKSPACES_EXCLUDED_PLAN_NAMES,
   planHasCapability,
   planIncludesWorkspacesFromPlan,
+  planBlocksWorkspacesCapability,
+  adminCanEnableCapability,
+  sanitizeEnabledFeaturesForPlan,
   defaultEnabledFeaturesForPlanName,
   formatWorkspacesIncludedPlansLabel,
   workspacesUpgradeMessage,
   workspacesUpgradeShort,
+  workspacesUpgradeMessageForCurrentPlan,
+  workspacesUpgradeShortForCurrentPlan,
   workspacesPlanGateBody,
   WORKSPACES_UPGRADE_MESSAGE_GENERIC,
   WORKSPACES_UPGRADE_SHORT_GENERIC,

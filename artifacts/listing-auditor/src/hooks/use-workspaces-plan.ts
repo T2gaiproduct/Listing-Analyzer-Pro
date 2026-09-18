@@ -3,9 +3,9 @@ import {
   planIncludesWorkspacesFromPlan,
   workspacesUpgradeMessage,
   workspacesUpgradeShort,
+  workspacesUpgradeMessageForCurrentPlan,
+  workspacesUpgradeShortForCurrentPlan,
   formatWorkspacesIncludedPlansLabel,
-  WORKSPACES_UPGRADE_MESSAGE,
-  WORKSPACES_UPGRADE_SHORT,
   WORKSPACES_INCLUDED_PLANS_LABEL,
   type PlanEnabledFeatures,
 } from "@workspace/workspace-permissions";
@@ -55,13 +55,13 @@ export function useWorkspacesPlan() {
     ? formatWorkspacesIncludedPlansLabel(upgradePlanNames)
     : WORKSPACES_INCLUDED_PLANS_LABEL;
 
-  const upgradeMessage = upgradePlanNames.length > 0
-    ? workspacesUpgradeMessage(upgradePlanNames)
-    : WORKSPACES_UPGRADE_MESSAGE;
+  const upgradeMessage = workspacesEnabled
+    ? ""
+    : workspacesUpgradeMessageForCurrentPlan(planName, upgradePlanNames);
 
-  const upgradeShort = upgradePlanNames.length > 0
-    ? workspacesUpgradeShort(upgradePlanNames)
-    : WORKSPACES_UPGRADE_SHORT;
+  const upgradeShort = workspacesEnabled
+    ? ""
+    : workspacesUpgradeShortForCurrentPlan(planName, upgradePlanNames);
 
   return {
     isLoading,

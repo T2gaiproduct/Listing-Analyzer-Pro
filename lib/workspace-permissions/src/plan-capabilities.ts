@@ -19,18 +19,16 @@ export type PlanCapabilityKey = (typeof PLAN_CAPABILITY_CATALOG)[number]["key"];
 
 export type PlanEnabledFeatures = Partial<Record<PlanCapabilityKey, boolean>>;
 
-/** Legacy name-based entitlements used when enabledFeatures is not configured on a plan. */
-const LEGACY_WORKSPACE_PLAN_NAMES = new Set([
-  "growth",
-  "pro",
-  "enterprise",
-  "agencies",
-  "agency",
-]);
+/** Plans that must never include workspaces (product policy — not overridable in admin). */
+export const WORKSPACES_EXCLUDED_PLAN_NAMES = new Set(["free", "starter"]);
+
+/** Legacy name-based entitlements when enabledFeatures is not configured on a plan. */
+const LEGACY_WORKSPACE_PLAN_NAMES = new Set(["pro", "agencies", "agency"]);
 
 function legacyPlanIncludesWorkspaces(planName: string | null | undefined): boolean {
   const normalized = normalizePlanName(planName);
   if (!normalized) return false;
+  if (WORKSPACES_EXCLUDED_PLAN_NAMES.has(normalized)) return false;
   return LEGACY_WORKSPACE_PLAN_NAMES.has(normalized);
 }
 
@@ -40,9 +38,38 @@ function hasExplicitEnabledFeatures(
   return enabledFeatures != null && typeof enabledFeatures === "object" && !Array.isArray(enabledFeatures);
 }
 
+export function planBlocksWorkspacesCapability(planName: string | null | undefined): boolean {
+  const normalized = normalizePlanName(planName);
+  return normalized !== "" && WORKSPACES_EXCLUDED_PLAN_NAMES.has(normalized);
+}
+
+/** Whether Super Admin may turn a capability on for this plan in Plans & Packages. */
+export function adminCanEnableCapability(
+  planName: string | null | undefined,
+  capability: PlanCapabilityKey,
+): boolean {
+  if (capability === "workspaces" && planBlocksWorkspacesCapability(planName)) {
+    return false;
+  }
+  return true;
+}
+
+/** Normalize admin/API enabled_features for a plan name (enforces product policy). */
+export function sanitizeEnabledFeaturesForPlan(
+  planName: string | null | undefined,
+  enabledFeatures: PlanEnabledFeatures | null | undefined,
+): PlanEnabledFeatures | null {
+  if (enabledFeatures == null) return null;
+  const out: PlanEnabledFeatures = { ...enabledFeatures };
+  if (planBlocksWorkspacesCapability(planName)) {
+    out.workspaces = false;
+  }
+  return out;
+}
+
 /**
  * Resolve whether a plan includes a functional capability.
- * When enabledFeatures is set on the plan (admin dashboard), that config wins.
+ * When enabledFeatures is set on the plan (admin dashboard), that config wins (except workspaces on Free/Starter).
  * Otherwise falls back to legacy plan-name rules so existing subscriptions keep working.
  */
 export function planHasCapability(
@@ -50,6 +77,10 @@ export function planHasCapability(
   planName: string | null | undefined,
   capability: PlanCapabilityKey,
 ): boolean {
+  if (capability === "workspaces" && planBlocksWorkspacesCapability(planName)) {
+    return false;
+  }
+
   if (hasExplicitEnabledFeatures(enabledFeatures)) {
     const explicit = enabledFeatures[capability];
     if (explicit !== undefined) {
@@ -103,6 +134,31 @@ export function workspacesUpgradeShort(planNames: string[]): string {
   if (planNames.length === 0) return WORKSPACES_UPGRADE_SHORT_GENERIC;
   const label = formatWorkspacesIncludedPlansLabel(planNames);
   return `Upgrade to ${label} to unlock workspaces.`;
+}
+
+/** Customer-facing copy when the subscription plan does not include workspaces. */
+export function workspacesUpgradeMessageForCurrentPlan(
+  currentPlanName: string | null | undefined,
+  upgradePlanNames: string[],
+): string {
+  const current = (currentPlanName ?? "").trim();
+  const targetLabel = upgradePlanNames.length > 0
+    ? formatWorkspacesIncludedPlansLabel(upgradePlanNames)
+    : "Pro or Agencies";
+  if (!current) return workspacesUpgradeMessage(upgradePlanNames);
+  return `Your ${current} plan does not include multiple workspaces. Upgrade to ${targetLabel} to unlock workspaces, client credit pools, and member invites.`;
+}
+
+export function workspacesUpgradeShortForCurrentPlan(
+  currentPlanName: string | null | undefined,
+  upgradePlanNames: string[],
+): string {
+  const current = (currentPlanName ?? "").trim();
+  const targetLabel = upgradePlanNames.length > 0
+    ? formatWorkspacesIncludedPlansLabel(upgradePlanNames)
+    : "Pro or Agencies";
+  if (!current) return workspacesUpgradeShort(upgradePlanNames);
+  return `Upgrade your current plan (${current}) to ${targetLabel} to unlock workspaces.`;
 }
 
 export function workspacesPlanGateBody(planNames: string[] = []) {
