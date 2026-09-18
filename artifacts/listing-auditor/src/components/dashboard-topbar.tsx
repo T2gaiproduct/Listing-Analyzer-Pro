@@ -201,11 +201,8 @@ export function DashboardTopbar({
           onChange={(e) => onSearchQueryChange(e.target.value)}
           onFocus={() => setSearchFocused(true)}
           placeholder={searchPlaceholder}
-          className="w-full h-9 pl-9 pr-3 sm:pr-20 rounded-lg text-xs bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200 focus-visible:ring-orange-200 focus:border-orange-400 focus-visible:border-orange-400"
+          className="w-full h-9 pl-9 pr-3 rounded-lg text-xs bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200 focus-visible:ring-orange-200 focus:border-orange-400 focus-visible:border-orange-400"
         />
-        <kbd className="absolute right-3 hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground bg-card border border-border rounded-md">
-          Ctrl + K
-        </kbd>
       </div>
       {showSearchResults && (
         <div className="absolute top-full left-0 right-0 mt-1.5 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 max-h-72 overflow-y-auto">
