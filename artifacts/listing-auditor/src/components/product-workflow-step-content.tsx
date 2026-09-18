@@ -345,7 +345,6 @@ export function ProductWorkflowStepContent({
           edgeToEdge
           showExportButton
           exportDisabled={!canExportListingSource(productSource)}
-          sharePreviewLink
           generatedOnly
           referenceIntelligence={referenceResearch?.intelligence ?? null}
         />

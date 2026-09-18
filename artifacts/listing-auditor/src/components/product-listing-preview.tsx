@@ -191,7 +191,7 @@ export function ProductListingPreview({
   const galleryImages = useMemo(
     () => collectListingPreviewImages({
       imageUrls: generatedOnly ? null : audit?.imageUrls,
-      imageRecords: generatedOnly ? null : audit?.imageRecords,
+      imageRecords: audit?.imageRecords,
       generatedImages: audit?.generatedImages,
       graphicsProjectRecords: graphicsProject?.imageRecords ?? null,
       productImageUrl: generatedOnly ? null : productImageUrl,
@@ -345,7 +345,7 @@ export function ProductListingPreview({
         </div>
       </div>
 
-      {(!hasListingCopy || !hasImages) && !hasReferenceIntelligence && (
+      {(!hasListingCopy || (!hasImages && aplusModules.length === 0)) && !hasReferenceIntelligence && (
         <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2">
           {generatedOnly
             ? !hasListingCopy && !hasImages
@@ -573,12 +573,9 @@ export function ProductListingPreview({
         {aplusModules.length > 0 && (
           <section className="border-t border-slate-200 bg-white" aria-label="From the brand">
             <div className="border-b border-slate-200 px-4 lg:px-5 bg-white">
-              <div className="flex flex-wrap items-end gap-4 sm:gap-8 text-[11px]">
-                <span className="py-2.5 text-slate-500">About this item</span>
-                <span className="py-2.5 font-semibold text-slate-900 border-b-2 border-orange-500 -mb-px">
-                  From the brand
-                </span>
-              </div>
+              <p className="py-2.5 text-[11px] font-semibold text-slate-900 border-b-2 border-orange-500 -mb-px inline-block">
+                From the brand
+              </p>
             </div>
             <div className="px-4 sm:px-8 lg:px-12 py-4 bg-white">
               <div className="mx-auto w-full max-w-3xl flex flex-col gap-4">

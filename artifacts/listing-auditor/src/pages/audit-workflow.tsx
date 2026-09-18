@@ -2354,7 +2354,6 @@ export default function AuditWorkflow() {
               category={category}
               productImageUrl={uploadedImages[0] ?? null}
               fallbackImageUrls={uploadedImages}
-              sharePreviewLink
               generatedOnly
               referenceIntelligence={
                 (auditData as { referenceResearch?: { intelligence?: ReferenceIntelligenceRow[] } } | undefined)

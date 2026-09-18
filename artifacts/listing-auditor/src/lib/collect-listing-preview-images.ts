@@ -59,6 +59,15 @@ function normalizeExcludeUrl(url: string): string {
   return url.trim();
 }
 
+/** SellerLens-generated assets stored on the app (not scraped marketplace URLs). */
+function isAppGeneratedImageUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("data:image/")) return true;
+  if (trimmed.includes("/api/images/")) return true;
+  return false;
+}
+
 /** Gallery images for listing preview: generated graphics first, then uploads. */
 export function collectListingPreviewImages(opts: {
   imageUrls?: string[] | null;
@@ -94,6 +103,12 @@ export function collectListingPreviewImages(opts: {
   if (opts.generatedOnly) {
     for (const record of opts.graphicsProjectRecords ?? []) {
       add(record.currentUrl, recordTypeLabel(record.type));
+    }
+    for (const record of opts.imageRecords ?? []) {
+      const url = record.currentUrl?.trim();
+      if (url && isAppGeneratedImageUrl(url)) {
+        add(url, recordTypeLabel(record.type));
+      }
     }
     for (const url of legacyGeneratedUrls(opts.generatedImages)) {
       add(url, "Generated");
