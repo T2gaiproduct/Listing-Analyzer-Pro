@@ -58,6 +58,11 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
+  /* Align common slate utility greys with sidebar foreground (customer shell) */
+  --color-slate-400: hsl(222 35% 22%);
+  --color-slate-500: hsl(222 47% 11%);
+  --color-slate-600: hsl(222 47% 11%);
+
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
@@ -91,7 +96,8 @@
   --secondary-foreground: 0 0% 100%;
 
   --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
+  /* Match sidebar nav: dark navy body copy, not mid grey */
+  --muted-foreground: 222 47% 11%;
 
   --accent: 210 40% 96%;
   --accent-foreground: 222 47% 11%;
@@ -144,7 +150,7 @@
   --secondary-foreground: 210 40% 98%;
 
   --muted: 215 100% 15%;
-  --muted-foreground: 215 20% 65%;
+  --muted-foreground: 210 40% 92%;
 
   --accent: 215 100% 15%;
   --accent-foreground: 210 40% 98%;
@@ -171,7 +177,7 @@
     @apply border-border;
   }
   body {
-    @apply font-sans antialiased bg-background text-foreground text-sm;
+    @apply font-sans antialiased bg-background text-foreground text-[11px] leading-snug;
   }
 
   button:focus-visible,
@@ -256,6 +262,11 @@
 
   .app-content-max {
     @apply w-full min-w-0 max-w-[1440px] mx-auto 2xl:max-w-none 2xl:mx-0;
+  }
+
+  /** Body copy aligned with sidebar nav (11px, dark foreground) */
+  .app-copy {
+    @apply text-[11px] text-foreground leading-relaxed;
   }
 
   .table-responsive {

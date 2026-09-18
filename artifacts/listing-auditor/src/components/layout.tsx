@@ -832,7 +832,7 @@ export function Layout({ children }: { children: ReactNode }) {
                         "w-full flex items-center justify-center w-10 h-10 rounded-xl transition-colors",
                         isActive
                           ? "bg-orange-500 text-white shadow-sm"
-                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
                       )}
                     >
                       <Icon className={cn("w-4 h-4", isActive ? "text-white" : "")} />
@@ -849,10 +849,10 @@ export function Layout({ children }: { children: ReactNode }) {
                     "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[11px] transition-colors text-left",
                     isActive
                       ? "bg-orange-500 text-white font-medium shadow-sm"
-                      : "text-sidebar-foreground/60 font-normal hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      : "text-sidebar-foreground font-normal hover:bg-sidebar-accent/50"
                   )}
                 >
-                  <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
+                  <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/75")} />
                   <span className="flex-1 min-w-0 truncate">{label}</span>
                   {comingSoon && !isActive && (
                     <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
@@ -898,7 +898,7 @@ export function Layout({ children }: { children: ReactNode }) {
                         "w-full flex items-center justify-center w-10 h-10 rounded-xl transition-colors",
                         isActive
                           ? "bg-orange-500 text-white shadow-sm"
-                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
                       )}
                     >
                       <Icon className={cn("w-4 h-4", isActive ? "text-white" : "")} />
@@ -915,10 +915,10 @@ export function Layout({ children }: { children: ReactNode }) {
                     "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[11px] transition-colors text-left",
                     isActive
                       ? "bg-orange-500 text-white font-medium shadow-sm"
-                      : "text-sidebar-foreground/60 font-normal hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      : "text-sidebar-foreground font-normal hover:bg-sidebar-accent/50"
                   )}
                 >
-                  <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
+                  <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/75")} />
                   <span className="flex-1 min-w-0 truncate">{label}</span>
                 </button>
               );

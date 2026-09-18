@@ -81,7 +81,7 @@ export default function AuditNew() {
           </span>{" "}
           <Sparkles className="inline w-8 h-8 text-orange-400 align-middle -mt-1" />
         </h2>
-        <p className="text-base text-muted-foreground mt-4 max-w-md mx-auto">
+        <p className="text-[11px] text-foreground mt-4 max-w-md mx-auto leading-relaxed">
           Turn product information into high-converting listings in minutes.
         </p>
 
@@ -143,7 +143,7 @@ export default function AuditNew() {
                     <p className="text-sm font-bold text-foreground leading-snug">
                       {step.title}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                    <p className="text-[11px] text-foreground mt-1.5 leading-relaxed">
                       {step.desc}
                     </p>
                   </div>
