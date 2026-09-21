@@ -4,6 +4,8 @@ import {
   AGENT_TOOL_CATALOG,
   SUPPORTED_AGENT_MODELS,
   getWorkspaceDefaultAgentDefinition,
+} from "../lib/agent-registry.js";
+import {
   addSellermateMemory,
   addSellermateMemoryFromFile,
   createSellermateAgent,
