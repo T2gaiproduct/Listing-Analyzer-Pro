@@ -29,6 +29,8 @@ import {
   ensureGraphicsImageDir,
   resolveGraphicsImagePath,
 } from "../lib/image-storage.js";
+import { persistGraphicsProjectSourceImages } from "../lib/graphics-source-images.js";
+import { resolveAuditImagePath } from "../lib/image-storage.js";
 
 const router: IRouter = Router();
 
@@ -599,20 +601,34 @@ async function resolveReferencePaths(
       const destPath = path.join(dir, `prompt_ref_remote_${resolved.length}.jpg`);
       const downloaded = await downloadImage(rawPath, destPath);
       if (downloaded) resolved.push(downloaded);
+    } else if (rawPath.startsWith("data:image/")) {
+      const ext = rawPath.startsWith("data:image/png") ? "png" : "jpg";
+      const saved = saveBase64Image(rawPath, dir, `prompt_ref_${resolved.length}.${ext}`);
+      if (saved) resolved.push(saved);
+    } else if (rawPath.includes("/api/images/")) {
+      const match = rawPath.match(/\/api\/images\/(\d+)\//);
+      const auditId = match ? parseInt(match[1], 10) : NaN;
+      if (!Number.isNaN(auditId)) {
+        const fromAudit = resolveAuditImagePath(auditId, rawPath);
+        if (fromAudit && fs.existsSync(fromAudit) && fs.statSync(fromAudit).size >= MIN_FILE_SIZE) {
+          resolved.push(fromAudit);
+        }
+      }
     } else if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
       resolved.push(rawPath);
     }
   }
 
-  const rawPath = sourceImagePaths?.[0] ?? null;
-  if (rawPath) {
+  for (const rawPath of sourceImagePaths ?? []) {
+    if (!rawPath?.trim()) continue;
     if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
-      const destPath = path.join(dir, "source_remote.jpg");
+      const destPath = path.join(dir, `source_remote_${resolved.length}.jpg`);
       const downloaded = await downloadImage(rawPath, destPath);
       if (downloaded) resolved.push(downloaded);
     } else if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
       resolved.push(rawPath);
     }
+    if (resolved.length >= 5) break;
   }
 
   return resolved;
@@ -689,6 +705,34 @@ async function resolveRegenerateReferencePath(
   return null;
 }
 
+async function applyGraphicsProjectUploadSync(
+  projectId: number,
+  input: {
+    auditId?: number | null;
+    sourceImageUrls?: string[];
+    productName?: string;
+    category?: string | null;
+    name?: string;
+  },
+): Promise<void> {
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.productName?.trim()) updates.productName = input.productName.trim();
+  if (input.category !== undefined) updates.category = input.category;
+  if (input.name?.trim()) updates.name = input.name.trim();
+
+  const sources = input.sourceImageUrls ?? [];
+  if (sources.length > 0) {
+    const savedPaths = await persistGraphicsProjectSourceImages(projectId, sources, { auditId: input.auditId });
+    if (savedPaths.length > 0) updates.sourceImageUrls = savedPaths;
+  }
+
+  if (Object.keys(updates).length > 1) {
+    await db.update(graphicsProjectsTable)
+      .set(updates)
+      .where(eq(graphicsProjectsTable.id, projectId));
+  }
+}
+
 function buildRegeneratePrompt(
   existingRecord: GraphicsImageRecord,
   productName: string,
@@ -742,7 +786,19 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
         .orderBy(desc(graphicsProjectsTable.updatedAt))
         .limit(1);
       if (owned) {
-        res.status(200).json(owned);
+        await applyGraphicsProjectUploadSync(owned.id, {
+          auditId: body.auditId,
+          sourceImageUrls: sourceImages,
+          productName: body.productName,
+          category: body.category ?? null,
+          name: body.name,
+        });
+        const [synced] = await db
+          .select()
+          .from(graphicsProjectsTable)
+          .where(eq(graphicsProjectsTable.id, owned.id))
+          .limit(1);
+        res.status(200).json(synced ?? owned);
         return;
       }
 
@@ -759,7 +815,19 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
       for (const candidate of candidates) {
         const accessible = await loadGraphicsProject(req, candidate.id);
         if (accessible) {
-          res.status(200).json(accessible);
+          await applyGraphicsProjectUploadSync(candidate.id, {
+            auditId: body.auditId,
+            sourceImageUrls: sourceImages,
+            productName: body.productName,
+            category: body.category ?? null,
+            name: body.name,
+          });
+          const [synced] = await db
+            .select()
+            .from(graphicsProjectsTable)
+            .where(eq(graphicsProjectsTable.id, candidate.id))
+            .limit(1);
+          res.status(200).json(synced ?? accessible);
           return;
         }
       }
@@ -779,18 +847,8 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
       status: "draft",
     }).returning();
 
-    // Save uploaded base64 images as files; store paths only (never base64 in Postgres).
     if (sourceImages.length > 0) {
-      const projectDir = path.join(GRAPHICS_IMAGES_DIR, String(project.id), "source");
-      ensureDir(projectDir);
-      const savedPaths: string[] = [];
-      sourceImages.forEach((img, idx) => {
-        const ext = img.startsWith("data:image/png") ? "png" : "jpg";
-        const filePath = saveBase64Image(img, projectDir, `source_${idx}.${ext}`);
-        if (filePath) {
-          savedPaths.push(filePath);
-        }
-      });
+      const savedPaths = await persistGraphicsProjectSourceImages(project.id, sourceImages, { auditId: body.auditId });
       if (savedPaths.length > 0) {
         await db.update(graphicsProjectsTable)
           .set({ sourceImageUrls: savedPaths, updatedAt: new Date() })
@@ -856,9 +914,21 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, req
   if (!existing) { res.status(404).json({ error: "Project not found" }); return; }
 
   const body = req.body as { name?: string; productName?: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number };
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (body.name !== undefined) updates.name = body.name;
+  if (body.productName !== undefined) updates.productName = body.productName;
+  if (body.category !== undefined) updates.category = body.category;
+  if (body.lifestyleCount !== undefined) updates.lifestyleCount = body.lifestyleCount;
+  if (body.featureCount !== undefined) updates.featureCount = body.featureCount;
+
+  if (body.sourceImageUrls !== undefined) {
+    const savedPaths = await persistGraphicsProjectSourceImages(id, body.sourceImageUrls, { auditId: existing.auditId });
+    if (savedPaths.length > 0) updates.sourceImageUrls = savedPaths;
+  }
+
   const [updated] = await db
     .update(graphicsProjectsTable)
-    .set({ ...body, updatedAt: new Date() })
+    .set(updates)
     .where(eq(graphicsProjectsTable.id, id))
     .returning();
 

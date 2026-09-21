@@ -87,6 +87,20 @@ type WorkflowGeneratedImage = {
   recordId?: string;
 };
 
+/** Upload-tab images used as default AI references when the user did not add custom refs. */
+function defaultReferenceImagesFromUpload(uploadedImages: string[]): string[] {
+  return uploadedImages.filter((url) => url?.trim()).slice(0, 10);
+}
+
+function resolvePromptReferenceImages(
+  userReferenceImages: string[],
+  uploadDefaults: string[],
+): string[] | undefined {
+  if (userReferenceImages.length > 0) return userReferenceImages;
+  const defaults = defaultReferenceImagesFromUpload(uploadDefaults);
+  return defaults.length > 0 ? defaults : undefined;
+}
+
 function graphicsRecordToWorkflowImage(r: {
   id?: string;
   currentUrl?: string;
@@ -984,6 +998,29 @@ export default function AuditWorkflow() {
 
   const activeGraphicsProjectId = graphicsProjectId ?? (existingGraphicsProject as { id?: number } | null)?.id ?? null;
 
+  const persistUploadTabToAudit = useCallback(async (auditId: number): Promise<void> => {
+    const draftBody = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages);
+    await fetchJson(`${basePath}/api/audits/${auditId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectName: (draftBody?.projectName ?? projectName.trim()) || productName.trim(),
+        productName: productName.trim(),
+        brandName: brandName.trim() || undefined,
+        category: category || undefined,
+        imageUrls: uploadedImages,
+        ...(draftBody
+          ? {
+              title: draftBody.title,
+              bulletPoints: draftBody.bulletPoints,
+              targetKeywords: draftBody.targetKeywords,
+            }
+          : {}),
+      }),
+    });
+    void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+  }, [projectName, productName, brandName, category, uploadedImages, queryClient]);
+
   const persistAuditImageRecordsFromGraphics = useCallback((records: Array<{
     id: string;
     type: string;
@@ -1019,6 +1056,11 @@ export default function AuditWorkflow() {
     setIsDirty(true);
   }, []);
 
+  const uploadReferenceImages = useMemo(
+    () => defaultReferenceImagesFromUpload(uploadedImages),
+    [uploadedImages],
+  );
+
   const aplusModuleConfigsPayload = useMemo(() => {
     const configs: Record<string, {
       imageCustomPrompt?: string;
@@ -1029,12 +1071,12 @@ export default function AuditWorkflow() {
       const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
       configs[moduleId] = {
         imageCustomPrompt: config.customPrompt.trim() || undefined,
-        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages, uploadReferenceImages),
         quality: config.quality,
       };
     }
     return configs;
-  }, [selectedAplusModules, aplusModulePromptConfigs]);
+  }, [selectedAplusModules, aplusModulePromptConfigs, uploadReferenceImages]);
 
   const aplusGenerateOptions = useMemo(() => ({
     moduleConfigs: aplusModuleConfigsPayload,
@@ -1053,11 +1095,11 @@ export default function AuditWorkflow() {
         customPrompt: config.customPrompt.trim() || undefined,
         aspectRatio: config.aspectRatio,
         quality: config.quality,
-        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages, uploadReferenceImages),
       };
     }
     return configs;
-  }, [selectedImageTypes, imageTypePromptConfigs]);
+  }, [selectedImageTypes, imageTypePromptConfigs, uploadReferenceImages]);
 
   type GraphicsTypeConfigs = Record<string, {
     customPrompt?: string;
@@ -1079,6 +1121,8 @@ export default function AuditWorkflow() {
     typeConfigs: GraphicsTypeConfigs;
     existingProjectId?: number | null;
   }) => {
+    await persistUploadTabToAudit(auditId);
+
     const runGenerate = async (projectId: number) => {
       await fetchJson(`${basePath}/api/graphics/projects/${projectId}/generate`, {
         method: "POST",
@@ -1088,8 +1132,28 @@ export default function AuditWorkflow() {
       return projectId;
     };
 
+    const syncGraphicsProjectSources = async (projectId: number) => {
+      const body = createBody as {
+        name?: string;
+        productName?: string;
+        category?: string;
+        sourceImageUrls?: string[];
+      };
+      await fetchJson(`${basePath}/api/graphics/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: body.name,
+          productName: body.productName,
+          category: body.category,
+          sourceImageUrls: body.sourceImageUrls,
+        }),
+      });
+    };
+
     let projectId = existingProjectId ?? null;
     if (projectId != null) {
+      await syncGraphicsProjectSources(projectId);
       try {
         await runGenerate(projectId);
       } catch (err) {
@@ -1117,7 +1181,7 @@ export default function AuditWorkflow() {
     completionToastShownRef.current = false;
     hasSeenGeneratingRef.current = false;
     setGraphicsProgress({ generated: 0, total: imageTypes.length });
-  }, [queryClient]);
+  }, [queryClient, persistUploadTabToAudit]);
 
   const requireGraphicsEditCredits = useCallback(() => {
     if (!isTeamMember) return true;
@@ -1553,6 +1617,16 @@ export default function AuditWorkflow() {
     void (async () => {
       const auditId = await ensureAuditDraft();
       if (!auditId) return;
+      try {
+        await persistUploadTabToAudit(auditId);
+      } catch (err) {
+        toast({
+          title: "Could not save upload references",
+          description: err instanceof Error ? err.message : "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
       setCreatingStep(5);
       setActiveStep(5);
       setIsCreating(true);
@@ -1563,7 +1637,7 @@ export default function AuditWorkflow() {
         ...aplusGenerateOptions,
       });
     })();
-  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft]);
+  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {

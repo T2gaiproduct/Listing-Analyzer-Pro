@@ -343,6 +343,16 @@ async function resolveSourceImage(auditId: number, imageUrls: string[]): Promise
       continue;
     }
 
+    const auditApiMatch = raw.match(/\/api\/images\/(\d+)\/([^/?#]+)/);
+    if (auditApiMatch) {
+      const auditIdFromUrl = parseInt(auditApiMatch[1], 10);
+      const resolved = resolveAuditImagePath(auditIdFromUrl, raw);
+      if (resolved && fs.existsSync(resolved) && fs.statSync(resolved).size >= MIN_FILE_SIZE) {
+        return resolved;
+      }
+      continue;
+    }
+
     if (fs.existsSync(raw) && fs.statSync(raw).size >= MIN_FILE_SIZE) {
       return raw;
     }
