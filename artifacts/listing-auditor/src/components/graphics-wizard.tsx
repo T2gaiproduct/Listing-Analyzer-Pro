@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
 import {
   Upload, ArrowRight, Check, ImageIcon, Loader2, Trash2,
@@ -326,6 +327,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     }
     if (project.status === "failed") {
       setIsGenerating(false);
+      void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
       return;
     }
     creditsRefreshedRef.current = false;
@@ -400,6 +402,11 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         startTimeRef.current = Date.now();
       } catch (err) {
         setIsGenerating(false);
+        void fetch(`${basePath}/api/graphics/projects/${project.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
         toast({
           title: "Generation failed",
           description: err instanceof Error ? err.message : "Please try again",

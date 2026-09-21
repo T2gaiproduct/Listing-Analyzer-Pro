@@ -307,17 +307,21 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     req.log.error({ err, auditId: audit.id }, "AI analysis failed");
+    const now = new Date();
     await db
       .update(auditsTable)
-      .set({ status: "failed", updatedAt: new Date() })
+      .set({
+        status: "failed",
+        isDeleted: 1,
+        deletedAt: now,
+        updatedAt: now,
+      })
       .where(eq(auditsTable.id, audit.id));
 
-    res.status(201).json({
-      ...audit,
-      result: null,
-      competitors: [],
-      status: "failed",
+    res.status(502).json({
+      error: "Audit analysis failed",
       failureReason: errMsg,
+      auditId: audit.id,
     });
   }
 });

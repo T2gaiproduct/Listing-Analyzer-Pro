@@ -1120,6 +1120,7 @@ export default function AuditWorkflow() {
         }
         if (project.status === "failed") {
           setIsCreating(false);
+          void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
           toast({ title: "Generation failed", description: project.errorMessage || "Something went wrong", variant: "destructive" });
         }
       } catch { /* ignore poll errors */ }

@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Loader2, TrendingUp, Trophy, Star, Check, ArrowUpRight, Link as LinkIcon, Users, Target, Sparkles, Wrench, Zap } from "lucide-react";
-import { useFetchListing, useCreateAudit, getGetAuditStatsQueryKey, getListAuditsQueryKey } from "@workspace/api-client-react";
+import {
+  useFetchListing,
+  useCreateAudit,
+  getGetAuditStatsQueryKey,
+  getGetRecentsQueryKey,
+  getListAuditsQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
@@ -56,6 +62,15 @@ export default function AuditListings() {
             },
             {
               onSuccess: (audit) => {
+                if (audit.status === "failed") {
+                  void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
+                  toast({
+                    title: "Audit failed",
+                    description: "Could not analyze the listing. Please try again.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
                 queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -63,6 +78,7 @@ export default function AuditListings() {
                 navigate(`/audits/${audit.id}?returnTo=/audit-listings`);
               },
               onError: () => {
+                void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
                 toast({
                   title: "Audit failed",
                   description: "Could not analyze the listing. Please try again.",

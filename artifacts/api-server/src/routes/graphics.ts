@@ -944,6 +944,8 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
 
   // Run generation in background
   (async () => {
+    const existingRecordsAtStart = (project.imageRecords ?? []) as GraphicsImageRecord[];
+    const existingCountAtStart = existingRecordsAtStart.length;
     try {
       const generateStyle = body.style ?? "custom";
       const legacyConfig: ImageTypeGenerationConfig = {
@@ -952,8 +954,8 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
         quality: body.quality ?? "standard",
         promptReferenceImageUrls: body.promptReferenceImageUrls,
       };
-      const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
-      const existingCount = existingRecords.length;
+      const existingRecords = existingRecordsAtStart;
+      const existingCount = existingCountAtStart;
       let newRecords: GraphicsImageRecord[];
       if (isNewFlow && body.imageTypes) {
         newRecords = await generateNewImageTypes(
@@ -1005,8 +1007,15 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
     } catch (err) {
       const message = err instanceof Error ? err.message : "Generation failed";
       const errorText = message.length > 500 ? message.slice(0, 500) + "..." : message;
+      const now = new Date();
+      const removeFromRecents = existingCountAtStart === 0;
       await db.update(graphicsProjectsTable)
-        .set({ status: "failed", errorMessage: errorText, updatedAt: new Date() })
+        .set({
+          status: "failed",
+          errorMessage: errorText,
+          updatedAt: now,
+          ...(removeFromRecents ? { isDeleted: 1, deletedAt: now } : {}),
+        })
         .where(eq(graphicsProjectsTable.id, id));
       console.error(`Graphics generation failed for project ${id}:`, message);
     }

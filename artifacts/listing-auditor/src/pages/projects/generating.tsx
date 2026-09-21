@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, ArrowRight } from "lucide-react";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -45,12 +46,20 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
   const [etaSeconds, setEtaSeconds] = useState(0);
   const creditsRefreshedRef = useRef(false);
 
-  const { data: project } = useQuery({
+  const { data: project, isError: projectLoadError } = useQuery({
     queryKey: ["graphics-project", id],
     queryFn: () => fetchProject(id),
-    refetchInterval: 1500,
+    refetchInterval: (query) => (query.state.error ? false : 1500),
     enabled: !!id,
+    retry: false,
   });
+
+  const generationFailed = projectLoadError || project?.status === "failed";
+
+  useEffect(() => {
+    if (!generationFailed) return;
+    void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
+  }, [generationFailed, queryClient]);
 
   const totalImages = (project?.lifestyleCount ?? 0) + (project?.featureCount ?? 0);
 
@@ -106,7 +115,7 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
           <h1 className="text-xl font-bold text-slate-900">
             {project?.status === "completed"
               ? "All done!"
-              : project?.status === "failed"
+              : generationFailed
                 ? "Generation failed"
                 : "Generating your images"}
           </h1>
@@ -122,31 +131,33 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
         {/* Progress bar */}
         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${project?.status === "failed" ? "bg-red-500" : "bg-orange-500"}`}
+            className={`h-full rounded-full transition-all duration-500 ${generationFailed ? "bg-red-500" : "bg-orange-500"}`}
             style={{ width: `${project?.status === "completed" ? 100 : Math.min(progress, 95)}%` }}
           />
         </div>
 
         {/* Percentage */}
         <p className="text-xs text-slate-400">
-          {project?.status === "failed" ? "Failed" : project?.status === "completed" ? "100%" : `${Math.round(progress)}%`}
+          {generationFailed ? "Failed" : project?.status === "completed" ? "100%" : `${Math.round(progress)}%`}
         </p>
 
         {/* Error display */}
-        {project?.status === "failed" && (
+        {generationFailed && (
           <div className="bg-red-50 rounded-lg p-4 border border-red-100 text-left">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm text-red-800 font-medium">Generation failed</p>
-                <p className="text-xs text-red-600 mt-1">{project.errorMessage || "An unexpected error occurred."}</p>
+                <p className="text-xs text-red-600 mt-1">
+                  {project?.errorMessage || "An unexpected error occurred. You can try creating graphics again."}
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
                   className="mt-3 text-red-600 border-red-200 hover:bg-red-100"
-                  onClick={() => nav(`/projects/${id}`)}
+                  onClick={() => nav("/projects/create")}
                 >
-                  View Project <ArrowRight className="w-3 h-3 ml-1" />
+                  Try again <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               </div>
             </div>
