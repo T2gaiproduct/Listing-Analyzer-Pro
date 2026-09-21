@@ -184,53 +184,6 @@ is_clerk_development_instance() {
 }
 
 CLERK_PROXY_RESTORE_FILE="/tmp/clerk-proxy-restore-url.txt"
-CLERK_PROXY_DEFAULT_RESTORE_URL="${CLERK_PROXY_DEFAULT_RESTORE_URL:-https://sellerlens.io/api/__clerk}"
-
-restore_clerk_primary_proxy_url() {
-  local secret="${CLERK_SEC_FOR_STACK:-${CLERK_SECRET_KEY:-}}"
-  [[ -n "$secret" ]] || return 0
-
-  local target="$CLERK_PROXY_DEFAULT_RESTORE_URL"
-  if [[ -f "$CLERK_PROXY_RESTORE_FILE" ]]; then
-    local saved
-    saved="$(tr -d '\r\n' <"$CLERK_PROXY_RESTORE_FILE")"
-    if [[ -n "$saved" && "$saved" != *".trycloudflare.com"* ]]; then
-      target="$saved"
-    fi
-  fi
-
-  local domains_json
-  domains_json=$(curl -sf -H "Authorization: Bearer $secret" "https://api.clerk.com/v1/domains" 2>/dev/null || true)
-  [[ -n "$domains_json" ]] || return 0
-
-  local primary_id current_proxy
-  read -r primary_id current_proxy < <(python3 -c "
-import json, sys
-data = json.loads(sys.stdin.read()).get('data', [])
-primary = next((d for d in data if not d.get('is_satellite')), None)
-print(primary.get('id', '') if primary else '', primary.get('proxy_url', '') if primary else '')
-" <<<"$domains_json")
-
-  [[ -n "$primary_id" ]] || return 0
-  if [[ "$current_proxy" == "$target" ]]; then
-    echo "Clerk primary proxy_url already $target"
-    return 0
-  fi
-  if [[ "$current_proxy" != *".trycloudflare.com"* && "$current_proxy" != "$target" ]]; then
-    echo "Clerk primary proxy_url is $current_proxy — leaving unchanged (not a stale quick tunnel)" >&2
-    return 0
-  fi
-
-  echo "==> Restoring Clerk primary proxy_url to $target"
-  if curl -sf -X PATCH "https://api.clerk.com/v1/domains/$primary_id" \
-    -H "Authorization: Bearer $secret" \
-    -H "Content-Type: application/json" \
-    -d "{\"proxy_url\":\"$target\"}" >/dev/null; then
-    echo "Clerk primary proxy_url restored"
-  else
-    echo "WARNING: Could not restore Clerk proxy_url to $target" >&2
-  fi
-}
 
 start_named_cloudflare_tunnel() {
   ensure_cloudflared
@@ -307,10 +260,11 @@ configure_clerk_proxy_for_tunnel() {
   local host="${public_url#https://}"
   local secret="${CLERK_SEC_FOR_STACK:-${CLERK_SECRET_KEY:-}}"
 
-  # Quick trycloudflare.com hostnames change every restart — never repoint Clerk proxy_url to them.
-  if [[ "$host" == *".trycloudflare.com" ]]; then
-    echo "==> Quick Cloudflare tunnel ($host): sign-in uses Clerk CDN; not updating Clerk proxy_url" >&2
-    restore_clerk_primary_proxy_url
+  # Never repoint production Clerk (pk_live_) to a random *.trycloudflare.com URL —
+  # that breaks https://sellerlens.io/sign-in until restored.
+  if [[ "$host" == *".trycloudflare.com" ]] && ! is_clerk_development_instance; then
+    echo "WARNING: Skipping Clerk proxy_url update for quick tunnel ($host) on production Clerk keys." >&2
+    echo "         Use CLOUDFLARE_TUNNEL_TOKEN + CLOUDFLARE_TUNNEL_PUBLIC_URL for stable dev sign-in." >&2
     return 0
   fi
 
@@ -511,10 +465,10 @@ if [[ -n "$PUBLIC_URL" ]]; then
     echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
   fi
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
-  if using_named_cloudflare_tunnel; then
+  if using_named_cloudflare_tunnel || is_clerk_development_instance; then
     configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
-  elif [[ -n "$PUBLIC_URL" && "$PUBLIC_URL" == *".trycloudflare.com"* ]]; then
-    restore_clerk_primary_proxy_url
+  elif ! should_skip_cloudflare_tunnel; then
+    echo "==> Quick Cloudflare tunnel: leaving Clerk production proxy_url unchanged (sellerlens.io)" >&2
   fi
   if ! should_skip_cloudflare_tunnel; then
     configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
@@ -547,6 +501,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
     export BASE_PATH=/
     export VITE_DISABLE_HMR=true
     export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+    export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'
     export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
     while true; do
       pnpm --filter @workspace/listing-auditor run dev || true
