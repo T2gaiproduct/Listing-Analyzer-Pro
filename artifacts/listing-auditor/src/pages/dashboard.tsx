@@ -37,6 +37,7 @@ import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { appendReturnTo } from "@/lib/navigation-return";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
+import { WorkspacesPlanUpgradeBanner } from "@/components/workspaces-plan-upgrade";
 import { DashboardDonutChart } from "@/components/dashboard-donut-chart";
 import { CREATE_VIDEOS_COMING_SOON, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
 import {
@@ -696,6 +697,10 @@ export default function Dashboard() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {planCreditsMode && (
+        <WorkspacesPlanUpgradeBanner compact />
+      )}
 
       {/* Top stats row */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4 2xl:gap-6">

@@ -67,14 +67,12 @@ export function buildProfileMenuItems(
     items.push({ icon: Shield, label: "Roles", href: "/roles" });
   }
 
-  const showWorkspacesHub =
-    (isAccountOwner && workspacesEnabled)
-    || (!isAccountOwner && canView("workspaces"));
+  const showWorkspacesHub = isAccountOwner || (!isAccountOwner && canView("workspaces"));
   if (showWorkspacesHub) {
     items.push({
       icon: Building2,
       label: WORKSPACES_HUB_LABEL,
-      href: "/workspaces",
+      href: workspacesPlanLocked ? "/billing" : "/workspaces",
       locked: isAccountOwner && workspacesPlanLocked,
       lockedHint: workspacesPlanLocked ? "Upgrade to unlock" : undefined,
     });

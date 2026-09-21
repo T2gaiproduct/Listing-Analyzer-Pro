@@ -90,7 +90,7 @@ export function DashboardTopbar({
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
   const { isAccountOwner, isWorkspaceAccountOwner, canView, can } = useWorkspace();
-  const { workspacesPlanLocked, workspacesEnabled } = useWorkspacesPlan();
+  const { workspacesPlanLocked, workspacesEnabled, upgradeShort, includedPlansLabel } = useWorkspacesPlan();
   const { activeWorkspace } = useWorkspace();
   const menuItems = profileMenuItems(
     isTeamMember,
@@ -277,14 +277,22 @@ export function DashboardTopbar({
       {showWorkspaceSwitcher && <TopbarWorkspaceSwitcher />}
       {showStaticWorkspaceLabel && (
         <div
-          className="hidden sm:flex items-center gap-2 h-10 pl-2.5 pr-3 rounded-lg border border-border bg-card flex-shrink-0 max-w-[14rem]"
-          title="Your account uses a single workspace on this plan"
+          className="hidden sm:flex items-center gap-2 h-10 pl-2.5 pr-2 rounded-lg border border-border bg-card flex-shrink-0 max-w-[min(100%,20rem)]"
+          title={upgradeShort || `Upgrade to ${includedPlansLabel} to enable multiple workspaces`}
         >
           <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
-          <div className="min-w-0 text-left">
+          <div className="min-w-0 text-left flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-none">Workspace</p>
             <p className="text-sm font-semibold text-slate-900 leading-tight truncate">{activeWorkspace!.name}</p>
           </div>
+          {workspacesPlanLocked && isAccountOwner && (
+            <Link
+              href="/billing"
+              className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-orange-600 hover:text-orange-700 px-2 py-1 rounded-md border border-orange-200 bg-orange-50 hover:bg-orange-100 transition-colors"
+            >
+              Upgrade
+            </Link>
+          )}
         </div>
       )}
 
