@@ -14,8 +14,7 @@ import {
 } from "lucide-react";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
-import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
-import { fetchAccountOverviewRecents, fetchWorkspaceRecents } from "@/lib/account-recents-fetch";
+import { fetchWorkspaceRecents } from "@/lib/account-recents-fetch";
 import { NewProjectDropdownMenuItems } from "@/components/new-project-dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -208,28 +207,18 @@ export default function RecentProjectsPage() {
     featureWorkspace,
     isLoading: wsLoading,
     needsWorkspaceSelection,
-    isBillingAccountOwner,
-    isAgencyAccountOverview,
   } = useWorkspace();
-  const showAccountRecents = isAgencyAccountOverviewDashboard(
-    isBillingAccountOwner,
-    isAgencyAccountOverview,
-  );
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [page, setPage] = useState(1);
 
-  const recentsScope = showAccountRecents
-    ? "owner-account"
-    : `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
-  const recentsEnabled =
-    clerkLoaded && !!user && (showAccountRecents || !!featureWorkspaceId);
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
+  const recentsEnabled = clerkLoaded && !!user && !!featureWorkspaceId;
   const { data, isLoading } = useQuery({
     queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
-    queryFn: () =>
-      showAccountRecents ? fetchAccountOverviewRecents(200) : fetchWorkspaceRecents(200),
+    queryFn: () => fetchWorkspaceRecents(200),
     staleTime: 30_000,
     enabled: recentsEnabled,
   });
@@ -279,7 +268,7 @@ export default function RecentProjectsPage() {
     );
   }
 
-  if (!showAccountRecents && (!featureWorkspaceId || needsWorkspaceSelection)) {
+  if (!featureWorkspaceId || needsWorkspaceSelection) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Folder className="w-12 h-12 text-slate-300 mb-4" />
@@ -300,14 +289,8 @@ export default function RecentProjectsPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Recent Projects</h1>
           <p className="text-sm text-slate-500 mt-1">
-            {showAccountRecents ? (
-              <>Projects across <span className="font-medium text-slate-700">all workspaces</span>.</>
-            ) : (
-              <>
-                Projects in{" "}
-                <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.
-              </>
-            )}
+            Projects in{" "}
+            <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.
           </p>
         </div>
         <DropdownMenu>

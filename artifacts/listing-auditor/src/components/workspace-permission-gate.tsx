@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Link } from "wouter";
-import { ShieldOff } from "lucide-react";
 import type { WorkspaceAction, WorkspaceFeature } from "@workspace/workspace-permissions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +16,16 @@ interface WorkspacePermissionGateProps {
   children: ReactNode;
 }
 
+function GateLoadingSkeleton() {
+  return (
+    <div className="space-y-4 p-6 animate-in fade-in">
+      <Skeleton className="h-10 w-64" />
+      <Skeleton className="h-32 w-full rounded-2xl" />
+      <Skeleton className="h-48 w-full rounded-2xl" />
+    </div>
+  );
+}
+
 function GateMessage({
   title,
   description,
@@ -30,7 +39,6 @@ function GateMessage({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center max-w-md mx-auto">
-      <ShieldOff className="w-12 h-12 text-slate-300 mb-4" />
       <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
       <p className="text-sm text-slate-500 mt-2">{description}</p>
       <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
@@ -51,13 +59,8 @@ export function WorkspacePermissionGate({ path, requireCreate, children }: Works
     canView,
   } = useWorkspace();
 
-  if ((isLoading || permissionsLoading) && !isWorkspaceAccountOwner && !isBillingAccountOwner) {
-    return (
-      <div className="space-y-4 p-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-32 w-full rounded-2xl" />
-      </div>
-    );
+  if (isLoading || permissionsLoading) {
+    return <GateLoadingSkeleton />;
   }
 
   if (needsWorkspaceSelection && pathRequiresCommittedWorkspace(path)) {

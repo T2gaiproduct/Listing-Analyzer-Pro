@@ -10,7 +10,6 @@ export function isAgencyAccountOverviewDashboard(
 export function pathUsesAgencyAccountWideApiScope(path: string): boolean {
   const p = path.split("?")[0] ?? path;
   if (p === "/" || p === "/dashboard") return true;
-  if (p === "/recent-projects") return true;
   if (p === "/products" || p.startsWith("/products/")) return true;
   if (p === "/archive") return true;
   if (p === "/projects") return true;
