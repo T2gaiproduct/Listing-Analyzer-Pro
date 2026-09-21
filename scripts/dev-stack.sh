@@ -94,6 +94,12 @@ fi
 
 if [[ -z "$CLERK_SEC_FOR_STACK" || -z "$CLERK_PUB_FOR_STACK" ]]; then
   echo "WARNING: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY missing — signed-in API calls will return 401" >&2
+elif ! curl -sf -H "Authorization: Bearer $CLERK_SEC_FOR_STACK" "https://api.clerk.com/v1/instance" >/dev/null; then
+  pub_inst="$(clerk_instance_from_publishable_key "${CLERK_PUB_FOR_STACK:-}")"
+  echo "WARNING: CLERK_SECRET_KEY is invalid (Clerk API rejected it). Signed-in users will see \"Cannot load your account\"." >&2
+  if [[ -n "$pub_inst" ]]; then
+    echo "         Set CLERK_SECRET_KEY + CLERK_PUBLISHABLE_KEY in Cursor Cloud → Environment to match VITE ($pub_inst), then start a new agent run." >&2
+  fi
 fi
 
 tmux_cmd() {

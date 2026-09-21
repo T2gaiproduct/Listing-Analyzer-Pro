@@ -1,6 +1,22 @@
 import { Router, type IRouter } from "express";
 import { loadedBuildId, readDiskBuildMeta, isStaleApiProcess } from "../lib/api-build-meta";
-import { checkClerkPublishableSecretPair } from "../lib/clerk-key-pair.js";
+import {
+  checkClerkPublishableSecretPair,
+  clerkFrontendHostFromPublishableKey,
+} from "../lib/clerk-key-pair.js";
+
+function clerkPublishableFromEnv(): string {
+  return (
+    process.env.CLERK_PUBLISHABLE_KEY?.trim()
+    || process.env.VITE_CLERK_PUBLISHABLE_KEY?.trim()
+    || ""
+  );
+}
+
+/** AGENTS.md dummy secret pattern — cannot verify real VITE publishable keys. */
+function clerkSecretLooksLikeDocsPlaceholder(secret: string): boolean {
+  return /^sk_test_0123456/i.test(secret.trim());
+}
 
 const router: IRouter = Router();
 
@@ -31,11 +47,18 @@ router.get("/healthz", async (_req, res) => {
 
   const clerkProxySecret = await checkClerkProxySecret();
   const clerkKeyPair = await checkClerkPublishableSecretPair();
+  const clerkPublishable = clerkPublishableFromEnv();
+  const clerkPublishableHost = clerkFrontendHostFromPublishableKey(clerkPublishable);
+  const clerkSecretKey = process.env.CLERK_SECRET_KEY?.trim() ?? "";
   res.json({
     status: "ok",
     publishImageFix: "marketplace-signed-url-v5",
     clerkProxySecret,
     clerkKeyPair,
+    clerkPublishableHost,
+    clerkSecretLooksLikePlaceholder: clerkSecretKey
+      ? clerkSecretLooksLikeDocsPlaceholder(clerkSecretKey)
+      : false,
     ...build,
   });
 });

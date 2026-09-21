@@ -178,10 +178,12 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
     staleTime: 30_000,
   });
   const clerkKeyMismatch = apiHealth?.clerkKeyPair === "mismatch";
+  const clerkSecretInvalid =
+    apiHealth?.clerkProxySecret === "invalid" || apiHealth?.clerkProxySecret === "missing";
   const clerkMisconfigured =
-    clerkKeyMismatch
-    || apiHealth?.clerkProxySecret === "invalid"
-    || apiHealth?.clerkProxySecret === "missing";
+    clerkKeyMismatch || clerkSecretInvalid;
+  const clerkInstanceHost = apiHealth?.clerkPublishableHost as string | undefined;
+  const clerkPlaceholderSecret = apiHealth?.clerkSecretLooksLikePlaceholder === true;
   const apiStale = apiHealth?.staleProcess === true;
 
   return (
@@ -205,8 +207,27 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
             ) : (
               <>
                 This preview environment&apos;s <span className="font-medium">CLERK_SECRET_KEY</span> is missing or
-                invalid. Update secrets in Cursor Cloud → Environment, then run{" "}
-                <span className="font-mono text-xs">bash scripts/dev-stack.sh</span> and sign in again.
+                invalid
+                {clerkInstanceHost ? (
+                  <>
+                    {" "}
+                    (frontend uses Clerk instance{" "}
+                    <span className="font-mono text-xs">{clerkInstanceHost}</span>)
+                  </>
+                ) : null}
+                . In Cursor Cloud → Environment, set{" "}
+                <span className="font-medium">CLERK_SECRET_KEY</span> to the{" "}
+                <span className="font-medium">Secret key</span> from that same Clerk app&apos;s API Keys page, and set{" "}
+                <span className="font-medium">CLERK_PUBLISHABLE_KEY</span> to match{" "}
+                <span className="font-medium">VITE_CLERK_PUBLISHABLE_KEY</span>
+                {clerkPlaceholderSecret ? (
+                  <>
+                    {" "}
+                    (replace the documentation placeholder <span className="font-mono text-xs">sk_test_0123456…</span>)
+                  </>
+                ) : null}
+                . Start a <span className="font-medium">new</span> Cloud Agent run (or run{" "}
+                <span className="font-mono text-xs">bash scripts/dev-stack.sh</span>), then sign in again.
               </>
             )}
           </p>
