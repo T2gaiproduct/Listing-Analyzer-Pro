@@ -227,6 +227,25 @@ export async function isNotificationEmailDeliveryEnabled(
   return isNotificationEmailTypeEnabled(preferences, type);
 }
 
+/** In-app and email are independent; when both are enabled, both channels should deliver. */
+export function resolveNotificationDeliveryChannels(
+  preferences: NotificationPreferences,
+  type: string,
+): { inApp: boolean; email: boolean } {
+  return {
+    inApp: isNotificationTypeEnabled(preferences, type),
+    email: isNotificationEmailTypeEnabled(preferences, type),
+  };
+}
+
+export async function getNotificationDeliveryChannels(
+  userId: string,
+  type: string,
+): Promise<{ inApp: boolean; email: boolean }> {
+  const preferences = await getUserNotificationPreferences(userId);
+  return resolveNotificationDeliveryChannels(preferences, type);
+}
+
 export async function getUserNotificationPreferences(userId: string): Promise<NotificationPreferences> {
   try {
     const [profile] = await db

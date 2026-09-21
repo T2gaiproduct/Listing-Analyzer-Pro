@@ -169,7 +169,8 @@ export function NotificationPreferencesCard({
           Notifications & email
         </CardTitle>
         <CardDescription>
-          Control in-app alerts and email delivery separately for each category.
+          Control in-app alerts and email separately for each category. When both switches are on,
+          you receive the notification in the app and by email.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

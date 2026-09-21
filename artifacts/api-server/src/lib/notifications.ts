@@ -3,7 +3,11 @@ import type { Notification } from "@workspace/db";
 import { fetchClerkUserEmailAndName } from "./clerk-user.js";
 import { notificationEmailTemplate } from "./email-templates.js";
 import { isEmailNotificationsEnabled, sendEmail } from "./email.js";
-import { isNotificationDeliveryEnabled, isNotificationEmailDeliveryEnabled } from "./notification-preferences.js";
+import {
+  getNotificationDeliveryChannels,
+  getUserNotificationPreferences,
+  resolveNotificationDeliveryChannels,
+} from "./notification-preferences.js";
 import { wsSend } from "./ws";
 
 export type NotificationType =
@@ -76,8 +80,10 @@ export async function createNotification(params: {
   link?: string;
   skipEmail?: boolean;
 }): Promise<Notification | null> {
-  const inAppEnabled = await isNotificationDeliveryEnabled(params.userId, params.type);
-  const emailEnabled = await isNotificationEmailDeliveryEnabled(params.userId, params.type);
+  const { inApp: inAppEnabled, email: emailEnabled } = await getNotificationDeliveryChannels(
+    params.userId,
+    params.type,
+  );
   if (!inAppEnabled && !emailEnabled) {
     return null;
   }
@@ -107,6 +113,7 @@ export async function createNotification(params: {
     });
   }
 
+  // Email is evaluated separately from in-app; both can be true at once.
   if (!params.skipEmail && emailEnabled) {
     void sendNotificationEmail({
       userId: params.userId,
@@ -131,13 +138,15 @@ export async function createBulkNotifications(
 ): Promise<Notification[]> {
   if (notifications.length === 0) return [];
 
-  const enabled = await Promise.all(
-    notifications.map(async (n) => ({
+  const preferences = await getUserNotificationPreferences(userId);
+  const enabled = notifications.map((n) => {
+    const channels = resolveNotificationDeliveryChannels(preferences, n.type);
+    return {
       notification: n,
-      inApp: await isNotificationDeliveryEnabled(userId, n.type),
-      email: await isNotificationEmailDeliveryEnabled(userId, n.type),
-    })),
-  );
+      inApp: channels.inApp,
+      email: channels.email,
+    };
+  });
   const toDeliver = enabled.filter((e) => e.inApp || e.email).map((e) => ({
     ...e.notification,
     inApp: e.inApp,
