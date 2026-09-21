@@ -27,9 +27,9 @@ export default function ProjectsPage() {
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="16" cy="4" r="1.5" fill="currentColor"/><circle cx="28" cy="4" r="1.5" fill="currentColor"/><circle cx="40" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="16" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/><circle cx="28" cy="16" r="1.5" fill="currentColor"/><circle cx="40" cy="16" r="1.5" fill="currentColor"/><circle cx="4" cy="28" r="1.5" fill="currentColor"/><circle cx="16" cy="28" r="1.5" fill="currentColor"/><circle cx="28" cy="28" r="1.5" fill="currentColor"/><circle cx="40" cy="28" r="1.5" fill="currentColor"/></svg>
         </div>
 
-        <div className="relative flex flex-col md:flex-row items-start justify-between gap-6 md:gap-8 w-full min-w-0">
+        <div className="relative grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 lg:gap-10 xl:gap-12 items-center w-full min-w-0">
           {/* Left Content */}
-          <div className="w-full min-w-0 max-w-lg">
+          <div className="w-full min-w-0 max-w-xl md:max-w-none">
             {/* AI-Powered Badge */}
             <div className="inline-flex items-center gap-1.5 bg-card/80 backdrop-blur-sm border border-amber-200/60 dark:border-amber-500/30 rounded-full px-3 py-1.5 mb-4 sm:mb-6">
               <Sparkles className="w-3.5 h-3.5 text-orange-500" />
@@ -111,44 +111,59 @@ export default function ProjectsPage() {
             </div>
           </div>
 
-          {/* Right Content - Hero Image */}
-          <div className="hidden md:block flex-shrink-0 relative">
-            {/* AI Generated Badge */}
-            <div className="absolute top-2 right-2 z-10 inline-flex items-center gap-1.5 bg-card/90 backdrop-blur-sm border border-amber-200/60 dark:border-amber-500/30 rounded-full px-3 py-1.5 shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-              <span className="text-xs font-medium text-orange-600 dark:text-orange-400">AI Generated</span>
-            </div>
+          {/* Right Content - Hero Image (scales with column width on large screens) */}
+          <div className="hidden md:flex w-full min-w-0 justify-center lg:justify-end">
+            <div className="relative w-full max-w-[17.5rem] sm:max-w-[19rem] lg:max-w-[22rem] xl:max-w-[26rem] 2xl:max-w-[30rem]">
+              {/* AI Generated Badge */}
+              <div className="absolute top-[3%] right-[3%] z-10 inline-flex items-center gap-1.5 bg-card/90 backdrop-blur-sm border border-amber-200/60 dark:border-amber-500/30 rounded-full px-3 py-1.5 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+                <span className="text-xs font-medium text-orange-600 dark:text-orange-400">AI Generated</span>
+              </div>
 
-            {/* Floating Generate Card */}
-            <div className="absolute top-24 -left-12 z-10 bg-card border border-amber-200/60 dark:border-amber-500/30 rounded-xl px-3 py-2 shadow-md">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center">
-                  <ImageIcon className="w-4 h-4 text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-foreground">Generate</p>
-                  <p className="text-[10px] text-muted-foreground">Images</p>
+              {/* Floating Generate Card */}
+              <div className="absolute top-[28%] -left-[18%] z-10 bg-card border border-amber-200/60 dark:border-amber-500/30 rounded-xl px-3 py-2 shadow-md scale-90 lg:scale-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center">
+                    <ImageIcon className="w-4 h-4 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">Generate</p>
+                    <p className="text-[10px] text-muted-foreground">Images</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Arrow from card to product */}
-            <svg className="absolute top-36 left-12 w-16 h-12 z-10" viewBox="0 0 64 48">
-              <path d="M 8 8 Q 24 8 32 24 Q 40 40 56 32" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" className="text-orange-400" markerEnd="url(#arrowhead)" />
-              <defs>
-                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                  <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-orange-400" />
-                </marker>
-              </defs>
-            </svg>
+              {/* Arrow from card to product */}
+              <svg
+                className="absolute top-[42%] left-[8%] w-[22%] min-w-[3.5rem] max-w-[5rem] h-auto z-10 text-orange-400"
+                viewBox="0 0 64 48"
+                aria-hidden
+              >
+                <path
+                  d="M 8 8 Q 24 8 32 24 Q 40 40 56 32"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                  markerEnd="url(#graphics-hero-arrowhead)"
+                />
+                <defs>
+                  <marker id="graphics-hero-arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" />
+                  </marker>
+                </defs>
+              </svg>
 
-            {/* Product Image */}
-            <div className="w-72 h-80 rounded-2xl bg-gradient-to-br from-amber-500/15 to-orange-500/15 border border-amber-200/40 dark:border-amber-500/20 flex items-center justify-center overflow-hidden shadow-xl">
-              <img
-                src="https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&h=400&fit=crop"
-                alt="AI Generated Product"
-                className="w-48 h-48 object-contain drop-shadow-2xl"
-              />
+              {/* Product Image */}
+              <div
+                className="w-full aspect-[4/5] rounded-2xl bg-gradient-to-br from-amber-500/15 to-orange-500/15 border border-amber-200/40 dark:border-amber-500/20 flex items-center justify-center overflow-hidden shadow-xl"
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&h=600&fit=crop"
+                  alt="AI Generated Product"
+                  className="w-[72%] h-[72%] object-contain drop-shadow-2xl"
+                />
+              </div>
             </div>
           </div>
         </div>
