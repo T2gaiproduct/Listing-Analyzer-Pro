@@ -458,6 +458,11 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
   const zeroCredits: CreditBalances = { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const workspacesPlanEntitled = await accountWorkspacesPlanEntitled(ownerId);
 
+  /** Account overview (all workspaces): workspace count. Any scoped workspace dashboard: audits in that workspace. */
+  const secondaryStatKind: "workspace_count" | "total_audits" =
+    accountOverview && workspacesPlanEntitled ? "workspace_count" : "total_audits";
+  const secondaryStatValue = secondaryStatKind === "workspace_count" ? workspaceCount : totalAudits;
+
   let displayCredits: CreditBalances;
   let creditsAllowance: number;
   let creditScope: "member" | "workspace_pool" | "account" = "account";
@@ -790,6 +795,10 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       projectsSavedThisWeek: projectsThisWeek,
       totalAudits,
       auditsWeekOverWeekPct,
+      secondaryStat: {
+        kind: secondaryStatKind,
+        value: secondaryStatValue,
+      },
       timeSavedHours,
       timeSavedThisWeek,
       workspaceCount,

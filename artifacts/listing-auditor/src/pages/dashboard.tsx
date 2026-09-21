@@ -67,6 +67,10 @@ interface DashboardData {
     creditsUsedInPeriod?: number;
     creditsUsedThisWeek?: number;
     workspaceCount?: number;
+    secondaryStat?: {
+      kind: "workspace_count" | "total_audits";
+      value: number;
+    };
   };
   viewMode?: "account" | "workspace";
   impact: {
@@ -622,14 +626,23 @@ export default function Dashboard() {
     && !isTeamMember
     && !showMemberCredits;
 
-  const showWorkspaceCountMetric =
-    workspacesEnabled
-    && isBillingAccountOwner
-    && !isTeamMember
-    && !showMemberCredits;
+  const secondaryStatKind =
+    stats.secondaryStat?.kind
+    ?? (
+      showAgencyAccountOverview
+      && workspacesEnabled
+      && isBillingAccountOwner
+      && !isTeamMember
+      && !showMemberCredits
+        ? "workspace_count"
+        : "total_audits"
+    );
+  const showWorkspaceCountMetric = secondaryStatKind === "workspace_count";
 
   const workspaceCountValue =
-    stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length;
+    stats.secondaryStat?.kind === "workspace_count"
+      ? stats.secondaryStat.value
+      : (stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length);
 
   const workspacePoolCredits = workspacePoolData?.poolCredits;
   const workspacePoolBalance = workspacePoolCredits
@@ -722,7 +735,11 @@ export default function Dashboard() {
         />
         <StatCard
           title={showWorkspaceCountMetric ? "Number of Workspaces" : "Total Audits"}
-          value={showWorkspaceCountMetric ? workspaceCountValue : stats.totalAudits}
+          value={
+            showWorkspaceCountMetric
+              ? workspaceCountValue
+              : (stats.secondaryStat?.kind === "total_audits" ? stats.secondaryStat.value : stats.totalAudits)
+          }
           subtext={
             showWorkspaceCountMetric
               ? workspaceCountValue === 1
