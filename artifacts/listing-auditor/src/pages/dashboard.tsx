@@ -373,10 +373,11 @@ export default function Dashboard() {
     ?? workspaces.find((w) => w.isAccountOwner)?.id
     ?? activeWorkspaceId;
 
-  const showAgencyAccountOverview = isAgencyAccountOverviewDashboard(
-    isBillingAccountOwner,
-    isAgencyAccountOverview,
-  );
+  const showAgencyAccountOverview = workspacesEnabled
+    && isAgencyAccountOverviewDashboard(
+      isBillingAccountOwner,
+      isAgencyAccountOverview,
+    );
 
   async function loadDashboardData(): Promise<DashboardData> {
     if (showAgencyAccountOverview) {
@@ -526,7 +527,10 @@ export default function Dashboard() {
     );
   }
 
-  if ((!memberWorkspaceId && !isMemberView && !isBillingAccountOwner) || (needsWorkspaceSelection && !isMemberView)) {
+  if (
+    (!memberWorkspaceId && !isMemberView && !isBillingAccountOwner)
+    || (needsWorkspaceSelection && !isMemberView && workspacesEnabled)
+  ) {
     if (wsLoading || provisioningWorkspace) {
       return (
         <div className="space-y-4 sm:space-y-6 animate-in fade-in">

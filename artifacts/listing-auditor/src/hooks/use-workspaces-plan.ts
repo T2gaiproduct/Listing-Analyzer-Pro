@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
 import {
   planIncludesWorkspacesFromPlan,
   workspacesUpgradeMessage,
@@ -26,20 +27,49 @@ export interface UserSubscriptionPlan {
   currentPeriodEnd?: string | null;
 }
 
+function subscriptionFromProfileSummary(
+  summary: unknown,
+): UserSubscriptionPlan | null | undefined {
+  if (!summary || typeof summary !== "object") return undefined;
+  const sub = (summary as { subscription?: UserSubscriptionPlan | null }).subscription;
+  if (sub == null) return sub === null ? null : undefined;
+  return {
+    planName: sub.planName ?? null,
+    enabledFeatures: sub.enabledFeatures ?? null,
+    workspacesEnabled: sub.workspacesEnabled,
+    workspacesUpgradePlanNames: sub.workspacesUpgradePlanNames,
+    status: sub.status,
+  };
+}
+
 export function useWorkspacesPlan() {
-  const { data, isLoading } = useQuery<UserSubscriptionPlan | null>({
+  const { isLoaded, user } = useUser();
+  const qc = useQueryClient();
+
+  const { data, isLoading, isFetched } = useQuery<UserSubscriptionPlan | null>({
     queryKey: ["user-subscription"],
     queryFn: () =>
       fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
+    enabled: isLoaded && !!user,
     staleTime: 30_000,
+    placeholderData: () =>
+      subscriptionFromProfileSummary(qc.getQueryData(["user-profile-summary"])),
   });
 
+  const subscriptionResolved =
+    isFetched
+    || subscriptionFromProfileSummary(qc.getQueryData(["user-profile-summary"])) !== undefined;
   const { data: teamAccountPerms } = useQuery<{ workspacesEnabled?: boolean } | null>({
     queryKey: ["team-account-permissions"],
     queryFn: () =>
       fetch(`${basePath}/api/team/account-permissions`, { credentials: "include" }).then((r) =>
         r.ok ? r.json() : null,
       ),
+    enabled:
+      isLoaded
+      && !!user
+      && subscriptionResolved
+      && data?.workspacesEnabled === undefined,
     staleTime: 30_000,
   });
 

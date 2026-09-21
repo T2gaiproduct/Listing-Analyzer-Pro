@@ -14,6 +14,7 @@ import { refetchCreditQueries } from "@/lib/credit-queries";
 import { pathUsesAgencyAccountWideApiScope } from "@/lib/agency-dashboard-scope";
 import { setActiveWorkspaceId } from "@/lib/workspace-header";
 import { resetWorkspaceScopedQueries } from "@/lib/workspace-query-sync";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "la_active_workspace_id";
@@ -110,6 +111,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspaceScopeCommitted, setWorkspaceScopeCommitted] = useState(false);
   const overviewVisitedThisSession = useRef(false);
   const workspaceApiScopeActive = isWorkspaceApiScopeActive(location);
+  const { workspacesEnabled: multiWorkspacePlanEnabled } = useWorkspacesPlan();
 
   const { data: listData, isLoading: listLoading, isError: listError, refetch: refetchList } = useQuery({
     queryKey: ["workspaces"],
@@ -159,6 +161,31 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const isBillingAccountOwnerProfile = profileSummary?.accountRole?.type === "user" && !profileTeamMember;
   const isMainDashboardRoute = location === "/dashboard" || location === "/";
   const isAccountWideListRoute = pathUsesAgencyAccountWideApiScope(location);
+
+  // Plan without multi-workspace: skip agency overview / pick-a-workspace gates — use default workspace immediately.
+  useEffect(() => {
+    if (multiWorkspacePlanEnabled) return;
+    if (!isBillingAccountOwnerProfile || !workspaces.length) return;
+    setAgencyOverviewState(false);
+    try {
+      localStorage.setItem(AGENCY_OVERVIEW_KEY, "false");
+    } catch {
+      /* ignore */
+    }
+    if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
+    const owned = workspaces.filter((w) => w.isAccountOwner);
+    const fallback = owned.find((w) => w.isDefault) ?? owned[0];
+    if (fallback && selectedId !== fallback.id) {
+      setSelectedId(fallback.id);
+      localStorage.setItem(STORAGE_KEY, String(fallback.id));
+    }
+  }, [
+    multiWorkspacePlanEnabled,
+    isBillingAccountOwnerProfile,
+    workspaces,
+    selectedId,
+    workspaceScopeCommitted,
+  ]);
 
   useEffect(() => {
     if (isWorkspaceAdminOverviewRoute(location)) {
@@ -294,10 +321,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isWorkspaceAccountOwner || isBillingAccountOwner;
 
   const isAgencyAccountOverview =
-    isBillingAccountOwner && ownsAnyWorkspace && agencyAccountOverview;
+    multiWorkspacePlanEnabled
+    && isBillingAccountOwner
+    && ownsAnyWorkspace
+    && agencyAccountOverview;
 
   const withholdWorkspaceScope =
-    isBillingAccountOwner
+    multiWorkspacePlanEnabled
+    && isBillingAccountOwner
     && ownsAnyWorkspace
     && !workspaceScopeCommitted
     && !isMainDashboardRoute;
