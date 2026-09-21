@@ -52,6 +52,7 @@ import {
   workspaceFundedPoolTotal,
 } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
+import { accountWorkspacesPlanEntitled } from "../lib/plan-workspaces.js";
 import { WORKSPACE_HEADER } from "../lib/workspace-context";
 
 const router: IRouter = Router();
@@ -455,6 +456,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
 
   type CreditBalances = { aiCredits: number; imageCredits: number; auditCredits: number };
   const zeroCredits: CreditBalances = { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const workspacesPlanEntitled = await accountWorkspacesPlanEntitled(ownerId);
 
   let displayCredits: CreditBalances;
   let creditsAllowance: number;
@@ -488,7 +490,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       creditsAllowance =
         displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
     }
-  } else if (workspaceId && wsCtx.isAccountOwner) {
+  } else if (workspaceId && wsCtx.isAccountOwner && workspacesPlanEntitled) {
     creditScope = "workspace_pool";
     const unassignedPool = await getWorkspaceCredits(workspaceId);
     const memberRemaining = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
@@ -575,6 +577,9 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
   } else if (creditScope === "workspace_pool" && workspaceId != null) {
     creditsUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
     creditsUsedThisWeek = await sumCreditsUsedForWorkspace(workspaceId, weekStart, now);
+  } else if (!isMemberCreditView && wsCtx.isAccountOwner && creditScope === "account") {
+    creditsUsedInPeriod = await sumCreditsUsedInPeriod(ownerId, periodStart, periodEnd);
+    creditsUsedThisWeek = await sumCreditsUsedInPeriod(ownerId, weekStart, now);
   }
 
   let teamCreditsUsedInPeriod = 0;
@@ -795,9 +800,13 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       teamCreditsUsedInPeriod,
       memberCreditsAllocated,
       creditsUsedInPeriod:
-        isMemberCreditView || creditScope === "workspace_pool" ? creditsUsedInPeriod : undefined,
+        isMemberCreditView || creditScope === "workspace_pool" || creditScope === "account"
+          ? creditsUsedInPeriod
+          : undefined,
       creditsUsedThisWeek:
-        isMemberCreditView || creditScope === "workspace_pool" ? creditsUsedThisWeek : undefined,
+        isMemberCreditView || creditScope === "workspace_pool" || creditScope === "account"
+          ? creditsUsedThisWeek
+          : undefined,
     },
     viewMode: accountOverview ? "account" : "workspace",
     impact: {

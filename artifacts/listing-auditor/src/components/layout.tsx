@@ -48,6 +48,7 @@ import { projectTypeToFeature } from "@/lib/workspace-route-access";
 import { isWorkspaceAdminOverviewRoute, isAccountScopedRoute } from "@/lib/workspace-routes";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { fetchAccountOverviewRecents, fetchWorkspaceRecents } from "@/lib/account-recents-fetch";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -211,6 +212,7 @@ export function Layout({ children }: { children: ReactNode }) {
     isAgencyAccountOverview,
     isBillingAccountOwner,
   } = useWorkspace();
+  const { workspacesEnabled } = useWorkspacesPlan();
 
   const homeHref = "/dashboard";
   const canViewArchive = isAccountOwner || canView("archive");
@@ -593,7 +595,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const accountCreditSummary = creditsData?.accountCreditSummary;
 
   const showWorkspacePoolCredits =
-    !isAgencyAccountOverview
+    workspacesEnabled
+    && !isAgencyAccountOverview
     && isAccountOwner
     && !isTeamMember
     && featureWorkspaceId != null

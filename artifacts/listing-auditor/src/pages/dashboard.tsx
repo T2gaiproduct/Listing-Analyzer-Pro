@@ -332,7 +332,7 @@ export default function Dashboard() {
     isAgencyAccountOverview,
     profileLoading,
   } = useWorkspace();
-  const { workspacesEnabled, includedPlansLabel } = useWorkspacesPlan();
+  const { workspacesEnabled, includedPlansLabel, upgradeShort } = useWorkspacesPlan();
 
   const needsAutoWorkspace =
     isBillingAccountOwner && workspaces.length === 0 && !wsLoading;
@@ -395,14 +395,17 @@ export default function Dashboard() {
     && activeWorkspaceId != null;
 
   const showWorkspacePoolCredits =
-    (clientWorkspaceScoped && isAccountOwner && !isTeamMember)
-    || (
-      !isBillingAccountOwner
-      && isAccountOwner
-      && !isTeamMember
-      && featureWorkspaceId != null
-      && isWorkspaceApiScopeActive
-      && !featureWorkspace?.isDefault
+    workspacesEnabled
+    && (
+      (clientWorkspaceScoped && isAccountOwner && !isTeamMember)
+      || (
+        !isBillingAccountOwner
+        && isAccountOwner
+        && !isTeamMember
+        && featureWorkspaceId != null
+        && isWorkspaceApiScopeActive
+        && !featureWorkspace?.isDefault
+      )
     );
 
   const workspacePoolQueryId = clientWorkspaceScoped
@@ -612,6 +615,12 @@ export default function Dashboard() {
     && !showMemberCredits
     && stats.creditScope === "workspace_pool";
 
+  const planCreditsMode =
+    !workspacesEnabled
+    && isBillingAccountOwner
+    && !isTeamMember
+    && !showMemberCredits;
+
   const workspacePoolCredits = workspacePoolData?.poolCredits;
   const workspacePoolBalance = workspacePoolCredits
     ? workspacePoolCredits.auditCredits + workspacePoolCredits.aiCredits + workspacePoolCredits.imageCredits
@@ -656,6 +665,10 @@ export default function Dashboard() {
             return { ...seg, pct: Math.round((seg.balance / total) * 100) };
           })
       : dashboard.creditBreakdown;
+
+  const creditBreakdownForDisplay = planCreditsMode
+    ? dashboard.creditBreakdown.filter((seg) => seg.balance > 0)
+    : creditBreakdown;
 
   return (
     <div className={cn("space-y-4 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
@@ -704,14 +717,14 @@ export default function Dashboard() {
           title={
             showAgencyAccountOverview
               ? "Number of Workspaces"
-              : showMemberCredits || showOwnerWorkspaceCreditsUsed
+              : showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode
                 ? "Credits Used"
                 : "Time Saved"
           }
           value={
             showAgencyAccountOverview
               ? (stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length)
-              : showMemberCredits || showOwnerWorkspaceCreditsUsed
+              : showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode
                 ? (stats.creditsUsedInPeriod ?? 0).toLocaleString()
                 : formatHours(stats.timeSavedHours)
           }
@@ -721,7 +734,7 @@ export default function Dashboard() {
                 ? stats.workspaceCount === 1
                   ? "Includes your owner workspace"
                   : "Includes owner workspace + clients"
-                  : `Upgrade to ${includedPlansLabel} to manage multiple workspaces`
+                  : upgradeShort || `Upgrade to ${includedPlansLabel} to enable workspaces`
               : showMemberCredits
                 ? creditsAllowance > 0
                   ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
@@ -730,21 +743,29 @@ export default function Dashboard() {
                   ? creditsAllowance > 0
                     ? `of ${creditsAllowance.toLocaleString()} funded to this workspace`
                     : "This billing period"
-                  : "From AI tasks completed"
+                  : planCreditsMode
+                    ? creditsAllowance > 0
+                      ? `of ${creditsAllowance.toLocaleString()} plan credits this period`
+                      : "This billing period"
+                    : "From AI tasks completed"
           }
-          icon={showAgencyAccountOverview ? LayoutGrid : (showMemberCredits || showOwnerWorkspaceCreditsUsed) ? Zap : Clock}
+          icon={showAgencyAccountOverview ? LayoutGrid : (showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode) ? Zap : Clock}
           href={showAgencyAccountOverview && workspacesEnabled ? "/workspaces" : undefined}
           locked={showAgencyAccountOverview && !workspacesEnabled}
           lockedHref={showAgencyAccountOverview && !workspacesEnabled ? "/billing" : undefined}
         />
         <StatCard
-          title="Credits Balance"
+          title={planCreditsMode ? "Plan credits" : "Credits Balance"}
           value={creditsBalance.toLocaleString()}
           subtext={
             showMemberCredits
               ? creditsAllowance > 0
                 ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
                 : "No credits allocated yet"
+              : planCreditsMode
+                ? creditsAllowance > 0
+                  ? `of ${creditsAllowance.toLocaleString()} on your plan · decreases as you use features`
+                  : "Credits on your subscription"
               : creditScopeLabel === "workspace_pool"
                 ? creditsAllowance > 0
                   ? `of ${creditsAllowance.toLocaleString()} assigned to this workspace`
@@ -758,6 +779,7 @@ export default function Dashboard() {
                     : `of ${creditsAllowance.toLocaleString()} credits`
           }
           icon={Wallet}
+          href={planCreditsMode ? "/billing" : undefined}
         />
       </div>
 
@@ -825,16 +847,18 @@ export default function Dashboard() {
           {/* Credits donut */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
             <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 sm:mb-4">Credits Usage</h2>
-            <DonutChart data={creditBreakdown} total={creditsBalance} />
-            {creditBreakdown.length === 0 ? (
+            <DonutChart data={creditBreakdownForDisplay} total={creditsBalance} />
+            {creditBreakdownForDisplay.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500 text-center">
                 {showMemberCredits
                   ? "No credits allocated yet. Ask your workspace owner to assign credits."
-                  : "No credits available."}
+                  : planCreditsMode
+                    ? "No plan credits on your account yet."
+                    : "No credits available."}
               </p>
             ) : (
               <ul className="mt-4 space-y-2.5">
-                {creditBreakdown.map((seg) => (
+                {creditBreakdownForDisplay.map((seg) => (
                   <li key={seg.key} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
