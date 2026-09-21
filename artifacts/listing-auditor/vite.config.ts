@@ -38,7 +38,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss({ optimize: process.env.NODE_ENV === "production" }),
-    runtimeErrorOverlay(),
+    // Vite dev + runtime error overlay breaks behind Cloudflare quick tunnels (no HMR websocket).
+    ...(disableHmr ? [] : [runtimeErrorOverlay()]),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [

@@ -104,6 +104,58 @@ tmux_cmd() {
   fi
 }
 
+use_preview_frontend_for_tunnel() {
+  ! should_skip_cloudflare_tunnel
+}
+
+build_listing_auditor_preview() {
+  local clerk_proxy_export="${1:-}"
+  echo "==> Building frontend bundle for Cloudflare tunnel (vite preview — no dev/HMR)"
+  (
+    cd "$ROOT"
+    export PORT=19145
+    export BASE_PATH=/
+    export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
+    export VITE_ADMIN_USER_IDS="$ADMIN_IDS_FOR_STACK"
+    if [[ -n "$clerk_proxy_export" ]]; then
+      eval "$clerk_proxy_export"
+    fi
+    pnpm --filter @workspace/listing-auditor run build
+  )
+}
+
+start_frontend_live() {
+  local clerk_proxy_export="${1:-}"
+  tmux_cmd kill-session -t frontend-live 2>/dev/null || true
+  tmux_cmd kill-session -t vite-test 2>/dev/null || true
+  if use_preview_frontend_for_tunnel; then
+    build_listing_auditor_preview "$clerk_proxy_export"
+    tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
+      export PORT=19145
+      export BASE_PATH=/
+      while true; do
+        pnpm --filter @workspace/listing-auditor run serve || true
+        echo 'Frontend preview exited — restarting in 3s...'
+        sleep 3
+      done
+    "
+  else
+    tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
+      export PORT=19145
+      export BASE_PATH=/
+      export VITE_DISABLE_HMR=true
+      export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+      export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+      $clerk_proxy_export
+      while true; do
+        pnpm --filter @workspace/listing-auditor run dev || true
+        echo 'Frontend exited — restarting in 3s...'
+        sleep 3
+      done
+    "
+  fi
+}
+
 wait_for_url() {
   local url="$1"
   local label="$2"
@@ -473,20 +525,7 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
 "
 
 echo "==> Starting frontend (port 19145)"
-tmux_cmd kill-session -t frontend-live 2>/dev/null || true
-tmux_cmd kill-session -t vite-test 2>/dev/null || true
-tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
-  export PORT=19145
-  export BASE_PATH=/
-  export VITE_DISABLE_HMR=true
-  export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-  export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-  while true; do
-    pnpm --filter @workspace/listing-auditor run dev || true
-    echo 'Frontend exited — restarting in 3s...'
-    sleep 3
-  done
-"
+start_frontend_live ""
 
 wait_for_url "http://127.0.0.1:8080/api/healthz" "API server" 30
 wait_for_url "http://127.0.0.1:19145/" "Frontend" 45
@@ -571,20 +610,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
     FRONTEND_VITE_CLERK_PROXY="export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'"
   fi
 
-  tmux_cmd kill-session -t frontend-live 2>/dev/null || true
-  tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
-    export PORT=19145
-    export BASE_PATH=/
-    export VITE_DISABLE_HMR=true
-    export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-    $FRONTEND_VITE_CLERK_PROXY
-    export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-    while true; do
-      pnpm --filter @workspace/listing-auditor run dev || true
-      echo 'Frontend exited — restarting in 3s...'
-      sleep 3
-    done
-  "
+  start_frontend_live "$FRONTEND_VITE_CLERK_PROXY"
 
   wait_for_url "http://127.0.0.1:8080/api/healthz" "API server (Clerk proxy)" 30
   wait_for_url "http://127.0.0.1:19145/" "Frontend (Clerk proxy)" 45
