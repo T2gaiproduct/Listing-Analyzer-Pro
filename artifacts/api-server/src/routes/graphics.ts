@@ -24,10 +24,13 @@ import { formatGraphicsProjectError, isGraphicsSchemaError } from "../lib/db-cli
 import * as fs from "fs";
 import * as path from "path";
 import pLimit from "p-limit";
+import {
+  GRAPHICS_IMAGES_DIR,
+  ensureGraphicsImageDir,
+  resolveGraphicsImagePath,
+} from "../lib/image-storage.js";
 
 const router: IRouter = Router();
-
-const IMAGES_DIR = path.join(process.cwd(), "public", "images", "graphics");
 
 interface AuthedRequest extends Request {
   userId: string;
@@ -302,7 +305,7 @@ async function generateGraphicsImages(
   customLifestylePrompt?: string,
   customFeaturePrompt?: string,
 ): Promise<GraphicsImageRecord[]> {
-  const dir = path.join(IMAGES_DIR, String(projectId));
+  const dir = ensureGraphicsImageDir(projectId);
   ensureDir(dir);
 
   const existing = existingRecords ?? [];
@@ -407,7 +410,7 @@ async function generateNewImageTypes(
   typeConfigs?: Record<string, ImageTypeGenerationConfig>,
   legacy?: ImageTypeGenerationConfig,
 ): Promise<GraphicsImageRecord[]> {
-  const dir = path.join(IMAGES_DIR, String(projectId));
+  const dir = ensureGraphicsImageDir(projectId);
   ensureDir(dir);
 
   const existing = existingRecords ?? [];
@@ -524,7 +527,7 @@ async function editGraphicsImage(
   editPrompt: string,
   referenceImageUrls?: string[],
 ): Promise<GraphicsImageRecord> {
-  const dir = path.join(IMAGES_DIR, String(projectId));
+  const dir = ensureGraphicsImageDir(projectId);
   const currentFilename = path.basename(existingRecord.currentUrl);
   const sourceFilePath = path.join(dir, currentFilename);
 
@@ -572,7 +575,7 @@ function applyQualityToPrompt(prompt: string, quality?: string): string {
 
 function savePromptReferenceImages(projectId: number, urls: string[] | undefined): string[] {
   if (!urls?.length) return [];
-  const dir = path.join(IMAGES_DIR, String(projectId), "prompt_refs");
+  const dir = path.join(ensureGraphicsImageDir(projectId), "prompt_refs");
   ensureDir(dir);
   const saved: string[] = [];
   urls.forEach((img, idx) => {
@@ -652,7 +655,7 @@ async function resolveProjectSourcePath(
   projectId: number,
   sourceImagePaths?: string[] | null,
 ): Promise<string | null> {
-  const dir = path.join(IMAGES_DIR, String(projectId));
+  const dir = ensureGraphicsImageDir(projectId);
   const rawPath = sourceImagePaths?.[0] ?? null;
   if (!rawPath) return null;
 
@@ -679,11 +682,8 @@ async function resolveRegenerateReferencePath(
   const url = existingRecord.currentUrl;
   const prefix = `/api/images/graphics/${projectId}/`;
   if (url.startsWith(prefix)) {
-    const filename = url.slice(prefix.length);
-    const localPath = path.join(IMAGES_DIR, String(projectId), filename);
-    if (fs.existsSync(localPath) && fs.statSync(localPath).size >= MIN_FILE_SIZE) {
-      return localPath;
-    }
+    const resolved = resolveGraphicsImagePath(projectId, url);
+    if (resolved) return resolved;
   }
 
   return null;
@@ -781,7 +781,7 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
 
     // Save uploaded base64 images as files; store paths only (never base64 in Postgres).
     if (sourceImages.length > 0) {
-      const projectDir = path.join(IMAGES_DIR, String(project.id), "source");
+      const projectDir = path.join(GRAPHICS_IMAGES_DIR, String(project.id), "source");
       ensureDir(projectDir);
       const savedPaths: string[] = [];
       sourceImages.forEach((img, idx) => {
@@ -1082,7 +1082,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
   }
 
   try {
-    const dir = path.join(IMAGES_DIR, String(id));
+    const dir = ensureGraphicsImageDir(id);
     const prompt = buildRegeneratePrompt(existingRecord, project.productName, project.category, regenStyle);
     const size = ASPECT_SIZES[regenAspectRatio as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
     const sourcePath = await resolveRegenerateReferencePath(id, project.sourceImageUrls, existingRecord);

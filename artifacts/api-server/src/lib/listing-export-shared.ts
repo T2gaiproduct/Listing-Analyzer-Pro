@@ -2,7 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Audit, GeneratedContent, ImageRecord } from "@workspace/db";
 import type { AplusModule, AplusStoredState } from "./aplus-generator.js";
-import { extractEmbeddedDataImageUrl, GRAPHICS_IMAGES_DIR, repairCorruptedImageUrl, resolveAuditImagePath } from "./image-storage.js";
+import {
+  extractEmbeddedDataImageUrl,
+  repairCorruptedImageUrl,
+  resolveAuditImagePath,
+  resolveGraphicsImagePath,
+} from "./image-storage.js";
 
 export interface ExportImageAsset {
   id: string;
@@ -157,15 +162,6 @@ export function buildAplusImageAssets(
       kind: "aplus",
     };
   });
-}
-
-function resolveGraphicsImagePath(projectId: number, imageUrl: string): string | null {
-  const filename = path.basename((imageUrl.split("?")[0] ?? imageUrl));
-  const candidate = path.join(GRAPHICS_IMAGES_DIR, String(projectId), filename);
-  if (fs.existsSync(candidate) && fs.statSync(candidate).size >= 1024) return candidate;
-  const sourceCandidate = path.join(GRAPHICS_IMAGES_DIR, String(projectId), "source", filename);
-  if (fs.existsSync(sourceCandidate) && fs.statSync(sourceCandidate).size >= 1024) return sourceCandidate;
-  return null;
 }
 
 export async function loadImageBuffer(opts: {

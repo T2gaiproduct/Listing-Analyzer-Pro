@@ -3,7 +3,7 @@ import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, auditsTable, graphicsProjectsTable } from "@workspace/db";
-import { GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./image-storage";
+import { resolveAuditImagePath, resolveGraphicsImagePath } from "./image-storage";
 import { getDefaultWorkspaceId } from "./ensure-workspaces.js";
 import {
   assertProjectViewAccess,
@@ -135,13 +135,19 @@ export function sendAuditImage(req: Request, res: Response, next: NextFunction):
 }
 
 export function sendGraphicsImage(req: Request, res: Response): void {
-  const projectId = String(req.params.projectId ?? "");
+  const projectId = parseInt(String(req.params.projectId ?? ""), 10);
   const filename = path.basename(String(req.params.filename ?? ""));
-  if (!projectId || !filename || filename.includes("..")) {
+  if (Number.isNaN(projectId) || !filename || filename.includes("..")) {
     res.status(404).json({ error: "Image not found" });
     return;
   }
-  res.sendFile(path.join(GRAPHICS_IMAGES_DIR, projectId, filename), (err) => {
-    if (err) res.status(404).json({ error: "Image not found" });
-  });
+  const resolved = resolveGraphicsImagePath(
+    projectId,
+    `/api/images/graphics/${projectId}/${filename}`,
+  );
+  if (resolved) {
+    res.sendFile(resolved);
+    return;
+  }
+  res.status(404).json({ error: "Image not found" });
 }

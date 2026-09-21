@@ -15,6 +15,50 @@ export const GRAPHICS_IMAGES_DIR = path.join(IMAGES_DIR, "graphics");
 /** Older runs wrote to monorepo /public/images when cwd was the workspace root. */
 const LEGACY_IMAGES_DIR = path.resolve(API_ROOT, "../../public/images");
 
+const LEGACY_GRAPHICS_IMAGES_DIR = path.join(LEGACY_IMAGES_DIR, "graphics");
+
+export function graphicsImageDir(projectId: number): string {
+  return path.join(GRAPHICS_IMAGES_DIR, String(projectId));
+}
+
+export function ensureGraphicsImageDir(projectId: number): string {
+  const dir = graphicsImageDir(projectId);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function migrateGraphicsToCanonical(sourcePath: string, projectId: number, filename: string): string {
+  const canonical = path.join(GRAPHICS_IMAGES_DIR, String(projectId), filename);
+  if (sourcePath === canonical) return canonical;
+  ensureGraphicsImageDir(projectId);
+  if (!fs.existsSync(canonical)) {
+    fs.copyFileSync(sourcePath, canonical);
+  }
+  return canonical;
+}
+
+/** Resolve a graphics image URL to an on-disk path; copies legacy files into canonical storage. */
+export function resolveGraphicsImagePath(projectId: number, imageUrl: string): string | null {
+  const filename = path.basename((imageUrl.split("?")[0] ?? imageUrl));
+  const candidates = [
+    path.join(GRAPHICS_IMAGES_DIR, String(projectId), filename),
+    path.join(GRAPHICS_IMAGES_DIR, String(projectId), "source", filename),
+    path.join(LEGACY_GRAPHICS_IMAGES_DIR, String(projectId), filename),
+    path.join(process.cwd(), "public", "images", "graphics", String(projectId), filename),
+    path.join(process.cwd(), "public", "images", "graphics", String(projectId), "source", filename),
+  ];
+
+  for (const candidate of candidates) {
+    if (!isValidImageFile(candidate)) continue;
+    if (candidate.includes(path.join(String(projectId), "source"))) {
+      return candidate;
+    }
+    return migrateGraphicsToCanonical(candidate, projectId, filename);
+  }
+
+  return null;
+}
+
 export function auditImageDir(auditId: number): string {
   return path.join(IMAGES_DIR, String(auditId));
 }

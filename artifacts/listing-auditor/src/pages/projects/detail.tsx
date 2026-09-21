@@ -35,6 +35,18 @@ import { readAplusFromAudit } from "@/components/aplus-content-wizard";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function resolveGraphicsImageUrl(url: string): string {
+  const trimmed = url.trim();
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("data:")
+  ) {
+    return trimmed;
+  }
+  return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
+}
+
 interface ImageVersion {
   url: string;
   style: string;
@@ -509,7 +521,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-2">Current</p>
                   <div className="rounded-lg border bg-slate-50 aspect-square overflow-hidden">
-                    <img src={editRecord.currentUrl} alt="Current" className="w-full h-full object-contain" />
+                    <img src={resolveGraphicsImageUrl(editRecord.currentUrl)} alt="Current" className="w-full h-full object-contain" />
                   </div>
                 </div>
                 <div>
@@ -610,7 +622,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                       >
                         <div className="aspect-square bg-slate-50">
                           <img
-                            src={v.url}
+                            src={resolveGraphicsImageUrl(v.url)}
                             alt={`Version ${historyRecord.versions.length - i}`}
                             className="w-full h-full object-contain"
                           />
@@ -838,7 +850,7 @@ function ImageCard({
     <div className="group relative rounded-lg border border-slate-100 overflow-hidden bg-white hover:shadow-md transition-shadow">
       <div className="aspect-square relative overflow-hidden">
         <img
-          src={record.currentUrl}
+          src={resolveGraphicsImageUrl(record.currentUrl)}
           alt={`${record.type} ${record.index + 1}`}
           className="w-full h-full object-cover"
         />
