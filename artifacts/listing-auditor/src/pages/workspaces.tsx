@@ -26,6 +26,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-header";
+import { applyWorkspaceCreated } from "@/lib/on-workspace-created";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format } from "date-fns";
 import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
@@ -266,11 +267,17 @@ export default function WorkspacesPage() {
         body: JSON.stringify(body),
       });
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["workspaces"] });
-      qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
-      refetch();
+    onSuccess: (result) => {
       setOpen(false);
+      const savedForm = { ...form };
+      if (!editing && result && typeof result === "object" && "id" in result) {
+        const created = result as { id: number };
+        applyWorkspaceCreated(qc, created, savedForm, isAccountOwner, setActiveWorkspaceId);
+      } else {
+        void qc.invalidateQueries({ queryKey: ["workspaces"] });
+        void qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
+      }
+      refetch();
       toast({
         title: editing ? "Workspace updated" : "Workspace created",
         description: !editing && !isAccountOwner

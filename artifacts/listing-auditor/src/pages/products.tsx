@@ -26,6 +26,7 @@ import { fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { useActionDialog } from "@/components/ui/action-dialog";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useWorkspaceScopeLoading } from "@/hooks/use-workspace-scope-loading";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { canExportListingSource } from "@/components/listing-export-button";
 import { downloadAuditExport } from "@/lib/amazon-export";
@@ -272,7 +273,7 @@ export default function ProductsPage() {
   const productsQueryScope = showAccountProducts ? "owner-account" : featureWorkspaceId;
   const productsQueryEnabled =
     clerkLoaded && !!user && (showAccountProducts || !!featureWorkspaceId);
-  const { data: apiData, isLoading } = useQuery({
+  const { data: apiData, isLoading, isFetching } = useQuery({
     queryKey: ["products", productsQueryScope],
     queryFn: () =>
       showAccountProducts
@@ -282,6 +283,11 @@ export default function ProductsPage() {
     staleTime: 10_000,
     refetchOnMount: "always",
     retry: 1,
+  });
+  const scopeLoading = useWorkspaceScopeLoading(productsQueryScope, {
+    isFetching,
+    isLoading,
+    isEnabled: productsQueryEnabled,
   });
 
   const products = useMemo(
@@ -439,7 +445,7 @@ export default function ProductsPage() {
     });
   };
 
-  if (wsLoading || (isLoading && productsQueryEnabled)) {
+  if (wsLoading || scopeLoading || (isLoading && productsQueryEnabled)) {
     return (
       <div className="space-y-4 animate-in fade-in">
         <Skeleton className="h-4 w-32" />

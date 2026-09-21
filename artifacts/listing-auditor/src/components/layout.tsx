@@ -43,6 +43,7 @@ import {
 import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useWorkspaceScopeLoading } from "@/hooks/use-workspace-scope-loading";
 import { projectTypeToFeature } from "@/lib/workspace-route-access";
 import { isWorkspaceAdminOverviewRoute, isAccountScopedRoute } from "@/lib/workspace-routes";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
@@ -411,14 +412,19 @@ export function Layout({ children }: { children: ReactNode }) {
   const recentsScope = showAccountRecents
     ? "owner-account"
     : `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
-  const { data: recentsData } = useQuery({
+  const { data: recentsData, isLoading: recentsLoading, isFetching: recentsFetching } = useQuery({
     queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
     queryFn: () =>
       showAccountRecents ? fetchAccountOverviewRecents(200) : fetchWorkspaceRecents(200),
     staleTime: 30_000,
     enabled: recentsReady,
   });
-  const recents = (recentsData?.items ?? []) as RecentItem[];
+  const recentsScopeLoading = useWorkspaceScopeLoading(recentsScope, {
+    isFetching: recentsFetching,
+    isLoading: recentsLoading,
+    isEnabled: recentsReady,
+  });
+  const recents = recentsScopeLoading ? [] : ((recentsData?.items ?? []) as RecentItem[]);
 
   // Search projects (scoped to active workspace)
   const { data: searchData } = useQuery({

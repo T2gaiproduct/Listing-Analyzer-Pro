@@ -13,6 +13,7 @@ import { fetchJson } from "@/lib/api-fetch";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { pathUsesAgencyAccountWideApiScope } from "@/lib/agency-dashboard-scope";
 import { setActiveWorkspaceId } from "@/lib/workspace-header";
+import { resetWorkspaceScopedQueries } from "@/lib/workspace-query-sync";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "la_active_workspace_id";
@@ -288,7 +289,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isAgencyAccountOverview && (isMainDashboardRoute || isAccountWideListRoute);
 
   const validActiveWorkspace =
-    activeWorkspaceId != null && workspaces.some((w) => w.id === activeWorkspaceId);
+    activeWorkspaceId != null
+    && (
+      workspaces.some((w) => w.id === activeWorkspaceId)
+      || selectedId === activeWorkspaceId
+    );
   const withholdFeatureWorkspaceScope =
     (withholdWorkspaceScope && !(validActiveWorkspace && !isAccountWideListRoute))
     || withholdForAgencyOverview;
@@ -297,7 +302,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     ? (withholdFeatureWorkspaceScope ? null : activeWorkspaceId)
     : null;
   const featureWorkspace = featureWorkspaceId
-    ? workspaces.find((w) => w.id === featureWorkspaceId) ?? null
+    ? workspaces.find((w) => w.id === featureWorkspaceId)
+      ?? (featureWorkspaceId === selectedId
+        ? {
+          id: featureWorkspaceId,
+          name: "Workspace",
+          description: null,
+          clientLabel: null,
+          isDefault: false,
+          isAccountOwner: isBillingAccountOwner,
+          roleName: null,
+        }
+        : null)
     : null;
   const needsWorkspaceSelection = withholdWorkspaceScope
     && workspaceApiScopeActive
@@ -357,6 +373,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const setWorkspace = useCallback((id: number) => {
     const changed = selectedId !== id;
+    setActiveWorkspaceId(id);
     setSelectedId(id);
     setAgencyOverviewState(false);
     try {
@@ -367,18 +384,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setWorkspaceScopeCommitted(true);
     localStorage.setItem(STORAGE_KEY, String(id));
     if (!changed && !agencyAccountOverview) return;
-    void qc.invalidateQueries({ queryKey: ["workspace-permissions"] });
-    void qc.invalidateQueries({ queryKey: ["products"] });
-    void qc.invalidateQueries({ queryKey: ["product"] });
-    void qc.invalidateQueries({ queryKey: ["audits"] });
-    void qc.invalidateQueries({ queryKey: ["graphics-projects"] });
-    void qc.invalidateQueries({ queryKey: ["recents"] });
-    void qc.invalidateQueries({ queryKey: ["/api/recents"] });
-    void qc.invalidateQueries({ queryKey: ["dashboard"] });
-    void qc.invalidateQueries({ queryKey: ["archive"] });
-    void qc.invalidateQueries({ queryKey: ["search-projects"] });
-    void qc.invalidateQueries({ queryKey: ["workspace-member-credits"] });
-    void qc.removeQueries({ queryKey: ["workspace-permissions"], exact: false });
+    resetWorkspaceScopedQueries(qc);
     void refetchCreditQueries(qc);
   }, [qc, selectedId, agencyAccountOverview]);
 

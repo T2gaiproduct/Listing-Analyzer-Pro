@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
+import { applyWorkspaceCreated } from "@/lib/on-workspace-created";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const DROPDOWN_PREVIEW_LIMIT = 8;
@@ -116,11 +117,15 @@ export function TopbarWorkspaceSwitcher() {
         }),
       }),
     onSuccess: (ws) => {
-      void qc.invalidateQueries({ queryKey: ["workspaces"] });
-      refetch();
       setCreateOpen(false);
+      const savedForm = { ...form };
       setForm({ name: "", description: "", clientLabel: "" });
-      if (ws?.id) setActiveWorkspaceId(ws.id);
+      if (ws?.id) {
+        applyWorkspaceCreated(qc, ws, savedForm, isAccountOwner, setActiveWorkspaceId);
+      } else {
+        void qc.invalidateQueries({ queryKey: ["workspaces"] });
+      }
+      refetch();
       toast({ title: "Workspace created" });
     },
     onError: (err: Error) =>

@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useWorkspaceScopeLoading } from "@/hooks/use-workspace-scope-loading";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useRecentProjectMutations } from "@/hooks/use-recent-project-mutations";
 import { RecentProjectMenu, type EnrichedRecentItem } from "@/components/recent-project-menu";
@@ -216,11 +217,16 @@ export default function RecentProjectsPage() {
 
   const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
   const recentsEnabled = clerkLoaded && !!user && !!featureWorkspaceId;
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
     queryFn: () => fetchWorkspaceRecents(200),
     staleTime: 30_000,
     enabled: recentsEnabled,
+  });
+  const scopeLoading = useWorkspaceScopeLoading(recentsScope, {
+    isFetching,
+    isLoading,
+    isEnabled: recentsEnabled,
   });
 
   const { pinMutation, renameMutation, archiveMutation, deleteMutation } = useRecentProjectMutations(200);
@@ -254,7 +260,7 @@ export default function RecentProjectsPage() {
     onDelete: () => deleteMutation.mutateAsync({ type: item.type, id: item.id }),
   });
 
-  if (wsLoading || (isLoading && recentsEnabled)) {
+  if (wsLoading || scopeLoading || (isLoading && recentsEnabled)) {
     return (
       <div className="space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-72" />

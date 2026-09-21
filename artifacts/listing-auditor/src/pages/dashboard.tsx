@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useWorkspaceScopeLoading } from "@/hooks/use-workspace-scope-loading";
 
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
@@ -407,23 +408,32 @@ export default function Dashboard() {
     ? activeWorkspaceId
     : featureWorkspaceId;
 
+  const dashboardScope = showAgencyAccountOverview
+    ? "account"
+    : `workspace-${activeWorkspaceId ?? featureWorkspaceId}`;
+  const dashboardQueryEnabled =
+    clerkLoaded
+    && !!user
+    && (isBillingAccountOwner || !!featureWorkspaceId || !!activeWorkspaceId)
+    && (isBillingAccountOwner || isAccountOwner || canView("dashboard") || isMemberView);
   const { data: dashboard, isLoading, isFetching, isError, error, refetch } = useQuery<DashboardData>({
     queryKey: [
       "dashboard",
-      showAgencyAccountOverview ? "account" : `workspace-${activeWorkspaceId ?? featureWorkspaceId}`,
+      dashboardScope,
       defaultOwnedWorkspaceId,
     ],
     queryFn: () => loadDashboardData(),
-    enabled:
-      clerkLoaded
-      && !!user
-      && (isBillingAccountOwner || !!featureWorkspaceId || !!activeWorkspaceId)
-      && (isBillingAccountOwner || isAccountOwner || canView("dashboard") || isMemberView),
+    enabled: dashboardQueryEnabled,
     staleTime: 30_000,
     retry: (failureCount, err) => {
       if (err instanceof ApiFetchError && err.status >= 400) return failureCount < 1;
       return failureCount < 3;
     },
+  });
+  const dashboardScopeLoading = useWorkspaceScopeLoading(dashboardScope, {
+    isFetching,
+    isLoading,
+    isEnabled: dashboardQueryEnabled,
   });
 
   const { data: ownerCreditsPayload } = useQuery<{
@@ -496,7 +506,12 @@ export default function Dashboard() {
     );
   }
 
-  if (provisioningWorkspace || (wsLoading && !memberWorkspaceId && !isBillingAccountOwner) || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))) {
+  if (
+    provisioningWorkspace
+    || dashboardScopeLoading
+    || (wsLoading && !memberWorkspaceId && !isBillingAccountOwner)
+    || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))
+  ) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
