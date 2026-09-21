@@ -247,7 +247,7 @@ function AdminNavSections({
               <button
                 type="button"
                 onClick={() => toggleSection(section.label)}
-                className="w-full flex items-center justify-between text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1.5 px-3 hover:text-slate-300 transition-colors min-h-9"
+                className="w-full flex items-center justify-between text-[10px] font-medium text-white/60 uppercase tracking-wide mb-1.5 px-3 hover:text-white transition-colors min-h-9"
               >
                 <span>{section.label}</span>
                 {isSectionCollapsed ? (
@@ -257,7 +257,7 @@ function AdminNavSections({
                 )}
               </button>
             ) : (
-              <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1.5 px-3">
+              <p className="text-[10px] font-medium text-white/60 uppercase tracking-wide mb-1.5 px-3">
                 {section.label}
               </p>
             ))}
@@ -276,10 +276,10 @@ function AdminNavSections({
                       collapsed ? "justify-center px-2 py-1.5" : "gap-2.5 px-3 py-1.5",
                       isActive
                         ? "bg-orange-500 text-white shadow-sm"
-                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                        : "text-white/90 hover:bg-slate-800 hover:text-white"
                     )}
                   >
-                    <item.icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
+                    <item.icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-white/70 group-hover:text-white")} />
                     {!collapsed && item.label}
                     {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
                   </Link>
@@ -365,8 +365,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   }, [location]);
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
-      <aside className={cn("hidden lg:flex flex-shrink-0 bg-slate-900 text-slate-100 flex-col shadow-2xl z-10 transition-[width] duration-200", collapsed ? "w-16" : "w-64")}>
+    <div className="admin-app-shell flex h-screen w-full bg-slate-50 overflow-hidden">
+      <aside className={cn("hidden lg:flex flex-shrink-0 bg-slate-900 text-white flex-col shadow-2xl z-10 transition-[width] duration-200", collapsed ? "w-16" : "w-64")}>
         {collapsed ? (
           <div className="h-16 flex flex-col items-center justify-center gap-1 px-2 border-b border-slate-700/50">
             <Link href={adminHome} aria-label="Dashboard">

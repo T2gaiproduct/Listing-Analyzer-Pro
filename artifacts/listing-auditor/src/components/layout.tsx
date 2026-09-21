@@ -706,7 +706,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
     <div
-      className="flex h-screen w-full bg-background overflow-hidden"
+      className="customer-app-shell flex h-screen w-full bg-background overflow-hidden"
     >
       {/* Sidebar */}
       <TooltipProvider>

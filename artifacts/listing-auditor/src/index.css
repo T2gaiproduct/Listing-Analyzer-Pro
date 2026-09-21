@@ -58,11 +58,6 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
-  /* Align common slate utility greys with sidebar foreground (customer shell) */
-  --color-slate-400: hsl(222 35% 22%);
-  --color-slate-500: hsl(222 47% 11%);
-  --color-slate-600: hsl(222 47% 11%);
-
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
@@ -166,6 +161,13 @@
   --sidebar-accent: 215 100% 20%;
   --sidebar-accent-foreground: 210 40% 98%;
   --sidebar-ring: 28 100% 50%;
+}
+
+/* Customer dashboard (light sidebar): darker slate utilities for nav contrast — not used on admin dark sidebar */
+.customer-app-shell {
+  --color-slate-400: hsl(222 35% 22%);
+  --color-slate-500: hsl(222 47% 11%);
+  --color-slate-600: hsl(222 47% 11%);
 }
 
 @layer base {

@@ -111,16 +111,20 @@ const TAG_OPTIONS = ["", "Most Popular", "Best Value", "New", "Recommended", "Li
 
 function PlanForm({
   initial,
+  editingPlanName,
   onSave,
   onCancel,
   isPending,
 }: {
   initial: PlanFormState;
+  /** When editing an existing plan, used for capability gating (avoids flicker while renaming). */
+  editingPlanName?: string;
   onSave: (v: PlanFormState) => void;
   onCancel: () => void;
   isPending: boolean;
 }) {
   const [form, setForm] = useState(initial);
+  const capabilityPlanName = (form.name.trim() || editingPlanName?.trim() || "");
   const f = (key: keyof PlanFormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [key]: e.target.type === "number" ? Number(e.target.value) : e.target.value }));
 
@@ -133,6 +137,14 @@ function PlanForm({
 
   return (
     <div className="grid grid-cols-2 gap-4 p-5 bg-slate-50 rounded-xl border border-slate-200">
+      {editingPlanName && (
+        <p className="col-span-2 text-sm text-slate-600">
+          Editing plan <span className="font-semibold text-slate-900">{editingPlanName}</span>
+          {form.name.trim() && form.name.trim() !== editingPlanName && (
+            <> — will save as <span className="font-semibold text-slate-900">{form.name.trim()}</span></>
+          )}
+        </p>
+      )}
       {/* Name + Description */}
       <div className="col-span-2 grid grid-cols-2 gap-3">
         <div>
@@ -192,7 +204,7 @@ function PlanForm({
         </p>
         <div className="space-y-2">
           {PLAN_CAPABILITY_CATALOG.map((cap) => {
-            const canEnable = adminCanEnableCapability(form.name, cap.key);
+            const canEnable = adminCanEnableCapability(capabilityPlanName, cap.key);
             return (
               <div
                 key={cap.key}
@@ -203,7 +215,9 @@ function PlanForm({
                   <p className="text-xs text-slate-500">{cap.description}</p>
                   {!canEnable && cap.key === "workspaces" && (
                     <p className="text-xs text-amber-700 mt-1">
-                      Not available on Free or Starter. Enable on Pro or Agencies plans only.
+                      Not available on Free or Starter. Close this form, click <span className="font-medium">Edit</span> on
+                      the <span className="font-medium">Pro</span> or <span className="font-medium">Agencies</span> plan
+                      card below, then turn on Multiple workspaces and save.
                     </p>
                   )}
                 </div>
@@ -492,6 +506,7 @@ export default function AdminPlans() {
             <div key={plan.id} className="col-span-full">
               <PlanForm
                 initial={planToFormInitial(plan)}
+                editingPlanName={plan.name}
                 onSave={(form) => updateMutation.mutate({ id: plan.id, ...buildPayload(form) })}
                 onCancel={() => setEditingId(null)}
                 isPending={updateMutation.isPending}
