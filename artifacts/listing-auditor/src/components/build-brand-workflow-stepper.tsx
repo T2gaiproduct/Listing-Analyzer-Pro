@@ -1,4 +1,4 @@
-import type { ElementType } from "react";
+import { useEffect, useRef, type ElementType } from "react";
 import { Check, Download, Eye, FileText, Image as ImageIcon, PackageSearch, Sparkles, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,16 +23,17 @@ export const BUILD_BRAND_WORKFLOW_STEPS: {
   id: BuildBrandWorkflowStepId;
   key: string;
   label: string;
+  shortLabel: string;
   sub: string;
   icon: ElementType;
 }[] = [
-  { id: 1, key: "select", label: "SELECT", sub: "Find existing product", icon: PackageSearch },
-  { id: 2, key: "upload", label: "UPLOAD", sub: "Upload product images", icon: Upload },
-  { id: 3, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
-  { id: 4, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
-  { id: 5, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
-  { id: 6, key: "listing_preview", label: "LISTING PREVIEW", sub: "Amazon-style preview", icon: Eye },
-  { id: 7, key: "export", label: "EXPORT", sub: "CSV & Excel download", icon: Download },
+  { id: 1, key: "select", label: "SELECT", shortLabel: "Select", sub: "Find existing product", icon: PackageSearch },
+  { id: 2, key: "upload", label: "UPLOAD", shortLabel: "Upload", sub: "Upload product images", icon: Upload },
+  { id: 3, key: "listing", label: "LISTING", shortLabel: "Listing", sub: "Create listing content", icon: FileText },
+  { id: 4, key: "graphics", label: "GRAPHICS", shortLabel: "Graphics", sub: "Create product graphics", icon: ImageIcon },
+  { id: 5, key: "aplus", label: "A+ CONTENT", shortLabel: "A+", sub: "Create A+ content", icon: Sparkles },
+  { id: 6, key: "listing_preview", label: "LISTING PREVIEW", shortLabel: "Preview", sub: "Amazon-style preview", icon: Eye },
+  { id: 7, key: "export", label: "EXPORT", shortLabel: "Export", sub: "CSV & Excel download", icon: Download },
 ];
 
 export function buildBrandStepCompletedFromCurrentStep(
@@ -66,61 +67,98 @@ export function BuildBrandWorkflowStepper({
   onStepClick,
   className,
 }: BuildBrandWorkflowStepperProps) {
+  const activeStepRef = useRef<HTMLButtonElement>(null);
+  const activeMeta = BUILD_BRAND_WORKFLOW_STEPS.find((s) => s.id === activeStep) ?? BUILD_BRAND_WORKFLOW_STEPS[0];
+  const progressPct = Math.round((activeStep / BUILD_BRAND_WORKFLOW_STEPS.length) * 100);
+
+  useEffect(() => {
+    activeStepRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [activeStep]);
+
   return (
     <div
       className={cn(
-        "border border-border bg-card rounded-xl overflow-x-auto flex-shrink-0",
+        "border border-border bg-card rounded-xl overflow-hidden flex-shrink-0",
         className,
       )}
     >
-      <div className="flex items-stretch min-w-[32rem] w-full">
-        {BUILD_BRAND_WORKFLOW_STEPS.map((s) => {
-          const isActive = activeStep === s.id;
-          const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
-          const clickable = Boolean(onStepClick);
+      <div className="px-4 py-2.5 border-b border-border sm:hidden">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Step {activeStep} of {BUILD_BRAND_WORKFLOW_STEPS.length}
+          </p>
+          <p className="text-[11px] text-muted-foreground truncate">{activeMeta.sub}</p>
+        </div>
+        <p className="text-sm font-semibold text-foreground mt-0.5">{activeMeta.shortLabel}</p>
+        <div className="h-1 bg-muted rounded-full mt-2 overflow-hidden" aria-hidden>
+          <div
+            className="h-full bg-orange-500 rounded-full transition-[width] duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
 
-          return (
-            <button
-              key={s.id}
-              type="button"
-              disabled={!clickable}
-              onClick={() => onStepClick?.(s.id)}
-              className={cn(
-                "flex-1 min-w-[3.5rem] flex flex-col items-center py-3 gap-0.5 border-b-2 transition-all text-center px-1",
-                isActive ? "border-orange-500" : "border-transparent",
-                clickable && !isActive && "hover:border-border cursor-pointer",
-                !clickable && "cursor-default",
-              )}
-            >
-              <div
+      <div
+        className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="flex items-stretch w-max min-w-full sm:min-w-[32rem] px-1 sm:px-0">
+          {BUILD_BRAND_WORKFLOW_STEPS.map((s) => {
+            const isActive = activeStep === s.id;
+            const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
+            const clickable = Boolean(onStepClick);
+
+            return (
+              <button
+                key={s.id}
+                ref={isActive ? activeStepRef : undefined}
+                type="button"
+                disabled={!clickable}
+                onClick={() => onStepClick?.(s.id)}
                 className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors",
-                  isCompleted || isActive
-                    ? "bg-orange-500 border-orange-500 text-white"
-                    : "bg-card border-border text-muted-foreground",
+                  "flex-shrink-0 w-[4.25rem] sm:flex-1 sm:min-w-[3.5rem] flex flex-col items-center py-2.5 sm:py-3 gap-0.5 border-b-2 transition-all text-center px-0.5 snap-center",
+                  isActive ? "border-orange-500" : "border-transparent",
+                  clickable && !isActive && "hover:border-border cursor-pointer",
+                  !clickable && "cursor-default",
                 )}
               >
-                {isCompleted ? <Check className="w-4 h-4" /> : s.id}
-              </div>
-              <p
-                className={cn(
-                  "text-[10px] font-bold uppercase tracking-wide leading-none whitespace-nowrap",
-                  isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-muted-foreground",
-                )}
-              >
-                {s.label}
-              </p>
-              <p
-                className={cn(
-                  "text-[10px] leading-tight hidden sm:block",
-                  isActive || isCompleted ? "text-muted-foreground" : "text-muted-foreground/70",
-                )}
-              >
-                {s.sub}
-              </p>
-            </button>
-          );
-        })}
+                <div
+                  className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors",
+                    isCompleted || isActive
+                      ? "bg-orange-500 border-orange-500 text-white"
+                      : "bg-card border-border text-muted-foreground",
+                  )}
+                >
+                  {isCompleted ? <Check className="w-4 h-4" /> : s.id}
+                </div>
+                <p
+                  className={cn(
+                    "text-[9px] sm:hidden font-semibold leading-tight text-center max-w-full px-0.5 line-clamp-2",
+                    isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-muted-foreground",
+                  )}
+                >
+                  {s.shortLabel}
+                </p>
+                <p
+                  className={cn(
+                    "hidden sm:block text-[10px] font-bold uppercase tracking-wide leading-none",
+                    isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-muted-foreground",
+                  )}
+                >
+                  {s.label}
+                </p>
+                <p
+                  className={cn(
+                    "text-[10px] leading-tight hidden sm:block",
+                    isActive || isCompleted ? "text-muted-foreground" : "text-muted-foreground/70",
+                  )}
+                >
+                  {s.sub}
+                </p>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

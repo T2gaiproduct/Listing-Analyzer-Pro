@@ -138,7 +138,7 @@ export function BuildBrandProductSearch({
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
+      <div className="border border-slate-200 rounded-2xl p-3 sm:p-4 space-y-3">
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -153,7 +153,7 @@ export function BuildBrandProductSearch({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as "" | ProductStatus)}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 min-w-[9rem]"
+            className="h-11 w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 sm:min-w-[9rem]"
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
@@ -163,7 +163,7 @@ export function BuildBrandProductSearch({
           </select>
           <Button
             type="button"
-            className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white h-11 px-4"
+            className="w-full sm:w-auto rounded-xl bg-orange-500 hover:bg-orange-600 text-white h-11 px-4"
             onClick={handleSearch}
           >
             Search
@@ -257,7 +257,7 @@ export function BuildBrandProductSearch({
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
+          className="w-full sm:w-auto rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
           onClick={onSkipToUpload}
         >
           Create new product instead

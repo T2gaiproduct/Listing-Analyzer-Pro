@@ -2687,10 +2687,10 @@ export default function AuditWorkflow() {
       </div>
 
       {/* ── Bottom Bar ───────────────────────────────────────────────────── */}
-      <div className="border-t border-border bg-card px-4 sm:px-5 py-4 flex items-center justify-between flex-shrink-0">
+      <div className="border-t border-border bg-card px-4 sm:px-5 py-3 sm:py-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <Button
           variant="outline"
-          className="rounded-xl border-border text-muted-foreground hover:bg-muted gap-2"
+          className="w-full sm:w-auto rounded-xl border-border text-muted-foreground hover:bg-muted gap-2 h-11"
           onClick={handleBack}
           disabled={isCreating}
         >
@@ -2698,14 +2698,14 @@ export default function AuditWorkflow() {
           Back
         </Button>
 
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col w-full sm:w-auto sm:items-end gap-2">
           {activeStep === 7 && productExplorerSaveBlocker && (
-            <p className="text-xs text-amber-700">{productExplorerSaveBlocker}</p>
+            <p className="text-xs text-amber-700 text-center sm:text-right">{productExplorerSaveBlocker}</p>
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             {activeStep === 7 && (
               <Button
-                className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
+                className="w-full sm:w-auto rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2 h-11"
                 onClick={handleOpenProductExplorer}
                 disabled={!canSaveToProductExplorer}
               >
@@ -2720,7 +2720,7 @@ export default function AuditWorkflow() {
 
             {activeStep < 7 && (
             <Button
-              className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
+              className="w-full sm:w-auto rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2 h-11"
               onClick={handleNextStep}
               disabled={isCreating}
             >
