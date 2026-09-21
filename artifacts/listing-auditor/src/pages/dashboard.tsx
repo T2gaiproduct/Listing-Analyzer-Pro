@@ -622,6 +622,15 @@ export default function Dashboard() {
     && !isTeamMember
     && !showMemberCredits;
 
+  const showWorkspaceCountMetric =
+    workspacesEnabled
+    && isBillingAccountOwner
+    && !isTeamMember
+    && !showMemberCredits;
+
+  const workspaceCountValue =
+    stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length;
+
   const workspacePoolCredits = workspacePoolData?.poolCredits;
   const workspacePoolBalance = workspacePoolCredits
     ? workspacePoolCredits.auditCredits + workspacePoolCredits.aiCredits + workspacePoolCredits.imageCredits
@@ -712,52 +721,50 @@ export default function Dashboard() {
           icon={Folder}
         />
         <StatCard
-          title="Total Audits"
-          value={stats.totalAudits}
-          subtext={`${auditsTrendPositive ? "+" : ""}${stats.auditsWeekOverWeekPct}% vs last week`}
-          subtextPositive={auditsTrendPositive}
-          icon={TrendingUp}
+          title={showWorkspaceCountMetric ? "Number of Workspaces" : "Total Audits"}
+          value={showWorkspaceCountMetric ? workspaceCountValue : stats.totalAudits}
+          subtext={
+            showWorkspaceCountMetric
+              ? workspaceCountValue === 1
+                ? "Includes your owner workspace"
+                : "Includes owner workspace + clients"
+              : `${auditsTrendPositive ? "+" : ""}${stats.auditsWeekOverWeekPct}% vs last week`
+          }
+          subtextPositive={showWorkspaceCountMetric ? undefined : auditsTrendPositive}
+          icon={showWorkspaceCountMetric ? LayoutGrid : TrendingUp}
+          href={showWorkspaceCountMetric ? "/workspaces" : undefined}
         />
         <StatCard
           title={
-            showAgencyAccountOverview
-              ? "Number of Workspaces"
-              : showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode
-                ? "Credits Used"
-                : "Time Saved"
+            showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode || showWorkspaceCountMetric
+              ? "Credits Used"
+              : "Time Saved"
           }
           value={
-            showAgencyAccountOverview
-              ? (stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length)
-              : showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode
-                ? (stats.creditsUsedInPeriod ?? 0).toLocaleString()
-                : formatHours(stats.timeSavedHours)
+            showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode || showWorkspaceCountMetric
+              ? (stats.creditsUsedInPeriod ?? 0).toLocaleString()
+              : formatHours(stats.timeSavedHours)
           }
           subtext={
-            showAgencyAccountOverview
-              ? workspacesEnabled
-                ? stats.workspaceCount === 1
-                  ? "Includes your owner workspace"
-                  : "Includes owner workspace + clients"
-                  : upgradeShort || `Upgrade to ${includedPlansLabel} to enable workspaces`
-              : showMemberCredits
+            showMemberCredits
+              ? creditsAllowance > 0
+                ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
+                : "This billing period"
+              : showOwnerWorkspaceCreditsUsed
                 ? creditsAllowance > 0
-                  ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
+                  ? `of ${creditsAllowance.toLocaleString()} funded to this workspace`
                   : "This billing period"
-                : showOwnerWorkspaceCreditsUsed
+                : planCreditsMode
                   ? creditsAllowance > 0
-                    ? `of ${creditsAllowance.toLocaleString()} funded to this workspace`
+                    ? `of ${creditsAllowance.toLocaleString()} plan credits this period`
                     : "This billing period"
-                  : planCreditsMode
+                  : showWorkspaceCountMetric
                     ? creditsAllowance > 0
-                      ? `of ${creditsAllowance.toLocaleString()} plan credits this period`
+                      ? `of ${creditsAllowance.toLocaleString()} on your plan this period`
                       : "This billing period"
                     : "From AI tasks completed"
           }
-          icon={showAgencyAccountOverview ? LayoutGrid : (showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode) ? Zap : Clock}
-          href={showAgencyAccountOverview && workspacesEnabled ? "/workspaces" : undefined}
-          locked={showAgencyAccountOverview && !workspacesEnabled}
-          lockedHref={showAgencyAccountOverview && !workspacesEnabled ? "/billing" : undefined}
+          icon={(showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode || showWorkspaceCountMetric) ? Zap : Clock}
         />
         <StatCard
           title={planCreditsMode ? "Plan credits" : "Credits Balance"}
