@@ -139,10 +139,9 @@ export default function WorkspacesPage() {
   const [poolForm, setPoolForm] = useState({ aiCredits: "0", imageCredits: "0", auditCredits: "0" });
   const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<Set<number>>(new Set());
 
-  const memberWorkspacesUnlocked = isAccountOwner || workspacesEnabled;
-  const canCreate = memberWorkspacesUnlocked && (isAccountOwner || can("workspaces", "create"));
-  const canEdit = memberWorkspacesUnlocked && (isAccountOwner || can("workspaces", "edit"));
-  const canDeleteWorkspace = memberWorkspacesUnlocked && (isAccountOwner || can("workspaces", "delete"));
+  const canCreate = workspacesEnabled && (isAccountOwner || can("workspaces", "create"));
+  const canEdit = workspacesEnabled && (isAccountOwner || can("workspaces", "edit"));
+  const canDeleteWorkspace = workspacesEnabled && (isAccountOwner || can("workspaces", "delete"));
   const canFundPools = !workspacesLocked && isAccountOwner;
 
   const { data: overview, isLoading: overviewLoading } = useQuery({

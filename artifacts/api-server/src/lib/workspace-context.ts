@@ -23,6 +23,7 @@ import { displayWorkspaceRoleLabel } from "./role-display.js";
 import { getDefaultWorkspaceId, ensureTeamMembersSchema, ensureSubscriberDefaultWorkspace, dedupeRacedDefaultWorkspaces } from "./ensure-workspaces";
 import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
 import { syncTeamMemberWorkspaceMemberships, syncWorkspaceMemberRoleToTeamSeat } from "./team-workspace-sync.js";
+import { accountWorkspacesPlanEntitled } from "./plan-workspaces.js";
 import { fetchClerkUserEmailAndName } from "./clerk-user.js";
 
 async function resolveAccountOwnerEmails(ownerIds: string[]): Promise<Map<string, string>> {
@@ -525,6 +526,7 @@ export async function canWorkspacesFeatureOnAccount(
   ctx: WorkspaceContext,
   action: WorkspaceAction,
 ): Promise<boolean> {
+  if (!await accountWorkspacesPlanEntitled(ctx.accountOwnerId)) return false;
   if (ctx.isAccountOwner) return true;
   if (requireWorkspacePerm(ctx, "workspaces", action)) return true;
   const accountPerms = await resolveTeamMemberAccountPermissions(userId, ctx.accountOwnerId);

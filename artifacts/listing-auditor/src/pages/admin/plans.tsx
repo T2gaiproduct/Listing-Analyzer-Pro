@@ -17,6 +17,7 @@ import {
   adminCanEnableCapability,
   planHasCapability,
   sanitizeEnabledFeaturesForPlan,
+  defaultEnabledFeaturesForPlanName,
   type PlanCapabilityKey,
   type PlanEnabledFeatures,
 } from "@workspace/workspace-permissions";
@@ -308,8 +309,13 @@ function PlanForm({
 }
 
 function mergeEnabledFeatures(plan: Plan | null | undefined): PlanEnabledFeatures {
-  const base = emptyEnabledFeatures();
-  if (!plan?.enabledFeatures) return sanitizeEnabledFeaturesForPlan(plan?.name ?? "", base) ?? base;
+  const base = plan?.enabledFeatures
+    ? emptyEnabledFeatures()
+    : (sanitizeEnabledFeaturesForPlan(
+      plan?.name ?? "",
+      defaultEnabledFeaturesForPlanName(plan?.name ?? ""),
+    ) ?? defaultEnabledFeaturesForPlanName(plan?.name ?? ""));
+  if (!plan?.enabledFeatures) return base;
   for (const cap of PLAN_CAPABILITY_CATALOG) {
     if (cap.key in plan.enabledFeatures) {
       base[cap.key] = Boolean(plan.enabledFeatures[cap.key]);
