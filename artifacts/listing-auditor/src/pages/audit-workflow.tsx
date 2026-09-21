@@ -27,7 +27,12 @@ import {
   Eye,
   Save,
   Copy,
+  Maximize2,
+  Download,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import {
   BUILD_BRAND_WORKFLOW_STEPS,
   BuildBrandWorkflowStepper,
@@ -74,6 +79,28 @@ import {
 } from "@workspace/api-client-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+type WorkflowGeneratedImage = {
+  url: string;
+  type: string;
+  index: number;
+  recordId?: string;
+};
+
+function graphicsRecordToWorkflowImage(r: {
+  id?: string;
+  currentUrl?: string;
+  type?: string;
+  index?: number;
+}): WorkflowGeneratedImage | null {
+  if (!r.currentUrl?.trim()) return null;
+  return {
+    url: r.currentUrl.trim(),
+    type: r.type ?? "lifestyle",
+    index: r.index ?? 0,
+    recordId: r.id,
+  };
+}
 
 /* ── Category Dropdown Portal (fixes autoFocus + full-width) ──────────── */
 function CategoryPortalDropdown({
@@ -570,6 +597,7 @@ export default function AuditWorkflow() {
     staleTime: 60_000,
   });
   const aplusImageCostPerModule = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
+  const graphicsEditCreditCost = creditRules.find((r) => r.featureType === "graphics_edit")?.creditsRequired ?? 1;
 
   const [resumeAuditId] = useState(() => {
     const params = new URLSearchParams(search);
@@ -725,9 +753,16 @@ export default function AuditWorkflow() {
     // Restore generated images from imageRecords
     if (auditData.imageRecords && (auditData.imageRecords as any[]).length > 0) {
       const records = auditData.imageRecords as any[];
-      setGeneratedImages(records.filter((r) => r.currentUrl).map((r) => ({
-        url: r.currentUrl, type: r.type || "lifestyle", index: r.index ?? 0,
-      })));
+      setGeneratedImages(
+        records
+          .map((r) => graphicsRecordToWorkflowImage({
+            id: r.id ?? `${r.type || "lifestyle"}_${r.index ?? 0}`,
+            currentUrl: r.currentUrl,
+            type: r.type,
+            index: r.index,
+          }))
+          .filter((img): img is WorkflowGeneratedImage => img != null),
+      );
     }
     const savedAplus = readAplusFromAudit(auditData.generatedImages);
     if (savedAplus.content) setAplusContent(savedAplus.content);
@@ -788,9 +823,13 @@ export default function AuditWorkflow() {
   /* ── Graphics generation state (inline in workflow) ── */
   const [graphicsProjectId, setGraphicsProjectId] = useState<number | null>(null);
   const [graphicsStatus, setGraphicsStatus] = useState<string>("idle");
-  const [generatedImages, setGeneratedImages] = useState<Array<{ url: string; type: string; index: number }>>([]);
+  const [generatedImages, setGeneratedImages] = useState<WorkflowGeneratedImage[]>([]);
   const [graphicsProgress, setGraphicsProgress] = useState({ generated: 0, total: 0 });
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [graphicsEditTarget, setGraphicsEditTarget] = useState<WorkflowGeneratedImage | null>(null);
+  const [graphicsEditPrompt, setGraphicsEditPrompt] = useState("");
+  const [graphicsEditReferenceImages, setGraphicsEditReferenceImages] = useState<string[]>([]);
+  const [graphicsEditingIds, setGraphicsEditingIds] = useState<Set<string>>(new Set());
   const completionToastShownRef = useRef(false);
   const hasSeenGeneratingRef = useRef(false);
 
@@ -931,11 +970,41 @@ export default function AuditWorkflow() {
     queryKey: ["graphics-project-for-audit", currentAuditId],
     queryFn: async () => {
       if (!currentAuditId) return null;
-      return fetchGraphicsProjectForAudit(currentAuditId);
+      const summary = await fetchGraphicsProjectForAudit(currentAuditId);
+      if (!summary?.id) return null;
+      return fetchJson<{
+        id: number;
+        status?: string;
+        imageRecords?: Array<{ id?: string; currentUrl?: string; type?: string; index?: number }>;
+      }>(`${basePath}/api/graphics/projects/${summary.id}`);
     },
     enabled: !!currentAuditId,
     staleTime: 5 * 60 * 1000,
   });
+
+  const activeGraphicsProjectId = graphicsProjectId ?? (existingGraphicsProject as { id?: number } | null)?.id ?? null;
+
+  const persistAuditImageRecordsFromGraphics = useCallback((records: Array<{
+    id: string;
+    type: string;
+    index: number;
+    currentUrl: string;
+  }>) => {
+    if (!currentAuditId || records.length === 0) return;
+    const imageRecords = records.map((r) => ({
+      id: r.id,
+      type: (r.type === "feature" ? "infographic" : r.type === "lifestyle" ? "lifestyle" : "main") as "main" | "infographic" | "lifestyle",
+      index: r.index,
+      style: "modern",
+      aspectRatio: "1:1",
+      currentUrl: r.currentUrl,
+      versions: [],
+    }));
+    patchAudit.mutate(
+      { id: currentAuditId, data: { imageRecords } },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) }) },
+    );
+  }, [currentAuditId, patchAudit, queryClient]);
 
   const getAplusModuleConfig = useCallback((moduleId: string): ImageTypePromptConfig => ({
     ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -1050,6 +1119,130 @@ export default function AuditWorkflow() {
     setGraphicsProgress({ generated: 0, total: imageTypes.length });
   }, [queryClient]);
 
+  const requireGraphicsEditCredits = useCallback(() => {
+    if (!isTeamMember) return true;
+    const balance = memberCredits?.imageCredits ?? 0;
+    if (balance < graphicsEditCreditCost) {
+      toast({
+        title: "Not enough image credits",
+        description: `Each edit uses ${graphicsEditCreditCost} image credit${graphicsEditCreditCost === 1 ? "" : "s"}. You have ${balance}. Ask your workspace owner for more.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  }, [isTeamMember, memberCredits?.imageCredits, graphicsEditCreditCost, toast]);
+
+  const handleDownloadGeneratedImage = useCallback(async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      toast({ title: "Download failed", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const openGraphicsEdit = useCallback((img: WorkflowGeneratedImage) => {
+    if (!canEditGraphics) {
+      toast({ title: "Editing not available", description: "You do not have permission to edit graphics in this workspace.", variant: "destructive" });
+      return;
+    }
+    if (!img.recordId) {
+      toast({ title: "Cannot edit", description: "Image metadata is missing. Try refreshing the page.", variant: "destructive" });
+      return;
+    }
+    if (!requireGraphicsEditCredits()) return;
+    setGraphicsEditTarget(img);
+    setGraphicsEditPrompt("");
+    setGraphicsEditReferenceImages([]);
+  }, [canEditGraphics, requireGraphicsEditCredits, toast]);
+
+  const submitGraphicsEdit = useCallback(async () => {
+    const target = graphicsEditTarget;
+    if (!target?.recordId || !graphicsEditPrompt.trim()) return;
+    if (!activeGraphicsProjectId) {
+      toast({ title: "Project not found", description: "Could not find the graphics project for this listing.", variant: "destructive" });
+      return;
+    }
+    if (!requireGraphicsEditCredits()) return;
+
+    const recordId = target.recordId;
+    setGraphicsEditingIds((prev) => new Set(prev).add(recordId));
+    try {
+      const res = await fetch(
+        `${basePath}/api/graphics/projects/${activeGraphicsProjectId}/images/${encodeURIComponent(recordId)}/edit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            editPrompt: graphicsEditPrompt.trim(),
+            referenceImageUrls: graphicsEditReferenceImages.length > 0 ? graphicsEditReferenceImages : undefined,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Edit failed");
+      }
+      const updated = await res.json() as { id: string; currentUrl: string; type?: string; index?: number };
+      refreshCreditBalances(queryClient);
+      setGeneratedImages((prev) => prev.map((img) => (
+        img.recordId === recordId || (img.url === target.url && img.index === target.index)
+          ? { ...img, url: updated.currentUrl, recordId: updated.id ?? recordId }
+          : img
+      )));
+      void queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", currentAuditId] });
+      const projectRes = await fetch(`${basePath}/api/graphics/projects/${activeGraphicsProjectId}`, { credentials: "include" });
+      if (projectRes.ok) {
+        const project = await projectRes.json() as { imageRecords?: Array<{ id: string; type?: string; index?: number; currentUrl?: string }> };
+        const rows = (project.imageRecords ?? [])
+          .filter((r) => r.currentUrl && r.id)
+          .map((r) => ({
+            id: r.id!,
+            type: r.type ?? "lifestyle",
+            index: r.index ?? 0,
+            currentUrl: r.currentUrl!,
+          }));
+        if (rows.length > 0) persistAuditImageRecordsFromGraphics(rows);
+      }
+      toast({ title: "Image updated", description: `${graphicsEditCreditCost} image credit used.` });
+      setGraphicsEditTarget(null);
+      setGraphicsEditPrompt("");
+      setGraphicsEditReferenceImages([]);
+    } catch (err) {
+      toast({
+        title: "Edit failed",
+        description: err instanceof Error ? err.message : "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setGraphicsEditingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(recordId);
+        return next;
+      });
+    }
+  }, [
+    graphicsEditTarget,
+    graphicsEditPrompt,
+    graphicsEditReferenceImages,
+    activeGraphicsProjectId,
+    requireGraphicsEditCredits,
+    graphicsEditCreditCost,
+    queryClient,
+    currentAuditId,
+    persistAuditImageRecordsFromGraphics,
+    toast,
+  ]);
+
   /* ── Poll graphics project status ── */
   useEffect(() => {
     const activeGraphicsProjectId = graphicsProjectId ?? existingGraphicsProject?.id ?? null;
@@ -1064,7 +1257,7 @@ export default function AuditWorkflow() {
           generatedCount: number;
           lifestyleCount: number;
           featureCount: number;
-          imageRecords?: Array<{ currentUrl?: string; type?: string; index?: number }>;
+          imageRecords?: Array<{ id?: string; currentUrl?: string; type?: string; index?: number }>;
           errorMessage?: string | null;
         };
         setGraphicsStatus(project.status);
@@ -1077,8 +1270,8 @@ export default function AuditWorkflow() {
           const imageRecords = project.imageRecords;
           setGeneratedImages((prev) => {
             const newImages = imageRecords
-              .filter((r) => r.currentUrl)
-              .map((r) => ({ url: r.currentUrl!, type: r.type ?? "lifestyle", index: r.index ?? 0 }));
+              .map((r) => graphicsRecordToWorkflowImage(r))
+              .filter((img): img is WorkflowGeneratedImage => img != null);
             // Merge: keep existing, add new ones keyed by url+type+index
             const existingKeys = new Set(prev.map((i) => `${i.url}|${i.type}|${i.index}`));
             const merged = [...prev];
@@ -1104,7 +1297,7 @@ export default function AuditWorkflow() {
             const imageRecords = project.imageRecords
               .filter((r) => r.currentUrl)
               .map((r) => ({
-                id: `${r.type ?? "lifestyle"}_${r.index ?? 0}`,
+                id: r.id ?? `${r.type ?? "lifestyle"}_${r.index ?? 0}`,
                 type: (r.type === "feature" ? "infographic" : "lifestyle") as "main" | "infographic" | "lifestyle",
                 index: r.index ?? 0,
                 style: "modern",
@@ -1136,7 +1329,7 @@ export default function AuditWorkflow() {
     if (!existingGraphicsProject) return;
     const project = existingGraphicsProject as {
       status?: string;
-      imageRecords?: Array<{ currentUrl?: string; type?: string; index?: number }>;
+      imageRecords?: Array<{ id?: string; currentUrl?: string; type?: string; index?: number }>;
     };
     if (project.status === "completed" || project.status === "failed" || project.status === "generating") {
       setGraphicsStatus(project.status);
@@ -1147,14 +1340,17 @@ export default function AuditWorkflow() {
     if (project.imageRecords?.length) {
       setGeneratedImages((prev) => {
         const newImages = project.imageRecords!
-          .filter((r) => r.currentUrl)
-          .map((r) => ({ url: r.currentUrl!, type: r.type ?? "lifestyle", index: r.index ?? 0 }));
+          .map((r) => graphicsRecordToWorkflowImage(r))
+          .filter((img): img is WorkflowGeneratedImage => img != null);
         if (newImages.length === 0) return prev;
-        const existingKeys = new Set(prev.map((i) => `${i.url}|${i.type}|${i.index}`));
+        const existingKeys = new Set(prev.map((i) => i.recordId ?? `${i.url}|${i.type}|${i.index}`));
         const merged = [...prev];
         for (const img of newImages) {
-          const key = `${img.url}|${img.type}|${img.index}`;
-          if (!existingKeys.has(key)) {
+          const key = img.recordId ?? `${img.url}|${img.type}|${img.index}`;
+          const existingIdx = merged.findIndex((m) => (m.recordId && m.recordId === img.recordId) || (m.url === img.url && m.type === img.type && m.index === img.index));
+          if (existingIdx >= 0) {
+            merged[existingIdx] = img;
+          } else if (!existingKeys.has(key)) {
             merged.push(img);
             existingKeys.add(key);
           }
@@ -2138,30 +2334,67 @@ export default function AuditWorkflow() {
                       </span>
                     )}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Hover or tap an image for actions. AI edits use {graphicsEditCreditCost} image credit{graphicsEditCreditCost === 1 ? "" : "s"} each.
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {generatedImages.map((img, i) => (
-                      <button
-                        key={`${img.url}-${i}`}
-                        className="relative aspect-square rounded-xl border border-border overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group"
-                        onClick={() => setLightboxImage(img.url)}
-                      >
-                        <img
-                          src={img.url}
-                          alt={`Generated ${img.type} ${img.index + 1}`}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/50 text-white text-[10px] font-medium uppercase tracking-wider">
-                          {img.type}
-                        </div>
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="w-8 h-8 rounded-full bg-card/90 flex items-center justify-center shadow-lg">
-                            <Eye className="w-4 h-4 text-foreground" />
+                    {generatedImages.map((img, i) => {
+                      const recordKey = img.recordId ?? `${img.type}-${img.index}-${i}`;
+                      const isEditing = img.recordId ? graphicsEditingIds.has(img.recordId) : false;
+                      const typeLabel = img.type === "feature" ? "infographic" : img.type;
+                      return (
+                        <div
+                          key={`${recordKey}-${img.url}`}
+                          className="relative aspect-square rounded-xl border border-border overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group bg-card"
+                        >
+                          <img
+                            src={img.url}
+                            alt={`Generated ${typeLabel} ${img.index + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          {isEditing && (
+                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 z-10">
+                              <Loader2 className="w-7 h-7 text-white animate-spin" />
+                              <span className="text-xs text-white/90 font-medium">Applying edit…</span>
+                            </div>
+                          )}
+                          <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/50 text-white text-[10px] font-medium uppercase tracking-wider">
+                            {typeLabel}
                           </div>
+                          {!isEditing && (
+                            <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-opacity group-hover:opacity-100 group-hover:bg-black/45 max-sm:opacity-100 max-sm:bg-black/35">
+                              <button
+                                type="button"
+                                className="w-9 h-9 rounded-full bg-white/95 flex items-center justify-center shadow-lg hover:bg-white"
+                                title="View full screen"
+                                onClick={() => setLightboxImage(img.url)}
+                              >
+                                <Maximize2 className="w-4 h-4 text-slate-800" />
+                              </button>
+                              {canEditGraphics && (
+                                <button
+                                  type="button"
+                                  className="w-9 h-9 rounded-full bg-white/95 flex items-center justify-center shadow-lg hover:bg-white"
+                                  title={`Edit with AI (${graphicsEditCreditCost} credit)`}
+                                  onClick={() => openGraphicsEdit(img)}
+                                >
+                                  <Wand2 className="w-4 h-4 text-slate-800" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="w-9 h-9 rounded-full bg-white/95 flex items-center justify-center shadow-lg hover:bg-white"
+                                title="Download"
+                                onClick={() => handleDownloadGeneratedImage(img.url, `${typeLabel}-${img.index + 1}.png`)}
+                              >
+                                <Download className="w-4 h-4 text-slate-800" />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2433,6 +2666,85 @@ export default function AuditWorkflow() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={!!graphicsEditTarget}
+        onOpenChange={(open) => {
+          if (!open && graphicsEditTarget?.recordId && graphicsEditingIds.has(graphicsEditTarget.recordId)) return;
+          if (!open) {
+            setGraphicsEditTarget(null);
+            setGraphicsEditPrompt("");
+            setGraphicsEditReferenceImages([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4" />
+              Edit image with AI
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                ({graphicsEditCreditCost} image credit{graphicsEditCreditCost === 1 ? "" : "s"} per edit)
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          {graphicsEditTarget && (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/30 aspect-video max-h-48 overflow-hidden flex items-center justify-center">
+                <img
+                  src={graphicsEditTarget.url}
+                  alt="Image to edit"
+                  className="max-h-48 w-full object-contain"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Edit instructions</label>
+                <Textarea
+                  value={graphicsEditPrompt}
+                  onChange={(e) => setGraphicsEditPrompt(e.target.value)}
+                  placeholder="e.g. Brighten the background, make callout text larger, add a subtle shadow under the product…"
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+              <ReferenceImageUploadField
+                images={graphicsEditReferenceImages}
+                onImagesChange={setGraphicsEditReferenceImages}
+                label="Reference images (optional)"
+                hint="Upload references to guide colors, layout, or style."
+              />
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setGraphicsEditTarget(null);
+                    setGraphicsEditPrompt("");
+                    setGraphicsEditReferenceImages([]);
+                  }}
+                  disabled={graphicsEditTarget.recordId ? graphicsEditingIds.has(graphicsEditTarget.recordId) : false}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => void submitGraphicsEdit()}
+                  disabled={
+                    !graphicsEditPrompt.trim()
+                    || (graphicsEditTarget.recordId ? graphicsEditingIds.has(graphicsEditTarget.recordId) : false)
+                  }
+                  className="gap-2"
+                >
+                  {graphicsEditTarget.recordId && graphicsEditingIds.has(graphicsEditTarget.recordId) ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  Apply edit ({graphicsEditCreditCost} credit{graphicsEditCreditCost === 1 ? "" : "s"})
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Lightbox modal */}
       {lightboxImage && createPortal(
