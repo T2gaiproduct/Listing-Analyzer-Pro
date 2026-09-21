@@ -75,10 +75,13 @@ export function useWorkspacesPlan() {
 
   const planName = data?.planName ?? null;
   const enabledFeatures = data?.enabledFeatures ?? null;
-  const workspacesEnabled =
-    data?.workspacesEnabled
-    ?? teamAccountPerms?.workspacesEnabled
-    ?? planIncludesWorkspacesFromPlan({ planName, enabledFeatures });
+  const workspacesEnabled = !subscriptionResolved
+    ? false
+    : (
+      data?.workspacesEnabled
+      ?? teamAccountPerms?.workspacesEnabled
+      ?? planIncludesWorkspacesFromPlan({ planName, enabledFeatures })
+    );
 
   const upgradePlanNames = data?.workspacesUpgradePlanNames ?? [];
   const includedPlansLabel = upgradePlanNames.length > 0

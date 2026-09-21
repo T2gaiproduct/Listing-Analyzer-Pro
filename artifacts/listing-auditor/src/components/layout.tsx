@@ -656,17 +656,19 @@ export function Layout({ children }: { children: ReactNode }) {
         : isAgencyAccountOverview && accountCreditSummary?.unallocated
           ? accountCreditSummary.unallocated
           : accountSpendableCredits;
-  const creditsScopeLabel = defaultWorkspaceAccountCredits
-    ? "default_workspace"
-    : showWorkspacePoolCredits
-      ? "workspace"
-      : usesMemberCredits
-        ? "member"
-        : isAccountOwner && isAgencyAccountOverview
-          ? "account_total"
-          : isAccountOwner && isAccountHubRoute
-            ? "account_hub"
-            : "account";
+  const creditsScopeLabel = !workspacesEnabled
+    ? "account"
+    : defaultWorkspaceAccountCredits
+      ? "default_workspace"
+      : showWorkspacePoolCredits
+        ? "workspace"
+        : usesMemberCredits
+          ? "member"
+          : isAccountOwner && isAgencyAccountOverview
+            ? "account_total"
+            : isAccountOwner && isAccountHubRoute
+              ? "account_hub"
+              : "account";
 
   const workspaceScopeName =
     creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace"

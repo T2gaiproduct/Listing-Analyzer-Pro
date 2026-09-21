@@ -91,6 +91,7 @@ export function DashboardTopbar({
   const { isTeamMember, isOwner } = useTeam();
   const { isAccountOwner, isWorkspaceAccountOwner, canView, can } = useWorkspace();
   const { workspacesPlanLocked, workspacesEnabled } = useWorkspacesPlan();
+  const { activeWorkspace } = useWorkspace();
   const menuItems = profileMenuItems(
     isTeamMember,
     isOwner,
@@ -102,7 +103,9 @@ export function DashboardTopbar({
     workspacesPlanLocked,
     workspacesEnabled,
   );
-  const showWorkspaceSwitcher = variant === "customer" && (!isAccountOwner || workspacesEnabled);
+  const showWorkspaceSwitcher = variant === "customer" && workspacesEnabled;
+  const showStaticWorkspaceLabel =
+    variant === "customer" && !workspacesEnabled && Boolean(activeWorkspace?.name?.trim());
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -116,13 +119,15 @@ export function DashboardTopbar({
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
   const creditBalanceLabel =
-    creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace"
-      ? (workspaceScopeName?.trim() || "Workspace")
-      : creditsScopeLabel === "account_hub"
-        ? "Available to fund"
-        : creditsScopeLabel === "account_total"
-          ? "Credit balance"
-          : "Credit balance";
+    !workspacesEnabled
+      ? "Plan credits"
+      : creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace"
+        ? (workspaceScopeName?.trim() || "Workspace")
+        : creditsScopeLabel === "account_hub"
+          ? "Available to fund"
+          : creditsScopeLabel === "account_total"
+            ? "Credit balance"
+            : "Credit balance";
   const creditBalanceHeadline =
     creditsScopeLabel === "account_total" && accountCreditSummary
       ? accountCreditSummary.unallocatedTotal
@@ -270,6 +275,18 @@ export function DashboardTopbar({
       </div>
 
       {showWorkspaceSwitcher && <TopbarWorkspaceSwitcher />}
+      {showStaticWorkspaceLabel && (
+        <div
+          className="hidden sm:flex items-center gap-2 h-10 pl-2.5 pr-3 rounded-lg border border-border bg-card flex-shrink-0 max-w-[14rem]"
+          title="Your account uses a single workspace on this plan"
+        >
+          <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
+          <div className="min-w-0 text-left">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-none">Workspace</p>
+            <p className="text-sm font-semibold text-slate-900 leading-tight truncate">{activeWorkspace!.name}</p>
+          </div>
+        </div>
+      )}
 
       {variant === "customer" && (
         <div className="flex items-center gap-0.5 lg:hidden flex-shrink-0">
@@ -320,17 +337,19 @@ export function DashboardTopbar({
             <div className="absolute right-0 top-full mt-1.5 w-[min(100vw-2rem,15rem)] sm:w-60 bg-card border border-border rounded-xl shadow-xl z-50 py-2">
               <div className="px-4 py-2 border-b border-border">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {creditsScopeLabel === "workspace"
-                    ? (workspaceScopeName?.trim() || "This workspace")
-                    : creditsScopeLabel === "default_workspace"
-                      ? (workspaceScopeName?.trim() || "My Workspace")
-                      : creditsScopeLabel === "member"
-                        ? "Your credits"
-                        : creditsScopeLabel === "account_hub"
-                          ? "Available on account"
-                          : creditsScopeLabel === "account_total"
-                            ? "Credit balance"
-                            : "Credit balance"}
+                  {!workspacesEnabled
+                    ? "Plan credits"
+                    : creditsScopeLabel === "workspace"
+                      ? (workspaceScopeName?.trim() || "This workspace")
+                      : creditsScopeLabel === "default_workspace"
+                        ? (workspaceScopeName?.trim() || "My Workspace")
+                        : creditsScopeLabel === "member"
+                          ? "Your credits"
+                          : creditsScopeLabel === "account_hub"
+                            ? "Available on account"
+                            : creditsScopeLabel === "account_total"
+                              ? "Credit balance"
+                              : "Credit balance"}
                 </p>
                 <p className="text-lg font-bold text-foreground mt-0.5 tabular-nums">
                   {creditBalanceHeadline.toLocaleString()}
@@ -339,17 +358,19 @@ export function DashboardTopbar({
                   </span>
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-                  {creditsScopeLabel === "workspace"
-                    ? "Credits in this workspace pool (spend and assign from Workspaces)."
-                    : creditsScopeLabel === "default_workspace"
-                      ? "For your default workspace only: if you have not assigned credits to the pool, usage is charged to your account balance. Client workspaces use their pool balance instead."
-                      : creditsScopeLabel === "member"
-                        ? "Credits allocated to you in this workspace by your admin."
-                        : creditsScopeLabel === "account_hub"
-                          ? "Not yet moved into client workspace pools."
-                          : creditsScopeLabel === "account_total"
-                            ? "On your account — fund workspaces or spend from your account balance."
-                            : "Credits available on your account."}
+                  {!workspacesEnabled
+                    ? "Subscription credits on your account. Usage reduces this balance. Upgrade to Pro or Agencies for multiple workspaces."
+                    : creditsScopeLabel === "workspace"
+                      ? "Credits in this workspace pool (spend and assign from Workspaces)."
+                      : creditsScopeLabel === "default_workspace"
+                        ? "For your default workspace only: if you have not assigned credits to the pool, usage is charged to your account balance. Client workspaces use their pool balance instead."
+                        : creditsScopeLabel === "member"
+                          ? "Credits allocated to you in this workspace by your admin."
+                          : creditsScopeLabel === "account_hub"
+                            ? "Not yet moved into client workspace pools."
+                            : creditsScopeLabel === "account_total"
+                              ? "On your account — fund workspaces or spend from your account balance."
+                              : "Credits available on your account."}
                 </p>
                 {accountCreditSummary && creditsScopeLabel === "account_total" && (
                   <div className="mt-2 pt-2 border-t border-border space-y-1.5 text-[11px] text-muted-foreground">

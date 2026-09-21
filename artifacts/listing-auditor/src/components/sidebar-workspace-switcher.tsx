@@ -41,7 +41,7 @@ export function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: SidebarWorks
   const [form, setForm] = useState({ name: "", description: "", clientLabel: "" });
 
   const canCreate = workspacesEnabled && (isAccountOwner || can("workspaces", "create"));
-  const showSection = workspaces.length > 0 || canCreate;
+  const showSection = workspacesEnabled && (workspaces.length > 0 || canCreate);
 
   useEffect(() => {
     if (!collapsedOpen) return;
@@ -82,7 +82,7 @@ export function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: SidebarWorks
       toast({ title: "Failed to create workspace", description: err.message, variant: "destructive" }),
   });
 
-  if (!showSection) return null;
+  if (!workspacesEnabled || !showSection) return null;
 
   const selectWorkspace = (id: number) => {
     if (id === activeWorkspaceId) return;
