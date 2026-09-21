@@ -19,7 +19,7 @@ export type PlanCapabilityKey = (typeof PLAN_CAPABILITY_CATALOG)[number]["key"];
 
 export type PlanEnabledFeatures = Partial<Record<PlanCapabilityKey, boolean>>;
 
-/** Plans that must never include workspaces (product policy — not overridable in admin). */
+/** Default legacy: these plan names do not include workspaces until admin sets enabledFeatures. */
 export const WORKSPACES_EXCLUDED_PLAN_NAMES = new Set(["free", "starter"]);
 
 /** Legacy name-based entitlements when enabledFeatures is not configured on a plan. */
@@ -38,6 +38,7 @@ function hasExplicitEnabledFeatures(
   return enabledFeatures != null && typeof enabledFeatures === "object" && !Array.isArray(enabledFeatures);
 }
 
+/** @deprecated Legacy helper — admin may override workspaces via enabledFeatures on any plan. */
 export function planBlocksWorkspacesCapability(planName: string | null | undefined): boolean {
   const normalized = normalizePlanName(planName);
   return normalized !== "" && WORKSPACES_EXCLUDED_PLAN_NAMES.has(normalized);
@@ -45,31 +46,29 @@ export function planBlocksWorkspacesCapability(planName: string | null | undefin
 
 /** Whether Super Admin may turn a capability on for this plan in Plans & Packages. */
 export function adminCanEnableCapability(
-  planName: string | null | undefined,
-  capability: PlanCapabilityKey,
+  _planName: string | null | undefined,
+  _capability: PlanCapabilityKey,
 ): boolean {
-  if (capability === "workspaces" && planBlocksWorkspacesCapability(planName)) {
-    return false;
-  }
   return true;
 }
 
-/** Normalize admin/API enabled_features for a plan name (enforces product policy). */
+/** Normalize admin/API enabled_features for a plan (boolean coercion only). */
 export function sanitizeEnabledFeaturesForPlan(
-  planName: string | null | undefined,
+  _planName: string | null | undefined,
   enabledFeatures: PlanEnabledFeatures | null | undefined,
 ): PlanEnabledFeatures | null {
   if (enabledFeatures == null) return null;
-  const out: PlanEnabledFeatures = { ...enabledFeatures };
-  if (planBlocksWorkspacesCapability(planName)) {
-    out.workspaces = false;
+  const out: PlanEnabledFeatures = {};
+  for (const cap of PLAN_CAPABILITY_CATALOG) {
+    const v = enabledFeatures[cap.key];
+    if (v !== undefined) out[cap.key] = Boolean(v);
   }
   return out;
 }
 
 /**
  * Resolve whether a plan includes a functional capability.
- * When enabledFeatures is set on the plan (admin dashboard), that config wins (except workspaces on Free/Starter).
+ * When enabledFeatures is set on the plan (admin dashboard), that config wins.
  * Otherwise falls back to legacy plan-name rules so existing subscriptions keep working.
  */
 export function planHasCapability(
@@ -77,10 +76,6 @@ export function planHasCapability(
   planName: string | null | undefined,
   capability: PlanCapabilityKey,
 ): boolean {
-  if (capability === "workspaces" && planBlocksWorkspacesCapability(planName)) {
-    return false;
-  }
-
   if (hasExplicitEnabledFeatures(enabledFeatures)) {
     const explicit = enabledFeatures[capability];
     if (explicit !== undefined) {

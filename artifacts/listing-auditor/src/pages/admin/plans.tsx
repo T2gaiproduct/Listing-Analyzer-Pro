@@ -213,21 +213,11 @@ function PlanForm({
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-800">{cap.label}</p>
                   <p className="text-xs text-slate-500">{cap.description}</p>
-                  {!canEnable && cap.key === "workspaces" && (
-                    <p className="text-xs text-amber-700 mt-1">
-                      Not available on Free or Starter. Close this form, click <span className="font-medium">Edit</span> on
-                      the <span className="font-medium">Pro</span> or <span className="font-medium">Agencies</span> plan
-                      card below, then turn on Multiple workspaces and save.
-                    </p>
-                  )}
                 </div>
                 <Switch
-                  checked={canEnable ? Boolean(form.enabledFeatures[cap.key]) : false}
+                  checked={Boolean(form.enabledFeatures[cap.key])}
                   disabled={!canEnable}
-                  onCheckedChange={(v) => {
-                    if (!canEnable) return;
-                    setCapability(cap.key, v);
-                  }}
+                  onCheckedChange={(v) => setCapability(cap.key, v)}
                 />
               </div>
             );

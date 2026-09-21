@@ -50,17 +50,17 @@ test("admin config: explicit false on Pro disables workspaces", () => {
   );
 });
 
-test("product policy: explicit true on Starter cannot enable workspaces", () => {
+test("admin config: explicit true on Starter enables workspaces", () => {
   assert.equal(
     planIncludesWorkspacesFromPlan({ planName: "Starter", enabledFeatures: { workspaces: true } }),
-    false,
+    true,
   );
 });
 
-test("product policy: explicit true on Free cannot enable workspaces", () => {
+test("admin config: explicit true on Free enables workspaces", () => {
   assert.equal(
     planIncludesWorkspacesFromPlan({ planName: "Free", enabledFeatures: { workspaces: true } }),
-    false,
+    true,
   );
 });
 
@@ -76,15 +76,15 @@ test("defaultEnabledFeaturesForPlanName matches expectations", () => {
   assert.deepEqual(defaultEnabledFeaturesForPlanName("Free"), { workspaces: false, api_access: false });
 });
 
-test("adminCanEnableCapability blocks workspaces on Starter", () => {
-  assert.equal(adminCanEnableCapability("Starter", "workspaces"), false);
+test("adminCanEnableCapability allows workspaces on any plan", () => {
+  assert.equal(adminCanEnableCapability("Starter", "workspaces"), true);
   assert.equal(adminCanEnableCapability("Pro", "workspaces"), true);
 });
 
-test("sanitizeEnabledFeaturesForPlan forces workspaces false on Free", () => {
+test("sanitizeEnabledFeaturesForPlan preserves admin toggles on Free", () => {
   assert.deepEqual(
     sanitizeEnabledFeaturesForPlan("Free", { workspaces: true, api_access: false }),
-    { workspaces: false, api_access: false },
+    { workspaces: true, api_access: false },
   );
 });
 
