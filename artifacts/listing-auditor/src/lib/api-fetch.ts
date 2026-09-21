@@ -1,4 +1,5 @@
 import { getActiveWorkspaceId, WORKSPACE_HEADER } from "@/lib/workspace-header";
+import { showCreditUsageToast, type CreditUsagePayload } from "@/lib/credit-usage-toast";
 
 export class ApiFetchError extends Error {
   constructor(
@@ -145,6 +146,10 @@ export async function readApiJson<T>(res: Response): Promise<T> {
         ? "Your session could not be verified. Sign out and sign in again on this site."
         : raw;
       throw new ApiFetchError(message, res.status, data.code);
+    }
+    const usage = (data as { creditUsage?: CreditUsagePayload }).creditUsage;
+    if (usage?.title && usage?.message) {
+      showCreditUsageToast(usage);
     }
     return data;
   } catch (error) {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { showCreditUsageToast } from "@/lib/credit-usage-toast";
 import { useUser, useAuth } from "@clerk/react";
 import { buildNotificationWebSocketUrl } from "@/lib/notification-ws-url";
 
@@ -51,10 +52,17 @@ export function useWsNotifications() {
 
           if (msg.type === "notification" && msg.payload) {
             qc.invalidateQueries({ queryKey: ["notifications"] });
-            toast({
-              title: msg.payload.title,
-              description: msg.payload.message,
-            });
+            if (msg.payload.type === "credit_used") {
+              showCreditUsageToast({
+                title: msg.payload.title,
+                message: msg.payload.message,
+              });
+            } else {
+              toast({
+                title: msg.payload.title,
+                description: msg.payload.message,
+              });
+            }
           }
         } catch {
           // ignore malformed

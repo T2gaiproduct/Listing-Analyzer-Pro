@@ -50,6 +50,7 @@ const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> 
   billing: [
     "credit_low",
     "credit_depleted",
+    "credit_used",
     "credits_low",
     "credits_assigned",
     "payment_received",

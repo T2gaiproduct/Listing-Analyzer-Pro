@@ -11,6 +11,8 @@ import {
 } from "@workspace/db";
 import type { CreditType } from "./credits.js";
 import { notifyCreditBalanceIfNeeded } from "./credit-balance-notify.js";
+import { buildCreditUsageInfo, notifyCreditUsed } from "./credit-usage-notify.js";
+import type { CreditUsageInfo } from "./credit-usage-notify.js";
 
 export interface CreditTotals {
   aiCredits: number;
@@ -738,7 +740,7 @@ export async function deductWorkspaceMemberCredits(
   reason: string,
   featureType: string,
   metadata?: Record<string, unknown>,
-): Promise<{ success: boolean; remaining: number }> {
+): Promise<{ success: boolean; remaining: number; usage?: CreditUsageInfo }> {
   const [memberRow] = await db
     .select()
     .from(memberCreditsTable)
@@ -779,8 +781,10 @@ export async function deductWorkspaceMemberCredits(
 
   const remaining = updated.balance;
   await notifyCreditBalanceIfNeeded(userId, type, remaining, memberBal);
+  const usage = buildCreditUsageInfo(type, amount, featureType, reason, remaining);
+  void notifyCreditUsed(userId, usage);
 
-  return { success: true, remaining };
+  return { success: true, remaining, usage };
 }
 
 export async function deductWorkspacePoolForOwner(
@@ -791,7 +795,7 @@ export async function deductWorkspacePoolForOwner(
   reason: string,
   featureType: string,
   metadata?: Record<string, unknown>,
-): Promise<{ success: boolean; remaining: number }> {
+): Promise<{ success: boolean; remaining: number; usage?: CreditUsageInfo }> {
   const pool = await getWorkspaceCredits(workspaceId);
   const key = keyForType(type);
   const bal = pool[key];
@@ -826,8 +830,10 @@ export async function deductWorkspacePoolForOwner(
 
   const remaining = updated.balance;
   await notifyCreditBalanceIfNeeded(ownerUserId, type, remaining, bal);
+  const usage = buildCreditUsageInfo(type, amount, featureType, reason, remaining);
+  void notifyCreditUsed(ownerUserId, usage);
 
-  return { success: true, remaining };
+  return { success: true, remaining, usage };
 }
 
 /** Match a team_members row to workspace_members in a given workspace. */

@@ -18,6 +18,16 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 
+export const CREDIT_USAGE_EVENT = "la:credit-usage";
+
+function maybeEmitCreditUsage(data: unknown): void {
+  if (typeof window === "undefined" || !data || typeof data !== "object") return;
+  const usage = (data as { creditUsage?: { title?: string; message?: string } }).creditUsage;
+  if (usage?.title && usage?.message) {
+    window.dispatchEvent(new CustomEvent(CREDIT_USAGE_EVENT, { detail: usage }));
+  }
+}
+
 /**
  * Set a base URL that is prepended to every relative request URL
  * (i.e. paths that start with `/`).
@@ -376,5 +386,7 @@ export async function customFetch<T = unknown>(
     throw new ApiError(response, errorData, requestInfo);
   }
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  const body = await parseSuccessBody(response, responseType, requestInfo);
+  maybeEmitCreditUsage(body);
+  return body as T;
 }

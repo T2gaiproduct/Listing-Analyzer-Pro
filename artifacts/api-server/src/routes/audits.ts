@@ -49,6 +49,7 @@ import {
   editSingleImage,
 } from "../lib/image-generator";
 import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
+import { withCreditUsage } from "../lib/credit-api.js";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
@@ -295,14 +296,14 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
       .where(eq(auditsTable.id, audit.id))
       .returning();
 
-    await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "audit", { auditId: audit.id });
+    const auditDeduct = await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "audit", { auditId: audit.id });
 
     const competitors = await db
       .select()
       .from(competitorsTable)
       .where(eq(competitorsTable.auditId, updatedAudit.id));
 
-    res.status(201).json({ ...updatedAudit, competitors });
+    res.status(201).json(withCreditUsage({ ...updatedAudit, competitors }, auditDeduct));
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     req.log.error({ err, auditId: audit.id }, "AI analysis failed");
@@ -917,8 +918,8 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
       targetKeywords: audit.targetKeywords as string[],
       summary: (audit.result as { summary?: string } | null)?.summary ?? "",
     });
-    await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
-    res.json(content);
+    const ebcDeduct = await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
+    res.json(withCreditUsage(content as unknown as Record<string, unknown>, ebcDeduct));
   } catch (err) {
     const message = err instanceof Error ? err.message : "EBC generation failed";
     res.status(500).json({ error: message });
@@ -1168,7 +1169,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       customPrompt: body.customPrompt,
     });
 
-    await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
+    const contentDeduct = await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
 
     const sourceListingContent = audit.sourceListingContent ?? buildSourceListingSnapshot(audit);
 
@@ -1180,7 +1181,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       })
       .where(eq(auditsTable.id, id));
 
-    res.json(generatedContent);
+    res.json(withCreditUsage(generatedContent as Record<string, unknown>, contentDeduct));
   } catch (err) {
     const { httpStatus, message } = mapAiProviderError(err);
     res.status(httpStatus).json({ error: message });
@@ -1259,7 +1260,7 @@ router.post("/audits/:id/reference-research/analyze", requireAuth, resolveTeamAn
       fetchErrors: fetchErrors.length > 0 ? fetchErrors : undefined,
     });
 
-    await deductCreditsTeamAware(
+    const refDeduct = await deductCreditsTeamAware(
       creditCtxRef,
       cost.creditType,
       cost.creditsRequired,
@@ -1273,7 +1274,7 @@ router.post("/audits/:id/reference-research/analyze", requireAuth, resolveTeamAn
       .set({ referenceResearch, updatedAt: new Date() })
       .where(eq(auditsTable.id, id));
 
-    res.json(referenceResearch);
+    res.json(withCreditUsage(referenceResearch as Record<string, unknown>, refDeduct));
   } catch (err) {
     const { httpStatus, message } = mapAiProviderError(err);
     res.status(httpStatus).json({ error: message });

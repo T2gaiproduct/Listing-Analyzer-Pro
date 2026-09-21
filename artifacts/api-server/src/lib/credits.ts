@@ -1,6 +1,7 @@
 import { eq, and, gte, sql } from "drizzle-orm";
 import { db, creditsTable, creditTransactionsTable, creditRulesTable, memberCreditsTable, teamMembersTable } from "@workspace/db";
 import { notifyCreditBalanceIfNeeded } from "./credit-balance-notify.js";
+import { buildCreditUsageInfo, notifyCreditUsed, type CreditUsageInfo } from "./credit-usage-notify.js";
 import {
   deductWorkspaceMemberCredits,
   deductWorkspacePoolForOwner,
@@ -114,9 +115,26 @@ export async function hasCredits(userId: string, type: CreditType, amount: numbe
   return result.hasCredits;
 }
 
+export type { CreditUsageInfo } from "./credit-usage-notify.js";
 export interface DeductResult {
   success: boolean;
   remaining: number;
+  usage?: CreditUsageInfo;
+}
+
+async function recordCreditUsageNotification(
+  userId: string,
+  type: CreditType,
+  amount: number,
+  featureType: string,
+  reason: string,
+  remaining: number,
+  previousBalance: number,
+): Promise<CreditUsageInfo | undefined> {
+  await notifyCreditBalanceIfNeeded(userId, type, remaining, previousBalance);
+  const usage = buildCreditUsageInfo(type, amount, featureType, reason, remaining);
+  void notifyCreditUsed(userId, usage);
+  return usage;
 }
 
 /**
@@ -185,9 +203,17 @@ export async function deductCredits(
 
   const remaining = updated.balance;
   const previousBalance = remaining + amount;
-  await notifyCreditBalanceIfNeeded(userId, type, remaining, previousBalance);
+  const usage = await recordCreditUsageNotification(
+    userId,
+    type,
+    amount,
+    featureType,
+    reason,
+    remaining,
+    previousBalance,
+  );
 
-  return { success: true, remaining };
+  return { success: true, remaining, usage };
 }
 
 export async function addCredits(
@@ -367,8 +393,16 @@ export async function deductOwnerCreditsForMember(
   });
 
   const remaining = check.currentBalance - amount;
-  await notifyCreditBalanceIfNeeded(ownerUserId, type, remaining, check.currentBalance);
-  return { success: true, remaining };
+  const usage = await recordCreditUsageNotification(
+    actorUserId,
+    type,
+    amount,
+    featureType,
+    reason,
+    remaining,
+    check.currentBalance,
+  );
+  return { success: true, remaining, usage };
 }
 
 // ─── Member credit functions (team members use allocated credits) ─────────────
@@ -479,8 +513,16 @@ export async function deductMemberCredits(
   });
 
   const remaining = check.currentBalance - amount;
-  await notifyCreditBalanceIfNeeded(userId, type, remaining, check.currentBalance);
-  return { success: true, remaining };
+  const usage = await recordCreditUsageNotification(
+    userId,
+    type,
+    amount,
+    featureType,
+    reason,
+    remaining,
+    check.currentBalance,
+  );
+  return { success: true, remaining, usage };
 }
 
 export async function addMemberCredits(

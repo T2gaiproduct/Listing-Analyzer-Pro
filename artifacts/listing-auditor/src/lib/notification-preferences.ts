@@ -134,6 +134,7 @@ export const ADMIN_NOTIFICATION_TYPES_BY_CATEGORY: Record<string, string[]> = {
   billing: [
     "credit_low",
     "credit_depleted",
+    "credit_used",
     "credits_low",
     "credits_assigned",
     "payment_received",

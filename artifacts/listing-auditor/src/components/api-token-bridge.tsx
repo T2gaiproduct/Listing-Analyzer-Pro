@@ -1,6 +1,7 @@
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@clerk/react";
 import { setApiAuthReady, setApiTokenGetter } from "@/lib/api-fetch";
+import { showCreditUsageToast, CREDIT_USAGE_EVENT, type CreditUsagePayload } from "@/lib/credit-usage-toast";
 
 const ApiAuthReadyContext = createContext(false);
 
@@ -17,6 +18,17 @@ export function ApiTokenBridge({ children }: { children?: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
 
   // useLayoutEffect runs before child useEffects (React Query fetches), avoiding 401 races.
+  useLayoutEffect(() => {
+    const onCreditUsage = (event: Event) => {
+      const detail = (event as CustomEvent<CreditUsagePayload>).detail;
+      if (detail?.title && detail?.message) {
+        showCreditUsageToast(detail);
+      }
+    };
+    window.addEventListener(CREDIT_USAGE_EVENT, onCreditUsage);
+    return () => window.removeEventListener(CREDIT_USAGE_EVENT, onCreditUsage);
+  }, []);
+
   useLayoutEffect(() => {
     if (!isLoaded) {
       setApiTokenGetter(null);
