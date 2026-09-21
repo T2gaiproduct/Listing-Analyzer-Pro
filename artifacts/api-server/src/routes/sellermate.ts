@@ -30,6 +30,7 @@ import {
   resolveTeamAndWorkspace,
   requireWorkspaceAction,
   requireWorkspaceView,
+  buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers.js";
 
 const router: IRouter = Router();
@@ -351,6 +352,7 @@ router.post(
         mode: body.mode === "basic" ? "basic" : "agent",
         selectedOptionId: typeof body.selectedOptionId === "string" ? body.selectedOptionId : undefined,
         replyToMessageId: typeof body.replyToMessageId === "number" ? body.replyToMessageId : undefined,
+        creditCtx: buildTeamAwareCreditCtx(req),
       });
       res.json(result);
     } catch (err) {

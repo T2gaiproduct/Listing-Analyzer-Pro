@@ -28,6 +28,7 @@ import {
   replaceAgentTools,
 } from "./workspace-agents.js";
 import { metadataToDb, runNativeSellermateAgent } from "./sellermate-agent-runtime.js";
+import type { TeamAwareContext } from "./credits.js";
 import { serializeSellermateMessageMetadata } from "./sellermate-message-types.js";
 
 export { AGENT_TOOL_CATALOG, SUPPORTED_AGENT_MODELS };
@@ -356,6 +357,7 @@ async function sendNativeSellermateMessage(input: {
   memoryFileCount: number;
   selectedOptionId?: string;
   replyToMessageId?: number;
+  creditCtx: TeamAwareContext;
 }) {
   const result = await runNativeSellermateAgent({
     agent: input.agent,
@@ -372,6 +374,7 @@ async function sendNativeSellermateMessage(input: {
     memoryFileCount: input.memoryFileCount,
     selectedOptionId: input.selectedOptionId,
     replyToMessageId: input.replyToMessageId,
+    creditCtx: input.creditCtx,
   });
 
   return result;
@@ -386,6 +389,7 @@ export async function sendSellermateMessage(input: {
   mode?: "basic" | "agent";
   selectedOptionId?: string;
   replyToMessageId?: number;
+  creditCtx: TeamAwareContext;
 }) {
   const message = input.content.trim();
   if (!message && !input.selectedOptionId) throw new Error("Message is required.");
@@ -448,6 +452,7 @@ export async function sendSellermateMessage(input: {
         memoryFileCount,
         selectedOptionId: input.selectedOptionId,
         replyToMessageId: input.replyToMessageId,
+        creditCtx: input.creditCtx,
       });
       assistantContent = native.content;
       assistantMetadata = metadataToDb(native.metadata);
@@ -464,6 +469,7 @@ export async function sendSellermateMessage(input: {
       memoryFileCount,
       selectedOptionId: input.selectedOptionId,
       replyToMessageId: input.replyToMessageId,
+      creditCtx: input.creditCtx,
     });
     assistantContent = native.content;
     assistantMetadata = metadataToDb(native.metadata);

@@ -11,6 +11,7 @@ import {
   type SellermateResultOption,
 } from "./sellermate-message-types.js";
 import { getEnabledAgentToolNames } from "./workspace-agents.js";
+import type { TeamAwareContext } from "./credits.js";
 import { parseSellermateMessageMetadata } from "./sellermate-message-types.js";
 import { extractAmazonListingToolArgs } from "./sellermate-listing-tool-args.js";
 
@@ -33,6 +34,7 @@ export type NativeAgentRunInput = {
   memoryFileCount: number;
   selectedOptionId?: string;
   replyToMessageId?: number;
+  creditCtx: TeamAwareContext;
 };
 
 export type NativeAgentRunResult = {
@@ -366,10 +368,7 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
             workspaceId: input.workspaceId,
             agentId: input.agent.id,
             userId: input.userId,
-            creditCtx: {
-              userId: input.userId,
-              workspaceId: input.workspaceId,
-            },
+            creditCtx: input.creditCtx,
           },
         );
         toolResults.push(`Tool ${toolName}:\n${result}`);
