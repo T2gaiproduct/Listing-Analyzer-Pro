@@ -246,6 +246,136 @@ function ChannelTags({ channels }: { channels: string[] }) {
   );
 }
 
+function ProductsEmptyState() {
+  return (
+    <div className="px-4 sm:px-6 py-12 text-center">
+      <Package className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+      <p className="text-xs font-medium text-foreground/90">No products yet</p>
+      <p className="text-[11px] text-muted-foreground mt-2 max-w-sm mx-auto text-pretty leading-relaxed">
+        Projects from Build Your Brand, Audit Listing, Create Graphics, Create Video, and Manage Ads appear here automatically.
+      </p>
+    </div>
+  );
+}
+
+interface ProductActionsProps {
+  product: ProductListItem;
+  viewUrl: string;
+  rowKey: string;
+  exportingKey: string | null;
+  canDelete: boolean;
+  deletePending: boolean;
+  onNavigate: (url: string) => void;
+  onExport: (product: ProductListItem) => void;
+  onDelete: (products: ProductListItem[]) => void;
+  compact?: boolean;
+}
+
+function ProductActions({
+  product,
+  viewUrl,
+  rowKey,
+  exportingKey,
+  canDelete,
+  deletePending,
+  onNavigate,
+  onExport,
+  onDelete,
+  compact,
+}: ProductActionsProps) {
+  const btnClass = compact
+    ? "w-9 h-9"
+    : "w-7 h-7";
+
+  return (
+    <div className={cn("flex items-center gap-1", compact ? "flex-wrap" : "justify-end")}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onNavigate(viewUrl)}
+            className={cn(btnClass, "inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors")}
+            aria-label="View in Product Explorer"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">View in Product Explorer</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onNavigate(productOverviewEditUrl(viewUrl))}
+            className={cn(btnClass, "inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors")}
+            aria-label="Edit overview in Product Explorer"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Edit overview summary</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onNavigate(viewUrl)}
+            className={cn(btnClass, "inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors")}
+            aria-label="Open in Product Explorer"
+          >
+            <Upload className="w-3.5 h-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Open in Product Explorer</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled={exportingKey === rowKey || !canExportListingProduct(product)}
+            onClick={() => void onExport(product)}
+            className={cn(
+              btnClass,
+              "inline-flex items-center justify-center rounded-md border border-border bg-card transition-colors disabled:opacity-50",
+              canExportListingProduct(product)
+                ? "text-muted-foreground hover:text-foreground/90 hover:bg-muted"
+                : "text-muted-foreground/40 cursor-not-allowed",
+            )}
+            aria-label="Export listing Excel"
+          >
+            {exportingKey === rowKey ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">
+          {canExportListingProduct(product)
+            ? "Export Amazon listing (Excel)"
+            : "Export available for listing audits only"}
+        </TooltipContent>
+      </Tooltip>
+      {canDelete && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              disabled={deletePending}
+              onClick={() => onDelete([product])}
+              className={cn(btnClass, "inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50")}
+              aria-label="Delete product"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Delete</TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -497,8 +627,8 @@ export default function ProductsPage() {
       </div>
 
       {/* Channel filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2 -mx-1 px-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {CHANNEL_FILTERS.map(({ id, label }) => (
             <button
               key={id}
@@ -551,8 +681,97 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+      {/* Mobile list */}
+      <div className="md:hidden rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+        {filtered.length === 0 ? (
+          <ProductsEmptyState />
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {filtered.map((product) => {
+              const key = productKey(product);
+              const viewUrl = product.detailUrl;
+              return (
+                <li key={key}>
+                  <div
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => navigate(viewUrl)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(viewUrl);
+                      }
+                    }}
+                    className="p-4 space-y-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selected.has(key)}
+                          onCheckedChange={() => toggleOne(key)}
+                          aria-label={`Select ${product.name}`}
+                          className="h-4 w-4 mt-1"
+                        />
+                      </div>
+                      <ProductThumb imageUrl={product.imageUrl} name={product.name} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground leading-snug">{product.name}</p>
+                        <p className="text-[11px] font-mono text-muted-foreground mt-0.5 break-all">
+                          {product.sku || "No SKU"}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border tabular-nums shrink-0",
+                          auditScoreBadgeClass(product.auditScore, product.auditPending),
+                        )}
+                      >
+                        {formatAuditScore(product.auditScore, product.auditPending)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pl-10">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-muted text-muted-foreground">
+                        {product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project"}
+                      </span>
+                      <ChannelTags channels={product.channels} />
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 pl-10 text-xs text-muted-foreground">
+                      <span>
+                        <span className="font-medium text-foreground/80">Price: </span>
+                        {formatPrice(product.price, product.currency)}
+                      </span>
+                      <span>
+                        <span className="font-medium text-foreground/80">Stock: </span>
+                        {formatStock(product.stock, product.inStock)}
+                      </span>
+                    </div>
+                    <div
+                      className="pl-10 pt-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ProductActions
+                        product={product}
+                        viewUrl={viewUrl}
+                        rowKey={key}
+                        exportingKey={exportingKey}
+                        canDelete={canDeleteProduct(product)}
+                        deletePending={deleteProductsMutation.isPending}
+                        onNavigate={navigate}
+                        onExport={handleExportProduct}
+                        onDelete={requestDeleteProducts}
+                        compact
+                      />
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-xl border border-border bg-card overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left border-collapse">
             <thead>
@@ -585,12 +804,8 @@ export default function ProductsPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center">
-                    <Package className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
-                    <p className="text-xs font-medium text-foreground/90">No products yet</p>
-                    <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
-                      Projects from Build Your Brand, Audit Listing, Create Graphics, Create Video, and Manage Ads appear here automatically.
-                    </p>
+                  <td colSpan={9}>
+                    <ProductsEmptyState />
                   </td>
                 </tr>
               ) : (
@@ -665,92 +880,17 @@ export default function ProductsPage() {
                       className="px-3 py-2.5 align-middle"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-end gap-1">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => navigate(viewUrl)}
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors"
-                              aria-label="View in Product Explorer"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">View in Product Explorer</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => navigate(productOverviewEditUrl(viewUrl))}
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors"
-                              aria-label="Edit overview in Product Explorer"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">Edit overview summary</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => navigate(viewUrl)}
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors"
-                              aria-label="Open in Product Explorer"
-                            >
-                              <Upload className="w-3.5 h-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">
-                            Open in Product Explorer
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              disabled={exportingKey === key || !canExportListingProduct(product)}
-                              onClick={() => void handleExportProduct(product)}
-                              className={cn(
-                                "w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card transition-colors disabled:opacity-50",
-                                canExportListingProduct(product)
-                                  ? "text-muted-foreground hover:text-foreground/90 hover:bg-muted"
-                                  : "text-muted-foreground/40 cursor-not-allowed",
-                              )}
-                              aria-label="Export listing Excel"
-                            >
-                              {exportingKey === key ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Download className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">
-                            {canExportListingProduct(product)
-                              ? "Export Amazon listing (Excel)"
-                              : "Export available for listing audits only"}
-                          </TooltipContent>
-                        </Tooltip>
-                        {canDeleteProduct(product) && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                disabled={deleteProductsMutation.isPending}
-                                onClick={() => requestDeleteProducts([product])}
-                                className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
-                                aria-label="Delete product"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="text-xs">Delete</TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
+                      <ProductActions
+                        product={product}
+                        viewUrl={viewUrl}
+                        rowKey={key}
+                        exportingKey={exportingKey}
+                        canDelete={canDeleteProduct(product)}
+                        deletePending={deleteProductsMutation.isPending}
+                        onNavigate={navigate}
+                        onExport={handleExportProduct}
+                        onDelete={requestDeleteProducts}
+                      />
                     </td>
                   </tr>
                   );

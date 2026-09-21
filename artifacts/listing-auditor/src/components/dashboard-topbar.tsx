@@ -118,6 +118,15 @@ export function DashboardTopbar({
   const [profileOpen, setProfileOpen] = useState(false);
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
+
+  function formatCompactCreditCount(value: number): string {
+    if (value >= 1_000_000) {
+      const millions = value / 1_000_000;
+      return millions >= 10 ? `${Math.round(millions)}M` : `${millions.toFixed(1).replace(/\.0$/, "")}M`;
+    }
+    if (value >= 10_000) return `${Math.round(value / 1_000)}k`;
+    return value.toLocaleString();
+  }
   const creditBalanceLabel =
     !workspacesEnabled
       ? "Plan credits"
@@ -241,7 +250,7 @@ export function DashboardTopbar({
   );
 
   return (
-    <header className="flex items-center gap-2.5 sm:gap-3 h-11 px-5 sm:px-6 lg:px-8 bg-card border-b border-border flex-shrink-0 z-20 min-w-0">
+    <header className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3 h-11 px-3 sm:px-5 lg:px-8 bg-card border-b border-border flex-shrink-0 z-20 min-w-0">
       {onMenuClick && (
         <button
           type="button"
@@ -337,7 +346,12 @@ export function DashboardTopbar({
               </p>
               <p className="text-xs font-semibold text-foreground leading-tight">{creditBalanceHeadline.toLocaleString()} Credits</p>
             </div>
-            <span className="sm:hidden text-xs font-semibold text-foreground tabular-nums">{creditBalanceHeadline.toLocaleString()}</span>
+            <span
+              className="sm:hidden text-[11px] font-semibold text-foreground tabular-nums max-w-[4.25rem] truncate"
+              title={`${creditBalanceHeadline.toLocaleString()} credits`}
+            >
+              {formatCompactCreditCount(creditBalanceHeadline)}
+            </span>
             <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform hidden sm:block", creditsOpen && "rotate-180")} />
           </button>
 

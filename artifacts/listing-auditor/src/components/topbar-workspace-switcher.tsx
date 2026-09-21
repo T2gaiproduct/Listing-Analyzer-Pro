@@ -258,7 +258,7 @@ export function TopbarWorkspaceSwitcher() {
 
   return (
     <>
-      <div ref={rootRef} className="relative flex-shrink-0 hidden sm:flex items-center">
+      <div ref={rootRef} className="relative flex-shrink-0 hidden lg:flex items-center">
         <div
           className={cn(
             "flex items-center h-10 rounded-lg border bg-card transition-colors",
