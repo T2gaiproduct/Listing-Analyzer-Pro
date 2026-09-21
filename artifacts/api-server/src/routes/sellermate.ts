@@ -3,6 +3,7 @@ import { getAuth } from "@clerk/express";
 import {
   AGENT_TOOL_CATALOG,
   SUPPORTED_AGENT_MODELS,
+  getWorkspaceDefaultAgentDefinition,
   addSellermateMemory,
   addSellermateMemoryFromFile,
   createSellermateAgent,
@@ -48,10 +49,13 @@ async function mapAgent(
   workspaceId: number,
 ) {
   const tools = await getSellermateAgentTools(agent.id, workspaceId);
+  const builtinDefault = agent.isDefault === 1 && agent.slug
+    ? getWorkspaceDefaultAgentDefinition(agent.slug)
+    : undefined;
   return {
     id: agent.id,
-    name: agent.name,
-    description: agent.description,
+    name: builtinDefault?.name ?? agent.name,
+    description: builtinDefault?.description ?? agent.description,
     systemPrompt: agent.isDefault ? undefined : agent.systemPrompt,
     icon: agent.icon,
     model: agent.model,

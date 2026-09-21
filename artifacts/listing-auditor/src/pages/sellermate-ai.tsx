@@ -573,8 +573,8 @@ export default function SellerMateAiPage() {
           {messages.length === 0 ? (
             <div className="max-w-2xl mx-auto pt-6 sm:pt-16 text-center">
               <p className="text-xl sm:text-3xl font-medium text-slate-800 leading-snug">
-                👋 Hi! I can automatically plan, fetch, and analyze your Amazon Ads data.
-                Just describe what you want.
+                👋 Hi! I can help with listings, content, images, and store tasks.
+                Describe what you want to do.
               </p>
               {selectedAgent && (
                 <p className="mt-4 text-sm text-slate-500">
@@ -624,7 +624,7 @@ export default function SellerMateAiPage() {
               <Textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="Ask AI to find keywords, optimize campaigns, or analyze performance…"
+                placeholder="Ask a question or describe what you want help with…"
                 className="min-h-[72px] resize-none border-0 shadow-none focus-visible:ring-0 text-sm"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -665,7 +665,7 @@ export default function SellerMateAiPage() {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Name</Label>
-              <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} placeholder="My PPC helper" />
+              <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} placeholder="My custom agent" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Description</Label>
@@ -680,7 +680,7 @@ export default function SellerMateAiPage() {
               <Textarea
                 value={newAgentPrompt}
                 onChange={(e) => setNewAgentPrompt(e.target.value)}
-                placeholder="You are an Amazon ads expert who…"
+                placeholder="You are a helpful assistant who…"
                 className="min-h-[120px]"
               />
             </div>
@@ -752,7 +752,7 @@ export default function SellerMateAiPage() {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Name</Label>
-              <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} placeholder="My PPC helper" />
+              <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} placeholder="My custom agent" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Description</Label>
@@ -767,7 +767,7 @@ export default function SellerMateAiPage() {
               <Textarea
                 value={newAgentPrompt}
                 onChange={(e) => setNewAgentPrompt(e.target.value)}
-                placeholder="You are an Amazon ads expert who…"
+                placeholder="You are a helpful assistant who…"
                 className="min-h-[120px]"
               />
             </div>
@@ -879,7 +879,7 @@ function SellerMateSidebarPanel({
     <div className="flex flex-col h-full min-h-0">
       <div className="px-3 pt-3 pb-2 border-b border-slate-100">
         <p className="text-sm font-semibold text-slate-800">SellerLens AI</p>
-        <p className="text-[10px] text-slate-400 mt-0.5">Amazon ads & listing assistant</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">Listing & product assistant</p>
       </div>
       <div className="p-3 border-b border-slate-100">
         <Button

@@ -75,7 +75,7 @@ Use brand voice and product details from memory when available. Ask clarifying q
   {
     slug: "generate-content",
     name: "Generate Content Agent",
-    description: "Optimize Amazon listing copy — titles, bullets, descriptions, keywords, and backend search terms.",
+    description: "Optimize listing copy — titles, bullets, descriptions, keywords, and backend search terms.",
     icon: "clipboard-check",
     model: "gpt-5.4",
     systemPrompt: `You are SellerLens AI Generate Content Agent for Amazon sellers.
@@ -87,7 +87,7 @@ Be concise, actionable, and conversion-focused.`,
   {
     slug: "ppc",
     name: "PPC Agent",
-    description: "Optimize Amazon Ads campaigns, bids, keywords, and ACOS using account context.",
+    description: "Campaign budgets, bids, keywords, and performance recommendations using your context.",
     icon: "target",
     model: "gpt-5.4",
     systemPrompt: `You are SellerLens AI PPC Agent for Amazon advertising.
@@ -138,4 +138,8 @@ export function slugifyDefaultAgentName(name: string, existingSlugs: string[]): 
 export function getDefaultToolsForSlug(slug: string): AgentToolName[] {
   const agent = WORKSPACE_DEFAULT_AGENTS.find((row) => row.slug === slug);
   return agent?.tools ?? ["get_seller_memory", "save_agent_memory"];
+}
+
+export function getWorkspaceDefaultAgentDefinition(slug: string): DefaultAgentDefinition | undefined {
+  return WORKSPACE_DEFAULT_AGENTS.find((row) => row.slug === slug);
 }
