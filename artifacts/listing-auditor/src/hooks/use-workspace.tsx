@@ -152,6 +152,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     staleTime: 30_000,
   });
 
+  const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
+  const hasOnlySharedWorkspaces = workspaces.length > 0 && !ownsAnyWorkspace;
+  const profileTeamMember = profileSummary?.accountRole?.type === "team_member";
+  const isTeamMemberAccount = profileTeamMember || hasOnlySharedWorkspaces;
+  const isBillingAccountOwnerProfile = profileSummary?.accountRole?.type === "user" && !profileTeamMember;
+  const isMainDashboardRoute = location === "/dashboard" || location === "/";
+  const isAccountWideListRoute = pathUsesAgencyAccountWideApiScope(location);
+
   useEffect(() => {
     if (isWorkspaceAdminOverviewRoute(location)) {
       overviewVisitedThisSession.current = true;
@@ -199,14 +207,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     agencyAccountOverview,
     isAccountWideListRoute,
   ]);
-
-  const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
-  const hasOnlySharedWorkspaces = workspaces.length > 0 && !ownsAnyWorkspace;
-  const profileTeamMember = profileSummary?.accountRole?.type === "team_member";
-  const isTeamMemberAccount = profileTeamMember || hasOnlySharedWorkspaces;
-  const isBillingAccountOwnerProfile = profileSummary?.accountRole?.type === "user" && !profileTeamMember;
-  const isMainDashboardRoute = location === "/dashboard" || location === "/";
-  const isAccountWideListRoute = pathUsesAgencyAccountWideApiScope(location);
 
   useEffect(() => {
     if (listLoading) return;
