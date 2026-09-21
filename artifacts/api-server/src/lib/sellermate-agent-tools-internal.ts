@@ -5,11 +5,14 @@ import { fetchListing } from "./listing-fetcher.js";
 import { analyzeListingWithAI } from "./analyzer.js";
 import { listSellermateMemory } from "./sellermate-agents.js";
 import { isAgentToolEnabled } from "./workspace-agents.js";
+import type { TeamAwareContext } from "./credits.js";
+import { generateSellermateImageVariants } from "./sellermate-image-variants.js";
 
 export type AgentToolContext = {
   workspaceId: number;
   agentId: number;
   userId: string;
+  creditCtx: TeamAwareContext;
 };
 
 export async function executeSellermateAgentTool(
@@ -69,6 +72,33 @@ export async function executeSellermateAgentTool(
         category: typeof args.category === "string" ? args.category : undefined,
       });
       return JSON.stringify({ result });
+    }
+
+    case "generate_image_variants": {
+      const prompt = typeof args.prompt === "string" ? args.prompt.trim() : "";
+      const countRaw = typeof args.count === "number" ? args.count : Number(args.count);
+      const count = Number.isFinite(countRaw) ? countRaw : undefined;
+      if (!prompt) {
+        return JSON.stringify({ error: "prompt is required (describe the product and desired listing image)." });
+      }
+      try {
+        const { variants, creditsUsed } = await generateSellermateImageVariants({
+          workspaceId: ctx.workspaceId,
+          creditCtx: ctx.creditCtx,
+          prompt,
+          count,
+        });
+        return JSON.stringify({
+          variants,
+          creditsUsed,
+          instruction:
+            "Set phase to presenting_options with ids ex1–ex3 matching variants. Ask the user to pick the image that looks best.",
+        });
+      } catch (err) {
+        return JSON.stringify({
+          error: err instanceof Error ? err.message : "Image generation failed.",
+        });
+      }
     }
 
     case "save_agent_memory": {

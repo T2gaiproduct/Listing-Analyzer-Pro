@@ -2,7 +2,8 @@ export type AgentToolName =
   | "get_seller_memory"
   | "get_amazon_listing"
   | "audit_listing"
-  | "save_agent_memory";
+  | "save_agent_memory"
+  | "generate_image_variants";
 
 export type AgentToolDefinition = {
   name: AgentToolName;
@@ -34,6 +35,12 @@ export const AGENT_TOOL_CATALOG: AgentToolDefinition[] = [
     name: "save_agent_memory",
     label: "Save agent memory",
     description: "Persist a memory snippet or preference for future conversations.",
+    defaultRequiresApproval: false,
+  },
+  {
+    name: "generate_image_variants",
+    label: "Generate image variants",
+    description: "Create 2–3 listing image variations for the user to compare and pick a favorite.",
     defaultRequiresApproval: false,
   },
 ];
@@ -70,7 +77,7 @@ export const WORKSPACE_DEFAULT_AGENTS: DefaultAgentDefinition[] = [
     systemPrompt: `You are SellerLens AI Image Creator Agent for Amazon sellers.
 Help users plan main images, lifestyle shots, infographics, and A+ content that convert.
 Use brand voice and product details from memory when available. Ask clarifying questions about style and audience.`,
-    tools: ["get_seller_memory", "get_amazon_listing", "save_agent_memory"],
+    tools: ["get_seller_memory", "get_amazon_listing", "save_agent_memory", "generate_image_variants"],
   },
   {
     slug: "generate-content",

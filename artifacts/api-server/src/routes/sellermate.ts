@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { resolveSellermateImagePath } from "../lib/sellermate-image-variants.js";
 import { getAuth } from "@clerk/express";
 import {
   AGENT_TOOL_CATALOG,
@@ -72,6 +75,28 @@ async function mapAgent(
     })),
   };
 }
+
+router.get(
+  "/sellermate/images/:workspaceId/:filename",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceView("sellermate_ai"),
+  (req: Request, res: Response): void => {
+    const activeWorkspaceId = getActiveWorkspaceId(req);
+    const workspaceId = parseInt(String(req.params.workspaceId ?? ""), 10);
+    const filename = path.basename(String(req.params.filename ?? ""));
+    if (!activeWorkspaceId || workspaceId !== activeWorkspaceId || !filename) {
+      res.status(404).json({ error: "Image not found" });
+      return;
+    }
+    const resolved = resolveSellermateImagePath(workspaceId, filename);
+    if (!resolved || !fs.existsSync(resolved)) {
+      res.status(404).json({ error: "Image not found" });
+      return;
+    }
+    res.sendFile(resolved);
+  },
+);
 
 router.get(
   "/sellermate/tools-catalog",

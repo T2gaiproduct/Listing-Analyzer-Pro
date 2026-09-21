@@ -6,6 +6,14 @@ import {
   type SellermateResultOption,
 } from "@/lib/sellermate-message-types";
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function resolveOptionImageSrc(imageUrl: string): string {
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
+  if (imageUrl.startsWith("/")) return `${basePath}${imageUrl}`;
+  return `${basePath}/${imageUrl}`;
+}
+
 type SellermateMessageBubbleProps = {
   role: string;
   content: string;
@@ -60,10 +68,16 @@ export function SellermateMessageBubble({
 
         {!isUser && meta?.phase === "presenting_options" && meta.options && meta.options.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pick the option you prefer</p>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              {meta.options.some((o) => o.imageUrl) ? "Pick the image that looks best" : "Pick the option you prefer"}
+            </p>
+            <div className={cn(
+              "grid gap-2",
+              meta.options.some((o) => o.imageUrl) ? "grid-cols-1 sm:grid-cols-2" : "sm:grid-cols-2",
+            )}>
               {meta.options.map((option) => {
                 const disabled = disabledOptionIds.includes(option.id) || isSelectingOption;
+                const imageSrc = option.imageUrl ? resolveOptionImageSrc(option.imageUrl) : null;
                 return (
                   <button
                     key={option.id}
@@ -74,17 +88,39 @@ export function SellermateMessageBubble({
                       onSelectOption({ optionId: option.id, messageId, option });
                     }}
                     className={cn(
-                      "text-left rounded-xl border px-3 py-2.5 transition-colors",
+                      "text-left rounded-xl border overflow-hidden transition-colors",
                       disabled
                         ? "border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed"
                         : "border-orange-200 bg-orange-50/40 hover:bg-orange-50 hover:border-orange-300",
                     )}
                   >
-                    <p className="text-xs font-semibold text-orange-700 uppercase">{option.id}</p>
-                    <p className="text-sm font-medium text-slate-800 mt-0.5">{stripChatMarkdown(option.title)}</p>
-                    {option.summary && (
-                      <p className="text-xs text-slate-600 mt-1 line-clamp-2">{stripChatMarkdown(option.summary)}</p>
+                    {imageSrc && (
+                      <div className="aspect-square w-full bg-slate-100 border-b border-orange-100">
+                        <img
+                          src={imageSrc}
+                          alt={stripChatMarkdown(option.title)}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
                     )}
+                    <div className="px-3 py-2.5">
+                      <p className="text-xs font-semibold text-orange-700 uppercase">{option.id}</p>
+                      <p className="text-sm font-medium text-slate-800 mt-0.5">{stripChatMarkdown(option.title)}</p>
+                      {option.summary && (
+                        <p className={cn(
+                          "text-xs text-slate-600 mt-1",
+                          imageSrc ? "line-clamp-2" : "line-clamp-3",
+                        )}>
+                          {stripChatMarkdown(option.summary)}
+                        </p>
+                      )}
+                      {!imageSrc && option.content && option.content !== option.summary && (
+                        <p className="text-xs text-slate-600 mt-2 line-clamp-4 whitespace-pre-wrap">
+                          {stripChatMarkdown(option.content)}
+                        </p>
+                      )}
+                    </div>
                   </button>
                 );
               })}

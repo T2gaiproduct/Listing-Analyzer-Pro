@@ -52,6 +52,7 @@ import {
 } from "@/components/sellermate-chat-attachment-preview";
 import { SellermateMessageBubble } from "@/components/sellermate-message-bubble";
 import { parseSellermateMessageMetadata } from "@/lib/sellermate-message-types";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import {
   defaultAgentToolSelection,
   mergeAgentToolSelection,
@@ -216,6 +217,13 @@ export default function SellerMateAiPage() {
       setSelectingOptionForMessageId(null);
       void queryClient.invalidateQueries({ queryKey: ["sellermate-messages", result.thread.id] });
       void queryClient.invalidateQueries({ queryKey: ["sellermate-threads", selectedAgentId] });
+      const rawMeta = result.assistantMessage.metadata;
+      const assistantMeta = typeof rawMeta === "string" || rawMeta == null
+        ? parseSellermateMessageMetadata(rawMeta)
+        : rawMeta;
+      if (assistantMeta?.toolsUsed?.includes("generate_image_variants")) {
+        refreshCreditBalances(queryClient);
+      }
     },
     onError: (error) => {
       setSelectingOptionForMessageId(null);

@@ -42,12 +42,67 @@ export type NativeAgentRunResult = {
 
 function normalizeOptions(options: SellermateResultOption[] | undefined): SellermateResultOption[] {
   if (!options?.length) return [];
-  return options.slice(0, 4).map((option, index) => ({
+  return options.slice(0, 3).map((option, index) => ({
     id: option.id?.trim() || `ex${index + 1}`,
     title: stripChatMarkdown(option.title?.trim() || `Example ${index + 1}`),
     summary: stripChatMarkdown(option.summary?.trim() || ""),
     content: stripChatMarkdown(option.content?.trim() || option.summary?.trim() || ""),
+    imageUrl: option.imageUrl?.trim() || undefined,
   }));
+}
+
+type ImageVariantRow = { id: string; imageUrl: string; title?: string; summary?: string };
+
+function parseImageVariantsFromToolResults(toolResults: string[]): ImageVariantRow[] {
+  for (const block of toolResults) {
+    if (!block.includes("generate_image_variants")) continue;
+    const jsonStart = block.indexOf("{");
+    if (jsonStart === -1) continue;
+    try {
+      const parsed = JSON.parse(block.slice(jsonStart)) as {
+        variants?: ImageVariantRow[];
+      };
+      if (Array.isArray(parsed.variants) && parsed.variants.length > 0) {
+        return parsed.variants.filter((v) => v.id && v.imageUrl);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return [];
+}
+
+function applyImageVariantsToMetadata(
+  metadata: SellermateMessageMetadata,
+  toolResults: string[],
+): SellermateMessageMetadata {
+  const variants = parseImageVariantsFromToolResults(toolResults);
+  if (variants.length === 0 || metadata.phase !== "presenting_options") return metadata;
+
+  const baseOptions = metadata.options?.length
+    ? metadata.options
+    : variants.map((v) => ({
+        id: v.id,
+        title: v.title ?? v.id,
+        summary: v.summary ?? "",
+        content: v.summary ?? "",
+      }));
+
+  return {
+    ...metadata,
+    options: normalizeOptions(
+      baseOptions.map((opt, index) => {
+        const variant = variants.find((v) => v.id === opt.id) ?? variants[index];
+        if (!variant?.imageUrl) return opt;
+        return {
+          ...opt,
+          imageUrl: variant.imageUrl,
+          title: opt.title || variant.title || opt.title,
+          summary: opt.summary || variant.summary || opt.summary,
+        };
+      }),
+    ),
+  };
 }
 
 function buildTranscript(history: HistoryRow[], currentMessage: string): string {
@@ -91,7 +146,7 @@ function buildWorkflowSystemPrompt(input: {
 Follow this sequence for every new user request:
 1. **Clarifying** — If key details are missing (ASIN, goals, budget, style, metrics, etc.), set phase to "clarifying" and ask 1–3 focused questions. Do not guess.
 2. **Executing** — Once you have enough context, analyze using your expertise. Request tools only when they add real value.
-3. **Presenting options** — When recommending strategies, titles, campaigns, or creative directions, set phase to "presenting_options" and provide 2–4 distinct options (ids: ex1, ex2, ex3, ex4). Each option needs a title, one-line summary, and detailed content.
+3. **Presenting options** — When recommending strategies, titles, campaigns, or creative directions, set phase to "presenting_options" and provide 2–3 distinct options (ids: ex1, ex2, ex3). Each option needs a title, one-line summary, and detailed content (full copy for listing text options).
 4. **Response** — Use phase "response" for direct answers, follow-ups after the user picks an option, or when options are not appropriate.
 
 ## Memory policy
@@ -110,12 +165,25 @@ Respond with ONLY valid JSON (no markdown fences):
   "phase": "clarifying" | "presenting_options" | "response",
   "message": "User-facing text shown in chat",
   "questions": ["optional clarifying questions when phase is clarifying"],
-  "options": [{"id":"ex1","title":"...","summary":"...","content":"..."}],
+  "options": [{"id":"ex1","title":"...","summary":"...","content":"...","imageUrl":"optional when tool returned URLs"}],
   "requestTools": ["optional tool names to call before final answer"]
 }
 
 Keep message concise. Options must be meaningfully different.
 Use plain text only in message, questions, and options — no markdown, no ** bold, no asterisks for emphasis.`);
+
+  const slug = input.agent.slug?.trim();
+  if (slug === "image-creator") {
+    parts.push(`
+## Image Creator policy
+When the user wants generated listing images (main image, lifestyle, hero shot, etc.), request "generate_image_variants" with a detailed prompt and count 2 or 3.
+After the tool runs, use phase "presenting_options" with ids ex1, ex2, (ex3) and ask which image looks best. Include imageUrl from the tool on each matching option when provided.`);
+  }
+  if (slug === "generate-content") {
+    parts.push(`
+## Content optimization policy
+When optimizing titles, bullet points, or product descriptions, always use phase "presenting_options" with 2–3 complete copy variants (not outlines). Put the full proposed text in each option's content field so the user can compare and pick the best.`);
+  }
   } else {
     parts.push("\n\nAnswer concisely and helpfully. Use prior conversation context when relevant.");
   }
@@ -176,6 +244,7 @@ Selected option details:
 Title: ${input.selectedOption.title}
 Summary: ${input.selectedOption.summary}
 Content: ${input.selectedOption.content}
+${input.selectedOption.imageUrl ? `Chosen image: ${input.selectedOption.imageUrl}` : ""}
 
 Provide the refined final recommendation.`,
       },
@@ -283,8 +352,8 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
       .filter((name) => name !== "get_amazon_listing" || !shouldAutoFetchListing),
   ].filter((name, index, all) => all.indexOf(name) === index) as AgentToolName[];
 
+  const toolResults: string[] = [];
   if (requestedTools.length > 0) {
-    const toolResults: string[] = [];
     for (const toolName of requestedTools) {
       if (!enabledToolSet.has(toolName)) {
         continue;
@@ -297,6 +366,10 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
             workspaceId: input.workspaceId,
             agentId: input.agent.id,
             userId: input.userId,
+            creditCtx: {
+              userId: input.userId,
+              workspaceId: input.workspaceId,
+            },
           },
         );
         toolResults.push(`Tool ${toolName}:\n${result}`);
@@ -314,7 +387,7 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
     if (followUp) orchestration = followUp;
   }
 
-  const metadata: SellermateMessageMetadata = {
+  let metadata: SellermateMessageMetadata = {
     phase: orchestration.phase,
     questions: orchestration.phase === "clarifying"
       ? orchestration.questions?.slice(0, 3).map(stripChatMarkdown)
@@ -322,6 +395,10 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
     options: orchestration.phase === "presenting_options" ? normalizeOptions(orchestration.options) : undefined,
     toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
   };
+
+  if (toolResults.length > 0) {
+    metadata = applyImageVariantsToMetadata(metadata, toolResults);
+  }
 
   return {
     content: stripChatMarkdown(orchestration.message.trim()),

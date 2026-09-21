@@ -5,6 +5,7 @@ export type SellermateResultOption = {
   title: string;
   summary: string;
   content: string;
+  imageUrl?: string;
 };
 
 export type SellermateMessageMetadata = {

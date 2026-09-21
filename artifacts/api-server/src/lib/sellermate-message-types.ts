@@ -5,6 +5,7 @@ export type SellermateResultOption = {
   title: string;
   summary: string;
   content: string;
+  imageUrl?: string;
 };
 
 export type SellermateMessageMetadata = {
@@ -121,6 +122,7 @@ function coerceOrchestratorResponse(parsed: Record<string, unknown>): Sellermate
           title: typeof opt.title === "string" ? opt.title : `Example ${index + 1}`,
           summary: typeof opt.summary === "string" ? opt.summary : "",
           content: typeof opt.content === "string" ? opt.content : typeof opt.summary === "string" ? opt.summary : "",
+          imageUrl: typeof opt.imageUrl === "string" && opt.imageUrl.trim() ? opt.imageUrl.trim() : undefined,
         }))
     : undefined;
 
