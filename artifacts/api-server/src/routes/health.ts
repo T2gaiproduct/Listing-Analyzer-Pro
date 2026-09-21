@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { loadedBuildId, readDiskBuildMeta, isStaleApiProcess } from "../lib/api-build-meta";
+import { checkClerkPublishableSecretPair } from "../lib/clerk-key-pair.js";
 
 const router: IRouter = Router();
 
@@ -29,10 +30,12 @@ router.get("/healthz", async (_req, res) => {
   }
 
   const clerkProxySecret = await checkClerkProxySecret();
+  const clerkKeyPair = await checkClerkPublishableSecretPair();
   res.json({
     status: "ok",
     publishImageFix: "marketplace-signed-url-v5",
     clerkProxySecret,
+    clerkKeyPair,
     ...build,
   });
 });

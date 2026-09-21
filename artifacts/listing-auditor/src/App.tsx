@@ -177,8 +177,11 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
         .catch(() => null),
     staleTime: 30_000,
   });
+  const clerkKeyMismatch = apiHealth?.clerkKeyPair === "mismatch";
   const clerkMisconfigured =
-    apiHealth?.clerkProxySecret === "invalid" || apiHealth?.clerkProxySecret === "missing";
+    clerkKeyMismatch
+    || apiHealth?.clerkProxySecret === "invalid"
+    || apiHealth?.clerkProxySecret === "missing";
   const apiStale = apiHealth?.staleProcess === true;
 
   return (
@@ -191,10 +194,21 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
         </p>
         {clerkMisconfigured && (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
-            This preview environment&apos;s <span className="font-medium">CLERK_SECRET_KEY</span> does not match{" "}
-            <span className="font-medium">VITE_CLERK_PUBLISHABLE_KEY</span> (API auth check failed). Update both secrets
-            in Cursor Cloud → Environment for this repo, then run{" "}
-            <span className="font-mono text-xs">bash scripts/dev-stack.sh</span> and sign in again on the new preview URL.
+            {clerkKeyMismatch ? (
+              <>
+                <span className="font-medium">CLERK_SECRET_KEY</span> and{" "}
+                <span className="font-medium">VITE_CLERK_PUBLISHABLE_KEY</span> are from different Clerk apps (session JWT
+                cannot be verified — <span className="font-mono text-xs">jwk-kid-mismatch</span>). In Cursor Cloud →
+                Environment, set both keys from the <span className="font-medium">same</span> Clerk instance (API Keys
+                page), then run <span className="font-mono text-xs">bash scripts/dev-stack.sh</span> and sign in again.
+              </>
+            ) : (
+              <>
+                This preview environment&apos;s <span className="font-medium">CLERK_SECRET_KEY</span> is missing or
+                invalid. Update secrets in Cursor Cloud → Environment, then run{" "}
+                <span className="font-mono text-xs">bash scripts/dev-stack.sh</span> and sign in again.
+              </>
+            )}
           </p>
         )}
         {apiStale && !clerkMisconfigured && (

@@ -466,6 +466,8 @@ if [[ -n "$PUBLIC_URL" ]]; then
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
   if using_named_cloudflare_tunnel; then
     configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
+  elif [[ -n "$PUBLIC_URL" && "$PUBLIC_URL" == *".trycloudflare.com"* ]]; then
+    clear_stale_trycloudflare_clerk_proxy
   fi
   if ! should_skip_cloudflare_tunnel; then
     configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
