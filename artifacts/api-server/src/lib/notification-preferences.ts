@@ -46,7 +46,7 @@ const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> 
     "project_pinned",
     "project_unpinned",
   ],
-  team: ["team_invite", "team_invite_accepted"],
+  team: ["team_invite", "team_invite_accepted", "workspace_created"],
   billing: [
     "credit_low",
     "credit_depleted",
@@ -203,7 +203,7 @@ export function isNotificationTypeEnabled(
 ): boolean {
   if (ALWAYS_ON_TYPES.has(type)) return true;
   const category = notificationCategoryForType(type);
-  if (!category) return true;
+  if (!category) return false;
   return preferences[category];
 }
 
@@ -213,7 +213,7 @@ export function isNotificationEmailTypeEnabled(
 ): boolean {
   if (ALWAYS_ON_TYPES.has(type)) return true;
   const category = notificationCategoryForType(type);
-  if (!category) return true;
+  if (!category) return false;
   const emailPref = preferences.email?.[category];
   if (emailPref !== undefined) return emailPref;
   return DEFAULT_EMAIL_NOTIFICATION_PREFERENCES[category];
@@ -295,26 +295,46 @@ async function findProfilePrefsByLoginEmail(normalized: string): Promise<Notific
 }
 
 /**
- * Whether to send a team invite email to this address.
- * New users (no Clerk account) still receive the invite email so they can sign up and accept.
- * Existing users with team notifications disabled do not.
+ * Whether to send a category email to this address (team invite, billing, etc.).
+ * When no user/profile is found, defaults match new-account notification defaults.
  */
-export async function shouldSendTeamInviteEmailToAddress(email: string): Promise<boolean> {
+export async function shouldSendNotificationEmailToAddress(
+  email: string,
+  type: string,
+  options?: {
+    /** Team invites: still email addresses with no account so they can sign up. */
+    allowInviteToNewAddresses?: boolean;
+  },
+): Promise<boolean> {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return false;
 
   const prefsByLoginEmail = await findProfilePrefsByLoginEmail(normalized);
   if (prefsByLoginEmail) {
-    return isNotificationEmailTypeEnabled(prefsByLoginEmail, "team_invite");
+    return isNotificationEmailTypeEnabled(prefsByLoginEmail, type);
   }
 
   const userId = await resolveUserIdForEmail(normalized);
   if (userId) {
-    return await isNotificationEmailDeliveryEnabled(userId, "team_invite");
+    return await isNotificationEmailDeliveryEnabled(userId, type);
   }
 
-  // No mapped user id — only email brand-new addresses that do not already have a Clerk account.
-  return !(await clerkAccountExistsForEmail(normalized));
+  if (options?.allowInviteToNewAddresses && type === "team_invite") {
+    return !(await clerkAccountExistsForEmail(normalized));
+  }
+
+  return isNotificationEmailTypeEnabled(DEFAULT_NOTIFICATION_PREFERENCES, type);
+}
+
+/**
+ * Whether to send a team invite email to this address.
+ * New users (no Clerk account) still receive the invite email so they can sign up and accept.
+ * Existing users with team notifications disabled do not.
+ */
+export async function shouldSendTeamInviteEmailToAddress(email: string): Promise<boolean> {
+  return shouldSendNotificationEmailToAddress(email, "team_invite", {
+    allowInviteToNewAddresses: true,
+  });
 }
 
 export async function shouldSendTeamWelcomeEmailToUser(userId: string): Promise<boolean> {

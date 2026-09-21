@@ -3,6 +3,7 @@ import { db, workspaceMembersTable, workspacesTable } from "@workspace/db";
 import { fetchClerkUserIdByEmail } from "./clerk-user.js";
 import { notificationEmailTemplate } from "./email-templates.js";
 import { isEmailNotificationsEnabled, sendEmail } from "./email.js";
+import { shouldSendNotificationEmailToAddress } from "./notification-preferences.js";
 import { createNotification } from "./notifications.js";
 import type { CreditTotals } from "./workspace-credits.js";
 
@@ -76,6 +77,7 @@ export async function notifyWorkspaceMemberCreditsAssigned(opts: {
 
   const email = row.invitedEmail.trim();
   if (!email || !(await isEmailNotificationsEnabled())) return;
+  if (!(await shouldSendNotificationEmailToAddress(email, "credits_assigned"))) return;
 
   const html = notificationEmailTemplate({
     recipientName: row.invitedName?.trim() || "there",

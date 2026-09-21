@@ -1,39 +1,7 @@
-import { notificationEmailTemplate } from "./email-templates.js";
-import { isEmailNotificationsEnabled, sendEmail } from "./email.js";
 import { createNotification } from "./notifications.js";
 import { fetchClerkUserEmailAndName } from "./clerk-user.js";
-import { eq } from "drizzle-orm";
-import { db, userProfilesTable } from "@workspace/db";
 
-function getAppBaseUrl(): string {
-  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
-}
-
-async function resolveLoginEmail(userId: string): Promise<string | null> {
-  const [profileRow] = await db
-    .select({ loginEmail: userProfilesTable.loginEmail })
-    .from(userProfilesTable)
-    .where(eq(userProfilesTable.userId, userId))
-    .limit(1);
-  const fromProfile = profileRow?.loginEmail?.trim();
-  if (fromProfile) return fromProfile;
-  return (await fetchClerkUserEmailAndName(userId))?.email ?? null;
-}
-
-async function sendNotificationEmail(userId: string, title: string, message: string, link: string): Promise<void> {
-  const email = await resolveLoginEmail(userId);
-  if (!email || !(await isEmailNotificationsEnabled())) return;
-  const profile = await fetchClerkUserEmailAndName(userId);
-  const html = notificationEmailTemplate({
-    recipientName: profile?.name?.trim() || "there",
-    title,
-    message,
-    actionUrl: `${getAppBaseUrl()}${link}`,
-  });
-  void sendEmail({ to: email, subject: title, html });
-}
-
-/** In-app + email when a team member creates a workspace (owner funds pools; member waits for credits). */
+/** In-app + email (per user notification preferences) when a team member creates a workspace. */
 export async function notifyMemberCreatedWorkspace(opts: {
   accountOwnerId: string;
   createdByUserId: string;
@@ -57,7 +25,6 @@ export async function notifyMemberCreatedWorkspace(opts: {
     message: ownerMessage,
     link: workspaceLink,
   });
-  void sendNotificationEmail(opts.accountOwnerId, ownerTitle, ownerMessage, workspaceLink);
 
   const memberTitle = "Workspace created — credits needed";
   const memberMessage =
@@ -70,5 +37,4 @@ export async function notifyMemberCreatedWorkspace(opts: {
     message: memberMessage,
     link: workspaceLink,
   });
-  void sendNotificationEmail(opts.createdByUserId, memberTitle, memberMessage, workspaceLink);
 }
