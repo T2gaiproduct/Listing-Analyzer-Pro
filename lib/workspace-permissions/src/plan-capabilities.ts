@@ -60,8 +60,7 @@ export function sanitizeEnabledFeaturesForPlan(
   if (enabledFeatures == null) return null;
   const out: PlanEnabledFeatures = {};
   for (const cap of PLAN_CAPABILITY_CATALOG) {
-    const v = enabledFeatures[cap.key];
-    if (v !== undefined) out[cap.key] = Boolean(v);
+    out[cap.key] = Boolean(enabledFeatures[cap.key]);
   }
   return out;
 }
@@ -77,10 +76,7 @@ export function planHasCapability(
   capability: PlanCapabilityKey,
 ): boolean {
   if (hasExplicitEnabledFeatures(enabledFeatures)) {
-    const explicit = enabledFeatures[capability];
-    if (explicit !== undefined) {
-      return Boolean(explicit);
-    }
+    return Boolean(enabledFeatures[capability]);
   }
 
   if (capability === "workspaces") {

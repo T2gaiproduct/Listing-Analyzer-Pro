@@ -31,6 +31,7 @@ export function buildProfileMenuItems(
   canView: CanViewFn,
   can: CanFn,
   workspacesPlanLocked = false,
+  workspacesEnabled = true,
 ): ProfileMenuItem[] {
   if (variant === "admin") {
     return [
@@ -66,7 +67,10 @@ export function buildProfileMenuItems(
     items.push({ icon: Shield, label: "Roles", href: "/roles" });
   }
 
-  if (isAccountOwner || canView("workspaces")) {
+  const showWorkspacesHub =
+    (isAccountOwner && workspacesEnabled)
+    || (!isAccountOwner && canView("workspaces"));
+  if (showWorkspacesHub) {
     items.push({
       icon: Building2,
       label: WORKSPACES_HUB_LABEL,

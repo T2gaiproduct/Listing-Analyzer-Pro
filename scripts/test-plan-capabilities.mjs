@@ -65,7 +65,15 @@ test("admin config: explicit true on Free enables workspaces", () => {
 });
 
 test("explicit enabledFeatures object: missing key is disabled", () => {
-  assert.equal(planHasCapability({ workspaces: true }, "Starter", "api_access"), false);
+  assert.equal(planHasCapability({ workspaces: true }, "Pro", "api_access"), false);
+  assert.equal(planHasCapability({ api_access: true }, "Pro", "workspaces"), false);
+});
+
+test("admin config: explicit false on Pro disables workspaces even with legacy name", () => {
+  assert.equal(
+    planIncludesWorkspacesFromPlan({ planName: "Pro", enabledFeatures: { workspaces: false, api_access: true } }),
+    false,
+  );
 });
 
 test("defaultEnabledFeaturesForPlanName matches expectations", () => {

@@ -253,6 +253,7 @@ export function TopbarWorkspaceSwitcher() {
           ? "Choose a workspace to continue"
           : (scopedWorkspace?.clientLabel?.trim() || null));
 
+  if (isAccountOwner && !workspacesEnabled) return null;
   if (!workspaces.length && !canCreate && !isLoading && !isBillingAccountOwner) return null;
 
   return (

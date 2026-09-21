@@ -26,6 +26,7 @@ function profileMenuItems(
   canView: ReturnType<typeof useWorkspace>["canView"],
   can: ReturnType<typeof useWorkspace>["can"],
   workspacesPlanLocked: boolean,
+  workspacesEnabled: boolean,
 ) {
   return buildProfileMenuItems(
     isTeamMember,
@@ -36,6 +37,7 @@ function profileMenuItems(
     canView,
     can,
     workspacesPlanLocked,
+    workspacesEnabled,
   );
 }
 
@@ -88,7 +90,7 @@ export function DashboardTopbar({
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
   const { isAccountOwner, isWorkspaceAccountOwner, canView, can } = useWorkspace();
-  const { workspacesPlanLocked } = useWorkspacesPlan();
+  const { workspacesPlanLocked, workspacesEnabled } = useWorkspacesPlan();
   const menuItems = profileMenuItems(
     isTeamMember,
     isOwner,
@@ -98,8 +100,9 @@ export function DashboardTopbar({
     canView,
     can,
     workspacesPlanLocked,
+    workspacesEnabled,
   );
-  const showWorkspaceSwitcher = variant === "customer";
+  const showWorkspaceSwitcher = variant === "customer" && (!isAccountOwner || workspacesEnabled);
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);

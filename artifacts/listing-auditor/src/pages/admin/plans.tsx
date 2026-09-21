@@ -32,6 +32,9 @@ async function adminPlanRequest<T>(url: string, init?: RequestInit): Promise<T> 
 function invalidatePlanQueries(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: ["admin-plans"] });
   void qc.invalidateQueries({ queryKey: ["public-plans"] });
+  void qc.invalidateQueries({ queryKey: ["user-subscription"] });
+  void qc.invalidateQueries({ queryKey: ["team-account-permissions"] });
+  void qc.invalidateQueries({ queryKey: ["profile-summary"] });
 }
 
 interface Plan {
@@ -313,19 +316,15 @@ function PlanForm({
 }
 
 function mergeEnabledFeatures(plan: Plan | null | undefined): PlanEnabledFeatures {
-  const base = plan?.enabledFeatures
-    ? emptyEnabledFeatures()
-    : (sanitizeEnabledFeaturesForPlan(
-      plan?.name ?? "",
-      defaultEnabledFeaturesForPlanName(plan?.name ?? ""),
-    ) ?? defaultEnabledFeaturesForPlanName(plan?.name ?? ""));
-  if (!plan?.enabledFeatures) return base;
-  for (const cap of PLAN_CAPABILITY_CATALOG) {
-    if (cap.key in plan.enabledFeatures) {
-      base[cap.key] = Boolean(plan.enabledFeatures[cap.key]);
-    }
+  if (!plan?.enabledFeatures) {
+    return (
+      sanitizeEnabledFeaturesForPlan(
+        plan?.name ?? "",
+        defaultEnabledFeaturesForPlanName(plan?.name ?? ""),
+      ) ?? defaultEnabledFeaturesForPlanName(plan?.name ?? "")
+    );
   }
-  return sanitizeEnabledFeaturesForPlan(plan?.name ?? "", base) ?? base;
+  return sanitizeEnabledFeaturesForPlan(plan.name, plan.enabledFeatures) ?? emptyEnabledFeatures();
 }
 
 export default function AdminPlans() {
