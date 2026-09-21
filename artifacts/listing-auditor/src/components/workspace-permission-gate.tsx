@@ -55,11 +55,23 @@ export function WorkspacePermissionGate({ path, requireCreate, children }: Works
     isLoading,
     permissionsLoading,
     needsWorkspaceSelection,
+    workspaces,
+    activeWorkspaceId,
     can,
     canView,
   } = useWorkspace();
 
   if (isLoading || permissionsLoading) {
+    return <GateLoadingSkeleton />;
+  }
+
+  const resolvingWorkspace =
+    needsWorkspaceSelection
+    && pathRequiresCommittedWorkspace(path)
+    && workspaces.length > 0
+    && activeWorkspaceId == null;
+
+  if (resolvingWorkspace) {
     return <GateLoadingSkeleton />;
   }
 

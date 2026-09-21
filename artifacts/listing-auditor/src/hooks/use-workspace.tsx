@@ -188,7 +188,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (selectedId != null && workspaces.some((w) => w.id === selectedId)) {
       setWorkspaceScopeCommitted(true);
     }
-  }, [workspaces, selectedId, location, profileSummary?.accountRole?.type, workspaceScopeCommitted]);
+  }, [
+    workspaces,
+    selectedId,
+    location,
+    profileSummary?.accountRole?.type,
+    workspaceScopeCommitted,
+    profileTeamMember,
+    ownsAnyWorkspace,
+    agencyAccountOverview,
+    isAccountWideListRoute,
+  ]);
 
   const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
   const hasOnlySharedWorkspaces = workspaces.length > 0 && !ownsAnyWorkspace;
@@ -213,14 +223,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     const billingAccountOwner = profileSummary?.accountRole?.type === "user";
     if (ownsAnyWorkspace && billingAccountOwner && !profileTeamMember) {
-      if (agencyAccountOverview) {
+      const onAccountWidePage =
+        location === "/" || location === "/dashboard" || isAccountWideListRoute;
+      if (agencyAccountOverview && onAccountWidePage) {
         return;
       }
       const owned = workspaces.filter((w) => w.isAccountOwner);
       const fallback = owned.find((w) => w.isDefault) ?? owned[0];
-      if (fallback && selectedId !== fallback.id) {
-        setSelectedId(fallback.id);
-        localStorage.setItem(STORAGE_KEY, String(fallback.id));
+      if (fallback) {
+        if (selectedId !== fallback.id) {
+          setSelectedId(fallback.id);
+          localStorage.setItem(STORAGE_KEY, String(fallback.id));
+        }
+        if (!workspaceScopeCommitted && !onAccountWidePage) {
+          setWorkspaceScopeCommitted(true);
+        }
       }
       return;
     }
