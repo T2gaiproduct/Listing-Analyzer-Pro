@@ -4,8 +4,10 @@ import { getAccountOwnerId, getListScopeWorkspaceId, getWorkspaceCtx } from "./w
 import { resolveTeamContext } from "../middlewares/team-auth";
 import { requireWorkspacePerm } from "./workspace-context";
 import { listLiveChannelsForAudits, loadAuditCatalogExtras } from "./product-marketplaces.js";
-import { isShopifyImportAsin } from "./shopify-import-utils.js";
-import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
+import {
+  classifyAuditProductSource,
+  loadAuditIdsWithProductProfiles,
+} from "./audit-product-source.js";
 
 export type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -114,12 +116,13 @@ export async function loadUnifiedProductList(
   );
 
   const items: UnifiedProductListItem[] = [];
+  const profileAuditIds = await loadAuditIdsWithProductProfiles(audits.map((a) => a.id));
 
   for (const a of audits) {
-    const isShopifyImport = isShopifyImportAsin(a.asin);
-    const isWooCommerceImport = isWooCommerceImportAsin(a.asin);
-    const isAuditListing = !!a.asin?.trim() && !isShopifyImport && !isWooCommerceImport;
-    const sourceType: ProductSourceType = isAuditListing ? "audit" : "listing";
+    const hasProductProfile = profileAuditIds.has(a.id);
+    const classified = classifyAuditProductSource({ asin: a.asin, hasProductProfile });
+    const { isShopifyImport, isWooCommerceImport, isAuditListing } = classified;
+    const sourceType: ProductSourceType = classified.sourceType;
     const name = a.name?.trim() || a.productName?.trim() || "Untitled Project";
     const hasAuditScore = (a.overallScore ?? 0) > 0;
     const mapped = mapAuditStatus(a.status, a.currentStep ?? null, hasAuditScore);

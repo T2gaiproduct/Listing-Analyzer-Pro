@@ -385,11 +385,14 @@ export async function loadAuditCatalogExtras(
     }
   }
 
+  const profileAuditIds = new Set(profiles.map((profile) => profile.auditId));
+
   for (const audit of audits) {
     const entry = result.get(audit.id);
     if (!entry) continue;
-    entry.isShopifyImport = isShopifyImportAsin(audit.asin);
-    entry.isWooCommerceImport = isWooCommerceImportAsin(audit.asin);
+    const hasProductProfile = profileAuditIds.has(audit.id);
+    entry.isShopifyImport = isShopifyImportAsin(audit.asin) && hasProductProfile;
+    entry.isWooCommerceImport = isWooCommerceImportAsin(audit.asin) && hasProductProfile;
   }
 
   for (const id of uniqueIds) {

@@ -288,18 +288,25 @@ export function isBuildBrandAudit(audit: AuditLike): boolean {
   return !audit.asin?.trim() || isShopifyImportAsin(audit.asin) || isWooCommerceImportAsin(audit.asin);
 }
 
+function inferAuditSourceType(audit: AuditLike): "listing" | "audit" {
+  const trimmed = audit.asin?.trim();
+  if (!trimmed) return "listing";
+  if (!isShopifyImportAsin(trimmed) && !isWooCommerceImportAsin(trimmed)) return "audit";
+  const scoredAuditListing =
+    audit.status === "complete"
+    && (audit.overallScore ?? 0) > 0
+    && (audit.currentStep ?? 1) <= 1;
+  return scoredAuditListing ? "audit" : "listing";
+}
+
 export function mapAuditToProductDetail(
   audit: AuditLike,
   managerName = "Account Owner",
   opts?: { sourceType?: "listing" | "audit" },
 ): ProductDetailView {
-  const sourceType = opts?.sourceType ?? (
-    audit.asin?.trim() && !isShopifyImportAsin(audit.asin) && !isWooCommerceImportAsin(audit.asin)
-      ? "audit"
-      : "listing"
-  );
-  const isShopifyImport = isShopifyImportAsin(audit.asin);
-  const isWooCommerceImport = isWooCommerceImportAsin(audit.asin);
+  const sourceType = opts?.sourceType ?? inferAuditSourceType(audit);
+  const isShopifyImport = isShopifyImportAsin(audit.asin) && sourceType === "listing";
+  const isWooCommerceImport = isWooCommerceImportAsin(audit.asin) && sourceType === "listing";
   const name = audit.projectName?.trim() || audit.productName?.trim() || "Untitled Product";
   const mapped = mapProductStatus(audit.status ?? "draft", audit.currentStep ?? null);
   const stageLabel = isShopifyImport

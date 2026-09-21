@@ -300,8 +300,8 @@ async function loadAuditDetail(
     .where(eq(productProfilesTable.auditId, id))
     .limit(1);
 
-  const isShopifyImport = isShopifyImportAsin(row.asin);
-  const isWooCommerceImport = isWooCommerceImportAsin(row.asin);
+  const isShopifyImport = isShopifyImportAsin(row.asin) && Boolean(profile);
+  const isWooCommerceImport = isWooCommerceImportAsin(row.asin) && Boolean(profile);
   const isStoreImport = isShopifyImport || isWooCommerceImport;
   const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Project";
   const sku = profile?.sku?.trim() || deriveSku(name, row.id, effectiveSource === "audit" ? "AUD" : undefined);

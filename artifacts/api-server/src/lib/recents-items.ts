@@ -12,8 +12,7 @@ import {
   getMemberWorkedProjects,
   type MemberWorkedProjects,
 } from "./member-projects";
-import { isShopifyImportAsin } from "./shopify-import-utils.js";
-import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
+import { classifyAuditProductSource } from "./audit-product-source.js";
 
 export function activitySortTime(
   worked: MemberWorkedProjects | null,
@@ -42,20 +41,21 @@ export function recentsTypeLabel(type: string): string {
   }
 }
 
-export function classifyAuditRecentsItem(a: {
-  id: number;
-  asin?: string | null;
-}): { type: "audit" | "listing"; url: string; typeLabel: string } {
-  const isShopifyImport = isShopifyImportAsin(a.asin);
-  const isWooCommerceImport = isWooCommerceImportAsin(a.asin);
-  const isAuditListing = !!a.asin?.trim() && !isShopifyImport && !isWooCommerceImport;
-  const type = isAuditListing ? "audit" as const : "listing" as const;
+export function classifyAuditRecentsItem(
+  a: { id: number; asin?: string | null },
+  opts?: { hasProductProfile?: boolean },
+): { type: "audit" | "listing"; url: string; typeLabel: string } {
+  const classified = classifyAuditProductSource({
+    asin: a.asin,
+    hasProductProfile: opts?.hasProductProfile === true,
+  });
+  const type = classified.sourceType;
   return {
     type,
-    url: isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
-    typeLabel: isShopifyImport
+    url: classified.isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
+    typeLabel: classified.isShopifyImport
       ? "Shopify Import"
-      : isWooCommerceImport
+      : classified.isWooCommerceImport
         ? "WooCommerce Import"
         : recentsTypeLabel(type),
   };
@@ -258,12 +258,14 @@ export interface RecentsItem {
 export function buildRecentsItems(
   data: RecentsScopedData,
   pinnedSet?: Set<string>,
+  profileAuditIds?: Set<number>,
 ): RecentsItem[] {
   const pins = pinnedSet ?? new Set<string>();
+  const profiles = profileAuditIds ?? new Set<number>();
 
   const items: RecentsItem[] = [
     ...data.audits.map((a) => {
-      const classified = classifyAuditRecentsItem(a);
+      const classified = classifyAuditRecentsItem(a, { hasProductProfile: profiles.has(a.id) });
       return {
         type: classified.type,
         id: a.id,

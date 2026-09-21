@@ -25,6 +25,7 @@ import {
   ProjectAccessError,
   type WorkedProjectType,
 } from "../lib/member-projects";
+import { loadAuditIdsWithProductProfiles } from "../lib/audit-product-source.js";
 import {
   loadRecentsScoped,
   buildRecentsItems,
@@ -108,7 +109,8 @@ router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request
     .where(pinFilter);
 
   const pinnedSet = new Set(pins.map((p) => `${p.itemType}-${p.itemId}`));
-  const items = buildRecentsItems(scopedData, pinnedSet);
+  const profileAuditIds = await loadAuditIdsWithProductProfiles(scopedData.audits.map((a) => a.id));
+  const items = buildRecentsItems(scopedData, pinnedSet, profileAuditIds);
   sortRecentsItems(items, scopedData.worked);
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
@@ -231,9 +233,11 @@ router.get("/search/projects", requireAuth, resolveTeamAndWorkspace, async (req:
           .limit(limit),
   ]);
 
+  const profileAuditIds = await loadAuditIdsWithProductProfiles(audits.map((a) => a.id));
+
   const items = [
     ...audits.map((a) => {
-      const classified = classifyAuditRecentsItem(a);
+      const classified = classifyAuditRecentsItem(a, { hasProductProfile: profileAuditIds.has(a.id) });
       return {
         type: classified.type,
         id: a.id,
