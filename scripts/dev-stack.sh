@@ -260,11 +260,10 @@ configure_clerk_proxy_for_tunnel() {
   local host="${public_url#https://}"
   local secret="${CLERK_SEC_FOR_STACK:-${CLERK_SECRET_KEY:-}}"
 
-  # Never repoint production Clerk (pk_live_) to a random *.trycloudflare.com URL —
-  # that breaks https://sellerlens.io/sign-in until restored.
-  if [[ "$host" == *".trycloudflare.com" ]] && ! is_clerk_development_instance; then
-    echo "WARNING: Skipping Clerk proxy_url update for quick tunnel ($host) on production Clerk keys." >&2
-    echo "         Use CLOUDFLARE_TUNNEL_TOKEN + CLOUDFLARE_TUNNEL_PUBLIC_URL for stable dev sign-in." >&2
+  # Quick tunnels must never repoint Clerk proxy_url (breaks https://sellerlens.io sign-in).
+  if [[ "$host" == *".trycloudflare.com" ]]; then
+    echo "==> Quick tunnel ($host): Clerk proxy_url unchanged (production sign-in stays on sellerlens.io)" >&2
+    echo "    Preview sign-in uses Clerk CDN on this host. Named tunnel: CLOUDFLARE_TUNNEL_TOKEN + CLOUDFLARE_TUNNEL_PUBLIC_URL" >&2
     return 0
   fi
 
@@ -462,13 +461,11 @@ if [[ -n "$PUBLIC_URL" ]]; then
     echo "==> Configuring Amazon OAuth redirect for local dev"
     configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
   else
-    echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
+    echo "==> Cloudflare preview (local-only): will not change Clerk production proxy_url"
   fi
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
-  if using_named_cloudflare_tunnel || is_clerk_development_instance; then
+  if using_named_cloudflare_tunnel; then
     configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
-  elif ! should_skip_cloudflare_tunnel; then
-    echo "==> Quick Cloudflare tunnel: leaving Clerk production proxy_url unchanged (sellerlens.io)" >&2
   fi
   if ! should_skip_cloudflare_tunnel; then
     configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
@@ -495,13 +492,18 @@ if [[ -n "$PUBLIC_URL" ]]; then
     pnpm --filter @workspace/api-server run dev
   "
 
+  FRONTEND_VITE_CLERK_PROXY=""
+  if using_named_cloudflare_tunnel; then
+    FRONTEND_VITE_CLERK_PROXY="export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'"
+  fi
+
   tmux_cmd kill-session -t frontend-live 2>/dev/null || true
   tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
     export PORT=19145
     export BASE_PATH=/
     export VITE_DISABLE_HMR=true
     export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-    export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'
+    $FRONTEND_VITE_CLERK_PROXY
     export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
     while true; do
       pnpm --filter @workspace/listing-auditor run dev || true
