@@ -287,15 +287,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const withholdForAgencyOverview =
     isAgencyAccountOverview && (isMainDashboardRoute || isAccountWideListRoute);
 
+  const validActiveWorkspace =
+    activeWorkspaceId != null && workspaces.some((w) => w.id === activeWorkspaceId);
+  const withholdFeatureWorkspaceScope =
+    (withholdWorkspaceScope && !(validActiveWorkspace && !isAccountWideListRoute))
+    || withholdForAgencyOverview;
+
   const featureWorkspaceId = workspaceApiScopeActive
-    ? (withholdWorkspaceScope || withholdForAgencyOverview ? null : activeWorkspaceId)
+    ? (withholdFeatureWorkspaceScope ? null : activeWorkspaceId)
     : null;
   const featureWorkspace = featureWorkspaceId
     ? workspaces.find((w) => w.id === featureWorkspaceId) ?? null
     : null;
   const needsWorkspaceSelection = withholdWorkspaceScope
     && workspaceApiScopeActive
-    && parseWorkspaceRouteId(location) == null;
+    && parseWorkspaceRouteId(location) == null
+    && !validActiveWorkspace;
 
   // Sync module header before paint so fetch interceptors see the right workspace (never during render — causes React #310).
   useLayoutEffect(() => {
