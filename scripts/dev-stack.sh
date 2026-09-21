@@ -30,10 +30,6 @@ CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
 CLERK_SEC_FOR_STACK="${CLERK_SECRET_KEY:-}"
 ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-}"
 
-if [[ -n "$CLERK_PUB_FOR_STACK" ]]; then
-  export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
-fi
-
 clerk_instance_from_publishable_key() {
   local key="$1"
   [[ "$key" =~ ^pk_(test|live)_ ]] || return 0
@@ -42,6 +38,59 @@ clerk_instance_from_publishable_key() {
   local pad=$(( (4 - ${#b64} % 4) % 4 ))
   python3 -c "import base64,sys; print(base64.b64decode(sys.argv[1]+'='*int(sys.argv[2])).decode().rstrip('$'))" "$b64" "$pad" 2>/dev/null || true
 }
+
+clerk_pk_test_from_fapi_host() {
+  python3 -c "import base64,sys; h=sys.argv[1].strip(); print('pk_test_'+base64.b64encode((h+'\$').encode()).decode().rstrip('='))" "$1"
+}
+
+# Cloud Agent secrets sometimes ship a stale publishable key (different Clerk app than CLERK_SECRET_KEY).
+# Derive pk_test from the secret instance's Frontend API host — local dev only; does not change Clerk Dashboard.
+sync_clerk_publishable_to_secret_instance() {
+  [[ -n "${CLERK_SEC_FOR_STACK:-}" ]] || return 0
+  [[ "${DISABLE_CLERK_KEY_SYNC:-}" == "1" ]] && return 0
+
+  local domains_json fapi_host pub_host fixed_pk
+  domains_json=$(curl -sf -H "Authorization: Bearer $CLERK_SEC_FOR_STACK" "https://api.clerk.com/v1/domains" 2>/dev/null || true)
+  [[ -n "$domains_json" ]] || return 0
+
+  fapi_host=$(python3 -c "
+import json, sys
+from urllib.parse import urlparse
+data = json.loads(sys.stdin.read()).get('data', [])
+for d in data:
+    if d.get('is_satellite'):
+        continue
+    fe = (d.get('frontend_api_url') or '').strip()
+    if fe:
+        print(urlparse(fe).hostname or '')
+        break
+    portal = (d.get('accounts_portal_url') or '').strip()
+    if portal:
+        slug = (urlparse(portal).hostname or '').split('.')[0]
+        if slug:
+            print(f'{slug}.clerk.accounts.dev')
+            break
+" <<<"$domains_json")
+  [[ -n "$fapi_host" ]] || return 0
+
+  pub_host="$(clerk_instance_from_publishable_key "${CLERK_PUB_FOR_STACK:-}")"
+  if [[ -n "$pub_host" && "$pub_host" == "$fapi_host" ]]; then
+    return 0
+  fi
+
+  fixed_pk="$(clerk_pk_test_from_fapi_host "$fapi_host")"
+  echo "==> Clerk publishable key did not match CLERK_SECRET_KEY (expected $fapi_host); using derived pk_test for this VM only" >&2
+  echo "    Update VITE_CLERK_PUBLISHABLE_KEY in Cursor Cloud → Environment to match your secret's Clerk app." >&2
+  CLERK_PUB_FOR_STACK="$fixed_pk"
+  export VITE_CLERK_PUBLISHABLE_KEY="$fixed_pk"
+  export CLERK_PUBLISHABLE_KEY="$fixed_pk"
+}
+
+sync_clerk_publishable_to_secret_instance
+
+if [[ -n "$CLERK_PUB_FOR_STACK" ]]; then
+  export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
+fi
 
 if [[ -z "$CLERK_SEC_FOR_STACK" || -z "$CLERK_PUB_FOR_STACK" ]]; then
   echo "WARNING: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY missing — signed-in API calls will return 401" >&2
@@ -184,6 +233,29 @@ is_clerk_development_instance() {
 }
 
 CLERK_PROXY_RESTORE_FILE="/tmp/clerk-proxy-restore-url.txt"
+
+clear_stale_trycloudflare_clerk_proxy() {
+  local secret="${CLERK_SEC_FOR_STACK:-${CLERK_SECRET_KEY:-}}"
+  [[ -n "$secret" ]] || return 0
+  local domains_json current_proxy primary_id
+  domains_json=$(curl -sf -H "Authorization: Bearer $secret" "https://api.clerk.com/v1/domains" 2>/dev/null || true)
+  [[ -n "$domains_json" ]] || return 0
+  read -r primary_id current_proxy < <(python3 -c "
+import json, sys
+data = json.loads(sys.stdin.read()).get('data', [])
+primary = next((d for d in data if not d.get('is_satellite')), None)
+print(primary.get('id', '') if primary else '', primary.get('proxy_url', '') if primary else '')
+" <<<"$domains_json")
+  [[ -n "$primary_id" ]] || return 0
+  if [[ "$current_proxy" != *".trycloudflare.com"* ]]; then
+    return 0
+  fi
+  echo "==> Clearing stale Clerk proxy_url ($current_proxy) — preview uses Clerk CDN"
+  curl -sf -X PATCH "https://api.clerk.com/v1/domains/$primary_id" \
+    -H "Authorization: Bearer $secret" \
+    -H "Content-Type: application/json" \
+    -d '{"proxy_url":""}' >/dev/null || true
+}
 
 start_named_cloudflare_tunnel() {
   ensure_cloudflared
