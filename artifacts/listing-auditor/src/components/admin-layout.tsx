@@ -461,6 +461,14 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               onNavigate={() => setMobileNavOpen(false)}
               className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
             />
+            <Link
+              href="/admin/archive"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Archive"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Archive className="w-4 h-4" />
+            </Link>
           </div>
           <nav className="flex-1 py-3 overflow-y-auto px-3 space-y-3.5">
             <AdminNavSections

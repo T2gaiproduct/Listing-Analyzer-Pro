@@ -7,7 +7,6 @@ import {
   FileSearch,
   Palette,
   Video,
-  Bell,
   Archive,
   PanelLeftClose,
   PanelLeftOpen,
@@ -34,6 +33,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
+import { CustomerNotificationBell } from "@/components/customer-notification-bell";
 import {
   ProjectShareMenu,
   shareProjectToInstagram,
@@ -96,47 +96,15 @@ function SidebarTooltip({ label, children, side = "bottom" }: { label: string; c
   );
 }
 
-// --- Notification bell in header --------------------------------------------
-interface NotificationItem {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  link?: string | null;
-  read: boolean;
-  sentAt: string;
-}
-
 function NotificationIcon({ collapsed }: { collapsed: boolean }) {
-  const [, navigate] = useLocation();
-
-  const { data } = useQuery({
-    queryKey: ["notifications"],
-    queryFn: async (): Promise<{ notifications: NotificationItem[] }> => {
-      const r = await fetch(`${basePath}/api/notifications`);
-      if (!r.ok) throw new Error("Failed to load notifications");
-      return r.json();
-    },
-    refetchInterval: 30000,
-  });
-
-  const notifications = data?.notifications ?? [];
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   return (
     <SidebarTooltip label="Notifications" side={collapsed ? "right" : "bottom"}>
-      <button
-        onClick={() => navigate("/notifications")}
+      <CustomerNotificationBell
         className={cn(
-          "relative flex items-center justify-center rounded-lg transition-colors text-slate-500 hover:text-slate-800 hover:bg-slate-100",
-          collapsed ? "w-9 h-9" : "w-8 h-8"
+          "text-slate-500 hover:text-slate-800 hover:bg-slate-100",
+          collapsed ? "w-9 h-9" : "w-8 h-8",
         )}
-      >
-        <Bell className="w-4 h-4" />
-        {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-primary border-2 border-white" />
-        )}
-      </button>
+      />
     </SidebarTooltip>
   );
 }

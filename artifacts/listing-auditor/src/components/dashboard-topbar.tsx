@@ -2,8 +2,10 @@ import { useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Search, Coins, ChevronDown, UserCircle, Receipt, Settings,
-  Users, LogOut, Lock, X, Menu, Building2, Shield,
+  Users, LogOut, Lock, X, Menu, Building2, Shield, Archive,
 } from "lucide-react";
+import { CustomerNotificationBell } from "@/components/customer-notification-bell";
+import { AdminNotificationBell } from "@/components/admin-notification-bell";
 import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import type { RecentItem } from "@workspace/api-client-react";
@@ -265,6 +267,31 @@ export function DashboardTopbar({
       </div>
 
       {showWorkspaceSwitcher && <TopbarWorkspaceSwitcher />}
+
+      {variant === "customer" && (
+        <div className="flex items-center gap-0.5 lg:hidden flex-shrink-0">
+          {(isAccountOwner || canView("notifications")) && (
+            <CustomerNotificationBell className="w-9 h-9" />
+          )}
+          {(isAccountOwner || canView("archive")) && (
+            <Link href="/archive" aria-label="Archive">
+              <span className="touch-target flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <Archive className="w-4 h-4" />
+              </span>
+            </Link>
+          )}
+        </div>
+      )}
+      {variant === "admin" && (
+        <div className="flex items-center gap-0.5 lg:hidden flex-shrink-0">
+          <AdminNotificationBell className="w-9 h-9 rounded-lg text-muted-foreground hover:bg-muted" />
+          <Link href="/admin/archive" aria-label="Archive">
+            <span className="touch-target flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <Archive className="w-4 h-4" />
+            </span>
+          </Link>
+        </div>
+      )}
 
       <div className="ml-auto flex items-center gap-2 sm:gap-4 flex-shrink-0">
         {showCredits && (
