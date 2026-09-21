@@ -20,7 +20,10 @@ import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge, useApiAuthReady } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
 import { clerkAppearance } from "@/lib/clerk-appearance";
-import { shouldUseSameOriginClerkProxy } from "@/lib/clerk-proxy-host";
+import {
+  clerkFrontendHostFromPublishableKey,
+  shouldUseSameOriginClerkProxy,
+} from "@/lib/clerk-proxy-host";
 import { buildClerkLocalization } from "@/lib/clerk-localization";
 import {
   isSharedProjectDeepLink,
@@ -169,22 +172,31 @@ function AuthLoading() {
 
 function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
   const { signOut } = useClerk();
-  const { data: apiHealth } = useQuery({
+  const viteClerkHost = clerkFrontendHostFromPublishableKey(clerkPubKey);
+  const { data: apiHealth, isFetched: healthFetched } = useQuery({
     queryKey: ["api-healthz"],
     queryFn: () =>
       fetch(`${basePath}/api/healthz`)
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchOnMount: "always",
   });
   const clerkKeyMismatch = apiHealth?.clerkKeyPair === "mismatch";
   const clerkSecretInvalid =
     apiHealth?.clerkProxySecret === "invalid" || apiHealth?.clerkProxySecret === "missing";
-  const clerkMisconfigured =
-    clerkKeyMismatch || clerkSecretInvalid;
-  const clerkInstanceHost = apiHealth?.clerkPublishableHost as string | undefined;
   const clerkPlaceholderSecret = apiHealth?.clerkSecretLooksLikePlaceholder === true;
+  const clerkSecretOk = apiHealth?.clerkProxySecret === "ok";
+  const clerkMisconfigured =
+    clerkKeyMismatch
+    || clerkSecretInvalid
+    || clerkPlaceholderSecret
+    || (healthFetched && apiHealth != null && !clerkSecretOk && apiHealth.clerkProxySecret !== "skipped");
+  const clerkInstanceHost =
+    (apiHealth?.clerkPublishableHost as string | undefined) || viteClerkHost || undefined;
   const apiStale = apiHealth?.staleProcess === true;
+  const onCloudPreview =
+    typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com");
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center p-6">
@@ -232,17 +244,33 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
             )}
           </p>
         )}
-        {apiStale && !clerkMisconfigured && (
+        {!healthFetched && (
+          <p className="text-sm text-slate-600">Checking API configuration…</p>
+        )}
+        {apiStale && (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
             The API server is running an older build. In the Cloud Agent VM run{" "}
-            <span className="font-mono text-xs">bash scripts/dev-stack.sh</span>, then reload this page and sign in again.
+            <span className="font-mono text-xs">bash scripts/dev-stack.sh</span>, then reload this page.
           </p>
         )}
-        {!apiStale && !clerkMisconfigured && (
+        {healthFetched && clerkMisconfigured && !clerkKeyMismatch && (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
-            On Cloudflare preview links, sign out and sign in again on the same hostname.{" "}
+            Signing out and back in will <span className="font-medium">not</span> fix this until the server secret is
+            updated.
+          </p>
+        )}
+        {healthFetched && clerkSecretOk && !apiStale && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
+            {onCloudPreview ? (
+              <>
+                On Cloudflare preview links, sign out and sign in again on the <span className="font-medium">same</span>{" "}
+                hostname you use in the browser.
+              </>
+            ) : (
+              <>Sign out and sign in again to refresh your session.</>
+            )}{" "}
             <span className="font-medium">Public listing preview links</span> (
-            <span className="font-mono text-xs">/listing-preview/…?token=…</span>) work without an account—open that URL in a private window or after signing out.
+            <span className="font-mono text-xs">/listing-preview/…?token=…</span>) work without an account.
           </p>
         )}
         <div className="flex flex-wrap items-center justify-center gap-3">
