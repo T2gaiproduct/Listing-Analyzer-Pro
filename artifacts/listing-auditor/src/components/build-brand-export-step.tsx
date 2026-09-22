@@ -30,6 +30,40 @@ type ExportPreviewResponse = {
   canDownload: boolean;
 };
 
+function ExportPreviewValue({ value }: { value: string }) {
+  if (!value) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const isUrl = /^https?:\/\//i.test(value);
+  const cellClass = cn(
+    "block min-w-0",
+    "max-lg:break-all max-lg:whitespace-pre-wrap",
+    "lg:truncate lg:whitespace-nowrap",
+    isUrl && "text-blue-700 hover:text-blue-800",
+  );
+
+  if (isUrl) {
+    return (
+      <a
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cellClass}
+        title={value}
+      >
+        {value}
+      </a>
+    );
+  }
+
+  return (
+    <span className={cellClass} title={value.length > 60 ? value : undefined}>
+      {value}
+    </span>
+  );
+}
+
 function StatusPill({ status }: { status: ExportPreviewRow["status"] }) {
   if (status === "complete") {
     return (
@@ -111,8 +145,8 @@ export function BuildBrandExportStep({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[12rem_1fr] gap-6">
-        <div className="rounded-2xl border border-border bg-card p-5 flex flex-col items-center text-center">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(12rem,14rem)_minmax(0,1fr)] gap-6 lg:items-start">
+        <div className="rounded-2xl border border-border bg-card p-5 flex flex-col items-center text-center lg:sticky lg:top-4">
           <div
             className="w-24 h-24 rounded-full border-4 border-orange-200 flex items-center justify-center text-2xl font-bold text-orange-600"
             aria-label="Listing readiness"
@@ -144,8 +178,15 @@ export function BuildBrandExportStep({
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-[28rem] overflow-y-auto">
-              <table className="w-full text-sm min-w-[40rem]">
+            <div className="max-lg:overflow-x-auto max-h-[28rem] overflow-y-auto">
+              <table className="w-full text-sm max-lg:min-w-[40rem] lg:table-fixed">
+                <colgroup>
+                  <col className="lg:w-[12%]" />
+                  <col className="lg:w-[26%]" />
+                  <col />
+                  <col className="lg:w-[10%]" />
+                  <col className="lg:w-[12%]" />
+                </colgroup>
                 <thead className="sticky top-0 bg-card z-10">
                   <tr className="border-b border-border text-left">
                     <th className="px-3 py-2 font-semibold text-muted-foreground">Section</th>
@@ -159,15 +200,14 @@ export function BuildBrandExportStep({
                   {(data?.rows ?? []).map((row, index) => (
                     <tr key={`${row.section}-${row.amazonField}-${index}`} className="border-b border-border/60 align-top">
                       <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{row.section}</td>
-                      <td className="px-3 py-2 font-medium whitespace-nowrap">{row.amazonField}</td>
-                      <td className={cn(
-                        "px-3 py-2 max-w-md break-all",
-                        row.value.startsWith("http") && "text-blue-700 underline-offset-2",
-                      )}>
-                        {row.value || "—"}
+                      <td className="px-3 py-2 font-medium max-lg:whitespace-nowrap lg:truncate" title={row.amazonField}>
+                        {row.amazonField}
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{row.charCount}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 min-w-0 lg:max-w-0">
+                        <ExportPreviewValue value={row.value} />
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums whitespace-nowrap">{row.charCount}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
                         <StatusPill status={row.status} />
                       </td>
                     </tr>
