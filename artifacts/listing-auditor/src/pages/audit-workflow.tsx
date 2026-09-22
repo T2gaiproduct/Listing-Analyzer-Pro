@@ -1823,13 +1823,15 @@ export default function AuditWorkflow() {
     <div className="flex flex-col h-full overflow-hidden bg-background">
 
       {/* ── Top Progress Stepper ─────────────────────────────────────────── */}
-      <div className="border-b border-border bg-card py-0 flex-shrink-0">
-        <BuildBrandWorkflowStepper
-          className="border-0 rounded-none"
-          activeStep={activeStep}
-          stepCompleted={stepCompleted}
-          onStepClick={handleStepClick}
-        />
+      <div className="border-b border-border bg-card py-0 flex-shrink-0 px-4 sm:px-6 lg:px-8">
+        <div className="w-full lg:max-w-6xl lg:mx-auto min-w-0">
+          <BuildBrandWorkflowStepper
+            className="border-0 rounded-none"
+            activeStep={activeStep}
+            stepCompleted={stepCompleted}
+            onStepClick={handleStepClick}
+          />
+        </div>
       </div>
 
       {/* ── Content area (relative for panel positioning) ─────────────────── */}
@@ -1843,7 +1845,7 @@ export default function AuditWorkflow() {
           />
         )}
 
-        <div className="py-4 sm:py-5 w-full min-w-0 px-4 sm:px-6">
+        <div className="py-4 sm:py-5 w-full min-w-0 px-4 sm:px-6 lg:max-w-6xl lg:mx-auto lg:px-8">
 
           {/* STEP 1: Select existing product ── */}
           {activeStep === 1 && (
@@ -2687,7 +2689,8 @@ export default function AuditWorkflow() {
       </div>
 
       {/* ── Bottom Bar ───────────────────────────────────────────────────── */}
-      <div className="border-t border-border bg-card px-4 sm:px-5 py-3 sm:py-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="border-t border-border bg-card px-4 sm:px-5 py-3 sm:py-4 flex-shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="w-full lg:max-w-6xl lg:mx-auto flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
         <Button
           variant="outline"
           className="w-full sm:w-auto rounded-xl border-border text-muted-foreground hover:bg-muted gap-2 h-11"
@@ -2738,6 +2741,7 @@ export default function AuditWorkflow() {
             </Button>
           )}
           </div>
+        </div>
         </div>
       </div>
 

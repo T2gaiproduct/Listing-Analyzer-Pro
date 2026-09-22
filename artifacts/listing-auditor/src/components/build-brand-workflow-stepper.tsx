@@ -72,6 +72,7 @@ export function BuildBrandWorkflowStepper({
   const progressPct = Math.round((activeStep / BUILD_BRAND_WORKFLOW_STEPS.length) * 100);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches) return;
     activeStepRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [activeStep]);
 
@@ -99,9 +100,9 @@ export function BuildBrandWorkflowStepper({
       </div>
 
       <div
-        className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:overflow-x-visible"
       >
-        <div className="flex items-stretch w-max min-w-full sm:min-w-[32rem] px-1 sm:px-0">
+        <div className="flex items-stretch w-max min-w-full sm:w-full sm:min-w-0 px-1 sm:px-0">
           {BUILD_BRAND_WORKFLOW_STEPS.map((s) => {
             const isActive = activeStep === s.id;
             const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
@@ -115,7 +116,7 @@ export function BuildBrandWorkflowStepper({
                 disabled={!clickable}
                 onClick={() => onStepClick?.(s.id)}
                 className={cn(
-                  "flex-shrink-0 w-[4.25rem] sm:flex-1 sm:min-w-[3.5rem] flex flex-col items-center py-2.5 sm:py-3 gap-0.5 border-b-2 transition-all text-center px-0.5 snap-center",
+                  "flex-shrink-0 w-[4.25rem] sm:flex-1 sm:min-w-0 flex flex-col items-center py-2.5 sm:py-2.5 xl:py-3 gap-0.5 border-b-2 transition-all text-center px-0.5 snap-center",
                   isActive ? "border-orange-500" : "border-transparent",
                   clickable && !isActive && "hover:border-border cursor-pointer",
                   !clickable && "cursor-default",
@@ -141,15 +142,16 @@ export function BuildBrandWorkflowStepper({
                 </p>
                 <p
                   className={cn(
-                    "hidden sm:block text-[10px] font-bold uppercase tracking-wide leading-none",
+                    "hidden sm:block text-[9px] xl:text-[10px] font-bold uppercase tracking-wide leading-tight px-0.5",
                     isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-muted-foreground",
                   )}
                 >
-                  {s.label}
+                  <span className="xl:hidden">{s.shortLabel}</span>
+                  <span className="hidden xl:inline">{s.label}</span>
                 </p>
                 <p
                   className={cn(
-                    "text-[10px] leading-tight hidden sm:block",
+                    "text-[10px] leading-tight hidden xl:block px-1",
                     isActive || isCompleted ? "text-muted-foreground" : "text-muted-foreground/70",
                   )}
                 >

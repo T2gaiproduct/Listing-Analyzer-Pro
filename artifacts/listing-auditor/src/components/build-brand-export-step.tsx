@@ -137,7 +137,7 @@ export function BuildBrandExportStep({
     : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Export listing package</h2>
         <p className="text-sm text-muted-foreground mt-1">

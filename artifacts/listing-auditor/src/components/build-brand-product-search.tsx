@@ -125,7 +125,7 @@ export function BuildBrandProductSearch({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
           <PackageSearch className="w-4 h-4 text-orange-500" />
