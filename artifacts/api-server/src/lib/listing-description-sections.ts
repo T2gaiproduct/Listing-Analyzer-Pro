@@ -98,8 +98,8 @@ export function buildListingContentReviewRows(
     section: "Note",
     field: "Amazon Upload sheet",
     value:
-      `The "Amazon Upload" worksheet product_description is limited to ${AMAZON_PRODUCT_DESCRIPTION_MAX} visible characters for flat-file compatibility. ` +
-      "When HTML fits that limit it is exported as HTML; otherwise plain text is truncated. Image columns remain URLs only.",
+      `The "Amazon Upload" worksheet exports product_description as HTML (tags preserved when possible). ` +
+      `Amazon recommends about ${AMAZON_PRODUCT_DESCRIPTION_MAX} visible characters; longer HTML may be truncated as HTML, not plain text. Image columns are URLs only.`,
   });
 
   rows.push({

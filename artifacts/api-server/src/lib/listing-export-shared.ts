@@ -43,16 +43,34 @@ export function truncate(value: string, max: number): string {
 }
 
 /**
- * Use generated listing HTML in Excel/CSV exports. When a visible-character cap applies
- * (Amazon flat-file), keep HTML if it fits; otherwise fall back to truncated plain text.
+ * Listing description for Amazon flat-file / export preview — always HTML when the source is HTML.
+ * Never downgrade to plain text (image columns stay URLs separately).
+ * When over a visible-character cap, return truncated HTML (wrapped paragraph), not stripped text.
  */
 export function htmlForListingExport(html: string, maxVisibleChars?: number): string {
   const trimmed = html.trim();
   if (!trimmed) return "";
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(trimmed);
+  if (!looksLikeHtml) {
+    const escaped = trimmed
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const paragraphs = escaped.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+    const wrapped = paragraphs.length > 0
+      ? paragraphs.map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`).join("\n")
+      : `<p>${escaped}</p>`;
+    return htmlForListingExport(wrapped, maxVisibleChars);
+  }
   if (maxVisibleChars == null) return trimmed;
   const visible = stripHtml(trimmed);
   if (visible.length <= maxVisibleChars) return trimmed;
-  return truncate(visible, maxVisibleChars);
+  const cut = truncate(visible, maxVisibleChars);
+  const escaped = cut
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return `<p>${escaped.replace(/\n/g, "<br/>")}</p>`;
 }
 
 export function slugify(value: string): string {

@@ -15,7 +15,7 @@ import {
   resolvePublishImageCandidate,
   resolvePublishImageUrlsFromAudit,
 } from "./materialize-audit-images-for-publish.js";
-import { resolveListingContentForExport } from "./resolve-listing-content.js";
+import { bulletsToHtmlDescription, resolveListingContentForExport } from "./resolve-listing-content.js";
 import {
   AMAZON_PRODUCT_DESCRIPTION_MAX,
   buildListingContentReviewRows,
@@ -128,7 +128,9 @@ export function buildAuditExportBundle(opts: {
   while (bullets.length < 5) bullets.push("");
 
   const keywords = truncate(content.keywords.join(" ").replace(/\s+/g, " "), KEYWORDS_MAX);
-  const description = htmlForListingExport(content.htmlDescription || "", DESCRIPTION_MAX);
+  const descriptionSource = content.htmlDescription?.trim()
+    || bulletsToHtmlDescription(content.bulletPoints);
+  const description = htmlForListingExport(descriptionSource, DESCRIPTION_MAX);
 
   const imageUrlColumns: string[] = ["", "", "", "", "", "", "", "", ""];
   publishUrls.forEach((url, index) => {

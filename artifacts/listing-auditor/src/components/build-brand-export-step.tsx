@@ -30,16 +30,22 @@ type ExportPreviewResponse = {
   canDownload: boolean;
 };
 
-function ExportPreviewValue({ value }: { value: string }) {
+function looksLikeHtmlValue(value: string): boolean {
+  return /<[a-z][\s\S]*>/i.test(value.trim());
+}
+
+function ExportPreviewValue({ value, amazonField }: { value: string; amazonField?: string }) {
   if (!value) {
     return <span className="text-muted-foreground">—</span>;
   }
 
   const isUrl = /^https?:\/\//i.test(value);
+  const isHtml = !isUrl && (amazonField === "Product description" || looksLikeHtmlValue(value));
   const cellClass = cn(
     "block min-w-0",
-    "max-lg:break-all max-lg:whitespace-pre-wrap",
-    "lg:truncate lg:whitespace-nowrap",
+    isHtml
+      ? "max-lg:whitespace-pre-wrap max-lg:break-words lg:truncate lg:whitespace-nowrap font-mono text-[11px] leading-snug"
+      : "max-lg:break-all max-lg:whitespace-pre-wrap lg:truncate lg:whitespace-nowrap",
     isUrl && "text-blue-700 hover:text-blue-800",
   );
 
@@ -141,7 +147,7 @@ export function BuildBrandExportStep({
       <div>
         <h2 className="text-2xl font-bold text-foreground">Export listing package</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Review Amazon upload fields, then download CSV or Excel. Image fields use public URLs.
+          Review Amazon upload fields, then download CSV or Excel. Listing description is HTML; image fields use public URLs.
         </p>
       </div>
 
@@ -204,7 +210,7 @@ export function BuildBrandExportStep({
                         {row.amazonField}
                       </td>
                       <td className="px-3 py-2 min-w-0 lg:max-w-0">
-                        <ExportPreviewValue value={row.value} />
+                        <ExportPreviewValue value={row.value} amazonField={row.amazonField} />
                       </td>
                       <td className="px-3 py-2 text-muted-foreground tabular-nums whitespace-nowrap">{row.charCount}</td>
                       <td className="px-3 py-2 whitespace-nowrap">

@@ -9,7 +9,7 @@ import {
   listingDescriptionVisibleLength,
 } from "./listing-description-sections.js";
 import { htmlForListingExport } from "./listing-export-shared.js";
-import { resolveListingContentForExport } from "./resolve-listing-content.js";
+import { bulletsToHtmlDescription, resolveListingContentForExport } from "./resolve-listing-content.js";
 
 export type ExportPreviewRowStatus = "complete" | "missing" | "optional";
 
@@ -107,7 +107,9 @@ function flatRowToPreviewRows(row: AmazonFlatFileRow): ExportPreviewRow[] {
 
 function partialListingRows(audit: Audit): ExportPreviewRow[] {
   const content = resolveListingContentForExport(audit);
-  const description = htmlForListingExport(content.htmlDescription || "", AMAZON_PRODUCT_DESCRIPTION_MAX);
+  const descriptionSource = content.htmlDescription?.trim()
+    || bulletsToHtmlDescription(content.bulletPoints);
+  const description = htmlForListingExport(descriptionSource, AMAZON_PRODUCT_DESCRIPTION_MAX);
   const bullets = content.bulletPoints.slice(0, 5);
   const rows: ExportPreviewRow[] = [
     {
