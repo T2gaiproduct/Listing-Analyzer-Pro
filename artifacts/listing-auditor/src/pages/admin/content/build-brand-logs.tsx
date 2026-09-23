@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { Eye, FilePlus2, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ResponsiveTable } from "@/components/responsive-table";
@@ -74,10 +74,16 @@ export default function AdminBuildBrandLogs() {
                 </tr>
               ))}
             {!isLoading && items.map((c) => (
-              <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+              <tr
+                key={c.id}
+                className="border-b border-slate-50 hover:bg-orange-50/40 cursor-pointer group"
+                onClick={() => {
+                  if (c.userId) nav(`/admin/customers/${c.userId}`);
+                }}
+              >
                 <td className="px-6 py-3 text-slate-400 text-xs">{c.id}</td>
-                <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">
-                  <Link href={`${basePath}/audits/${c.id}`} className="hover:text-orange-600 transition-colors">{c.productName}</Link>
+                <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate group-hover:text-orange-700 transition-colors">
+                  {c.productName}
                 </td>
                 <td className="px-4 py-3 text-slate-600 max-w-[320px] truncate" title={c.generatedContent?.title ?? ""}>
                   {c.generatedContent?.title ?? "—"}
@@ -92,7 +98,10 @@ export default function AdminBuildBrandLogs() {
                     size="sm"
                     className="h-7 px-2 text-slate-400 hover:text-orange-600"
                     title="View audit detail"
-                    onClick={() => nav(`/audits/${c.id}?returnTo=/admin/content/build-brand-logs`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      nav(`/audits/${c.id}?returnTo=/admin/content/build-brand-logs`);
+                    }}
                   >
                     <Eye className="w-3.5 h-3.5" />
                   </Button>

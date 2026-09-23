@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { Trash2, Eye, FileText, ChevronLeft, ChevronRight, Image, Palette, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ResponsiveTable } from "@/components/responsive-table";
@@ -88,13 +88,19 @@ export default function AdminGraphicsLogs() {
                 </tr>
               ))}
             {!isLoading && (data?.projects ?? []).map((p) => (
-              <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+              <tr
+                key={p.id}
+                className="border-b border-slate-50 hover:bg-orange-50/40 cursor-pointer group"
+                onClick={() => {
+                  if (p.userId) nav(`/admin/customers/${p.userId}`);
+                }}
+              >
                 <td className="px-6 py-3 text-slate-400 text-xs">{p.id}</td>
-                <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">
-                  <Link href={`${basePath}/projects/${p.id}`} className="hover:text-orange-600 transition-colors">{p.name}</Link>
+                <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate group-hover:text-orange-700 transition-colors">
+                  {p.name}
                 </td>
                 <td className="px-4 py-3 text-slate-500 text-xs max-w-[200px] truncate">
-                  <Link href={`${basePath}/audits/${p.auditId ?? p.id}`} className="hover:text-orange-600 transition-colors">{p.productName}</Link>
+                  {p.productName}
                 </td>
                 <td className="px-4 py-3">
                   <span className="text-xs font-medium capitalize px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
@@ -130,7 +136,10 @@ export default function AdminGraphicsLogs() {
                       size="sm"
                       className="h-7 px-2 text-slate-400 hover:text-orange-600"
                       title="View project"
-                      onClick={() => nav(`/projects/${p.id}?returnTo=/admin/content/graphics-logs`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        nav(`/projects/${p.id}?returnTo=/admin/content/graphics-logs`);
+                      }}
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
@@ -138,7 +147,10 @@ export default function AdminGraphicsLogs() {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-slate-400 hover:text-red-600"
-                      onClick={() => confirm(`Delete project #${p.id}?`) && deleteMutation.mutate(p.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Delete project #${p.id}?`)) deleteMutation.mutate(p.id);
+                      }}
                       disabled={deleteMutation.isPending}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

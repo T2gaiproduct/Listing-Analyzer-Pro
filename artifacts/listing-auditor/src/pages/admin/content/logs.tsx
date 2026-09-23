@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { Trash2, Eye, FileText, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ResponsiveTable } from "@/components/responsive-table";
@@ -83,10 +83,16 @@ export default function AdminContentLogs() {
                 </tr>
               ))}
             {!isLoading && (data?.audits ?? []).map((a) => (
-              <tr key={a.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+              <tr
+                key={a.id}
+                className="border-b border-slate-50 hover:bg-orange-50/40 cursor-pointer group"
+                onClick={() => {
+                  if (a.userId) nav(`/admin/customers/${a.userId}`);
+                }}
+              >
                 <td className="px-6 py-3 text-slate-400 text-xs">{a.id}</td>
-                <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">
-                  <Link href={`${basePath}/audits/${a.id}`} className="hover:text-orange-600 transition-colors">{a.productName}</Link>
+                <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate group-hover:text-orange-700 transition-colors">
+                  {a.productName}
                 </td>
                 <td className="px-4 py-3 text-slate-500 font-mono text-xs">{a.asin ?? "—"}</td>
                 <td className="px-4 py-3 text-slate-500 text-xs">{a.category ?? "—"}</td>
@@ -110,7 +116,10 @@ export default function AdminContentLogs() {
                       size="sm"
                       className="h-7 px-2 text-slate-400 hover:text-orange-600"
                       title="View audit detail"
-                      onClick={() => nav(`/audits/${a.id}?returnTo=/admin/content/logs`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        nav(`/audits/${a.id}?returnTo=/admin/content/logs`);
+                      }}
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
@@ -118,7 +127,10 @@ export default function AdminContentLogs() {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-slate-400 hover:text-red-600"
-                      onClick={() => confirm(`Delete audit #${a.id}?`) && deleteMutation.mutate(a.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Delete audit #${a.id}?`)) deleteMutation.mutate(a.id);
+                      }}
                       disabled={deleteMutation.isPending}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
