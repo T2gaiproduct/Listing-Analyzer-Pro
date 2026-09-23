@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import {
   Users, FileText, TrendingUp, AlertTriangle,
   UserPlus, Activity, Clock, CheckCircle, ArrowRight,
@@ -299,10 +299,12 @@ export default function AdminDashboard() {
                       <tr
                         key={audit.id}
                         className="border-b border-slate-50 hover:bg-orange-50/40 cursor-pointer group"
-                        onClick={() => nav(`/audits/${audit.id}`)}
+                        onClick={() => {
+                          if (audit.userId) nav(`/admin/customers/${audit.userId}`);
+                        }}
                       >
                         <td className="px-6 py-3 font-medium text-slate-800 truncate max-w-[180px] group-hover:text-orange-700 transition-colors">
-                          <Link href={`${basePath}/audits/${audit.id}`} className="hover:text-orange-600 transition-colors">{audit.productName}</Link>
+                          {audit.productName}
                         </td>
                         <td className="px-4 py-3"><ScoreBadge score={audit.overallScore} /></td>
                         <td className="px-4 py-3"><StatusBadge status={audit.status} /></td>
@@ -310,12 +312,22 @@ export default function AdminDashboard() {
                           {formatDistanceToNow(new Date(audit.createdAt), { addSuffix: true })}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Eye className="w-3.5 h-3.5 text-slate-300 group-hover:text-orange-500 transition-colors inline-block" />
+                          <button
+                            type="button"
+                            title="View audit"
+                            className="inline-flex p-1 rounded text-slate-300 hover:text-orange-500 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              nav(`/audits/${audit.id}?returnTo=/admin/dashboard`);
+                            }}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
                     {!data?.recentAudits.length && (
-                      <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400">No audits yet</td></tr>
+                      <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">No audits yet</td></tr>
                     )}
                   </tbody>
                 </table>
