@@ -1141,11 +1141,6 @@ router.get("/workspace-invite/:token", async (req, res): Promise<void> => {
     res.status(410).json({ error: "This invite has been revoked" });
     return;
   }
-  if (row.member.status === "active") {
-    res.status(409).json({ error: "This invite has already been accepted" });
-    return;
-  }
-
   res.json({
     id: row.member.id,
     invitedEmail: row.member.invitedEmail,
@@ -1155,6 +1150,7 @@ router.get("/workspace-invite/:token", async (req, res): Promise<void> => {
     workspaceId: row.member.workspaceId,
     workspaceName: row.workspaceName,
     roleName: displayWorkspaceRoleLabel({ roleId: row.member.roleId, roleName: row.roleName }),
+    alreadyActive: row.member.status === "active" && row.member.isDeleted === 0,
   });
 });
 
@@ -1190,8 +1186,14 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
       res.status(410).json({ error: "This invite has been revoked" });
       return;
     }
-    if (invite.status === "active") {
-      res.status(409).json({ error: "Already accepted" });
+    if (invite.status === "active" && invite.isDeleted === 0) {
+      res.json({
+        ok: true,
+        alreadyMember: true,
+        workspaceId: invite.workspaceId,
+        workspaceName: row.workspaceName,
+        roleName: row.roleName ?? "Unassigned",
+      });
       return;
     }
 
@@ -1276,6 +1278,74 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
   } catch (err) {
     console.error("[workspaces] accept workspace invite failed", err);
     res.status(500).json({ error: "Failed to accept workspace invite. Try again or ask the workspace admin to resend the invite." });
+  }
+});
+
+router.post("/workspace-invite/:token/decline", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const token = String(req.params.token ?? "");
+    const auth = getAuth(req);
+    const sessionEmail = await resolveSessionEmail(
+      userId,
+      auth?.sessionClaims as Record<string, unknown> | null,
+    );
+
+    const [row] = await db.select({
+      member: workspaceMembersTable,
+      workspaceName: workspacesTable.name,
+    })
+      .from(workspaceMembersTable)
+      .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+      .where(and(
+        eq(workspaceMembersTable.inviteToken, token),
+        eq(workspaceMembersTable.isDeleted, 0),
+      ))
+      .limit(1);
+
+    if (!row) {
+      res.status(404).json({ error: "Invite not found" });
+      return;
+    }
+
+    const invite = row.member;
+    if (invite.status === "revoked") {
+      res.json({ ok: true, declined: true, workspaceId: invite.workspaceId, workspaceName: row.workspaceName });
+      return;
+    }
+    if (invite.status === "active") {
+      res.status(400).json({ error: "You are already a member of this workspace. Use the dashboard to switch workspaces." });
+      return;
+    }
+
+    const invitedEmailLower = invite.invitedEmail.trim().toLowerCase();
+    if (!sessionEmail) {
+      res.status(403).json({
+        error: "Sign in with the email address that received this invite to decline.",
+      });
+      return;
+    }
+    if (sessionEmail !== invitedEmailLower) {
+      res.status(403).json({
+        error: `This invite was sent to ${invite.invitedEmail}. Sign in with that email to decline.`,
+      });
+      return;
+    }
+
+    const now = new Date();
+    await db.update(workspaceMembersTable)
+      .set({ status: "revoked", isDeleted: 1, deletedAt: now })
+      .where(eq(workspaceMembersTable.id, invite.id));
+
+    res.json({
+      ok: true,
+      declined: true,
+      workspaceId: invite.workspaceId,
+      workspaceName: row.workspaceName,
+    });
+  } catch (err) {
+    console.error("[workspaces] decline workspace invite failed", err);
+    res.status(500).json({ error: "Failed to decline workspace invite." });
   }
 });
 

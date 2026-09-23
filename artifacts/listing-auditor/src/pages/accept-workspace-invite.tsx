@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth, useUser } from "@clerk/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, CheckCircle, Mail, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
+import { Building2, CheckCircle, Mail, RefreshCw, AlertTriangle, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const STORAGE_KEY = "la_active_workspace_id";
 
 interface WorkspaceInviteDetails {
   id: number;
@@ -19,6 +20,15 @@ interface WorkspaceInviteDetails {
   workspaceId: number;
   workspaceName: string;
   roleName: string;
+  alreadyActive?: boolean;
+}
+
+function persistActiveWorkspace(workspaceId: number) {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(workspaceId));
+  } catch {
+    /* ignore */
+  }
 }
 
 export default function AcceptWorkspaceInvite() {
@@ -34,7 +44,17 @@ export default function AcceptWorkspaceInvite() {
   const [invite, setInvite] = useState<WorkspaceInviteDetails | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(true);
-  const [accepted, setAccepted] = useState(false);
+  const [outcome, setOutcome] = useState<"accepted" | "declined" | "already" | null>(null);
+
+  const goToDashboard = (workspaceId?: number) => {
+    if (workspaceId != null) persistActiveWorkspace(workspaceId);
+    setLocation("/dashboard", { replace: true });
+  };
+
+  const goExit = () => {
+    if (isSignedIn) goToDashboard();
+    else setLocation("/", { replace: true });
+  };
 
   useEffect(() => {
     if (!token) {
@@ -49,7 +69,10 @@ export default function AcceptWorkspaceInvite() {
 
     fetchJson<WorkspaceInviteDetails>(`${basePath}/api/workspace-invite/${encodeURIComponent(token)}`)
       .then((data) => {
-        if (!cancelled) setInvite(data);
+        if (!cancelled) {
+          setInvite(data);
+          if (data.alreadyActive) setOutcome("already");
+        }
       })
       .catch((e: Error) => {
         if (!cancelled) setInviteError(e.message);
@@ -69,38 +92,67 @@ export default function AcceptWorkspaceInvite() {
     isSignedIn && invite && signedInEmail && inviteEmail && signedInEmail !== inviteEmail,
   );
 
+  const finishInviteFlow = async (workspaceId: number) => {
+    persistActiveWorkspace(workspaceId);
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["workspaces"] }),
+      queryClient.refetchQueries({ queryKey: ["user-profile-summary"] }),
+    ]);
+    setTimeout(() => goToDashboard(workspaceId), 600);
+  };
+
   const acceptMutation = useMutation({
     mutationFn: () =>
-      fetchJson<{ workspaceId: number; workspaceName: string }>(
+      fetchJson<{
+        workspaceId: number;
+        workspaceName: string;
+        alreadyMember?: boolean;
+      }>(
         `${basePath}/api/workspace-invite/${encodeURIComponent(token!)}/accept`,
         { method: "POST" },
       ),
     onSuccess: async (data) => {
-      setAccepted(true);
+      if (data.alreadyMember) {
+        setOutcome("already");
+        toast({ title: "Already in this workspace", description: data.workspaceName });
+        await finishInviteFlow(data.workspaceId);
+        return;
+      }
+      setOutcome("accepted");
       toast({
         title: "Welcome to the workspace!",
         description: `You now have access to ${data.workspaceName}.`,
       });
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ["workspaces"] }),
-        queryClient.refetchQueries({ queryKey: ["user-profile-summary"] }),
-      ]);
-      setTimeout(() => setLocation("/dashboard", { replace: true }), 800);
+      await finishInviteFlow(data.workspaceId);
     },
     onError: (e: Error) =>
       toast({ title: "Failed to accept invite", description: e.message, variant: "destructive" }),
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: () =>
+      fetchJson<{ workspaceId: number; workspaceName: string }>(
+        `${basePath}/api/workspace-invite/${encodeURIComponent(token!)}/decline`,
+        { method: "POST" },
+      ),
+    onSuccess: async (data) => {
+      setOutcome("declined");
+      toast({
+        title: "Invitation declined",
+        description: `You declined access to ${data.workspaceName}.`,
+      });
+      await queryClient.refetchQueries({ queryKey: ["workspaces"] });
+      setTimeout(() => goToDashboard(), 600);
+    },
+    onError: (e: Error) =>
+      toast({ title: "Failed to decline invite", description: e.message, variant: "destructive" }),
   });
 
   const acceptRedirectPath = token
     ? `/accept-workspace-invite?token=${encodeURIComponent(token)}`
     : "/accept-workspace-invite";
 
-  useEffect(() => {
-    if (!authLoaded || !isSignedIn || !invite || emailMismatch || accepted) return;
-    if (acceptMutation.isPending || acceptMutation.isSuccess) return;
-    acceptMutation.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-accept once when signed in with a valid invite
-  }, [authLoaded, isSignedIn, invite, emailMismatch, accepted, token]);
+  const busy = acceptMutation.isPending || declineMutation.isPending;
 
   if (!token || inviteError) {
     return (
@@ -109,19 +161,19 @@ export default function AcceptWorkspaceInvite() {
           <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="w-7 h-7 text-red-500" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900 mb-2">Invite Not Found</h1>
+          <h1 className="text-xl font-bold text-slate-900 mb-2">Invite unavailable</h1>
           <p className="text-slate-500 text-sm mb-5">
             {inviteError ?? "This invite link is invalid or has expired. Ask your workspace admin to send a new invite."}
           </p>
-          <Button onClick={() => setLocation("/")} className="bg-orange-500 hover:bg-orange-600">
-            Go to Home
+          <Button onClick={goExit} className="bg-orange-500 hover:bg-orange-600 w-full">
+            {isSignedIn ? "Go to dashboard" : "Go to home"}
           </Button>
         </div>
       </div>
     );
   }
 
-  if (inviteLoading || !authLoaded || (isSignedIn && acceptMutation.isPending && !accepted)) {
+  if (inviteLoading || !authLoaded) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
@@ -129,15 +181,23 @@ export default function AcceptWorkspaceInvite() {
     );
   }
 
-  if (accepted) {
+  if (outcome === "accepted" || outcome === "declined" || (outcome === "already" && acceptMutation.isSuccess)) {
+    const title =
+      outcome === "declined" ? "Invitation declined" :
+      outcome === "already" ? "Already a member" :
+      "You're in!";
+    const subtitle =
+      outcome === "declined"
+        ? "Returning to your dashboard…"
+        : "Opening your dashboard…";
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 max-w-sm w-full text-center">
           <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-7 h-7 text-green-500" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900 mb-2">You're in!</h1>
-          <p className="text-slate-500 text-sm">Welcome to the workspace. Redirecting to your dashboard…</p>
+          <h1 className="text-xl font-bold text-slate-900 mb-2">{title}</h1>
+          <p className="text-slate-500 text-sm">{subtitle}</p>
           <div className="mt-4 flex justify-center">
             <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
           </div>
@@ -156,7 +216,9 @@ export default function AcceptWorkspaceInvite() {
             </div>
             <h1 className="text-xl font-bold text-slate-900">Workspace invitation</h1>
             <p className="text-slate-500 text-sm mt-1">
-              You've been invited to join a workspace on SellerLens.
+              {invite?.alreadyActive
+                ? "You already have access to this workspace."
+                : "You've been invited to join a workspace on SellerLens."}
             </p>
           </div>
 
@@ -183,7 +245,14 @@ export default function AcceptWorkspaceInvite() {
             </div>
           )}
 
-          {isSignedIn ? (
+          {invite?.alreadyActive ? (
+            <Button
+              className="w-full bg-orange-500 hover:bg-orange-600"
+              onClick={() => goToDashboard(invite.workspaceId)}
+            >
+              Go to dashboard
+            </Button>
+          ) : isSignedIn ? (
             <div className="space-y-3">
               <p className="text-sm text-slate-600 text-center">
                 Signed in as <strong>{user?.primaryEmailAddress?.emailAddress}</strong>
@@ -196,7 +265,7 @@ export default function AcceptWorkspaceInvite() {
               <Button
                 className="w-full bg-orange-500 hover:bg-orange-600"
                 onClick={() => acceptMutation.mutate()}
-                disabled={acceptMutation.isPending || emailMismatch}
+                disabled={busy || emailMismatch}
               >
                 {acceptMutation.isPending ? (
                   <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Joining…</>
@@ -204,11 +273,26 @@ export default function AcceptWorkspaceInvite() {
                   <>Accept & join workspace <ArrowRight className="w-4 h-4 ml-2" /></>
                 )}
               </Button>
+              <Button
+                variant="outline"
+                className="w-full text-slate-600"
+                onClick={() => declineMutation.mutate()}
+                disabled={busy || emailMismatch}
+              >
+                {declineMutation.isPending ? (
+                  <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Declining…</>
+                ) : (
+                  <><X className="w-4 h-4 mr-2" />Decline invitation</>
+                )}
+              </Button>
+              <Button variant="ghost" className="w-full text-slate-500" onClick={goExit} disabled={busy}>
+                {isSignedIn ? "Back to dashboard" : "Cancel"}
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-slate-500 text-center mb-4">
-                Sign in or create an account to accept this invite.
+                Sign in or create an account to accept or decline this invite.
               </p>
               <Button
                 className="w-full bg-orange-500 hover:bg-orange-600"
@@ -220,7 +304,7 @@ export default function AcceptWorkspaceInvite() {
                   setLocation(`/sign-up?${qs.toString()}`);
                 }}
               >
-                Create account & join
+                Create account
               </Button>
               <Button
                 variant="outline"
@@ -233,7 +317,7 @@ export default function AcceptWorkspaceInvite() {
                   setLocation(`/sign-in?${qs.toString()}`);
                 }}
               >
-                Sign in to accept
+                Sign in
               </Button>
             </div>
           )}
