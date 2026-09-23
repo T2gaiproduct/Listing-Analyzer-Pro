@@ -129,6 +129,8 @@ export async function syncTeamMemberWorkspaceMemberships(input: TeamMemberSyncIn
 
   for (const { member } of rows) {
     if (isExplicitlyRemovedFromWorkspace(member)) continue;
+    // Workspace-only invites stay pending until the user accepts the invite link.
+    if (member.status === "pending") continue;
     await db.update(workspaceMembersTable)
       .set(patch)
       .where(eq(workspaceMembersTable.id, member.id));
