@@ -204,8 +204,8 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
-    # Serve frontend static files
-    root /opt/listingauditor/artifacts/listing-auditor/dist;
+    # Serve frontend static files (Vite build output)
+    root /opt/listingauditor/artifacts/listing-auditor/dist/public;
     index index.html;
 
     # API proxy → Express server
@@ -226,27 +226,24 @@ server {
         proxy_ssl_server_name on;
     }
 
-    # Hashed build assets (long cache). Missing files must 404 — do not fall back to index.html.
-    location /assets/ {
-        try_files $uri =404;
-        add_header Cache-Control "public, max-age=31536000, immutable";
-    }
-
-    # Deploy version marker (polled by the SPA after releases)
-    location = /build-id.json {
-        add_header Cache-Control "no-store";
-    }
-
-    # index.html must stay fresh so clients pick up new chunk hashes after deploy
-    location = /index.html {
-        add_header Cache-Control "no-cache";
-    }
+    # SPA cache rules (also in deploy/nginx/spa-cache-locations.conf)
+    include /opt/listingauditor/deploy/nginx/spa-cache-locations.conf;
 
     # SPA fallback — serve index.html for document routes only
     location / {
         try_files $uri $uri/ /index.html;
     }
 }
+```
+
+After `git pull`, apply or refresh the cache include on an existing server:
+
+```bash
+cd /opt/listingauditor
+git pull origin main
+sudo bash scripts/apply-production-nginx-cache.sh
+bash scripts/verify-nginx-spa-cache.sh http://127.0.0.1
+# or: bash scripts/verify-nginx-spa-cache.sh https://sellerlens.io
 ```
 
 ```bash
