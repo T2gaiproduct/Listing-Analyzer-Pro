@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BrandingHead } from "@/components/branding-head";
 import { HomepageCmsProvider } from "@/components/homepage-cms-context";
+import { AppVersionWatcher } from "@/components/app-version-watcher";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranding } from "@/hooks/use-branding";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -1059,6 +1060,7 @@ function ClerkProviderWithRoutes() {
           </ErrorBoundary>
         </Suspense>
         <Toaster />
+        <AppVersionWatcher />
         <Suspense fallback={null}>
           <LiveChatWidget />
         </Suspense>

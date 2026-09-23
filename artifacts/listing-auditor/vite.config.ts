@@ -1,8 +1,34 @@
-import { defineConfig } from "vite";
+import { randomBytes } from "node:crypto";
+import { writeFile } from "node:fs/promises";
+import path from "path";
+import { fileURLToPath } from "node:url";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+
+const listingAuditorRoot = path.dirname(fileURLToPath(import.meta.url));
+const distPublicDir = path.join(listingAuditorRoot, "dist/public");
+
+const appBuildId =
+  process.env.VITE_APP_BUILD_ID?.trim() ||
+  (process.env.NODE_ENV === "production"
+    ? `${Date.now().toString(36)}-${randomBytes(4).toString("hex")}`
+    : "dev");
+
+function appBuildIdPlugin(buildId: string): Plugin {
+  return {
+    name: "app-build-id-json",
+    async closeBundle() {
+      if (buildId === "dev") return;
+      await writeFile(
+        path.join(distPublicDir, "build-id.json"),
+        `${JSON.stringify({ buildId }, null, 2)}\n`,
+        "utf8",
+      );
+    },
+  };
+}
 
 const rawPort = process.env.PORT;
 
@@ -35,7 +61,11 @@ const disableHmr =
 
 export default defineConfig({
   base: basePath,
+  define: {
+    "import.meta.env.VITE_APP_BUILD_ID": JSON.stringify(appBuildId),
+  },
   plugins: [
+    appBuildIdPlugin(appBuildId),
     react(),
     tailwindcss({ optimize: process.env.NODE_ENV === "production" }),
     // Vite dev + runtime error overlay breaks behind Cloudflare quick tunnels (no HMR websocket).

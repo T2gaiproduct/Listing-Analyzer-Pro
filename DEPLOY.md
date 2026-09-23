@@ -226,7 +226,23 @@ server {
         proxy_ssl_server_name on;
     }
 
-    # SPA fallback — serve index.html for all other routes
+    # Hashed build assets (long cache). Missing files must 404 — do not fall back to index.html.
+    location /assets/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Deploy version marker (polled by the SPA after releases)
+    location = /build-id.json {
+        add_header Cache-Control "no-store";
+    }
+
+    # index.html must stay fresh so clients pick up new chunk hashes after deploy
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    # SPA fallback — serve index.html for document routes only
     location / {
         try_files $uri $uri/ /index.html;
     }

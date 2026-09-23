@@ -1,7 +1,8 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
-const LazyDonut = lazy(() =>
+const LazyDonut = lazyWithRetry(() =>
   import("./dashboard-donut-chart-inner").then((m) => ({ default: m.DashboardDonutChartInner })),
 );
 
