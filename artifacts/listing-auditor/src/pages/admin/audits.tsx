@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2, FileText, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { Trash2, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation, Link } from "wouter";
+import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ResponsiveTable } from "@/components/responsive-table";
 
@@ -30,7 +30,6 @@ export default function AdminAudits() {
   const [page, setPage] = useState(0);
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [, nav] = useLocation();
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-audits", page],
@@ -99,15 +98,6 @@ export default function AdminAudits() {
                 </td>
                 <td className="px-6 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-slate-400 hover:text-orange-600"
-                      title="View audit detail"
-                      onClick={() => nav(`/audits/${a.id}`)}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
