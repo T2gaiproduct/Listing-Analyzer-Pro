@@ -35,10 +35,7 @@ import {
   WORKSPACE_HEADER,
   requireWorkspacePerm as checkPerm,
 } from "../lib/workspace-context";
-import {
-  revokeTeamSeatIfNoActiveWorkspaces,
-  syncActiveTeamMembersToWorkspace,
-} from "../lib/team-workspace-sync.js";
+import { revokeTeamSeatIfNoActiveWorkspaces } from "../lib/team-workspace-sync.js";
 import { notifyMemberCreatedWorkspace } from "../lib/workspace-created-notify-owner.js";
 import { fetchClerkUserEmailAndName } from "../lib/clerk-user.js";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
@@ -409,7 +406,6 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
 
   const { ensureWorkspaceDefaultAgents } = await import("../lib/workspace-agents.js");
   await ensureWorkspaceDefaultAgents(ws!.id);
-  await syncActiveTeamMembersToWorkspace(accountOwnerId, ws!.id);
 
   if (!isOwner) {
     void notifyMemberCreatedWorkspace({
