@@ -290,43 +290,6 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
       ownerId: m.workspace.accountOwnerId,
     }));
 
-  if (team.isTeamMember) {
-    let teamSeatRoleName = "Unassigned";
-    if (team.memberId) {
-      const [tm] = await db
-        .select({ roleId: teamMembersTable.roleId })
-        .from(teamMembersTable)
-        .where(eq(teamMembersTable.id, team.memberId))
-        .limit(1);
-      if (tm?.roleId) {
-        const accountRole = await getAccountRole(team.ownerUserId, tm.roleId);
-        teamSeatRoleName = displayWorkspaceRoleLabel({ roleId: tm.roleId, roleName: accountRole?.name });
-      }
-    }
-
-    const ownerWorkspaces = await db
-      .select()
-      .from(workspacesTable)
-      .where(and(
-        eq(workspacesTable.accountOwnerId, team.ownerUserId),
-        eq(workspacesTable.isDeleted, 0),
-      ));
-    const seenIds = new Set(memberSummaries.map((m) => m.id));
-    for (const w of ownerWorkspaces) {
-      if (seenIds.has(w.id)) continue;
-      memberSummaries.push({
-        id: w.id,
-        name: w.name,
-        description: w.description,
-        clientLabel: w.clientLabel,
-        isDefault: w.isDefault,
-        isAccountOwner: false,
-        roleName: teamSeatRoleName,
-        ownerId: team.ownerUserId,
-      });
-    }
-  }
-
   const ownerIdsForEmail = memberSummaries.map((m) => m.ownerId);
   const ownerEmails = await resolveAccountOwnerEmails(ownerIdsForEmail);
 

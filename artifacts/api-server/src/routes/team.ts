@@ -32,7 +32,10 @@ import {
 } from "../lib/team-stats.js";
 import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-roles.js";
 import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
-import { syncTeamMemberWorkspaceMemberships, syncPendingTeamInviteToWorkspaces } from "../lib/team-workspace-sync.js";
+import {
+  provisionTeamMemberToAllWorkspaces,
+  syncPendingTeamInviteToWorkspaces,
+} from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 import { resolveAccountOwnerId, resolveAccountPermissionsForOwner } from "../lib/workspace-context.js";
 import { hasWorkspacePermission, ownerPermissions } from "@workspace/workspace-permissions";
@@ -371,7 +374,7 @@ router.patch("/team/:id/role", requireAuth, async (req, res): Promise<void> => {
     .returning();
 
   if (member.status === "active" && member.memberUserId) {
-    await syncTeamMemberWorkspaceMemberships({
+    await provisionTeamMemberToAllWorkspaces({
       ownerUserId: userId,
       memberUserId: member.memberUserId,
       invitedEmail: member.invitedEmail,
@@ -468,7 +471,7 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
     legacyRoleKey = invite.role;
   }
 
-  await syncTeamMemberWorkspaceMemberships({
+  await provisionTeamMemberToAllWorkspaces({
     ownerUserId: invite.ownerUserId,
     memberUserId: userId,
     invitedEmail: invite.invitedEmail,

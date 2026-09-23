@@ -35,7 +35,10 @@ import {
   WORKSPACE_HEADER,
   requireWorkspacePerm as checkPerm,
 } from "../lib/workspace-context";
-import { syncAllActiveTeamMembersForOwner, syncWorkspaceMemberRoleToTeamSeat } from "../lib/team-workspace-sync.js";
+import {
+  revokeTeamSeatIfNoActiveWorkspaces,
+  syncActiveTeamMembersToWorkspace,
+} from "../lib/team-workspace-sync.js";
 import { notifyMemberCreatedWorkspace } from "../lib/workspace-created-notify-owner.js";
 import { fetchClerkUserEmailAndName } from "../lib/clerk-user.js";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
@@ -406,7 +409,7 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
 
   const { ensureWorkspaceDefaultAgents } = await import("../lib/workspace-agents.js");
   await ensureWorkspaceDefaultAgents(ws!.id);
-  await syncAllActiveTeamMembersForOwner(accountOwnerId);
+  await syncActiveTeamMembersToWorkspace(accountOwnerId, ws!.id);
 
   if (!isOwner) {
     void notifyMemberCreatedWorkspace({
@@ -889,15 +892,6 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     req,
   });
 
-  await syncWorkspaceMemberRoleToTeamSeat({
-    ownerUserId: ctx.accountOwnerId,
-    invitedEmail: normalizedEmail,
-    invitedName: displayName,
-    memberUserId: member.userId,
-    roleId: accountRole.id,
-    legacyRole: resolvedLegacyRole,
-  });
-
   res.status(201).json({ ...member, ...delivery });
 });
 
@@ -972,17 +966,6 @@ router.patch("/workspaces/:workspaceId/members/:memberId", requireAuth, requireW
   if (!updated) {
     res.status(404).json({ error: "Member not found" });
     return;
-  }
-
-  if (updates.roleId !== undefined) {
-    await syncWorkspaceMemberRoleToTeamSeat({
-      ownerUserId: ctx.accountOwnerId,
-      invitedEmail: updated.invitedEmail,
-      invitedName: updated.invitedName,
-      memberUserId: updated.userId,
-      roleId: updated.roleId,
-      legacyRole: updated.legacyRole,
-    });
   }
 
   if (updates.invitedName) {
@@ -1122,6 +1105,16 @@ router.delete("/workspaces/:workspaceId/members/:memberId", requireAuth, require
   await db.update(workspaceMembersTable)
     .set({ isDeleted: 1, deletedAt: new Date(), status: "revoked" })
     .where(eq(workspaceMembersTable.id, memberId));
+
+  try {
+    await revokeTeamSeatIfNoActiveWorkspaces(
+      workspace.accountOwnerId,
+      existing.userId,
+      existing.invitedEmail,
+    );
+  } catch (err) {
+    console.error("[workspaces] revoke team seat after member remove failed", err);
+  }
 
   res.sendStatus(204);
 });
@@ -1268,15 +1261,6 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
     }
 
     await upsertUserProfile(userId, { onboardingCompleted: true });
-
-    await syncWorkspaceMemberRoleToTeamSeat({
-      ownerUserId: row.accountOwnerId,
-      invitedEmail: invite.invitedEmail,
-      invitedName: invite.invitedName ?? invite.invitedEmail,
-      memberUserId: userId,
-      roleId: invite.roleId,
-      legacyRole: invite.legacyRole,
-    });
 
     const roleName = row.roleName ?? "Unassigned";
     void createNotification({
