@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   Users, FileText, TrendingUp, AlertTriangle,
   UserPlus, Activity, Clock, CheckCircle, ArrowRight,
-  CalendarDays, LogIn, Eye,
+  CalendarDays, LogIn,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -311,23 +311,10 @@ export default function AdminDashboard() {
                         <td className="px-6 py-3 text-right text-slate-400 text-xs">
                           {formatDistanceToNow(new Date(audit.createdAt), { addSuffix: true })}
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            title="View audit"
-                            className="inline-flex p-1 rounded text-slate-300 hover:text-orange-500 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              nav(`/audits/${audit.id}?returnTo=/admin/dashboard`);
-                            }}
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
                       </tr>
                     ))}
                     {!data?.recentAudits.length && (
-                      <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">No audits yet</td></tr>
+                      <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400">No audits yet</td></tr>
                     )}
                   </tbody>
                 </table>

@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Trash2, Eye, FileText, ChevronLeft, ChevronRight, Image, Palette, ArrowLeft } from "lucide-react";
+import { Trash2, ChevronLeft, ChevronRight, Image, Palette, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ResponsiveTable } from "@/components/responsive-table";
 
@@ -131,18 +131,6 @@ export default function AdminGraphicsLogs() {
                 </td>
                 <td className="px-6 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-slate-400 hover:text-orange-600"
-                      title="View project"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        nav(`/projects/${p.id}?returnTo=/admin/content/graphics-logs`);
-                      }}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

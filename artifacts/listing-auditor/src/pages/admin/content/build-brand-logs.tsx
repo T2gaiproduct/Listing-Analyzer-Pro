@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { Eye, FilePlus2, ArrowLeft } from "lucide-react";
+import { FilePlus2, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ResponsiveTable } from "@/components/responsive-table";
 
@@ -61,14 +61,13 @@ export default function AdminBuildBrandLogs() {
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Generated Title</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Customer</th>
               <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Created</th>
-              <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading &&
               Array.from({ length: 8 }).map((_, i) => (
                 <tr key={i} className="border-b border-slate-50">
-                  {Array.from({ length: 6 }).map((_, j) => (
+                  {Array.from({ length: 5 }).map((_, j) => (
                     <td key={j} className="px-4 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>
                   ))}
                 </tr>
@@ -92,25 +91,11 @@ export default function AdminBuildBrandLogs() {
                 <td className="px-6 py-3 text-right text-xs text-slate-400">
                   {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
                 </td>
-                <td className="px-6 py-3 text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-slate-400 hover:text-orange-600"
-                    title="View audit detail"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      nav(`/audits/${c.id}?returnTo=/admin/content/build-brand-logs`);
-                    }}
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                  </Button>
-                </td>
               </tr>
             ))}
             {!isLoading && !items.length && (
               <tr>
-                <td colSpan={6} className="px-6 py-16 text-center">
+                <td colSpan={5} className="px-6 py-16 text-center">
                   <FilePlus2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-slate-400">No brand content generated yet</p>
                 </td>
