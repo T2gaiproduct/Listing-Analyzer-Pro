@@ -23,6 +23,7 @@ export async function generateListingContent(data: {
   asin?: string | null;
   category?: string | null;
   brandName?: string | null;
+  productDescription?: string | null;
   imageUrls?: string[];
   currentTitle: string;
   currentBullets: string[];
@@ -36,6 +37,7 @@ Product: ${data.productName}
 ${data.brandName ? `Brand: ${data.brandName}` : ""}
 ${data.asin ? `ASIN: ${data.asin}` : ""}
 ${data.category ? `Category: ${data.category}` : ""}
+${data.productDescription?.trim() ? `Product Description (from seller — use as factual source for benefits, materials, and use cases):\n${data.productDescription.trim()}` : ""}
 ${data.imageUrls && data.imageUrls.length > 0 ? `Product Images: ${data.imageUrls.length} image(s) provided for reference` : ""}
 ${data.customPrompt?.trim() ? `\nSeller creative direction (incorporate where appropriate without violating Amazon rules):\n${data.customPrompt.trim()}` : ""}
 

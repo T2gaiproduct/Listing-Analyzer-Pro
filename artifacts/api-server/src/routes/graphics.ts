@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, graphicsProjectsTable, adminUsersTable } from "@workspace/db";
+import { db, graphicsProjectsTable, adminUsersTable, auditsTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
@@ -179,8 +179,9 @@ function buildGraphicsSpecs(
   featureIndexOffset: number = 0,
   customLifestylePrompt?: string,
   customFeaturePrompt?: string,
+  productDescription?: string | null,
 ): GraphicsSpec[] {
-  const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
+  const productDesc = formatGraphicsProductDesc(productName, category, productDescription);
   const specs: GraphicsSpec[] = [];
 
   for (let i = 0; i < lifestyleCount; i++) {
@@ -214,6 +215,28 @@ const IMAGE_TYPE_PROMPTS: Record<string, (productDesc: string) => string> = {
   custom: () => "",
 };
 
+function formatGraphicsProductDesc(
+  productName: string,
+  category: string | null,
+  productDescription?: string | null,
+): string {
+  const base = `${productName}${category ? `, a ${category} product` : ""}`;
+  const desc = productDescription?.trim();
+  if (!desc) return base;
+  const short = desc.length > 600 ? `${desc.slice(0, 597)}...` : desc;
+  return `${base}. Seller product description: ${short}`;
+}
+
+async function loadAuditProductDescription(auditId: number | null | undefined): Promise<string | null> {
+  if (!auditId) return null;
+  const [row] = await db
+    .select({ productDescription: auditsTable.productDescription })
+    .from(auditsTable)
+    .where(eq(auditsTable.id, auditId))
+    .limit(1);
+  return row?.productDescription?.trim() || null;
+}
+
 function buildNewImageSpecs(
   productName: string,
   category: string | null,
@@ -221,8 +244,9 @@ function buildNewImageSpecs(
   typeConfigs?: Record<string, ImageTypeGenerationConfig>,
   legacyCustomPrompt?: string,
   existingRecords?: GraphicsImageRecord[],
+  productDescription?: string | null,
 ): GraphicsSpec[] {
-  const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
+  const productDesc = formatGraphicsProductDesc(productName, category, productDescription);
   const existing = existingRecords ?? [];
   const existingLifestyle = existing.filter(r => r.type === "lifestyle").length;
   const existingFeature = existing.filter(r => r.type === "feature").length;
@@ -306,6 +330,7 @@ async function generateGraphicsImages(
   startIndex?: number,
   customLifestylePrompt?: string,
   customFeaturePrompt?: string,
+  productDescription?: string | null,
 ): Promise<GraphicsImageRecord[]> {
   const dir = ensureGraphicsImageDir(projectId);
   ensureDir(dir);
@@ -316,7 +341,17 @@ async function generateGraphicsImages(
   const lifestyleIndexOffset = existingLifestyle.length;
   const featureIndexOffset = existingFeature.length;
 
-  const specs = buildGraphicsSpecs(productName, category, lifestyleCount, featureCount, lifestyleIndexOffset, featureIndexOffset, customLifestylePrompt, customFeaturePrompt);
+  const specs = buildGraphicsSpecs(
+    productName,
+    category,
+    lifestyleCount,
+    featureCount,
+    lifestyleIndexOffset,
+    featureIndexOffset,
+    customLifestylePrompt,
+    customFeaturePrompt,
+    productDescription,
+  );
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
@@ -411,12 +446,13 @@ async function generateNewImageTypes(
   startIndex?: number,
   typeConfigs?: Record<string, ImageTypeGenerationConfig>,
   legacy?: ImageTypeGenerationConfig,
+  productDescription?: string | null,
 ): Promise<GraphicsImageRecord[]> {
   const dir = ensureGraphicsImageDir(projectId);
   ensureDir(dir);
 
   const existing = existingRecords ?? [];
-  const specs = buildNewImageSpecs(productName, category, imageTypes, typeConfigs, legacy?.customPrompt, existing);
+  const specs = buildNewImageSpecs(productName, category, imageTypes, typeConfigs, legacy?.customPrompt, existing, productDescription);
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
@@ -1026,6 +1062,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
       };
       const existingRecords = existingRecordsAtStart;
       const existingCount = existingCountAtStart;
+      const productDescription = await loadAuditProductDescription(project.auditId);
       let newRecords: GraphicsImageRecord[];
       if (isNewFlow && body.imageTypes) {
         newRecords = await generateNewImageTypes(
@@ -1038,6 +1075,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
           existingCount,
           body.typeConfigs,
           legacyConfig,
+          productDescription,
         );
       } else {
         const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
@@ -1054,6 +1092,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
           existingCount,
           body.customLifestylePrompt,
           body.customFeaturePrompt,
+          productDescription,
         );
       }
 

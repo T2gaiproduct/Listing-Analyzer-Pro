@@ -45,6 +45,7 @@ export interface GenerateContentDirectBody {
   productName: string;
   brandName?: string;
   category?: string;
+  productDescription?: string;
   title: string;
   bulletPoints: string[];
   targetKeywords: string[];
@@ -249,6 +250,8 @@ export interface AuditWithResults {
   brandName?: string | null;
   /** @nullable */
   category?: string | null;
+  /** @nullable */
+  productDescription?: string | null;
   title: string;
   bulletPoints: string[];
   imageUrls: string[];
@@ -258,7 +261,6 @@ export interface AuditWithResults {
   result: AuditResult;
   competitors: Competitor[];
   generatedContent?: GeneratedContent;
-  sourceListingContent?: GeneratedContent;
   generatedImages?: GeneratedImages;
   imageRecords?: ImageRecord[];
   currentStep?: number;
@@ -272,6 +274,7 @@ export interface CreateAuditBody {
   asin?: string;
   brandName?: string;
   category?: string;
+  productDescription?: string;
   title: string;
   bulletPoints: string[];
   imageUrls: string[];
@@ -287,6 +290,7 @@ export interface PatchAuditBody {
   productName?: string;
   brandName?: string;
   category?: string;
+  productDescription?: string;
   imageUrls?: string[];
   generatedContent?: PatchAuditBodyGeneratedContent;
   generatedImages?: PatchAuditBodyGeneratedImages;

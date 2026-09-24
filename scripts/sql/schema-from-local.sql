@@ -807,6 +807,7 @@ ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "user_id" text DEFAULT ''::text;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "project_name" text;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "product_name" text;
+ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "product_description" text;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "asin" text;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "brand_name" text;
 ALTER TABLE "audits" ADD COLUMN IF NOT EXISTS "category" text;

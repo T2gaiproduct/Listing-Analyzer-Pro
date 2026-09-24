@@ -23,6 +23,8 @@ export interface AuditWithResults {
   brandName?: string | null;
   /** @nullable */
   category?: string | null;
+  /** @nullable */
+  productDescription?: string | null;
   title: string;
   bulletPoints: string[];
   imageUrls: string[];

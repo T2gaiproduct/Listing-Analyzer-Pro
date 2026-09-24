@@ -12,6 +12,7 @@ export interface CreateAuditBody {
   asin?: string;
   brandName?: string;
   category?: string;
+  productDescription?: string;
   title: string;
   bulletPoints: string[];
   imageUrls: string[];

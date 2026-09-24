@@ -10,6 +10,7 @@ export interface GenerateContentDirectBody {
   productName: string;
   brandName?: string;
   category?: string;
+  productDescription?: string;
   title: string;
   bulletPoints: string[];
   targetKeywords: string[];

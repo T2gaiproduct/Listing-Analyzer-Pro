@@ -72,6 +72,8 @@ export const auditsTable = pgTable("audits", {
   workspaceId: integer("workspace_id"),
   projectName: text("project_name"),
   productName: text("product_name").notNull(),
+  /** Seller-provided product description from Build Your Brand upload step. */
+  productDescription: text("product_description"),
   asin: text("asin"),
   brandName: text("brand_name"),
   category: text("category"),

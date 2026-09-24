@@ -14,6 +14,7 @@ export interface PatchAuditBody {
   productName?: string;
   brandName?: string;
   category?: string;
+  productDescription?: string;
   imageUrls?: string[];
   generatedContent?: PatchAuditBodyGeneratedContent;
   generatedImages?: PatchAuditBodyGeneratedImages;

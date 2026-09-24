@@ -689,6 +689,8 @@ components:
           type: string
         category:
           type: string
+        productDescription:
+          type: string
         title:
           type: string
         bulletPoints:
@@ -930,6 +932,8 @@ components:
           type: ["string", "null"]
         category:
           type: ["string", "null"]
+        productDescription:
+          type: ["string", "null"]
         title:
           type: string
         bulletPoints:
@@ -998,6 +1002,8 @@ components:
           type: string
         category:
           type: string
+        productDescription:
+          type: string
         title:
           type: string
         bulletPoints:
@@ -1029,6 +1035,8 @@ components:
         brandName:
           type: string
         category:
+          type: string
+        productDescription:
           type: string
         imageUrls:
           type: array

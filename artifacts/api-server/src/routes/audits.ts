@@ -246,7 +246,7 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
     return;
   }
 
-  const { projectName, productName, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
+  const { projectName, productName, productDescription, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
 
   const cost = await getCreditCost("audit");
   const creditCtx = getCreditCtx(req);
@@ -264,6 +264,7 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
       workspaceId: getActiveWorkspaceId(req),
       projectName: projectName ?? productName,
       productName,
+      productDescription: productDescription?.trim() || null,
       asin: asin ?? null,
       brandName: brandName ?? null,
       category: category ?? null,
@@ -335,7 +336,7 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
       return;
     }
 
-    const { projectName, productName, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
+    const { projectName, productName, productDescription, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
 
     const [audit] = await db
       .insert(auditsTable)
@@ -345,6 +346,7 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
         workspaceId: getActiveWorkspaceId(req),
         projectName: projectName ?? productName,
         productName,
+        productDescription: productDescription?.trim() || null,
         asin: asin ?? null,
         brandName: brandName ?? null,
         category: category ?? null,
@@ -776,6 +778,7 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     projectName: string;
     brandName: string;
     productName: string;
+    productDescription: string;
     category: string;
     imageUrls: string[];
     generatedContent: object;
@@ -816,6 +819,10 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     }
   }
   if (body.category !== undefined) updates.category = body.category;
+  if (body.productDescription !== undefined) {
+    const trimmed = body.productDescription.trim();
+    updates.productDescription = trimmed || null;
+  }
   if (body.imageUrls !== undefined) updates.imageUrls = body.imageUrls;
   if (body.generatedContent !== undefined) {
     updates.generatedContent = body.generatedContent;
@@ -990,6 +997,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
     productName: audit.productName,
     brandName: audit.brandName,
     category: audit.category,
+    productDescription: audit.productDescription,
     bulletPoints: audit.bulletPoints as string[],
     targetKeywords: audit.targetKeywords as string[],
     summary: (audit.result as { summary?: string } | null)?.summary ?? "",
@@ -1119,6 +1127,7 @@ router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWo
       productName: parsed.data.productName,
       brandName: parsed.data.brandName,
       category: parsed.data.category,
+      productDescription: parsed.data.productDescription,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       currentTitle: parsed.data.title,
       currentBullets: parsed.data.bulletPoints,
@@ -1165,6 +1174,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       asin: audit.asin,
       brandName: audit.brandName,
       category: audit.category,
+      productDescription: audit.productDescription,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       currentTitle: audit.title,
       currentBullets: audit.bulletPoints as string[],

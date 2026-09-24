@@ -261,6 +261,7 @@ function buildAuditDraftBody(
   brandName: string,
   category: string,
   uploadedImages: string[],
+  productDescription: string,
 ) {
   if (!productName.trim() || !category) return null;
   const { syntheticTitle, syntheticBullets, syntheticKeywords } = buildSyntheticListingFields(
@@ -268,10 +269,12 @@ function buildAuditDraftBody(
     brandName,
     category,
   );
+  const desc = productDescription.trim();
   return {
     projectName: projectName.trim() || productName.trim(),
     productName: productName.trim(),
     brandName: brandName.trim() || undefined,
+    productDescription: desc || undefined,
     category,
     title: syntheticTitle,
     bulletPoints: syntheticBullets,
@@ -643,6 +646,7 @@ export default function AuditWorkflow() {
   const [projectName, setProjectName]   = useState("");
   const [brandName, setBrandName]       = useState("");
   const [productName, setProductName]   = useState("");
+  const [productDescription, setProductDescription] = useState("");
   const [category, setCategory]         = useState("");
   const [catSearch, setCatSearch]       = useState("");
   const [catOpen, setCatOpen]           = useState(false);
@@ -684,7 +688,7 @@ export default function AuditWorkflow() {
 
   const ensureAuditDraft = useCallback(async (): Promise<number | null> => {
     if (currentAuditId) return currentAuditId;
-    const data = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages);
+    const data = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages, productDescription);
     if (!data) {
       toast({
         title: "Upload step incomplete",
@@ -716,6 +720,7 @@ export default function AuditWorkflow() {
     brandName,
     category,
     uploadedImages,
+    productDescription,
     createAuditDraft,
     queryClient,
     toast,
@@ -755,6 +760,7 @@ export default function AuditWorkflow() {
     setProjectName((auditData.projectName as string) || auditData.productName || "");
     setBrandName((auditData.brandName as string) || "");
     setProductName(auditData.productName || "");
+    setProductDescription((auditData as { productDescription?: string | null }).productDescription?.trim() ?? "");
     setCategory((auditData.category as string) || "");
     setUploadedImages((auditData.imageUrls as string[]) || []);
     if (auditData.generatedContent) {
@@ -999,7 +1005,7 @@ export default function AuditWorkflow() {
   const activeGraphicsProjectId = graphicsProjectId ?? (existingGraphicsProject as { id?: number } | null)?.id ?? null;
 
   const persistUploadTabToAudit = useCallback(async (auditId: number): Promise<void> => {
-    const draftBody = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages);
+    const draftBody = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages, productDescription);
     await fetchJson(`${basePath}/api/audits/${auditId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1007,6 +1013,7 @@ export default function AuditWorkflow() {
         projectName: (draftBody?.projectName ?? projectName.trim()) || productName.trim(),
         productName: productName.trim(),
         brandName: brandName.trim() || undefined,
+        productDescription: productDescription.trim() || null,
         category: category || undefined,
         imageUrls: uploadedImages,
         ...(draftBody
@@ -1019,7 +1026,7 @@ export default function AuditWorkflow() {
       }),
     });
     void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
-  }, [projectName, productName, brandName, category, uploadedImages, queryClient]);
+  }, [projectName, productName, brandName, category, uploadedImages, productDescription, queryClient]);
 
   const persistAuditImageRecordsFromGraphics = useCallback((records: Array<{
     id: string;
@@ -1473,7 +1480,7 @@ export default function AuditWorkflow() {
         toast({ title: "Category required", description: "Please select a category.", variant: "destructive" });
         return;
       }
-      const draftBody = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages);
+      const draftBody = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages, productDescription);
       if (!draftBody) {
         setIsCreating(false);
         return;
@@ -1520,6 +1527,7 @@ export default function AuditWorkflow() {
             productName: productName.trim(),
             brandName: brandName.trim() || undefined,
             category: category || undefined,
+            productDescription: productDescription.trim() || undefined,
             title: syntheticTitle,
             bulletPoints: syntheticBullets,
             targetKeywords: syntheticKeywords,
@@ -1998,6 +2006,21 @@ export default function AuditWorkflow() {
                     />
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Product Description</label>
+                  <Textarea
+                    value={productDescription}
+                    onChange={(e) => {
+                      const next = e.target.value.slice(0, 4000);
+                      setProductDescription(next);
+                      if (currentAuditId) setIsDirty(true);
+                    }}
+                    placeholder="Materials, key features, who it's for, sizing, care instructions — used for optimized content, graphics, and A+ modules."
+                    className="border-border rounded-xl min-h-[100px] resize-y"
+                    rows={4}
+                  />
+                  <p className="text-[11px] text-muted-foreground">Optional. Combined with your uploaded images and product name for AI generation.</p>
+                </div>
                 <div className="space-y-1.5" ref={catRef}>
                   <label className="text-xs font-medium text-foreground">Select Category</label>
                   <div className="relative">
@@ -2154,6 +2177,7 @@ export default function AuditWorkflow() {
                         productName: productName.trim(),
                         brandName: brandName.trim() || undefined,
                         category: category || undefined,
+                        productDescription: productDescription.trim() || undefined,
                         title: syntheticTitle,
                         bulletPoints: syntheticBullets,
                         targetKeywords: syntheticKeywords.slice(0, 10),

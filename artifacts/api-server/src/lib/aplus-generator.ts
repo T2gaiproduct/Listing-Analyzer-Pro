@@ -365,6 +365,7 @@ export function buildDefaultAplusPrompt(data: {
   productName: string;
   brandName?: string | null;
   category?: string | null;
+  productDescription?: string | null;
   bulletPoints: string[];
   targetKeywords: string[];
   summary?: string;
@@ -377,6 +378,7 @@ export function buildDefaultAplusPrompt(data: {
     `Create compelling Amazon A+ Enhanced Brand Content for ${data.productName}.`,
     brand ? `Brand: ${brand}.` : "",
     category ? `Category: ${category}.` : "",
+    data.productDescription?.trim() ? `Product description: ${data.productDescription.trim()}` : "",
     bullets ? `Key benefits: ${bullets}.` : "",
     keywords ? `Keywords: ${keywords}.` : "",
     data.summary ? `Summary: ${data.summary}` : "",
