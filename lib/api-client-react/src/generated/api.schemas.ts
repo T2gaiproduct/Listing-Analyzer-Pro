@@ -261,6 +261,7 @@ export interface AuditWithResults {
   result: AuditResult;
   competitors: Competitor[];
   generatedContent?: GeneratedContent;
+  sourceListingContent?: GeneratedContent;
   generatedImages?: GeneratedImages;
   imageRecords?: ImageRecord[];
   currentStep?: number;

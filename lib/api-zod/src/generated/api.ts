@@ -215,6 +215,14 @@ export const GetAuditResponse = zod.object({
       htmlDescription: zod.string(),
     })
     .optional(),
+  sourceListingContent: zod
+    .object({
+      title: zod.string(),
+      bulletPoints: zod.array(zod.string()),
+      keywords: zod.array(zod.string()),
+      htmlDescription: zod.string(),
+    })
+    .optional(),
   generatedImages: zod
     .object({
       main: zod.array(zod.string()),
