@@ -13,11 +13,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
      AND column_name IN ('login_email', 'notification_preferences')
    ORDER BY column_name;"
 
-echo "==> audits workspace + creator columns"
+echo "==> audits workspace + creator + build-brand columns"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
   "SELECT column_name FROM information_schema.columns
    WHERE table_name = 'audits'
-     AND column_name IN ('workspace_id', 'created_by_user_id')
+     AND column_name IN ('workspace_id', 'created_by_user_id', 'product_description')
    ORDER BY column_name;"
 
 echo "==> Billing coupon columns"

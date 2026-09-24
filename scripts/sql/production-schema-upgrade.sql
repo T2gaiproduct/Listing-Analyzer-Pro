@@ -391,6 +391,10 @@ ALTER TABLE sellermate_messages ADD COLUMN IF NOT EXISTS deleted_at timestamp;
 ALTER TABLE audits
   ADD COLUMN IF NOT EXISTS reference_research jsonb;
 
+-- ─── Build Your Brand upload step (seller product description) ───────────────
+ALTER TABLE audits
+  ADD COLUMN IF NOT EXISTS product_description text;
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');
