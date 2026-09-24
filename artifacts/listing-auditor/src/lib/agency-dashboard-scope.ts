@@ -12,6 +12,7 @@ export function pathUsesAgencyAccountWideApiScope(path: string): boolean {
   if (p === "/" || p === "/dashboard") return true;
   if (p === "/products" || p.startsWith("/products/")) return true;
   if (p === "/archive") return true;
+  if (p === "/recent-projects") return true;
   if (p === "/projects") return true;
   if (p.startsWith("/projects/")) return false;
   return false;
