@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isWorkspaceApiScopeActive, isWorkspaceAdminOverviewRoute, parseWorkspaceRouteId } from "@/lib/workspace-routes";
 import {
   hasWorkspacePermission,
+  canAccessWorkspacesHub,
   type WorkspaceFeature,
   type WorkspaceAction,
   type WorkspaceRolePermissions,
@@ -395,8 +396,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
 
   const canView = useCallback(
-    (feature: WorkspaceFeature) => can(feature, "viewGlobal") || can(feature, "viewOwn"),
-    [can],
+    (feature: WorkspaceFeature) => {
+      if (feature === "workspaces") {
+        if (isWorkspaceAccountOwner) return true;
+        const source = accountPermissions ?? permissions;
+        return canAccessWorkspacesHub(source);
+      }
+      return can(feature, "viewGlobal") || can(feature, "viewOwn");
+    },
+    [can, isWorkspaceAccountOwner, accountPermissions, permissions],
   );
 
   const canEdit = useCallback(
@@ -454,7 +462,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     canView,
     canEdit,
     canDelete,
-    canManageWorkspaces: isWorkspaceAccountOwner || can("workspaces", "viewGlobal"),
+    canManageWorkspaces: isWorkspaceAccountOwner || canView("workspaces"),
     isWorkspaceApiScopeActive: workspaceApiScopeActive,
     needsWorkspaceSelection,
     isBillingAccountOwner,

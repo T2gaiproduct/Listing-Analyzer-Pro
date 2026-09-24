@@ -91,7 +91,7 @@ export const WORKSPACE_FEATURE_META: WorkspaceFeatureMeta[] = [
   // ── Workspace admin ────────────────────────────────────────────────────────
   { id: "team", label: "Team & Members", group: "Workspace", actions: ["viewGlobal", "create", "edit", "delete"] },
   { id: "credits", label: "Credits", group: "Workspace", actions: ["viewGlobal", "edit"] },
-  { id: "workspaces", label: "Workspaces", group: "Workspace", actions: ["viewGlobal", "create", "edit", "delete"] },
+  { id: "workspaces", label: "Workspaces", group: "Workspace", actions: ["create"] },
 
   // ── Account ────────────────────────────────────────────────────────────────
   { id: "notifications", label: "Notifications", group: "Account", actions: ["viewOwn", "edit", "delete"] },
@@ -163,7 +163,7 @@ export function legacyRolePermissions(role: WorkspaceLegacyRole | "owner"): Work
       if (meta.id === "billing") {
         perms[meta.id] = { ...emptyPermission(), viewGlobal: true };
       } else if (meta.id === "workspaces") {
-        perms[meta.id] = { ...emptyPermission(), viewGlobal: true, create: true, edit: true };
+        perms[meta.id] = { ...emptyPermission(), create: true };
       } else if (meta.id === "credits") {
         perms[meta.id] = { ...emptyPermission(), viewGlobal: true, edit: true };
       } else if (meta.id === "profile" || meta.id === "settings" || meta.id === "notifications") {
@@ -213,6 +213,21 @@ export function canWriteInWorkspace(
   return hasWorkspacePermission(permissions, feature, action, opts);
 }
 
+/** Open Workspaces hub: legacy view flags or create-only account roles. */
+export function canAccessWorkspacesHub(
+  permissions: WorkspaceRolePermissions | null | undefined,
+): boolean {
+  return (
+    hasWorkspacePermission(permissions, "workspaces", "viewGlobal")
+    || hasWorkspacePermission(permissions, "workspaces", "viewOwn")
+    || hasWorkspacePermission(permissions, "workspaces", "create")
+  );
+}
+
+function sanitizeWorkspacesRoleRow(row: Partial<FeaturePermission>): FeaturePermission {
+  return { ...emptyPermission(), create: Boolean(row.create) };
+}
+
 export function mergePermissionsFromForm(
   form: Record<string, Partial<FeaturePermission>>,
 ): WorkspaceRolePermissions {
@@ -220,6 +235,10 @@ export function mergePermissionsFromForm(
   for (const feature of WORKSPACE_FEATURES) {
     const row = form[feature];
     if (!row) continue;
+    if (feature === "workspaces") {
+      out[feature] = sanitizeWorkspacesRoleRow(row);
+      continue;
+    }
     out[feature] = {
       viewGlobal: Boolean(row.viewGlobal),
       viewOwn: Boolean(row.viewOwn),
@@ -238,6 +257,9 @@ export function normalizeRolePermissions(
   const out: WorkspaceRolePermissions = { ...permissions };
   if (!out.sellermate_ai && out.ads) {
     out.sellermate_ai = { ...out.ads };
+  }
+  if (out.workspaces) {
+    out.workspaces = sanitizeWorkspacesRoleRow(out.workspaces);
   }
   return out;
 }
