@@ -20,6 +20,7 @@ import {
   WORKSPACE_FEATURE_META,
   WORKSPACE_PRODUCT_FEATURES,
   WORKSPACE_FEATURE_GROUP_ORDER,
+  hasWorkspacesAccountPermission,
 } from "@workspace/workspace-permissions";
 import {
   accountWorkspacesEnabled,
@@ -360,7 +361,7 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
 
   if (!isOwner) {
     const permissions = await resolveAccountPermissionsForOwner(userId, accountOwnerId);
-    if (!permissions || !hasWorkspacePermission(permissions, "workspaces", "create")) {
+    if (!permissions || !hasWorkspacesAccountPermission(permissions, "create")) {
       res.status(403).json({ error: "You do not have permission to create workspaces" });
       return;
     }

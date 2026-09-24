@@ -176,6 +176,21 @@ export function legacyRolePermissions(role: WorkspaceLegacyRole | "owner"): Work
   return perms;
 }
 
+/**
+ * Workspaces hub (account-scoped): create / edit / delete require View Global on the same role.
+ * Used for Roles → Workspaces checkboxes and member /workspaces admin actions.
+ */
+export function hasWorkspacesAccountPermission(
+  permissions: WorkspaceRolePermissions | null | undefined,
+  action: "viewGlobal" | "create" | "edit" | "delete",
+): boolean {
+  if (action === "viewGlobal") {
+    return hasWorkspacePermission(permissions, "workspaces", "viewGlobal");
+  }
+  if (!hasWorkspacePermission(permissions, "workspaces", "viewGlobal")) return false;
+  return hasWorkspacePermission(permissions, "workspaces", action);
+}
+
 export function hasWorkspacePermission(
   permissions: WorkspaceRolePermissions | null | undefined,
   feature: WorkspaceFeature,

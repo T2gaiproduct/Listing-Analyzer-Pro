@@ -13,6 +13,7 @@ import {
   ownerPermissions,
   legacyRolePermissions,
   hasWorkspacePermission,
+  hasWorkspacesAccountPermission,
   canViewInWorkspace,
   canWriteInWorkspace,
   normalizeRolePermissions,
@@ -483,17 +484,17 @@ export function requireWorkspacePerm(
   return hasWorkspacePermission(ctx.permissions, feature, action, workspacePermOpts(ctx));
 }
 
-/** Workspace admin actions may be granted on the account role (team seat) or workspace role. */
+/** Workspaces hub create/edit/delete — always from account role, not per-workspace product role. */
 export async function canWorkspacesFeatureOnAccount(
   userId: string,
   ctx: WorkspaceContext,
-  action: WorkspaceAction,
+  action: "create" | "edit" | "delete",
 ): Promise<boolean> {
   if (!await accountWorkspacesPlanEntitled(ctx.accountOwnerId)) return false;
   if (ctx.isAccountOwner) return true;
-  if (requireWorkspacePerm(ctx, "workspaces", action)) return true;
-  const accountPerms = await resolveTeamMemberAccountPermissions(userId, ctx.accountOwnerId);
-  return accountPerms != null && hasWorkspacePermission(accountPerms, "workspaces", action);
+  const accountPerms = await resolveAccountPermissionsForOwner(userId, ctx.accountOwnerId);
+  if (!accountPerms) return false;
+  return hasWorkspacesAccountPermission(accountPerms, action);
 }
 
 export { hasWorkspacePermission, canViewInWorkspace, canWriteInWorkspace };
