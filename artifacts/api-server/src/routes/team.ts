@@ -38,7 +38,7 @@ import {
 } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 import { resolveAccountOwnerId, resolveAccountPermissionsForOwner } from "../lib/workspace-context.js";
-import { hasWorkspacesAccountPermission, ownerPermissions } from "@workspace/workspace-permissions";
+import { hasWorkspacePermission, ownerPermissions } from "@workspace/workspace-permissions";
 import { accountWorkspacesEnabled } from "../lib/plan-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { resolveSessionEmail } from "../lib/admin-auth.js";
@@ -563,9 +563,9 @@ router.get("/team/account-permissions", requireAuth, async (req, res): Promise<v
     isAccountOwner,
     permissions,
     workspacesEnabled,
-    canCreateWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacesAccountPermission(permissions, "create")),
-    canEditWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacesAccountPermission(permissions, "edit")),
-    canDeleteWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacesAccountPermission(permissions, "delete")),
+    canCreateWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacePermission(permissions, "workspaces", "create")),
+    canEditWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacePermission(permissions, "workspaces", "edit")),
+    canDeleteWorkspaces: workspacesEnabled && (isAccountOwner || hasWorkspacePermission(permissions, "workspaces", "delete")),
   });
 });
 

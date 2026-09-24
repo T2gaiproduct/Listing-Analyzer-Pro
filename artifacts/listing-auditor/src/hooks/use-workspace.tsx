@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isWorkspaceApiScopeActive, isWorkspaceAdminOverviewRoute, parseWorkspaceRouteId } from "@/lib/workspace-routes";
 import {
   hasWorkspacePermission,
-  hasWorkspacesAccountPermission,
   type WorkspaceFeature,
   type WorkspaceAction,
   type WorkspaceRolePermissions,
@@ -139,7 +138,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (listData?.workspaces?.length ?? 0) > 0
     && !(listData?.workspaces?.some((w) => w.isAccountOwner) ?? false);
 
-  const { data: accountPermPayload, isLoading: accountPermsLoading } = useQuery<{
+  const { data: accountPermPayload } = useQuery<{
     permissions: WorkspaceRolePermissions;
     workspacesEnabled: boolean;
   }>({
@@ -383,20 +382,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const can = useCallback(
     (feature: WorkspaceFeature, action: WorkspaceAction) => {
       if (isWorkspaceAccountOwner) return true;
-      if (feature === "workspaces") {
-        if (action === "viewGlobal" || action === "viewOwn") {
-          const source = accountPermissions ?? permissions;
-          return hasWorkspacePermission(source, "workspaces", "viewGlobal");
-        }
-        if (action === "create" || action === "edit" || action === "delete") {
-          if (accountPermsLoading || permLoading) return false;
-          const source = accountPermissions ?? permissions;
-          return hasWorkspacesAccountPermission(source, action);
-        }
+      if (
+        feature === "workspaces"
+        && accountPermissions
+        && hasWorkspacePermission(accountPermissions, feature, action)
+      ) {
+        return true;
       }
       return hasWorkspacePermission(permissions, feature, action);
     },
-    [permissions, isWorkspaceAccountOwner, accountPermissions, accountPermsLoading, permLoading],
+    [permissions, isWorkspaceAccountOwner, accountPermissions],
   );
 
   const canView = useCallback(
