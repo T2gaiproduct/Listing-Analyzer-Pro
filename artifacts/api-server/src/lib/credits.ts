@@ -10,6 +10,7 @@ import {
   resolveWorkspaceMemberIdForTeamMember,
   setWorkspaceMemberCredits,
   sumAllocatedMemberCreditsForWorkspace,
+  sumCreditBalance,
 } from "./workspace-credits.js";
 
 export type CreditType = "ai" | "image" | "audit";
@@ -336,16 +337,32 @@ export async function insufficientCreditsMessage(
     return `You don't have enough ${label} credits assigned in this workspace (${needed} needed). Ask your account owner to assign credits from the workspace pool in Workspaces.`;
   }
 
+  if (
+    ctx.workspaceId != null
+    && ctx.isAccountOwner
+    && !ctx.isTeamMember
+    && !ctx.isDefaultWorkspace
+  ) {
+    const pool = await getWorkspaceCredits(ctx.workspaceId);
+    const allocated = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
+    const unassignedTotal = sumCreditBalance(pool);
+    const memberTotal = sumCreditBalance(allocated);
+    if (unassignedTotal === 0 && memberTotal > 0) {
+      return "Add credits to this workspace in Workspaces. You have nothing left in the unassigned pool — you assigned it all to members.";
+    }
+    const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
+    const poolBal = pool[key];
+    if (poolBal < needed) {
+      return `Add credits to this workspace in Workspaces (${needed} ${label} credits needed for this action).`;
+    }
+  }
+
   if (ctx.workspaceId != null && !ctx.isTeamMember && !ctx.isDefaultWorkspace) {
     const pool = await getWorkspaceCredits(ctx.workspaceId);
     const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
-    const poolBal = pool[key];
-    const allocated = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
-    const memberBal = allocated[key];
-    if (poolBal < needed && memberBal > 0) {
-      return `No ${label} credits left in this workspace's unassigned pool (${needed} needed). You assigned credits to members — open Workspaces to fund the pool or adjust member allocations, then try again.`;
+    if (pool[key] < needed) {
+      return `Add credits to this workspace in Workspaces (${needed} ${label} credits needed for this action).`;
     }
-    return `This workspace doesn't have enough ${label} credits in its pool (${needed} needed). Open Workspaces → Fund to add credits to this workspace, then try again.`;
   }
 
   if (ctx.isTeamMember && ctx.memberId != null) {
