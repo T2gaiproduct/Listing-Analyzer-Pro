@@ -1,5 +1,9 @@
-import { and, desc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, type SQL } from "drizzle-orm";
 import { db, creditTransactionsTable, workspacesTable } from "@workspace/db";
+import {
+  accountCreditUsageScopeWhere,
+  workspaceCreditUsageScopeWhere,
+} from "./workspace-credit-usage.js";
 
 export async function ownedWorkspaceIdsForAccount(accountOwnerId: string): Promise<number[]> {
   const rows = await db
@@ -32,16 +36,10 @@ export async function creditTransactionsScopeWhere(
   workspaceId: number | null,
 ): Promise<SQL> {
   if (scope === "workspace" && workspaceId != null) {
-    return eq(creditTransactionsTable.workspaceId, workspaceId);
+    return workspaceCreditUsageScopeWhere(workspaceId);
   }
   const workspaceIds = await ownedWorkspaceIdsForAccount(accountOwnerId);
-  const workspaceClause = workspaceIds.length > 0
-    ? inArray(creditTransactionsTable.workspaceId, workspaceIds)
-    : sql`false`;
-  return or(
-    workspaceClause,
-    and(eq(creditTransactionsTable.userId, accountOwnerId), isNull(creditTransactionsTable.workspaceId)),
-  )!;
+  return accountCreditUsageScopeWhere(accountOwnerId, workspaceIds);
 }
 
 export async function loadCreditUsageTransactions(

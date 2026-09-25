@@ -382,10 +382,23 @@ export function BillingOverview({
 
   const transactions = creditUsage?.transactions ?? [];
 
-  const usedInPeriod = useMemo(
-    () => totalSpentInRange(transactions, periodStart, periodEnd),
-    [transactions, periodStart, periodEnd],
-  );
+  const workspaceTeamUsedInPeriod = useMemo(() => {
+    if (accountOverviewUsage || billingWorkspaceId == null) return null;
+    const ownerUsed = teamData?.ownerUsedInScopedWorkspace ?? 0;
+    const memberUsed = (teamData?.workspaceMemberStats ?? []).reduce(
+      (sum, row) => sum + (row.creditsUsed ?? 0),
+      0,
+    );
+    return ownerUsed + memberUsed;
+  }, [accountOverviewUsage, billingWorkspaceId, teamData]);
+
+  const usedInPeriod = useMemo(() => {
+    const fromTransactions = totalSpentInRange(transactions, periodStart, periodEnd);
+    if (workspaceTeamUsedInPeriod != null && workspaceTeamUsedInPeriod > fromTransactions) {
+      return workspaceTeamUsedInPeriod;
+    }
+    return fromTransactions;
+  }, [transactions, periodStart, periodEnd, workspaceTeamUsedInPeriod]);
 
   const totalCreditsPool = Math.max(planTotalCredits, currentBalance + usedInPeriod);
 

@@ -1,6 +1,11 @@
 import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db, creditTransactionsTable, workspacesTable } from "@workspace/db";
 import {
+  creditUsageDebitFilters,
+  transactionAttributedToWorkspace,
+  transactionAttributedToWorkspaceUser,
+} from "./workspace-credit-usage.js";
+import {
   getWorkspaceCredits,
   sumAllocatedMemberCreditsForWorkspace,
   sumWorkspaceCreditsHeldForOwner,
@@ -52,11 +57,8 @@ export async function sumCreditsUsedInWorkspaceForUser(
     .from(creditTransactionsTable)
     .where(
       and(
-        eq(creditTransactionsTable.userId, userId),
-        eq(creditTransactionsTable.workspaceId, workspaceId),
-        sql`${creditTransactionsTable.amount} < 0`,
-        sql`coalesce(${creditTransactionsTable.featureType}, '') != 'subscription'`,
-        sql`coalesce(${creditTransactionsTable.featureType}, '') != 'workspace_pool_transfer'`,
+        transactionAttributedToWorkspaceUser(workspaceId, userId),
+        ...creditUsageDebitFilters(),
         gte(creditTransactionsTable.createdAt, periodStart),
         lte(creditTransactionsTable.createdAt, periodEnd),
       ),
@@ -86,13 +88,10 @@ export async function sumCreditsUsedForAccountOwner(
 
   let workspaceUsage = 0;
   if (workspaceIds.length > 0) {
-    const [row] = await db
-      .select({
-        total: sql<number>`coalesce(sum(abs(${creditTransactionsTable.amount})), 0)`,
-      })
-      .from(creditTransactionsTable)
-      .where(and(inArray(creditTransactionsTable.workspaceId, workspaceIds), ...usageConditions));
-    workspaceUsage = Number(row?.total ?? 0);
+    const perWorkspace = await Promise.all(
+      workspaceIds.map((id) => sumCreditsUsedForWorkspace(id, periodStart, periodEnd)),
+    );
+    workspaceUsage = perWorkspace.reduce((sum, n) => sum + n, 0);
   }
 
   const [personalRow] = await db
@@ -152,10 +151,8 @@ export async function sumCreditsUsedForWorkspace(
     .from(creditTransactionsTable)
     .where(
       and(
-        eq(creditTransactionsTable.workspaceId, workspaceId),
-        sql`${creditTransactionsTable.amount} < 0`,
-        sql`coalesce(${creditTransactionsTable.featureType}, '') != 'subscription'`,
-        sql`coalesce(${creditTransactionsTable.featureType}, '') != 'workspace_pool_transfer'`,
+        transactionAttributedToWorkspace(workspaceId),
+        ...creditUsageDebitFilters(),
         gte(creditTransactionsTable.createdAt, periodStart),
         lte(creditTransactionsTable.createdAt, periodEnd),
       ),
