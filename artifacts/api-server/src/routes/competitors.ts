@@ -9,7 +9,7 @@ import {
   DeleteCompetitorParams,
 } from "@workspace/api-zod";
 import { analyzeCompetitorWithAI } from "../lib/analyzer";
-import { deductCreditsTeamAware, hasCreditsTeamAware, getCreditCost, type TeamAwareContext } from "../lib/credits";
+import { deductCreditsTeamAware, hasCreditsTeamAware, getCreditCost, insufficientCreditsMessage, type TeamAwareContext } from "../lib/credits";
 import { type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
@@ -95,7 +95,7 @@ router.post("/audits/:id/competitors", requireAuth, resolveTeamAndWorkspace, req
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, cost.creditsRequired) });
     return;
   }
 

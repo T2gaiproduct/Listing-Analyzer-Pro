@@ -48,7 +48,7 @@ import {
   regenerateSingleImage,
   editSingleImage,
 } from "../lib/image-generator";
-import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
+import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, insufficientCreditsMessage, type TeamAwareContext } from "../lib/credits";
 import { withCreditUsage } from "../lib/credit-api.js";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
@@ -252,7 +252,7 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -914,7 +914,7 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -989,7 +989,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
 
   const hasImages = await hasCreditsTeamAware(creditCtx, imageCost.creditType, imageCreditsNeeded);
   if (!hasImages) {
-    res.status(402).json({ error: `Insufficient ${imageCost.creditType} credits (${imageCreditsNeeded} needed for ${moduleIds.length} A+ module image${moduleIds.length > 1 ? "s" : ""}).` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, imageCost.creditType, imageCreditsNeeded) });
     return;
   }
 
@@ -1114,7 +1114,7 @@ router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWo
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -1152,7 +1152,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
   const creditCtx2 = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx2, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -1235,7 +1235,7 @@ router.post("/audits/:id/reference-research/analyze", requireAuth, resolveTeamAn
   const creditCheck = await hasCreditsTeamAware(creditCtxRef, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
     res.status(402).json({
-      error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.`,
+      error: await insufficientCreditsMessage(creditCtxRef, cost.creditType, cost.creditsRequired),
     });
     return;
   }
@@ -1305,7 +1305,7 @@ router.post("/audits/:id/generate-images", requireAuth, resolveTeamAndWorkspace,
   const creditCtx3 = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx3, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx3, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -1383,7 +1383,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTe
   const creditCtx4 = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx4, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx4, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -1441,7 +1441,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndW
   const creditCtx5 = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx5, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx5, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -1503,7 +1503,7 @@ router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAn
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed).` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -1575,7 +1575,7 @@ router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeamAndWorks
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed).` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, cost.creditsRequired) });
     return;
   }
 

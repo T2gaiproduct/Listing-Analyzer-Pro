@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { generateImageBuffer } from "./openai-image.js";
-import { getCreditCost, hasCreditsTeamAware, deductCreditsTeamAware, type TeamAwareContext } from "./credits.js";
+import { getCreditCost, hasCreditsTeamAware, deductCreditsTeamAware, insufficientCreditsMessage, type TeamAwareContext } from "./credits.js";
 import { IMAGES_DIR } from "./image-storage.js";
 
 const VARIANT_STYLE_SUFFIXES = [
@@ -51,9 +51,7 @@ export async function generateSellermateImageVariants(input: {
 
   const hasCredits = await hasCreditsTeamAware(input.creditCtx, cost.creditType, creditsNeeded);
   if (!hasCredits) {
-    throw new Error(
-      `Insufficient ${cost.creditType} credits (${creditsNeeded} needed for ${count} image variations).`,
-    );
+    throw new Error(await insufficientCreditsMessage(input.creditCtx, cost.creditType, creditsNeeded));
   }
 
   const dir = sellermateImageDir(input.workspaceId);

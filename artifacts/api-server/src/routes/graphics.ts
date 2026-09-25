@@ -4,7 +4,7 @@ import { getAuth } from "@clerk/express";
 import { db, graphicsProjectsTable, adminUsersTable, auditsTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
-import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
+import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, insufficientCreditsMessage, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
@@ -1014,7 +1014,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, creditsNeeded);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${creditsNeeded} needed).` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, creditsNeeded) });
     return;
   }
 
@@ -1152,7 +1152,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed).` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, cost.creditsRequired) });
     return;
   }
 
@@ -1195,7 +1195,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, regenCredits);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${regenCredits} needed).` });
+    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx, cost.creditType, regenCredits) });
     return;
   }
 

@@ -9,6 +9,7 @@ import {
   getWorkspaceMemberCredits,
   resolveWorkspaceMemberIdForTeamMember,
   setWorkspaceMemberCredits,
+  sumAllocatedMemberCreditsForWorkspace,
 } from "./workspace-credits.js";
 
 export type CreditType = "ai" | "image" | "audit";
@@ -314,6 +315,44 @@ export async function hasCreditsTeamAware(
 ): Promise<boolean> {
   const result = await checkCreditsTeamAware(ctx, type, amount);
   return result.hasCredits;
+}
+
+function creditTypeLabel(type: CreditType): string {
+  if (type === "ai") return "AI";
+  if (type === "image") return "image";
+  return "audit";
+}
+
+/** User-facing message when checkCreditsTeamAware / hasCreditsTeamAware fails (no billing logic change). */
+export async function insufficientCreditsMessage(
+  ctx: TeamAwareContext,
+  type: CreditType,
+  needed: number,
+): Promise<string> {
+  const label = creditTypeLabel(type);
+  const wmId = await resolveWorkspaceMemberId(ctx);
+
+  if (wmId != null && ctx.workspaceId != null) {
+    return `You don't have enough ${label} credits assigned in this workspace (${needed} needed). Ask your account owner to assign credits from the workspace pool in Workspaces.`;
+  }
+
+  if (ctx.workspaceId != null && !ctx.isTeamMember && !ctx.isDefaultWorkspace) {
+    const pool = await getWorkspaceCredits(ctx.workspaceId);
+    const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
+    const poolBal = pool[key];
+    const allocated = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
+    const memberBal = allocated[key];
+    if (poolBal < needed && memberBal > 0) {
+      return `No ${label} credits left in this workspace's unassigned pool (${needed} needed). You assigned credits to members — open Workspaces to fund the pool or adjust member allocations, then try again.`;
+    }
+    return `This workspace doesn't have enough ${label} credits in its pool (${needed} needed). Open Workspaces → Fund to add credits to this workspace, then try again.`;
+  }
+
+  if (ctx.isTeamMember && ctx.memberId != null) {
+    return `You don't have enough ${label} credits (${needed} needed). Ask your account owner to assign credits for this workspace.`;
+  }
+
+  return `Insufficient ${label} credits (${needed} needed). Add credits in Billing or upgrade your plan.`;
 }
 
 export async function deductCreditsTeamAware(
