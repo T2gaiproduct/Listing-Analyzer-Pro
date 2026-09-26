@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import type { Request } from "express";
-import { getConfiguredAppUrl, resolvePublicAppBaseUrl } from "./app-base-url.js";
+import { getConfiguredAppUrl, resolveHttpRequestOrigin, resolvePublicAppBaseUrl } from "./app-base-url.js";
 
 function isLocalhostOrigin(origin: string): boolean {
   try {
@@ -173,10 +173,23 @@ export function normalizeAmazonExportImageBaseUrl(base: string): string {
       url.port = "";
       return url.origin;
     }
+    const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(url.hostname);
+    if (isIp && (url.port === "8080" || url.port === "8080")) {
+      url.port = "";
+      return url.origin;
+    }
   } catch {
     /* keep trimmed */
   }
   return trimmed;
+}
+
+function resolveExportImageBaseFromRequest(req: Request): string {
+  const direct = resolveHttpRequestOrigin(req);
+  if (direct && isPublicRequestOrigin(direct)) {
+    return normalizeAmazonExportImageBaseUrl(direct);
+  }
+  return normalizeAmazonExportImageBaseUrl(resolvePublicAppBaseUrl({ req }));
 }
 
 /**
@@ -184,7 +197,7 @@ export function normalizeAmazonExportImageBaseUrl(base: string): string {
  * Uses the same host you export from (IP or domain, http or https) when possible so links work on that deployment.
  */
 export function resolveAmazonExportImageBaseUrl(req: Request): string {
-  const fromRequest = normalizeAmazonExportImageBaseUrl(resolvePublicAppBaseUrl({ req }));
+  const fromRequest = resolveExportImageBaseFromRequest(req);
   try {
     const { hostname } = new URL(fromRequest);
     if (hostname.endsWith(".trycloudflare.com")) {

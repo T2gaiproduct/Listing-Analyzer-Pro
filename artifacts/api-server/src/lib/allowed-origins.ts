@@ -40,8 +40,20 @@ export function getAllowedOrigins(): string[] {
   return [...origins];
 }
 
+function isPublicIpOrigin(origin: string): boolean {
+  try {
+    const { hostname } = new URL(origin);
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return true;
+    if (hostname.includes(":") && hostname.startsWith("[")) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
+  if (isPublicIpOrigin(origin)) return true;
   if (getAllowedOrigins().includes(origin)) return true;
   const appUrl = process.env.APP_URL ?? process.env.PUBLIC_APP_URL;
   if (appUrl?.trim()) {

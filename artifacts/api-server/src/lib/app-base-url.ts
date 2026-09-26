@@ -16,6 +16,11 @@ export function getConfiguredAppUrl(): string | undefined {
   return raw.trim().replace(/\/$/, "");
 }
 
+/** Browser/proxy origin for this request (Origin, Referer, X-Forwarded-*, Host). Not filtered by ALLOWED_ORIGINS. */
+export function resolveHttpRequestOrigin(req: Request): string | undefined {
+  return originFromRequest(req);
+}
+
 function originFromRequest(req: Request): string | undefined {
   const headerOrigin = req.get("origin");
   if (headerOrigin) return headerOrigin.replace(/\/$/, "");
