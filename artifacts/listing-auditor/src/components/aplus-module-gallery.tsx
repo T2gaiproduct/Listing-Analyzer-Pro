@@ -123,7 +123,7 @@ function AplusImageCard({
         <ProtectedAppImage
           src={normalized.imageUrl}
           alt={normalized.title}
-          className="w-full h-full object-cover bg-white"
+          className="w-full h-full object-contain bg-slate-100"
         />
         {isLoading && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
@@ -339,7 +339,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                     <ProtectedAppImage
                       src={editModule.imageUrl}
                       alt="Current"
-                      className="w-full h-full object-cover bg-white"
+                      className="w-full h-full object-contain bg-slate-100"
                     />
                   </div>
                 </div>

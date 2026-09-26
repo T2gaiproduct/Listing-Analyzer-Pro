@@ -5,25 +5,40 @@ export const APLUS_MODULE_WIDTH = 970;
 export const APLUS_MODULE_HEIGHT = 300;
 
 const APLUS_SAFE_MARGIN_PROMPT =
-  "Keep all text and product edges inside a safe area with at least 10% margin on every side; nothing clipped at the frame edge.";
+  "Keep all text, product packaging, and logos fully visible with safe margins; nothing cropped or clipped at any edge.";
 
 const APLUS_EDGE_TO_EDGE_PROMPT =
-  "Compose edge-to-edge across the full ultra-wide strip — no empty side margins, no pillarboxing. Fill the entire banner width with design, product, typography, and graphics like premium Amazon A+ Enhanced Brand Content.";
+  "Compose as one ultra-wide shallow horizontal band (970x300 proportions). Spread product, headline, icons, and callouts across the width in a single row. Keep the full product and all text legible—never cut off the top or bottom of the product or typography.";
 
 /** Re-export for module prompts (generation + resize pipeline). */
 export { APLUS_SAFE_MARGIN_PROMPT, APLUS_EDGE_TO_EDGE_PROMPT };
 
 /**
- * Fit generated art into Amazon's 970×300 module using center crop (cover) so the banner
- * fills the frame. Letterbox (`inside`) left ~46% of the width empty for 16:10 generations.
+ * Fit generated art into 970×300 without cropping (contain). Uses a soft blurred
+ * background fill on the sides so the module still feels full-width on Amazon.
  */
 export async function resizeAplusModuleBuffer(buffer: Buffer): Promise<Buffer> {
-  return sharp(buffer)
+  const foreground = await sharp(buffer)
+    .resize(APLUS_MODULE_WIDTH, APLUS_MODULE_HEIGHT, {
+      fit: "inside",
+      kernel: sharp.kernel.lanczos3,
+    })
+    .png()
+    .toBuffer();
+
+  const background = await sharp(buffer)
     .resize(APLUS_MODULE_WIDTH, APLUS_MODULE_HEIGHT, {
       fit: "cover",
       position: "centre",
       kernel: sharp.kernel.lanczos3,
     })
+    .blur(24)
+    .modulate({ brightness: 0.92, saturation: 1.05 })
+    .png()
+    .toBuffer();
+
+  return sharp(background)
+    .composite([{ input: foreground, gravity: "centre" }])
     .png({ compressionLevel: 6, adaptiveFiltering: true })
     .toBuffer();
 }
