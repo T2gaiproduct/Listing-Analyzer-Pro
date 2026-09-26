@@ -197,8 +197,7 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
   const clerkInstanceHost =
     (apiHealth?.clerkPublishableHost as string | undefined) || viteClerkHost || undefined;
   const apiStale = apiHealth?.staleProcess === true;
-  const onCloudPreview =
-    typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com");
+  const onCloudPreview = isCloudflareQuickPreviewHost();
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center p-6">

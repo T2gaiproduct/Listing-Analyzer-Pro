@@ -286,6 +286,19 @@ using_named_cloudflare_tunnel() {
   [[ -n "$CLOUDFLARE_TUNNEL_TOKEN" && -n "$CLOUDFLARE_TUNNEL_PUBLIC_URL" ]]
 }
 
+using_cloud_agent_quick_tunnel() {
+  ! should_skip_cloudflare_tunnel && ! using_named_cloudflare_tunnel
+}
+
+# Opt-in *.trycloudflare.com behavior in app code (off in staging/production deploys).
+apply_cloud_agent_quick_tunnel_env() {
+  if using_cloud_agent_quick_tunnel; then
+    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=true
+    export VITE_CLOUD_AGENT_PREVIEW=true
+    echo "==> Cloud Agent quick tunnel: ENABLE_CLOUD_AGENT_QUICK_TUNNEL + VITE_CLOUD_AGENT_PREVIEW (local dev-stack only)" >&2
+  fi
+}
+
 is_clerk_development_instance() {
   [[ "${CLERK_PUB_FOR_STACK:-}" == pk_test_* ]]
 }
@@ -505,6 +518,8 @@ for port in 8080 19145 3000; do
   fi
 done
 
+apply_cloud_agent_quick_tunnel_env
+
 echo "==> Applying database schema (local sync)"
 tmux_cmd kill-session -t db-push 2>/dev/null || true
 tmux_cmd new-session -d -s db-push -c "$ROOT" -- bash -lc "
@@ -521,6 +536,7 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
   export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
   export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+  export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
   export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
   export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
   export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
@@ -602,6 +618,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
     export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
     export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
     export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
     export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
     export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
     export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"

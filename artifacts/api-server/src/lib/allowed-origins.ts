@@ -1,3 +1,5 @@
+import { isCloudAgentQuickTunnelHostname } from "./cloud-agent-quick-tunnel.js";
+
 export function getAllowedOrigins(): string[] {
   const origins = new Set<string>([
     "http://localhost:19145",
@@ -63,8 +65,12 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
       /* ignore */
     }
   }
-  if (process.env.NODE_ENV !== "production" && origin.endsWith(".trycloudflare.com")) {
-    return true;
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      if (isCloudAgentQuickTunnelHostname(new URL(origin).hostname)) return true;
+    } catch {
+      /* ignore */
+    }
   }
   return false;
 }

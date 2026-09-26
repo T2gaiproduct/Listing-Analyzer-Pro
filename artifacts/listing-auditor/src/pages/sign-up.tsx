@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { Loader2 } from "lucide-react";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import { appendPlanSelectionToPath, coercePlanId } from "@/lib/plan-selection";
+import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -83,7 +84,7 @@ export default function SignUpPage() {
         appearance={clerkAppearance}
       />
       </ClerkLoaded>
-      {typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com") && (
+      {isCloudflareQuickPreviewHost() && (
         <p className="mt-4 max-w-[440px] text-center text-[11px] text-slate-500">
           Cloudflare preview: if sign-up stays on a blank screen, restart the dev stack so the
           tunnel URL and Clerk proxy stay in sync. You can also{" "}

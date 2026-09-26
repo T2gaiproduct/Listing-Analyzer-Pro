@@ -36,6 +36,7 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 ### Full UI E2E — same-origin proxy + auth testing (important gotchas)
 - The frontend has no Vite `/api` proxy, so for a working UI run a reverse proxy that serves the SPA and forwards `/api` to the API. A minimal Node proxy (route `/api*` → `127.0.0.1:8080`, everything else + websocket upgrades → `127.0.0.1:19145`) on a spare port works; then browse to the proxy port so `/api` calls resolve.
 - **Cloudflare preview URL:** `scripts/dev-stack.sh` starts a tunnel to port 3000. Quick tunnels (`*.trycloudflare.com`) **always get a new random hostname** when the tunnel restarts — they cannot be made permanent. When a tunnel is enabled, dev-stack **builds the frontend and runs `vite preview`** (not Vite dev/HMR) so the preview page is not blank behind Cloudflare.
+- **Staging/production deploys:** Do **not** set `VITE_CLOUD_AGENT_PREVIEW` or `ENABLE_CLOUD_AGENT_QUICK_TUNNEL`. Quick-tunnel auth/onboarding helpers are opt-in; dev-stack sets them only for ephemeral `*.trycloudflare.com` runs so merging `staging` → `main` does not enable Cloudflare-only behavior on `sellerlens.io`.
 - **Stable preview URL (recommended):** Create a **named Cloudflare Tunnel** on your zone (e.g. `https://dev-preview.sellerlens.io` → `http://127.0.0.1:3000` in the Cloud Agent VM). Add environment secrets:
   - `CLOUDFLARE_TUNNEL_TOKEN` — tunnel run token from Cloudflare Zero Trust → Networks → Tunnels
   - `CLOUDFLARE_TUNNEL_PUBLIC_URL` — exact public URL, e.g. `https://dev-preview.sellerlens.io`

@@ -1,6 +1,7 @@
 import type { ClerkMiddlewareOptions } from "@clerk/express";
 import type { Request } from "express";
 import { getAllowedOrigins } from "./allowed-origins.js";
+import { isCloudAgentQuickTunnelHostname } from "./cloud-agent-quick-tunnel.js";
 import { getClerkProxyHost } from "../middlewares/clerkProxyMiddleware.js";
 
 export function clerkPublishableKeyFromEnv(): string | undefined {
@@ -15,7 +16,7 @@ function previewTunnelOrigin(req: Request): string | null {
   if (process.env.NODE_ENV === "production") return null;
   const host = getClerkProxyHost(req) ?? req.headers.host;
   const hostname = typeof host === "string" ? host.split(",")[0]!.trim().split(":")[0] : "";
-  if (!hostname.endsWith(".trycloudflare.com")) return null;
+  if (!isCloudAgentQuickTunnelHostname(hostname)) return null;
   const protoHeader = req.headers["x-forwarded-proto"];
   const proto = (Array.isArray(protoHeader) ? protoHeader[0] : protoHeader) || "https";
   return `${proto}://${hostname}`;

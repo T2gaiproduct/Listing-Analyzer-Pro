@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import type { Request } from "express";
 import { getConfiguredAppUrl, resolveHttpRequestOrigin, resolvePublicAppBaseUrl } from "./app-base-url.js";
+import { isCloudAgentQuickTunnelHostname } from "./cloud-agent-quick-tunnel.js";
 
 function isLocalhostOrigin(origin: string): boolean {
   try {
@@ -135,7 +136,7 @@ export function resolveMarketplacePublishBaseUrl(req: Request): string {
   const fromRequest = resolvePublicAppBaseUrl({ req });
   try {
     const { hostname } = new URL(fromRequest);
-    if (hostname.endsWith(".trycloudflare.com")) {
+    if (isCloudAgentQuickTunnelHostname(hostname)) {
       return fromRequest;
     }
   } catch {
@@ -200,7 +201,7 @@ export function resolveAmazonExportImageBaseUrl(req: Request): string {
   const fromRequest = resolveExportImageBaseFromRequest(req);
   try {
     const { hostname } = new URL(fromRequest);
-    if (hostname.endsWith(".trycloudflare.com")) {
+    if (isCloudAgentQuickTunnelHostname(hostname)) {
       return fromRequest;
     }
   } catch {
