@@ -141,6 +141,13 @@ export default function Onboarding() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (isCloudflareQuickPreviewHost()) {
+      setLocation("/dashboard");
+    }
+  }, [setLocation]);
+
   const [step, setStep] = useState(0);
   const [yearly, setYearly] = useState(() => readSavedBillingYearly() ?? false);
   const appliedPlanFromUrlRef = useRef(false);
