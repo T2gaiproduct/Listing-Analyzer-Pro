@@ -29,9 +29,13 @@ function getEffectiveUserId(req: Request): string {
   return team?.ownerUserId ?? auth?.userId ?? (req as AuthedRequest).userId;
 }
 
-async function auditScopeWhere(req: Request, extra?: ReturnType<typeof and>) {
+async function auditScopeWhere(
+  req: Request,
+  extra?: ReturnType<typeof and>,
+  workspaceIdOverride?: number,
+) {
   const ownerId = getEffectiveUserId(req);
-  const workspaceId = getActiveWorkspaceId(req);
+  const workspaceId = workspaceIdOverride ?? getActiveWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
   const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "audits", worked, "audit", auditsTable);
   return and(
@@ -42,12 +46,17 @@ async function auditScopeWhere(req: Request, extra?: ReturnType<typeof and>) {
   );
 }
 
-export async function loadAuditForExport(req: Request, auditId: number) {
+export async function loadAuditForExport(
+  req: Request,
+  auditId: number,
+  opts?: { workspaceId?: number },
+) {
   const auth = getAuth(req);
   const userId = auth?.userId ?? (req as AuthedRequest).userId;
+  const workspaceOverride = opts?.workspaceId;
   const whereClause = isAdmin(userId)
     ? and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0))
-    : await auditScopeWhere(req, eq(auditsTable.id, auditId));
+    : await auditScopeWhere(req, eq(auditsTable.id, auditId), workspaceOverride);
 
   let [audit] = await db.select().from(auditsTable).where(whereClause).limit(1);
   if (!audit) {

@@ -30,6 +30,7 @@ import { useWorkspaceScopeLoading } from "@/hooks/use-workspace-scope-loading";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { canExportListingSource } from "@/components/listing-export-button";
 import { downloadAuditExport } from "@/lib/amazon-export";
+import { BULK_PRODUCTS_EXPORT_MAX, downloadBulkProductsExcel } from "@/lib/bulk-products-export";
 import { fetchAccountOverviewProducts, fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
@@ -398,6 +399,7 @@ export default function ProductsPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
+  const [bulkExporting, setBulkExporting] = useState(false);
   const { trigger: triggerDeleteDialog, dialog: deleteDialog } = useActionDialog();
 
   const productsQueryScope = showAccountProducts ? "owner-account" : featureWorkspaceId;
@@ -464,6 +466,58 @@ export default function ProductsPage() {
       });
     },
   });
+
+  function bulkExportItems(productsToExport: ProductListItem[]) {
+    return productsToExport
+      .filter(canExportListingProduct)
+      .map((p) => ({
+        auditId: p.id,
+        workspaceId: p.workspaceId ?? null,
+      }));
+  }
+
+  async function handleBulkExport(productsToExport: ProductListItem[]) {
+    const items = bulkExportItems(productsToExport);
+    if (items.length === 0) {
+      toast({
+        title: "Nothing to export",
+        description: "Excel export is available for Build Your Brand and Audit Listing products with listing content.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (items.length > BULK_PRODUCTS_EXPORT_MAX) {
+      toast({
+        title: "Too many listings",
+        description: `Export up to ${BULK_PRODUCTS_EXPORT_MAX} at a time. Narrow your search or use row selection.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setBulkExporting(true);
+    try {
+      const stats = await downloadBulkProductsExcel({
+        items,
+        accountOverview: showAccountProducts,
+      });
+      const skipped = stats.skippedCount;
+      toast({
+        title: "Excel downloaded",
+        description: skipped > 0
+          ? `Exported ${stats.exportedCount} listing${stats.exportedCount === 1 ? "" : "s"}; ${skipped} skipped (missing content or access).`
+          : `Amazon listing Excel with ${stats.exportedCount} listing${stats.exportedCount === 1 ? "" : "s"}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: error instanceof Error ? error.message : "Could not export listings.",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkExporting(false);
+    }
+  }
 
   async function handleExportProduct(product: ProductListItem) {
     if (!canExportListingProduct(product)) {
@@ -557,6 +611,15 @@ export default function ProductsPage() {
   );
   const selectedCount = selectedProducts.length;
   const selectedDeletableCount = selectedProducts.filter(canDeleteProduct).length;
+  const exportableFiltered = useMemo(
+    () => filtered.filter(canExportListingProduct),
+    [filtered],
+  );
+  const exportableSelected = useMemo(
+    () => selectedProducts.filter(canExportListingProduct),
+    [selectedProducts],
+  );
+  const exportableFilteredCount = exportableFiltered.length;
 
   const toggleAll = () => {
     if (allSelected) {
@@ -614,6 +677,23 @@ export default function ProductsPage() {
           )}
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-xl sm:justify-end">
+          {exportableFilteredCount > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs shrink-0"
+              disabled={bulkExporting}
+              onClick={() => void handleBulkExport(exportableFiltered)}
+            >
+              {bulkExporting ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Download Excel
+            </Button>
+          )}
           <div className="relative flex-1 sm:max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input
@@ -662,6 +742,23 @@ export default function ProductsPage() {
             >
               Clear selection
             </Button>
+            {exportableSelected.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] border-orange-200 bg-card"
+                disabled={bulkExporting}
+                onClick={() => void handleBulkExport(exportableSelected)}
+              >
+                {bulkExporting ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 mr-1" />
+                )}
+                Download Excel
+              </Button>
+            )}
             <Button
               type="button"
               variant="destructive"

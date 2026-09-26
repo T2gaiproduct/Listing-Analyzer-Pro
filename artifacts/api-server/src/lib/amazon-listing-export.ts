@@ -223,6 +223,56 @@ export async function buildExcelBuffer(bundle: AuditExportBundle): Promise<Buffe
   return Buffer.from(buffer);
 }
 
+/** One workbook: Amazon Upload rows for every bundle + combined Full listing content sheet. */
+export async function buildBulkExcelBuffer(bundles: AuditExportBundle[]): Promise<Buffer> {
+  if (bundles.length === 0) {
+    throw new Error("No listings to export.");
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "SellerLens";
+
+  const uploadSheet = workbook.addWorksheet("Amazon Upload");
+  uploadSheet.addRow([...AMAZON_FLAT_FILE_HEADERS]);
+  uploadSheet.getRow(1).font = { bold: true };
+  for (const bundle of bundles) {
+    uploadSheet.addRow(AMAZON_FLAT_FILE_HEADERS.map((header) => bundle.row[header]));
+  }
+  uploadSheet.columns = AMAZON_FLAT_FILE_HEADERS.map((header) => ({
+    header,
+    key: header,
+    width: Math.min(48, Math.max(12, header.length + 4)),
+  }));
+  const descColIndex = AMAZON_FLAT_FILE_HEADERS.indexOf("product_description") + 1;
+  if (descColIndex > 0) {
+    uploadSheet.getColumn(descColIndex).width = 60;
+    for (let row = 2; row <= uploadSheet.rowCount; row++) {
+      uploadSheet.getRow(row).getCell(descColIndex).alignment = { wrapText: true, vertical: "top" };
+    }
+  }
+
+  const reviewSheet = workbook.addWorksheet("Full listing content");
+  reviewSheet.addRow(["Product", "Section", "Field", "Value"]);
+  reviewSheet.getRow(1).font = { bold: true };
+  for (const bundle of bundles) {
+    const productLabel = bundle.filenameBase || bundle.row.item_name || bundle.row.item_sku;
+    const reviewRows = buildListingContentReviewRows(bundle.listingContent, bundle.row, bundle.images);
+    for (const r of reviewRows) {
+      reviewSheet.addRow([productLabel, r.section, r.field, r.value]);
+    }
+  }
+  reviewSheet.getColumn(1).width = 28;
+  reviewSheet.getColumn(2).width = 18;
+  reviewSheet.getColumn(3).width = 36;
+  reviewSheet.getColumn(4).width = 80;
+  for (let i = 2; i <= reviewSheet.rowCount; i++) {
+    reviewSheet.getRow(i).getCell(4).alignment = { wrapText: true, vertical: "top" };
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
 export async function buildZipBuffer(opts: {
   bundle: AuditExportBundle;
   excelBuffer: Buffer;

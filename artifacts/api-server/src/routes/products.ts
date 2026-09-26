@@ -40,6 +40,11 @@ import { syncListingToConnectedMarketplaces } from "../lib/product-listing-sync.
 import { loadUnifiedProductList } from "../lib/unified-product-list.js";
 import { backfillWorkspaceScopeForOwner } from "../lib/backfill-workspace-scope.js";
 import {
+  BULK_PRODUCTS_EXPORT_MAX,
+  buildBulkProductsExcelExport,
+  type BulkExportItem,
+} from "../lib/bulk-products-export.js";
+import {
   loadProductDetail,
   parseProductSourceFromRequest,
   resolveStatsAuditId,
@@ -298,6 +303,50 @@ router.get("/products", requireAuth, resolveTeamAndWorkspace, async (req: Reques
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({ products });
+});
+
+router.post("/products/export/excel", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const body = req.body as { items?: BulkExportItem[]; marketplace?: string };
+  const rawItems = Array.isArray(body.items) ? body.items : [];
+  if (rawItems.length === 0) {
+    res.status(400).json({ error: "Select at least one listing to export." });
+    return;
+  }
+  if (rawItems.length > BULK_PRODUCTS_EXPORT_MAX) {
+    res.status(400).json({
+      error: `You can export up to ${BULK_PRODUCTS_EXPORT_MAX} listings at a time.`,
+    });
+    return;
+  }
+
+  const items: BulkExportItem[] = rawItems.map((row) => ({
+    auditId: Number(row.auditId),
+    workspaceId: row.workspaceId != null ? Number(row.workspaceId) : null,
+  }));
+
+  const marketplace = typeof body.marketplace === "string" && body.marketplace.trim()
+    ? body.marketplace.trim()
+    : "US";
+
+  try {
+    const result = await buildBulkProductsExcelExport(req, items, marketplace);
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `product-explorer-listings-${date}.xlsx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("X-Export-Exported-Count", String(result.exportedCount));
+    res.setHeader("X-Export-Skipped-Count", String(result.skipped.length));
+    if (result.skipped.length > 0) {
+      res.setHeader(
+        "X-Export-Skipped",
+        JSON.stringify(result.skipped.slice(0, 20)),
+      );
+    }
+    res.send(result.buffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Export failed";
+    res.status(400).json({ error: message });
+  }
 });
 
 router.get("/products/:id/orders", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
