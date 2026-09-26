@@ -820,7 +820,8 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
   }
   if (body.category !== undefined) updates.category = body.category;
   if (body.productDescription !== undefined) {
-    const trimmed = body.productDescription.trim();
+    const trimmed =
+      typeof body.productDescription === "string" ? body.productDescription.trim() : "";
     updates.productDescription = trimmed || null;
   }
   if (body.imageUrls !== undefined) updates.imageUrls = body.imageUrls;

@@ -760,7 +760,7 @@ export default function AuditWorkflow() {
     if (updatedAt) lastRestoredAtRef.current = updatedAt;
     setProjectName((auditData.projectName as string) || auditData.productName || "");
     setBrandName((auditData.brandName as string) || "");
-    setProductName(auditData.productName || "");
+    setProductName((auditData.productName as string | null) ?? "");
     setProductDescription((auditData as { productDescription?: string | null }).productDescription?.trim() ?? "");
     setCategory((auditData.category as string) || "");
     setUploadedImages((auditData.imageUrls as string[]) || []);
@@ -1006,15 +1006,26 @@ export default function AuditWorkflow() {
   const activeGraphicsProjectId = graphicsProjectId ?? (existingGraphicsProject as { id?: number } | null)?.id ?? null;
 
   const persistUploadTabToAudit = useCallback(async (auditId: number): Promise<void> => {
-    const draftBody = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages, productDescription);
+    const safeProductName = (productName ?? "").trim();
+    const safeProjectName = (projectName ?? "").trim();
+    const safeBrandName = (brandName ?? "").trim();
+    const safeProductDescription = (productDescription ?? "").trim();
+    const draftBody = buildAuditDraftBody(
+      safeProjectName,
+      safeProductName,
+      safeBrandName,
+      category,
+      uploadedImages,
+      safeProductDescription,
+    );
     await fetchJson(`${basePath}/api/audits/${auditId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        projectName: (draftBody?.projectName ?? projectName.trim()) || productName.trim(),
-        productName: productName.trim(),
-        brandName: brandName.trim() || undefined,
-        productDescription: productDescription.trim() || null,
+        projectName: (draftBody?.projectName ?? safeProjectName) || safeProductName,
+        productName: safeProductName,
+        brandName: safeBrandName || undefined,
+        productDescription: safeProductDescription || undefined,
         category: category || undefined,
         imageUrls: uploadedImages,
         ...(draftBody
@@ -1078,7 +1089,7 @@ export default function AuditWorkflow() {
     for (const moduleId of selectedAplusModules) {
       const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
       configs[moduleId] = {
-        imageCustomPrompt: config.customPrompt.trim() || undefined,
+        imageCustomPrompt: (config.customPrompt ?? "").trim() || undefined,
         promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages, uploadReferenceImages),
         quality: config.quality,
       };
