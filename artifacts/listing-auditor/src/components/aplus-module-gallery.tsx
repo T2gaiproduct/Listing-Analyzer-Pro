@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from "react";
+import { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getGetAuditQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
@@ -11,14 +11,14 @@ import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import { Check, Download, Maximize2, RefreshCw, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProtectedAppImage } from "@/components/protected-app-image";
+import {
+  fetchProtectedAppImageBlobUrl,
+  isProtectedAuditImageUrl,
+  resolveAppImageUrl,
+} from "@/lib/protected-app-image";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function resolveImageUrl(url: string): string {
-  if (!url) return url;
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
-  return `${basePath}${url.startsWith("/") ? url : `/${url}`}`;
-}
 
 export interface AplusModuleVersion {
   url: string;
@@ -123,11 +123,10 @@ function AplusImageCard({
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white">
       <div className="group relative w-full aspect-[970/300] bg-slate-100">
-        <img
-          src={resolveImageUrl(normalized.imageUrl)}
+        <ProtectedAppImage
+          src={normalized.imageUrl}
           alt={normalized.title}
           className="w-full h-full object-contain bg-white"
-          loading="lazy"
         />
         {isLoading && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
@@ -181,6 +180,15 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
   const [editPrompt, setEditPrompt] = useState("");
   const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const lightboxBlobRef = useRef<string | null>(null);
+
+  const closeLightbox = useCallback(() => {
+    if (lightboxBlobRef.current) {
+      URL.revokeObjectURL(lightboxBlobRef.current);
+      lightboxBlobRef.current = null;
+    }
+    setLightboxUrl(null);
+  }, []);
 
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
     queryKey: ["credit-rules"],
@@ -203,8 +211,22 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
     void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
   };
 
-  const openLightbox = (url: string) => {
-    const resolved = resolveImageUrl(url);
+  const openLightbox = async (url: string) => {
+    let resolved = resolveAppImageUrl(url);
+    if (isProtectedAuditImageUrl(url)) {
+      try {
+        const blobUrl = await fetchProtectedAppImageBlobUrl(url);
+        lightboxBlobRef.current = blobUrl;
+        resolved = blobUrl;
+      } catch {
+        toast({
+          title: "Could not open preview",
+          description: "Sign in again or regenerate this module image.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     if (onLightbox) {
       onLightbox(resolved);
     } else {
@@ -346,7 +368,11 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-2">Current</p>
                   <div className="rounded-lg border bg-slate-50 aspect-[970/300] overflow-hidden">
-                    <img src={resolveImageUrl(editModule.imageUrl)} alt="Current" className="w-full h-full object-contain bg-white" />
+                    <ProtectedAppImage
+                      src={editModule.imageUrl}
+                      alt="Current"
+                      className="w-full h-full object-contain bg-white"
+                    />
                   </div>
                 </div>
                 <div>
@@ -416,7 +442,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
       </Dialog>
 
       {!onLightbox && (
-        <Dialog open={lightboxUrl !== null} onOpenChange={(open) => { if (!open) setLightboxUrl(null); }}>
+        <Dialog open={lightboxUrl !== null} onOpenChange={(open) => { if (!open) closeLightbox(); }}>
           <DialogContent className="max-w-5xl p-2 sm:p-4 border-0 bg-transparent shadow-none">
             {lightboxUrl && (
               <div className="relative">
@@ -428,7 +454,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                 <button
                   type="button"
                   className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center shadow-lg hover:bg-slate-100 transition-colors"
-                  onClick={() => setLightboxUrl(null)}
+                  onClick={() => closeLightbox()}
                   aria-label="Close preview"
                 >
                   <X className="w-4 h-4" />

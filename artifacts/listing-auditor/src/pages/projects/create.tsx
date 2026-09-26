@@ -683,7 +683,13 @@ export default function CreateProject() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">What do you want to create?</h2>
             <p className="text-xs text-slate-500 mt-1">
-              Your uploads apply to either path. Pick product graphics or A+ content — not both in one flow.
+              Your uploads apply to either path. Pick one — not both in a single run.
+            </p>
+            <p className="text-xs text-slate-600 mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 leading-relaxed">
+              <strong className="font-semibold text-slate-800">Product graphics</strong> stays in Create Graphics and opens the
+              graphics generating page. <strong className="font-semibold text-slate-800">A+ content</strong> creates a listing
+              project and opens <strong className="font-semibold text-slate-800">Build Your Brand</strong> so you can track A+
+              modules (same as starting A+ from a listing).
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -697,7 +703,7 @@ export default function CreateProject() {
               </div>
               <p className="text-base font-semibold text-slate-900">Product graphics</p>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Lifestyle shots, infographics, and listing images generated from your uploads.
+                Lifestyle shots, infographics, and listing images. You&apos;ll stay in Create Graphics.
               </p>
             </button>
             <button
@@ -710,7 +716,8 @@ export default function CreateProject() {
               </div>
               <p className="text-base font-semibold text-slate-900">A+ content</p>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Amazon A+ modules (hero, features, comparison, brand story). Requires category on step 1.
+                Amazon A+ modules (hero, features, comparison, brand story). Opens Build Your Brand to view results.
+                Category required on step 1.
               </p>
             </button>
           </div>
