@@ -126,7 +126,7 @@ function AplusImageCard({
         <img
           src={resolveImageUrl(normalized.imageUrl)}
           alt={normalized.title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain bg-white"
           loading="lazy"
         />
         {isLoading && (
@@ -346,7 +346,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-2">Current</p>
                   <div className="rounded-lg border bg-slate-50 aspect-[970/300] overflow-hidden">
-                    <img src={resolveImageUrl(editModule.imageUrl)} alt="Current" className="w-full h-full object-cover" />
+                    <img src={resolveImageUrl(editModule.imageUrl)} alt="Current" className="w-full h-full object-contain bg-white" />
                   </div>
                 </div>
                 <div>

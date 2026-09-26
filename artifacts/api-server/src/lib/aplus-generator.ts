@@ -103,7 +103,7 @@ const MODULE_SPECS: ModuleSpec[] = [
     description: "Full-width product hero image with headline",
     size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ Enhanced Brand Content wide banner (970x300 px) for ${productDesc}. Horizontal strip layout with the product as the hero. Space for headline "${c.heroHeadline}" and subheadline "${c.heroSubheadline}". Premium e-commerce design, clean layout, professional commercial photography. Text areas for headline and subheadline are allowed.`,
+      `Amazon A+ Enhanced Brand Content ultra-wide horizontal banner (970x300 px aspect, very wide and short) for ${productDesc}. Compose the full scene inside one wide strip — product, headline "${c.heroHeadline}", and subheadline "${c.heroSubheadline}" must stay inside the frame with safe margins; do not use a tall portrait layout. Premium e-commerce design, professional commercial photography.`,
     headline: (c) => c.heroHeadline,
     body: (c) => c.heroSubheadline,
   },
@@ -113,7 +113,7 @@ const MODULE_SPECS: ModuleSpec[] = [
     description: "Icon + text modules showcasing key features",
     size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ feature highlights wide banner (970x300 px) for ${productDesc}. Three-column layout with product and feature callouts: "${c.feature1Title}", "${c.feature2Title}", "${c.feature3Title}". Clean modern e-commerce infographic style. Short benefit text for each feature is allowed.`,
+      `Amazon A+ feature highlights ultra-wide banner (970x300 px aspect) for ${productDesc}. Three-column layout in one horizontal strip with product and callouts: "${c.feature1Title}", "${c.feature2Title}", "${c.feature3Title}". Keep all text and icons inside the wide frame with safe margins. Clean modern e-commerce infographic style.`,
     headline: (c) => c.feature1Title,
     body: (c) => `${c.feature1Body} · ${c.feature2Body}`,
   },
@@ -123,7 +123,7 @@ const MODULE_SPECS: ModuleSpec[] = [
     description: "Compare your product against competitors",
     size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ comparison chart wide banner (970x300 px) for ${productDesc}. Side-by-side comparison layout highlighting advantages. Section title "${c.gridTitle}". Features: "${c.grid1Title}", "${c.grid2Title}", "${c.grid3Title}", "${c.grid4Title}". Clean chart-style e-commerce design. Comparison labels and feature names are allowed.`,
+      `Amazon A+ comparison chart ultra-wide banner (970x300 px aspect) for ${productDesc}. Side-by-side comparison in one horizontal strip. Title "${c.gridTitle}". Features: "${c.grid1Title}", "${c.grid2Title}", "${c.grid3Title}", "${c.grid4Title}". Keep chart labels inside the wide frame. Clean chart-style e-commerce design.`,
     headline: (c) => c.gridTitle,
     body: (c) => `${c.grid1Title}: ${c.grid1Desc}`,
   },
@@ -133,7 +133,7 @@ const MODULE_SPECS: ModuleSpec[] = [
     description: "Tell your brand story with rich imagery",
     size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ brand story wide banner (970x300 px) for ${productDesc}. Emotional brand storytelling layout with rich imagery and product integration. Headline "${c.storyHeadline}". Warm aspirational atmosphere, premium brand aesthetic. Headline and short story text are allowed.`,
+      `Amazon A+ brand story ultra-wide banner (970x300 px aspect) for ${productDesc}. Emotional storytelling in one horizontal strip with product integration. Headline "${c.storyHeadline}" inside the frame with safe margins. Warm aspirational atmosphere, premium brand aesthetic.`,
     headline: (c) => c.storyHeadline,
     body: (c) => c.storyBody,
   },
