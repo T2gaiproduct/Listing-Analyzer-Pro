@@ -174,7 +174,7 @@ export function normalizeAmazonExportImageBaseUrl(base: string): string {
       return url.origin;
     }
     const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(url.hostname);
-    if (isIp && (url.port === "8080" || url.port === "8080")) {
+    if (isIp && url.port === "8080") {
       url.port = "";
       return url.origin;
     }
