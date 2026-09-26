@@ -5,8 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useApiAuthReady } from "@/components/api-token-bridge";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
+import { clerkFrontendHostFromPublishableKey } from "@/lib/clerk-proxy-host";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const viteClerkHost = clerkFrontendHostFromPublishableKey(
+  (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string) ?? "",
+);
 
 type ApiHealthz = {
   clerkKeyPair?: string;
@@ -59,7 +63,11 @@ export function AuthApiErrorBanner() {
   }
 
   const health = healthQuery.data;
-  const clerkKeyMismatch = health?.clerkKeyPair === "mismatch";
+  const serverClerkHost = health?.clerkPublishableHost;
+  const frontendBackendClerkMismatch = Boolean(
+    viteClerkHost && serverClerkHost && viteClerkHost !== serverClerkHost,
+  );
+  const clerkKeyMismatch = health?.clerkKeyPair === "mismatch" || frontendBackendClerkMismatch;
   const clerkSecretBad =
     health?.clerkProxySecret === "missing"
     || health?.clerkProxySecret === "invalid"
@@ -77,10 +85,24 @@ export function AuthApiErrorBanner() {
           </p>
           {clerkKeyMismatch && (
             <p className="text-amber-800/90 mt-2">
-              Server check: <span className="font-medium">CLERK_SECRET_KEY</span> and{" "}
-              <span className="font-medium">VITE_CLERK_PUBLISHABLE_KEY</span> are from different Clerk apps — update
-              both in Cursor Cloud Environment, run{" "}
-              <span className="font-mono text-xs">bash scripts/dev-stack.sh</span>, then sign in again.
+              {frontendBackendClerkMismatch ? (
+                <>
+                  Browser signed in with Clerk <span className="font-mono text-xs">{viteClerkHost}</span>, but the API
+                  uses <span className="font-mono text-xs">{serverClerkHost}</span>. Set{" "}
+                  <span className="font-medium">CLERK_SECRET_KEY</span> and{" "}
+                  <span className="font-medium">VITE_CLERK_PUBLISHABLE_KEY</span> from the{" "}
+                  <span className="font-medium">same</span> Clerk app in Cursor Cloud → Environment, run{" "}
+                  <span className="font-mono text-xs">bash scripts/dev-stack.sh</span>, then sign out and sign in
+                  again.
+                </>
+              ) : (
+                <>
+                  Server check: <span className="font-medium">CLERK_SECRET_KEY</span> and{" "}
+                  <span className="font-medium">VITE_CLERK_PUBLISHABLE_KEY</span> are from different Clerk apps —
+                  update both in Cursor Cloud Environment, run{" "}
+                  <span className="font-mono text-xs">bash scripts/dev-stack.sh</span>, then sign in again.
+                </>
+              )}
             </p>
           )}
           {clerkSecretBad && !clerkKeyMismatch && (
