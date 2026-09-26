@@ -24,7 +24,7 @@ export function resolveAppImageUrl(url: string): string {
   return `${basePath}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
-/** Fetch protected audit images with session cookies (plain img tags cannot). */
+/** Fetch image bytes for download (display uses direct img URLs). */
 export async function fetchProtectedAppImageBlobUrl(url: string): Promise<string> {
   const fullUrl = resolveAppImageUrl(url);
   const response = await fetch(fullUrl, { credentials: "include" });

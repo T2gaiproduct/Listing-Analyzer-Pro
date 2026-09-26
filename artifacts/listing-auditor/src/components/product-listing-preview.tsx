@@ -22,10 +22,6 @@ import {
   collectListingPreviewImages,
   resolveListingPreviewImageUrl,
 } from "@/lib/collect-listing-preview-images";
-import {
-  fetchProtectedAppImageBlobUrl,
-  isProtectedAuditImageUrl,
-} from "@/lib/protected-app-image";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import {
   formatHtmlDescriptionForPreview,
@@ -305,36 +301,11 @@ export function ProductListingPreview({
       setLightboxDisplayUrl(null);
       return;
     }
-
-    let cancelled = false;
-
     if (lightboxBlobRef.current) {
       URL.revokeObjectURL(lightboxBlobRef.current);
       lightboxBlobRef.current = null;
     }
-
-    if (!isProtectedAuditImageUrl(lightboxRawUrl)) {
-      setLightboxDisplayUrl(resolveListingPreviewImageUrl(lightboxRawUrl));
-      return;
-    }
-
-    setLightboxDisplayUrl(null);
-    void fetchProtectedAppImageBlobUrl(lightboxRawUrl)
-      .then((blobUrl) => {
-        if (cancelled) {
-          URL.revokeObjectURL(blobUrl);
-          return;
-        }
-        lightboxBlobRef.current = blobUrl;
-        setLightboxDisplayUrl(blobUrl);
-      })
-      .catch(() => {
-        if (!cancelled) setLightboxDisplayUrl(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    setLightboxDisplayUrl(resolveListingPreviewImageUrl(lightboxRawUrl));
   }, [lightboxRawUrl]);
 
   useEffect(() => {

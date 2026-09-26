@@ -13,11 +13,7 @@ import { Check, Download, Maximize2, RefreshCw, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { downloadAppImage } from "@/lib/download-app-image";
-import {
-  fetchProtectedAppImageBlobUrl,
-  isProtectedAuditImageUrl,
-  resolveAppImageUrl,
-} from "@/lib/protected-app-image";
+import { resolveAppImageUrl } from "@/lib/protected-app-image";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -181,13 +177,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
   const [editPrompt, setEditPrompt] = useState("");
   const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const lightboxBlobRef = useRef<string | null>(null);
-
   const closeLightbox = useCallback(() => {
-    if (lightboxBlobRef.current) {
-      URL.revokeObjectURL(lightboxBlobRef.current);
-      lightboxBlobRef.current = null;
-    }
     setLightboxUrl(null);
   }, []);
 
@@ -212,17 +202,8 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
     void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
   };
 
-  const openLightbox = async (url: string) => {
-    let resolved = resolveAppImageUrl(url);
-    if (isProtectedAuditImageUrl(url)) {
-      try {
-        const blobUrl = await fetchProtectedAppImageBlobUrl(url);
-        lightboxBlobRef.current = blobUrl;
-        resolved = blobUrl;
-      } catch {
-        resolved = resolveAppImageUrl(url);
-      }
-    }
+  const openLightbox = (url: string) => {
+    const resolved = resolveAppImageUrl(url);
     if (onLightbox) {
       onLightbox(resolved);
     } else {

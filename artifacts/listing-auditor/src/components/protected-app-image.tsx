@@ -1,10 +1,5 @@
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-  fetchProtectedAppImageBlobUrl,
-  isProtectedAuditImageUrl,
-  resolveAppImageUrl,
-} from "@/lib/protected-app-image";
+import { resolveAppImageUrl } from "@/lib/protected-app-image";
 
 interface ProtectedAppImageProps {
   src: string;
@@ -13,62 +8,21 @@ interface ProtectedAppImageProps {
   loading?: "lazy" | "eager";
 }
 
+/** Resolves app image paths and renders a normal img (images are served publicly on /api/images/...). */
 export function ProtectedAppImage({ src, alt, className, loading = "lazy" }: ProtectedAppImageProps) {
-  const [displaySrc, setDisplaySrc] = useState(() =>
-    isProtectedAuditImageUrl(src) ? "" : resolveAppImageUrl(src),
-  );
-  const [failed, setFailed] = useState(false);
+  const trimmed = src?.trim() ?? "";
+  const displaySrc = trimmed ? resolveAppImageUrl(trimmed) : "";
 
-  useEffect(() => {
-    let blobUrl: string | null = null;
-    let cancelled = false;
-
-    setFailed(false);
-
-    if (!src?.trim()) {
-      setDisplaySrc("");
-      return;
-    }
-
-    if (!isProtectedAuditImageUrl(src)) {
-      setDisplaySrc(resolveAppImageUrl(src));
-      return;
-    }
-
-    setDisplaySrc("");
-    void fetchProtectedAppImageBlobUrl(src)
-      .then((url) => {
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        blobUrl = url;
-        setDisplaySrc(url);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-
-    return () => {
-      cancelled = true;
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [src]);
-
-  if (failed || (!displaySrc && isProtectedAuditImageUrl(src))) {
+  if (!displaySrc) {
     return (
       <div
         className={cn("flex items-center justify-center bg-slate-100 text-slate-400 text-xs", className)}
         role="img"
         aria-label={alt}
       >
-        {failed ? "Image unavailable" : "Loading…"}
+        No image
       </div>
     );
-  }
-
-  if (!displaySrc) {
-    return <div className={cn("bg-slate-100 animate-pulse", className)} aria-hidden />;
   }
 
   return (
@@ -77,6 +31,7 @@ export function ProtectedAppImage({ src, alt, className, loading = "lazy" }: Pro
       alt={alt}
       className={className}
       loading={loading}
+      decoding="async"
     />
   );
 }
