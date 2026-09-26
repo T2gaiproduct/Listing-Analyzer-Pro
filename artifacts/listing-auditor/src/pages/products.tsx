@@ -677,22 +677,33 @@ export default function ProductsPage() {
           )}
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-xl sm:justify-end">
-          {exportableFilteredCount > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs shrink-0"
-              disabled={bulkExporting}
-              onClick={() => void handleBulkExport(exportableFiltered)}
-            >
-              {bulkExporting ? (
-                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5 mr-1.5" />
-              )}
-              Download Excel
-            </Button>
+          {filtered.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={bulkExporting || exportableFilteredCount === 0}
+                    onClick={() => void handleBulkExport(exportableFiltered)}
+                  >
+                    {bulkExporting ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                    )}
+                    Download all (Excel)
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs max-w-xs">
+                {exportableFilteredCount > 0
+                  ? `Export ${exportableFilteredCount} listing${exportableFilteredCount === 1 ? "" : "s"} in this view (Build Your Brand & Audit Listing).`
+                  : "Only Build Your Brand and Audit Listing rows can be exported. None match the current filters."}
+              </TooltipContent>
+            </Tooltip>
           )}
           <div className="relative flex-1 sm:max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
