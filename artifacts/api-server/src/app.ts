@@ -14,12 +14,7 @@ import { handleHeroVideoUpload } from "./lib/hero-video-upload";
 import { PORTFOLIO_IMAGES_DIR } from "./lib/portfolio-image-storage";
 import { WORKFLOW_IMAGES_DIR } from "./lib/workflow-image-storage";
 import { BLOG_IMAGES_DIR } from "./lib/blog-image-storage";
-import {
-  requireAuditImageAccess,
-  requireGraphicsImageAccess,
-  sendAuditImage,
-  sendGraphicsImage,
-} from "./lib/protected-images";
+import { sendAuditImage, sendGraphicsImage } from "./lib/protected-images";
 import {
   sendMarketplacePublishAuditImage,
   sendMarketplacePublishGraphicsImage,
@@ -119,15 +114,11 @@ app.get(
   sendMarketplacePublishAuditImage,
 );
 
-app.get(
-  /^\/api\/images\/(?<auditId>\d+)\/(?<filename>[^/]+)$/,
-  requireAuditImageAccess,
-  sendAuditImage,
-);
+// Customer-generated audit & graphics PNGs — public read (no session required for <img> / cross-origin UI).
+app.get(/^\/api\/images\/(?<auditId>\d+)\/(?<filename>[^/]+)$/, sendAuditImage);
 
 app.get(
   /^\/api\/images\/graphics\/(?<projectId>\d+)\/(?<filename>[^/]+)$/,
-  requireGraphicsImageAccess,
   sendGraphicsImage,
 );
 

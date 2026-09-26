@@ -21,6 +21,7 @@ export const PUBLIC_IMAGE_PATH_SEGMENTS = new Set([
   "graphics",
 ]);
 
+/** @deprecated Routes no longer use this middleware — images are served without session checks. */
 export async function requireAuditImageAccess(
   req: Request,
   res: Response,
@@ -74,6 +75,7 @@ export async function requireAuditImageAccess(
   next();
 }
 
+/** @deprecated Routes no longer use this middleware — images are served without session checks. */
 export async function requireGraphicsImageAccess(
   req: Request,
   res: Response,
