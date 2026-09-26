@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Audit, ImageRecord } from "@workspace/db";
 import { db, auditsTable } from "@workspace/db";
-import { collectProductImages } from "./listing-export-shared.js";
+import { collectGeneratedProductImages } from "./listing-export-shared.js";
 import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
 import { extractEmbeddedDataImageUrl, persistDataUrlAsAuditImage, repairCorruptedImageUrl } from "./image-storage.js";
 
@@ -125,7 +125,7 @@ export function resolvePublishImageUrlsFromAudit(opts: {
   maxImages?: number;
   exportListing?: boolean;
 }): string[] {
-  const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
+  const productImages = collectGeneratedProductImages(opts.audit, opts.graphicsImageRecords);
   const max = opts.maxImages ?? 9;
   const resolved: string[] = [];
   const seen = new Set<string>();

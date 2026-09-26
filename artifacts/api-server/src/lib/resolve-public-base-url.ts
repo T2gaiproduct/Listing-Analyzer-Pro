@@ -163,6 +163,16 @@ export function normalizeAmazonExportImageBaseUrl(base: string): string {
  * Prefers configured HTTPS app URL so Excel/CSV links are not tied to a raw IP:port from the browser.
  */
 export function resolveAmazonExportImageBaseUrl(req: Request): string {
+  const fromRequest = resolvePublicAppBaseUrl({ req });
+  try {
+    const { hostname } = new URL(fromRequest);
+    if (hostname.endsWith(".trycloudflare.com")) {
+      return normalizeAmazonExportImageBaseUrl(fromRequest);
+    }
+  } catch {
+    /* ignore */
+  }
+
   const explicit = process.env.MARKETPLACE_PUBLISH_BASE_URL?.trim().replace(/\/$/, "");
   if (explicit && !isLocalhostOrigin(explicit)) {
     return normalizeAmazonExportImageBaseUrl(explicit);

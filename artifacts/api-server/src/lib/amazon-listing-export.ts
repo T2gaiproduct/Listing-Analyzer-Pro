@@ -178,6 +178,45 @@ function csvEscapeCell(value: string): string {
   return value;
 }
 
+const AMAZON_IMAGE_URL_HEADERS = [
+  "main_image_url",
+  "other_image_url1",
+  "other_image_url2",
+  "other_image_url3",
+  "other_image_url4",
+  "other_image_url5",
+  "other_image_url6",
+  "other_image_url7",
+  "other_image_url8",
+] as const;
+
+function applyImageUrlHyperlinks(
+  sheet: ExcelJS.Worksheet,
+  rowNumber: number,
+): void {
+  for (const header of AMAZON_IMAGE_URL_HEADERS) {
+    const colIndex = AMAZON_FLAT_FILE_HEADERS.indexOf(header) + 1;
+    if (colIndex <= 0) continue;
+    const cell = sheet.getRow(rowNumber).getCell(colIndex);
+    const url = String(cell.value ?? "").trim();
+    if (!url.startsWith("http://") && !url.startsWith("https://")) continue;
+    cell.value = { text: url, hyperlink: url };
+    cell.font = { color: { argb: "FF0563C1" }, underline: true };
+  }
+}
+
+function applyReviewSheetUrlHyperlinks(sheet: ExcelJS.Worksheet, valueColumn: number): void {
+  for (let row = 2; row <= sheet.rowCount; row++) {
+    const field = String(sheet.getRow(row).getCell(valueColumn - 1).value ?? "");
+    if (!field.toLowerCase().includes("url") && !field.toLowerCase().includes("image")) continue;
+    const cell = sheet.getRow(row).getCell(valueColumn);
+    const url = String(cell.value ?? "").trim();
+    if (!url.startsWith("http://") && !url.startsWith("https://")) continue;
+    cell.value = { text: url, hyperlink: url };
+    cell.font = { color: { argb: "FF0563C1" }, underline: true };
+  }
+}
+
 export function buildAmazonCsvBuffer(bundle: AuditExportBundle): Buffer {
   const headerLine = AMAZON_FLAT_FILE_HEADERS.map(csvEscapeCell).join(",");
   const valueLine = AMAZON_FLAT_FILE_HEADERS
@@ -193,6 +232,7 @@ export async function buildExcelBuffer(bundle: AuditExportBundle): Promise<Buffe
   const uploadSheet = workbook.addWorksheet("Amazon Upload");
   uploadSheet.addRow([...AMAZON_FLAT_FILE_HEADERS]);
   uploadSheet.addRow(AMAZON_FLAT_FILE_HEADERS.map((header) => bundle.row[header]));
+  applyImageUrlHyperlinks(uploadSheet, 2);
   uploadSheet.getRow(1).font = { bold: true };
   uploadSheet.columns = AMAZON_FLAT_FILE_HEADERS.map((header) => ({
     header,
@@ -218,6 +258,7 @@ export async function buildExcelBuffer(bundle: AuditExportBundle): Promise<Buffe
   for (let i = 2; i <= reviewSheet.rowCount; i++) {
     reviewSheet.getRow(i).getCell(3).alignment = { wrapText: true, vertical: "top" };
   }
+  applyReviewSheetUrlHyperlinks(reviewSheet, 3);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
@@ -235,8 +276,11 @@ export async function buildBulkExcelBuffer(bundles: AuditExportBundle[]): Promis
   const uploadSheet = workbook.addWorksheet("Amazon Upload");
   uploadSheet.addRow([...AMAZON_FLAT_FILE_HEADERS]);
   uploadSheet.getRow(1).font = { bold: true };
+  let uploadRow = 2;
   for (const bundle of bundles) {
     uploadSheet.addRow(AMAZON_FLAT_FILE_HEADERS.map((header) => bundle.row[header]));
+    applyImageUrlHyperlinks(uploadSheet, uploadRow);
+    uploadRow += 1;
   }
   uploadSheet.columns = AMAZON_FLAT_FILE_HEADERS.map((header) => ({
     header,
@@ -268,6 +312,7 @@ export async function buildBulkExcelBuffer(bundles: AuditExportBundle[]): Promis
   for (let i = 2; i <= reviewSheet.rowCount; i++) {
     reviewSheet.getRow(i).getCell(4).alignment = { wrapText: true, vertical: "top" };
   }
+  applyReviewSheetUrlHyperlinks(reviewSheet, 4);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
