@@ -17,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { cn } from "@/lib/utils";
+import { useApiAuthReady } from "@/components/api-token-bridge";
+import { fetchJson } from "@/lib/api-fetch";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -103,10 +105,11 @@ export function AplusContentWizard({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isTeamMember, memberCredits } = useTeam();
+  const apiAuthReady = useApiAuthReady();
   const completionToastShownRef = useRef(false);
 
   const { data: auditData } = useGetAudit(auditId, {
-    query: { queryKey: getGetAuditQueryKey(auditId), enabled: auditId > 0 },
+    query: { queryKey: getGetAuditQueryKey(auditId), enabled: auditId > 0 && apiAuthReady },
   });
 
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
@@ -220,13 +223,13 @@ export function AplusContentWizard({
   });
 
   useEffect(() => {
-    if (!auditId || aplusStatus !== "generating") return;
+    if (!auditId || aplusStatus !== "generating" || !apiAuthReady) return;
 
     const poll = async () => {
       try {
-        const res = await fetch(`${basePath}/api/audits/${auditId}`, { credentials: "include" });
-        if (!res.ok) return;
-        const audit = await res.json() as { generatedImages?: unknown };
+        const audit = await fetchJson<{ generatedImages?: unknown }>(
+          `${basePath}/api/audits/${auditId}`,
+        );
         const aplus = readAplusFromAudit(audit.generatedImages);
 
         if (aplus.modules.length) setAplusModules(aplus.modules);
@@ -259,7 +262,7 @@ export function AplusContentWizard({
     void poll();
     const interval = setInterval(() => void poll(), 1500);
     return () => clearInterval(interval);
-  }, [auditId, aplusStatus, queryClient, toast]);
+  }, [auditId, aplusStatus, apiAuthReady, queryClient, toast]);
 
   const handleGenerateAplus = () => {
     if (!productName.trim()) {

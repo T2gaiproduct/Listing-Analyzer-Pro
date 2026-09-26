@@ -1,3 +1,4 @@
+import "./bootstrap-clerk-env.js";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";

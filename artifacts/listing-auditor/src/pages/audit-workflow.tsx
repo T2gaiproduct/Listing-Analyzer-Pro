@@ -51,6 +51,7 @@ import {
   normalizeBulletPoints,
 } from "@/lib/listing-content-format";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
+import { useApiAuthReady } from "@/components/api-token-bridge";
 import type { ReferenceIntelligenceRow, SellerProductDetail } from "@/lib/reference-research";
 import { getSafeReturnTo } from "@/lib/navigation-return";
 import { useUser } from "@clerk/react";
@@ -609,6 +610,7 @@ export default function AuditWorkflow() {
   const { toast }       = useToast();
   const queryClient     = useQueryClient();
   const { isTeamMember, memberCredits, canEditGraphics } = useTeam();
+  const apiAuthReady = useApiAuthReady();
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
     queryKey: ["credit-rules"],
     queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
@@ -728,7 +730,10 @@ export default function AuditWorkflow() {
   ]);
 
   const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
-    query: { enabled: currentAuditId !== null, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
+    query: {
+      enabled: currentAuditId !== null && apiAuthReady,
+      queryKey: getGetAuditQueryKey(currentAuditId ?? 0),
+    },
   });
 
   useEffect(() => {
@@ -932,13 +937,13 @@ export default function AuditWorkflow() {
 
   /* ── Poll A+ generation status via audit record ── */
   useEffect(() => {
-    if (!currentAuditId || aplusStatus !== "generating") return;
+    if (!currentAuditId || aplusStatus !== "generating" || !apiAuthReady) return;
 
     const poll = async () => {
       try {
-        const res = await fetch(`${basePath}/api/audits/${currentAuditId}`, { credentials: "include" });
-        if (!res.ok) return;
-        const audit = await res.json() as { generatedImages?: unknown };
+        const audit = await fetchJson<{ generatedImages?: unknown }>(
+          `${basePath}/api/audits/${currentAuditId}`,
+        );
         const aplus = readAplusFromAudit(audit.generatedImages);
 
         if (aplus.content) setAplusContent(aplus.content);
@@ -969,7 +974,7 @@ export default function AuditWorkflow() {
     void poll();
     const interval = setInterval(() => void poll(), 1500);
     return () => clearInterval(interval);
-  }, [currentAuditId, aplusStatus, queryClient, toast]);
+  }, [currentAuditId, aplusStatus, apiAuthReady, queryClient, toast]);
 
   const { user } = useUser();
 
@@ -999,7 +1004,7 @@ export default function AuditWorkflow() {
         imageRecords?: Array<{ id?: string; currentUrl?: string; type?: string; index?: number }>;
       }>(`${basePath}/api/graphics/projects/${summary.id}`);
     },
-    enabled: !!currentAuditId,
+    enabled: !!currentAuditId && apiAuthReady && aplusStatus !== "generating",
     staleTime: 5 * 60 * 1000,
   });
 

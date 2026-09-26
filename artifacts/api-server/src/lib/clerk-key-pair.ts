@@ -1,3 +1,5 @@
+import { logger } from "./logger.js";
+
 export function clerkFrontendHostFromPublishableKey(publishableKey: string): string | null {
   const trimmed = publishableKey.trim();
   if (!trimmed.startsWith("pk_test_") && !trimmed.startsWith("pk_live_")) return null;
@@ -68,4 +70,73 @@ export async function checkClerkPublishableSecretPair(): Promise<
   } catch {
     return "skipped";
   }
+}
+
+export function clerkPublishableKeyFromFrontendApiHost(fapiHost: string): string {
+  const payload = `${fapiHost.trim()}$`;
+  return `pk_test_${Buffer.from(payload, "utf8").toString("base64").replace(/=+$/g, "")}`;
+}
+
+async function clerkFrontendApiHostFromSecret(secret: string): Promise<string | null> {
+  try {
+    const domainsResp = await fetch("https://api.clerk.com/v1/domains", {
+      headers: { Authorization: `Bearer ${secret}` },
+    });
+    if (!domainsResp.ok) return null;
+    const domainsData = (await domainsResp.json()) as {
+      data?: Array<{
+        is_satellite?: boolean;
+        frontend_api_url?: string | null;
+        accounts_portal_url?: string | null;
+      }>;
+    };
+    for (const domain of domainsData.data ?? []) {
+      if (domain.is_satellite) continue;
+      const fe = domain.frontend_api_url?.trim();
+      if (fe) {
+        try {
+          return new URL(fe).hostname;
+        } catch {
+          /* ignore */
+        }
+      }
+      const portal = domain.accounts_portal_url?.trim();
+      if (portal) {
+        try {
+          const slug = new URL(portal).hostname.split(".")[0];
+          if (slug) return `${slug}.clerk.accounts.dev`;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Cloud Agent / local dev: CLERK_SECRET_KEY and VITE_CLERK_PUBLISHABLE_KEY often come from
+ * different Clerk apps → session JWT kid mismatch → 401 on /api/audits and /api/graphics.
+ */
+export async function ensureClerkPublishableMatchesSecret(): Promise<void> {
+  if (process.env.DISABLE_CLERK_KEY_SYNC === "1") return;
+  if (process.env.NODE_ENV === "production") return;
+
+  const secret = process.env.CLERK_SECRET_KEY?.trim();
+  if (!secret) return;
+
+  const pair = await checkClerkPublishableSecretPair();
+  if (pair !== "mismatch") return;
+
+  const fapiHost = await clerkFrontendApiHostFromSecret(secret);
+  if (!fapiHost) return;
+
+  const fixed = clerkPublishableKeyFromFrontendApiHost(fapiHost);
+  process.env.CLERK_PUBLISHABLE_KEY = fixed;
+  logger.warn(
+    { fapiHost },
+    "Clerk publishable key did not match CLERK_SECRET_KEY; synced CLERK_PUBLISHABLE_KEY for this API process (rebuild frontend with the same pk_test or update env secrets)",
+  );
 }
