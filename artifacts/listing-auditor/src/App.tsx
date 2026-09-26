@@ -449,6 +449,7 @@ function HomeRedirect() {
   if (envAdmin || (adminLoaded && isAdmin)) return <Redirect to={defaultRoute} />;
   if (!summaryFetched) return <AuthLoading />;
   if (summaryError || !summary) {
+    if (isCloudflareQuickPreviewHost()) return <Redirect to="/dashboard" />;
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
   }
   const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
@@ -472,7 +473,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
   if (user && envAdmin && !adminLoaded) return <AuthLoading />;
   if (user && !isAdminUser && !summaryFetched) return <AuthLoading />;
-  if (user && !isAdminUser && (summaryError || !summary)) {
+  if (user && !isAdminUser && (summaryError || !summary) && !isCloudflareQuickPreviewHost()) {
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
   }
   const fullSearch = typeof window !== "undefined" ? window.location.search : "";
