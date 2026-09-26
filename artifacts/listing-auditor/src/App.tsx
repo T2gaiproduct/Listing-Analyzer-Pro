@@ -398,59 +398,37 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function isCloudflareQuickPreviewHost(): boolean {
+  return typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com");
+}
+
 function useOnboardingSummary() {
   const { user, isLoaded } = useUser();
-  const { signOut } = useClerk();
   const apiAuthReady = useApiAuthReady();
-  const staleSessionSignOutRef = useRef(false);
 
-  const query = useQuery({
+  return useQuery({
     queryKey: ["user-profile-summary"],
     queryFn: () =>
       fetchJson<ProfileSummaryForGate>(`${basePath}/api/profile/summary`),
     enabled: isLoaded && !!user && apiAuthReady,
     staleTime: 60_000,
     retry: (failureCount, error) => {
+      // Quick tunnels: Clerk token + API session can lag right after sign-in — do not sign out; retry longer.
+      const onPreview = isCloudflareQuickPreviewHost();
       if (error instanceof ApiFetchError && error.status === 401) {
-        return failureCount < 2;
+        return failureCount < (onPreview ? 8 : 3);
       }
       if (error instanceof Error && /session could not be verified/i.test(error.message)) {
-        return failureCount < 5;
+        return failureCount < (onPreview ? 8 : 5);
       }
       return failureCount < 3;
     },
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    retryDelay: (attempt) => {
+      const base = isCloudflareQuickPreviewHost() ? 750 : 500;
+      return Math.min(base * 2 ** attempt, 8000);
+    },
     refetchOnWindowFocus: false,
   });
-
-  // After Clerk key sync / preview tunnel changes, browsers keep an old-instance JWT → 401 on /api/profile.
-  useEffect(() => {
-    if (!query.isError || staleSessionSignOutRef.current || !user) return;
-    const err = query.error;
-    if (!(err instanceof ApiFetchError) || err.status !== 401) return;
-
-    let cancelled = false;
-    void (async () => {
-      const health = await fetch(`${basePath}/api/healthz`)
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null);
-      if (cancelled || !health) return;
-      const clerkConfigured =
-        health.clerkKeyPair === "ok"
-        || (health.clerkProxySecret === "ok" && health.clerkKeyPair !== "mismatch");
-      if (!clerkConfigured) return;
-
-      staleSessionSignOutRef.current = true;
-      const redirectUrl = `${basePath}/sign-in`.replace(/\/+/g, "/");
-      await signOut({ redirectUrl });
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [query.isError, query.error, user, signOut]);
-
-  return query;
 }
 
 function HomeRedirect() {
