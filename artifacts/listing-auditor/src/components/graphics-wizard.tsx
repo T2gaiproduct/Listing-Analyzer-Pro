@@ -30,6 +30,7 @@ import {
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
+import { ProtectedAppImage } from "@/components/protected-app-image";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -760,7 +761,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   <div>
                     <p className="text-xs font-medium text-slate-500 mb-2">Current</p>
                     <div className="rounded-lg border bg-slate-50 aspect-square overflow-hidden">
-                      <img src={editRecord.currentUrl} alt="Current" className="w-full h-full object-contain" />
+                      <ProtectedAppImage src={editRecord.currentUrl} alt="Current" className="w-full h-full object-contain" />
                     </div>
                   </div>
                   <div>
@@ -841,7 +842,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     {historyRecord.versions.map((v, i) => (
                       <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 bg-white">
                         <div className="w-16 h-16 rounded-lg border bg-slate-50 overflow-hidden flex-shrink-0">
-                          <img src={v.url} alt={`Version ${i + 1}`} className="w-full h-full object-contain" />
+                          <ProtectedAppImage src={v.url} alt={`Version ${i + 1}`} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -866,7 +867,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         <Dialog open={!!fullscreenUrl} onOpenChange={() => setFullscreenUrl(null)}>
           <DialogContent className="max-w-5xl p-1">
             {fullscreenUrl && (
-              <img src={fullscreenUrl} alt="Full screen" className="w-full h-full object-contain rounded-lg" />
+              <ProtectedAppImage
+                src={fullscreenUrl}
+                alt="Full screen"
+                className="w-full max-h-[85vh] object-contain rounded-lg"
+                loading="eager"
+              />
             )}
           </DialogContent>
         </Dialog>
@@ -1355,7 +1361,11 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
   return (
     <div className="group relative rounded-lg border overflow-hidden bg-white">
       <div className="aspect-square relative overflow-hidden">
-        <img src={record.currentUrl} alt={`${record.type} ${record.index + 1}`} className="w-full h-full object-contain" />
+        <ProtectedAppImage
+          src={record.currentUrl}
+          alt={`${record.type} ${record.index + 1}`}
+          className="w-full h-full object-contain"
+        />
         {isLoading && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
             <RefreshCw className="h-6 w-6 animate-spin text-white" />

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ImageIcon } from "lucide-react";
+import { ProtectedAppImage } from "@/components/protected-app-image";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -16,14 +17,6 @@ type AuditGraphicsLike = {
   imageRecords?: GraphicsImageRecord[] | null;
   generatedImages?: unknown;
 };
-
-function resolveImageUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
-    return trimmed;
-  }
-  return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
-}
 
 function legacyGeneratedUrls(generatedImages: AuditGraphicsLike["generatedImages"]): string[] {
   if (!generatedImages || typeof generatedImages !== "object") return [];
@@ -63,7 +56,7 @@ function GraphicsImageTile({
 }) {
   return (
     <div className={cn("group relative aspect-square rounded-lg border border-slate-200 overflow-hidden bg-slate-50", className)}>
-      <img src={resolveImageUrl(url)} alt={label ?? "Product graphic"} className="w-full h-full object-cover" />
+      <ProtectedAppImage src={url} alt={label ?? "Product graphic"} className="w-full h-full object-cover" />
       {label && (
         <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[9px] font-medium px-1.5 py-0.5 truncate">
           {label}
