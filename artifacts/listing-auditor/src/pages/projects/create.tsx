@@ -6,7 +6,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
-import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Camera, Monitor, Lightbulb } from "lucide-react";
+import { useCreateAuditDraft } from "@workspace/api-client-react";
+import { APLUS_MODULE_CARDS } from "@/components/aplus-content-wizard";
+import { buildGraphicsAuditDraftBody } from "@/lib/graphics-audit-draft";
+import { cn } from "@/lib/utils";
+import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Search, Camera, Monitor, Lightbulb, Sparkles } from "lucide-react";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
@@ -92,12 +96,19 @@ function visibleSelectedImageTypes(ids: string[]): string[] {
   return ids.filter((id) => id !== "custom");
 }
 
-type Step = 1 | 2;
+type AplusModuleId = (typeof APLUS_MODULE_CARDS)[number]["id"];
 
-const STEP_LABELS = [
-  { id: 1, label: "Upload Product" },
-  { id: 2, label: "Select Graphics" },
-] as const;
+type Step = 1 | 2 | 3;
+type CreatePath = "graphics" | "aplus";
+
+function stepLabels(path: CreatePath | null): { id: number; label: string }[] {
+  const step3Label = path === "aplus" ? "A+ Content" : path === "graphics" ? "Select Graphics" : "Create";
+  return [
+    { id: 1, label: "Upload Product" },
+    { id: 2, label: "Choose what to create" },
+    { id: 3, label: step3Label },
+  ];
+}
 
 export default function CreateProject() {
   const [, nav] = useLocation();
@@ -107,6 +118,7 @@ export default function CreateProject() {
   const categoryRef = useRef<HTMLDivElement>(null);
 
   const [step, setStep] = useState<Step>(1);
+  const [createPath, setCreatePath] = useState<CreatePath | null>(null);
   const [brandName, setBrandName] = useState("");
   const [productName, setProductName] = useState("");
   const [category, setCategory] = useState("");
@@ -121,7 +133,12 @@ export default function CreateProject() {
   );
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
+  const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
+  const [aplusModulePromptConfigs, setAplusModulePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [aplusCustomizeModuleId, setAplusCustomizeModuleId] = useState<string | null>(null);
+
   const { isTeamMember, memberCredits } = useTeam();
+  const createAuditDraft = useCreateAuditDraft();
   const { data: creditRules = [] } = useQuery({
     queryKey: ["credit-rules"],
     queryFn: () => fetch(`${basePath}/api/credit-rules`, { credentials: "include" }).then((r) => r.json()),
@@ -160,7 +177,37 @@ export default function CreateProject() {
     return configs;
   }, [selectedImageTypes, imageTypePromptConfigs]);
 
+  const getAplusModuleConfig = useCallback((moduleId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...aplusModulePromptConfigs[moduleId],
+  }), [aplusModulePromptConfigs]);
+
+  const updateAplusModuleConfig = useCallback((moduleId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setAplusModulePromptConfigs((prev) => ({
+      ...prev,
+      [moduleId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[moduleId], ...patch },
+    }));
+  }, []);
+
+  const aplusModuleConfigsPayload = useMemo(() => {
+    const payload: Record<string, {
+      imageCustomPrompt?: string;
+      promptReferenceImageUrls?: string[];
+      quality?: GraphicsQuality;
+    }> = {};
+    for (const moduleId of selectedAplusModules) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
+      payload[moduleId] = {
+        imageCustomPrompt: config.customPrompt.trim() || undefined,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        quality: config.quality,
+      };
+    }
+    return payload;
+  }, [selectedAplusModules, aplusModulePromptConfigs]);
+
   const graphicsCreditsNeeded = selectedGraphicsTypes.length * imageCreditPerUnit;
+  const aplusCreditsNeeded = selectedAplusModules.length * imageCreditPerUnit;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -186,12 +233,35 @@ export default function CreateProject() {
         quality: GraphicsQuality;
         promptReferenceImageUrls?: string[];
       }>;
+      aplusModuleIds: AplusModuleId[];
+      aplusModuleConfigs: Record<string, {
+        imageCustomPrompt?: string;
+        promptReferenceImageUrls?: string[];
+        quality?: GraphicsQuality;
+      }>;
     }) => {
+      let auditId: number | undefined;
+      if (input.aplusModuleIds.length > 0) {
+        const draftBody = buildGraphicsAuditDraftBody(
+          `${productName} Project`,
+          productName,
+          brandName,
+          category,
+          uploadedImages,
+        );
+        if (!draftBody) {
+          throw new Error("Category is required when generating A+ content.");
+        }
+        const audit = await createAuditDraft.mutateAsync({ data: draftBody });
+        auditId = audit.id;
+      }
+
+      const createBody = auditId != null ? { ...input.createBody, auditId } : input.createBody;
       const res = await fetch(`${basePath}/api/graphics/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(input.createBody),
+        body: JSON.stringify(createBody),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -199,24 +269,54 @@ export default function CreateProject() {
       }
       const project = await res.json();
 
-      const genRes = await fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          imageTypes: input.imageTypes,
-          typeConfigs: input.typeConfigs,
-        }),
-      });
-      if (!genRes.ok) {
-        const err = await genRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to start graphics generation");
+      if (input.imageTypes.length > 0) {
+        const genRes = await fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            imageTypes: input.imageTypes,
+            typeConfigs: input.typeConfigs,
+          }),
+        });
+        if (!genRes.ok) {
+          const err = await genRes.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to start graphics generation");
+        }
       }
 
-      return { project };
+      if (auditId != null && input.aplusModuleIds.length > 0) {
+        const aplusRes = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            moduleIds: input.aplusModuleIds,
+            moduleConfigs: input.aplusModuleConfigs,
+          }),
+        });
+        if (!aplusRes.ok) {
+          const err = await aplusRes.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error || "Failed to start A+ generation");
+        }
+      }
+
+      return {
+        project,
+        auditId,
+        flow: input.imageTypes.length > 0 ? "graphics" as const : "aplus" as const,
+      };
     },
-    onSuccess: ({ project }) => {
+    onSuccess: ({ project, auditId, flow }) => {
       refreshCreditBalances(queryClient);
+      if (flow === "aplus" && auditId != null) {
+        toast({
+          title: "A+ generation started",
+          description: "Opening your listing project to track A+ progress.",
+        });
+        nav(`/audits/${auditId}?returnTo=${encodeURIComponent("/projects")}`);
+        return;
+      }
       nav(`/projects/${project.id}/generating?returnTo=${encodeURIComponent("/projects")}`);
     },
     onError: (err) => {
@@ -314,18 +414,39 @@ export default function CreateProject() {
 
   const canContinue = () => {
     if (step === 1) return brandName.trim().length > 0 && productName.trim().length > 0;
-    if (step === 2) {
+    if (step === 2) return false;
+    if (step === 3 && createPath === "graphics") {
       if (selectedGraphicsTypes.length === 0) return false;
       const creditsForRun = selectedGraphicsTypes.length * imageCreditPerUnit;
+      if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) return false;
+      return true;
+    }
+    if (step === 3 && createPath === "aplus") {
+      if (selectedAplusModules.length === 0 || !category.trim()) return false;
+      const creditsForRun = selectedAplusModules.length * imageCreditPerUnit;
       if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) return false;
       return true;
     }
     return false;
   };
 
-  const runGenerate = () => {
-    const creditsForRun = selectedGraphicsTypes.length * imageCreditPerUnit;
-    if (selectedGraphicsTypes.length === 0) return;
+  const runGenerate = (input: {
+    imageTypes: string[];
+    aplusModuleIds: AplusModuleId[];
+  }) => {
+    const creditsForRun =
+      input.imageTypes.length * imageCreditPerUnit + input.aplusModuleIds.length * imageCreditPerUnit;
+    if (input.aplusModuleIds.length > 0 && !category.trim()) {
+      toast({
+        title: "Category required",
+        description: "Select a category on step 1 to generate A+ content.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (input.imageTypes.length === 0 && input.aplusModuleIds.length === 0) {
+      return;
+    }
     if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) {
       toast({
         title: "Insufficient image credits",
@@ -340,16 +461,22 @@ export default function CreateProject() {
         productName,
         category,
         sourceImageUrls: uploadedImages,
-        imageTypes: selectedGraphicsTypes,
+        imageTypes: input.imageTypes,
       },
-      imageTypes: selectedGraphicsTypes,
-      typeConfigs: graphicsTypeConfigsPayload,
+      imageTypes: input.imageTypes,
+      typeConfigs: input.imageTypes.length > 0 ? graphicsTypeConfigsPayload : {},
+      aplusModuleIds: input.aplusModuleIds,
+      aplusModuleConfigs: input.aplusModuleIds.length > 0 ? aplusModuleConfigsPayload : {},
     });
   };
 
   const handleContinue = () => {
-    if (step === 2) {
-      runGenerate();
+    if (step === 3 && createPath === "graphics") {
+      runGenerate({ imageTypes: selectedGraphicsTypes, aplusModuleIds: [] });
+      return;
+    }
+    if (step === 3 && createPath === "aplus") {
+      runGenerate({ imageTypes: [], aplusModuleIds: selectedAplusModules });
       return;
     }
     if (step === 1) {
@@ -357,12 +484,25 @@ export default function CreateProject() {
     }
   };
 
+  const choosePath = (path: CreatePath) => {
+    if (path === "aplus" && !category.trim()) {
+      toast({
+        title: "Category required",
+        description: "Select a category on step 1 before creating A+ content.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCreatePath(path);
+    setStep(3);
+  };
+
   return (
     <div className="w-full min-w-0 py-4">
       {/* Step indicator */}
       <div className="mb-4">
         <div className="flex items-center">
-          {STEP_LABELS.map((s, idx) => (
+          {stepLabels(createPath).map((s, idx) => (
             <div key={s.id} className="flex items-center flex-1">
               <div className="flex flex-col items-center">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
@@ -374,14 +514,14 @@ export default function CreateProject() {
                 </div>
                 <div className="mt-1 text-center">
                   <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-orange-600" : "text-slate-400"}`}>
-                    Step {s.id} of 2
+                    Step {s.id} of 3
                   </p>
                   <p className={`text-xs font-medium ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
                     {s.label}
                   </p>
                 </div>
               </div>
-              {idx < 1 && (
+              {idx < 2 && (
                 <div className={`flex-1 h-0.5 mx-2 mb-5 ${s.id < step ? "bg-orange-600" : "bg-slate-200"}`} />
               )}
             </div>
@@ -537,8 +677,55 @@ export default function CreateProject() {
         </div>
       )}
 
-      {/* Step 2: Select Graphics */}
+      {/* Step 2: Choose graphics or A+ (shared upload on step 1) */}
       {step === 2 && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">What do you want to create?</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Your uploads apply to either path. Pick one — not both in a single run.
+            </p>
+            <p className="text-xs text-slate-600 mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 leading-relaxed">
+              <strong className="font-semibold text-slate-800">Product graphics</strong> stays in Create Graphics and opens the
+              graphics generating page. <strong className="font-semibold text-slate-800">A+ content</strong> creates a listing
+              project and opens <strong className="font-semibold text-slate-800">Build Your Brand</strong> so you can track A+
+              modules (same as starting A+ from a listing).
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => choosePath("graphics")}
+              className="rounded-xl border-2 border-slate-200 bg-white p-5 text-left hover:border-orange-400 hover:bg-orange-50/30 transition-all"
+            >
+              <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
+                <Wand2 className="w-5 h-5 text-orange-600" />
+              </div>
+              <p className="text-base font-semibold text-slate-900">Product graphics</p>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Lifestyle shots, infographics, and listing images. You&apos;ll stay in Create Graphics.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => choosePath("aplus")}
+              className="rounded-xl border-2 border-slate-200 bg-white p-5 text-left hover:border-orange-400 hover:bg-orange-50/30 transition-all"
+            >
+              <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
+                <Sparkles className="w-5 h-5 text-orange-600" />
+              </div>
+              <p className="text-base font-semibold text-slate-900">A+ content</p>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Amazon A+ modules (hero, features, comparison, brand story). Opens Build Your Brand to view results.
+                Category required on step 1.
+              </p>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Select Graphics */}
+      {step === 3 && createPath === "graphics" && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
@@ -640,6 +827,94 @@ export default function CreateProject() {
         </div>
       )}
 
+      {step === 3 && createPath === "aplus" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-orange-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">A+ Content</h2>
+              <p className="text-xs text-slate-500">
+                Choose the A+ modules to generate from your uploaded product images.
+              </p>
+            </div>
+          </div>
+
+          {!category.trim() && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              A+ generation requires a category. Go back to step 1 and select one.
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 xl:gap-4">
+            {APLUS_MODULE_CARDS.map((module) => {
+              const isSelected = selectedAplusModules.includes(module.id);
+              return (
+                <button
+                  key={module.id}
+                  type="button"
+                  onClick={() => {
+                    if (!selectedAplusModules.includes(module.id)) {
+                      setSelectedAplusModules((prev) => [...prev, module.id]);
+                    }
+                    setAplusCustomizeModuleId(module.id);
+                  }}
+                  className={cn(
+                    "relative rounded-xl border-2 p-3 text-left transition-all",
+                    isSelected
+                      ? "border-orange-600 bg-orange-50/30"
+                      : "border-slate-200 bg-white hover:border-slate-300",
+                  )}
+                >
+                  <span className="text-xl leading-none block mb-1">{module.icon}</span>
+                  <p className={cn("text-sm font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                    {module.label}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5 leading-tight">{module.desc}</p>
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-600 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedAplusModules.length > 0 && (
+            <SelectedGraphicsTypesSummary
+              imageTypes={APLUS_MODULE_CARDS}
+              selectedTypeIds={selectedAplusModules}
+              getConfig={getAplusModuleConfig}
+              onEdit={setAplusCustomizeModuleId}
+              onRemove={(moduleId) => {
+                setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
+                if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
+              }}
+              instructionText="Selected A+ modules — tap a row to customize prompt, references, and quality."
+              hideAspectRatio
+            />
+          )}
+
+          <ImageTypeCustomizeDialog
+            open={aplusCustomizeModuleId !== null}
+            onOpenChange={(open) => { if (!open) setAplusCustomizeModuleId(null); }}
+            type={APLUS_MODULE_CARDS.find((m) => m.id === aplusCustomizeModuleId) ?? null}
+            config={aplusCustomizeModuleId ? getAplusModuleConfig(aplusCustomizeModuleId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+            onConfigChange={(patch) => {
+              if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
+            }}
+            hideAspectRatio
+          />
+
+          <p className="text-xs text-slate-500">
+            Estimated image credits: {aplusCreditsNeeded}
+            {selectedAplusModules.length > 0 ? ` (${selectedAplusModules.length} A+ module${selectedAplusModules.length === 1 ? "" : "s"})` : ""}
+          </p>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-end pt-3 gap-2">
         <div className="flex items-center gap-2">
@@ -647,31 +922,42 @@ export default function CreateProject() {
             <Button
               variant="outline"
               className="text-slate-500 border-slate-200 rounded-lg h-8 text-xs"
-              disabled={createProject.isPending}
-              onClick={() => setStep((s) => (s - 1) as Step)}
+              disabled={createProject.isPending || createAuditDraft.isPending}
+              onClick={() => {
+                if (step === 3) {
+                  setCreatePath(null);
+                  setStep(2);
+                  return;
+                }
+                setStep((s) => (s - 1) as Step);
+              }}
             >
               Back
             </Button>
           )}
-          <Button
-            className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-8 text-xs"
-            disabled={!canContinue() || createProject.isPending}
-            onClick={handleContinue}
-          >
-            {createProject.isPending ? (
-              <>
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                {step === 2
-                  ? `Generate graphics (${graphicsCreditsNeeded} credits)`
-                  : "Continue"}
-                <ArrowRight className="w-3 h-3 ml-1" />
-              </>
-            )}
-          </Button>
+          {step !== 2 && (
+            <Button
+              className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-8 text-xs"
+              disabled={!canContinue() || createProject.isPending || createAuditDraft.isPending}
+              onClick={handleContinue}
+            >
+              {createProject.isPending || createAuditDraft.isPending ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  {step === 3 && createPath === "aplus"
+                    ? `Generate A+ (${aplusCreditsNeeded} credits)`
+                    : step === 3 && createPath === "graphics"
+                      ? `Generate graphics (${graphicsCreditsNeeded} credits)`
+                      : "Continue"}
+                  <ArrowRight className="w-3 h-3 ml-1" />
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>
