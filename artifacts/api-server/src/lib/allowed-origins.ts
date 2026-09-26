@@ -79,6 +79,13 @@ export function isAllowedRedirectUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     if (!["http:", "https:"].includes(parsed.protocol)) return false;
+    // PayPal/Stripe return URLs on ephemeral quick tunnels (dev only; not production deploys).
+    if (
+      process.env.NODE_ENV !== "production"
+      && parsed.hostname.endsWith(".trycloudflare.com")
+    ) {
+      return true;
+    }
     return isAllowedOrigin(parsed.origin);
   } catch {
     return false;

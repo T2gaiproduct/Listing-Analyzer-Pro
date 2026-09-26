@@ -99,6 +99,19 @@ export function resolvePublicAppBaseUrl(options?: {
     if (isAllowedOrigin(candidate)) return candidate;
   }
 
+  // Quick Cloudflare preview: use browser/proxy origin even when ENABLE_CLOUD_AGENT_QUICK_TUNNEL is off.
+  if (process.env.NODE_ENV !== "production") {
+    for (const candidate of candidates) {
+      try {
+        if (new URL(candidate).hostname.endsWith(".trycloudflare.com")) {
+          return candidate.replace(/\/$/, "");
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   if (configured) return configured;
 
   const replit = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
