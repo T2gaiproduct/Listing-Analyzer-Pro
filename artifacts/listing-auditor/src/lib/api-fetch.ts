@@ -52,6 +52,24 @@ async function resolveAuthToken(): Promise<string | null> {
 
 type ApiFetchInit = RequestInit & { skipWorkspaceHeader?: boolean };
 
+/** Same-origin /api fetch with Bearer + optional cookie-only retry on Cloudflare preview. */
+export async function apiFetch(url: string, init?: ApiFetchInit): Promise<Response> {
+  const headers = await authHeaders(init);
+  const requestInit = { credentials: "include" as RequestCredentials, ...init, headers };
+  const doFetch = (h: Headers) => fetch(url, { ...requestInit, headers: h });
+  let res = await doFetch(headers);
+  if (
+    res.status === 401
+    && isCloudflareQuickPreviewHost()
+    && headers.has("Authorization")
+  ) {
+    const cookieOnly = new Headers(headers);
+    cookieOnly.delete("Authorization");
+    res = await doFetch(cookieOnly);
+  }
+  return res;
+}
+
 async function authHeaders(init?: ApiFetchInit): Promise<Headers> {
   const headers = new Headers(init?.headers);
   const token = await resolveAuthToken();
@@ -92,7 +110,9 @@ export function installApiAuthFetch(): void {
     const url = resolveRequestUrl(input);
     if (isSameOriginApiRequest(url)) {
       const headers = await authHeaders(init);
-      let res = await nativeFetch!(input, { credentials: "include", ...init, headers });
+      const requestInit = { credentials: "include" as RequestCredentials, ...init, headers };
+      const doFetch = (h: Headers) => nativeFetch!(input, { ...requestInit, headers: h });
+      let res = await doFetch(headers);
       if (
         res.status === 401
         && isCloudflareQuickPreviewHost()
@@ -100,7 +120,7 @@ export function installApiAuthFetch(): void {
       ) {
         const cookieOnly = new Headers(headers);
         cookieOnly.delete("Authorization");
-        res = await nativeFetch!(input, { credentials: "include", ...init, headers: cookieOnly });
+        res = await doFetch(cookieOnly);
       }
       return res;
     }
@@ -120,8 +140,7 @@ export async function fetchJson<T>(
   url: string,
   init?: ApiFetchInit,
 ): Promise<T> {
-  const headers = await authHeaders(init);
-  const res = await fetch(url, { credentials: "include", ...init, headers });
+  const res = await apiFetch(url, init);
   return readApiJson<T>(res);
 }
 
