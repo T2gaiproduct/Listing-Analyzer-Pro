@@ -10,7 +10,7 @@ import {
   imageUrlPath,
   resolveAuditImagePath,
 } from "./image-storage";
-import { resizeAplusModuleBuffer } from "./aplus-image-size.js";
+import { APLUS_SAFE_MARGIN_PROMPT, resizeAplusModuleBuffer } from "./aplus-image-size.js";
 
 const MIN_FILE_SIZE = 1024;
 const MAX_CONCURRENT_APLUS_IMAGES = 4;
@@ -181,7 +181,8 @@ async function generateModuleBuffer(
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
   const sourcePath = data.sourcePath ?? await resolveSourceImage(data.auditId, data.imageUrls);
   const sourceValid = isValidSourcePath(sourcePath);
-  const prompt = data.prompt ?? spec.buildPrompt(productDesc, data.content);
+  const basePrompt = data.prompt ?? spec.buildPrompt(productDesc, data.content);
+  const prompt = `${basePrompt} ${APLUS_SAFE_MARGIN_PROMPT}`;
 
   let raw: Buffer;
   if (sourceValid) {
