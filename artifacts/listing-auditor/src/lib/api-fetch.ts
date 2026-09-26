@@ -1,5 +1,6 @@
 import { getActiveWorkspaceId, WORKSPACE_HEADER } from "@/lib/workspace-header";
 import { showCreditUsageToast, type CreditUsagePayload } from "@/lib/credit-usage-toast";
+import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
 
 export class ApiFetchError extends Error {
   constructor(
@@ -91,7 +92,17 @@ export function installApiAuthFetch(): void {
     const url = resolveRequestUrl(input);
     if (isSameOriginApiRequest(url)) {
       const headers = await authHeaders(init);
-      return nativeFetch!(input, { credentials: "include", ...init, headers });
+      let res = await nativeFetch!(input, { credentials: "include", ...init, headers });
+      if (
+        res.status === 401
+        && isCloudflareQuickPreviewHost()
+        && headers.has("Authorization")
+      ) {
+        const cookieOnly = new Headers(headers);
+        cookieOnly.delete("Authorization");
+        res = await nativeFetch!(input, { credentials: "include", ...init, headers: cookieOnly });
+      }
+      return res;
     }
     return nativeFetch!(input, init);
   };

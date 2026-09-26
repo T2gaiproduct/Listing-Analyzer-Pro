@@ -32,6 +32,7 @@ import {
   requiresOnboarding,
   type ProfileSummaryForGate,
 } from "@/lib/onboarding-gate";
+import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
 import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
@@ -396,10 +397,6 @@ function ClerkQueryClientCacheInvalidator() {
   }, [addListener, qc]);
 
   return null;
-}
-
-function isCloudflareQuickPreviewHost(): boolean {
-  return typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com");
 }
 
 function useOnboardingSummary() {

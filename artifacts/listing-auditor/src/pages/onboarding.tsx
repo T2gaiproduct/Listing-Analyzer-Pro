@@ -25,6 +25,7 @@ import {
   readSavedBillingYearly,
   readSavedPlanId,
 } from "@/lib/plan-selection";
+import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
