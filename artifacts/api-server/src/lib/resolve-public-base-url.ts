@@ -11,6 +11,26 @@ function isLocalhostOrigin(origin: string): boolean {
   }
 }
 
+/** True when the browser/export request came from a reachable host (IP, domain, http or https). */
+function isPublicRequestOrigin(origin: string): boolean {
+  if (!origin?.trim() || isLocalhostOrigin(origin)) return false;
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    return Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function readConfiguredPublishBaseUrl(): string | undefined {
+  const explicit = process.env.MARKETPLACE_PUBLISH_BASE_URL?.trim().replace(/\/$/, "");
+  if (explicit && !isLocalhostOrigin(explicit)) {
+    if (explicit.startsWith("http://") || explicit.startsWith("https://")) return explicit;
+  }
+  return undefined;
+}
+
 function readStableTunnelPublicUrl(): string | undefined {
   for (const candidate of [
     process.env.CLOUDFLARE_TUNNEL_PUBLIC_URL,
@@ -102,11 +122,12 @@ export function resolveListingPreviewShareBaseUrl(req: Request): string {
 }
 
 function resolveConfiguredHttpsBaseUrl(): string | undefined {
-  const explicit = process.env.MARKETPLACE_PUBLISH_BASE_URL?.trim().replace(/\/$/, "");
-  const configured = explicit || getConfiguredAppUrl();
+  const fromPublishEnv = readConfiguredPublishBaseUrl();
+  if (fromPublishEnv?.startsWith("https://")) return fromPublishEnv;
+  const configured = getConfiguredAppUrl();
   if (!configured || isLocalhostOrigin(configured)) return undefined;
   if (!configured.startsWith("https://")) return undefined;
-  return configured;
+  return configured.replace(/\/$/, "");
 }
 
 /** WooCommerce/Shopify must fetch images from a public HTTPS URL — never localhost. */
@@ -159,28 +180,37 @@ export function normalizeAmazonExportImageBaseUrl(base: string): string {
 }
 
 /**
- * Base URL for Amazon export flat-file image columns.
- * Prefers configured HTTPS app URL so Excel/CSV links are not tied to a raw IP:port from the browser.
+ * Base URL for Amazon export flat-file image columns (Excel/CSV image hyperlinks).
+ * Uses the same host you export from (IP or domain, http or https) when possible so links work on that deployment.
  */
 export function resolveAmazonExportImageBaseUrl(req: Request): string {
-  const fromRequest = resolvePublicAppBaseUrl({ req });
+  const fromRequest = normalizeAmazonExportImageBaseUrl(resolvePublicAppBaseUrl({ req }));
   try {
     const { hostname } = new URL(fromRequest);
     if (hostname.endsWith(".trycloudflare.com")) {
-      return normalizeAmazonExportImageBaseUrl(fromRequest);
+      return fromRequest;
     }
   } catch {
     /* ignore */
   }
 
-  const explicit = process.env.MARKETPLACE_PUBLISH_BASE_URL?.trim().replace(/\/$/, "");
-  if (explicit && !isLocalhostOrigin(explicit)) {
-    return normalizeAmazonExportImageBaseUrl(explicit);
+  const explicitPublish = readConfiguredPublishBaseUrl();
+  if (explicitPublish) {
+    return normalizeAmazonExportImageBaseUrl(explicitPublish);
   }
 
-  const configured = resolveConfiguredHttpsBaseUrl() ?? getConfiguredAppUrl();
-  if (configured && !isLocalhostOrigin(configured)) {
-    return normalizeAmazonExportImageBaseUrl(configured);
+  if (isPublicRequestOrigin(fromRequest)) {
+    return fromRequest;
+  }
+
+  const configuredHttps = resolveConfiguredHttpsBaseUrl();
+  if (configuredHttps) {
+    return normalizeAmazonExportImageBaseUrl(configuredHttps);
+  }
+
+  const configuredApp = getConfiguredAppUrl()?.trim().replace(/\/$/, "");
+  if (configuredApp && !isLocalhostOrigin(configuredApp)) {
+    return normalizeAmazonExportImageBaseUrl(configuredApp);
   }
 
   try {
