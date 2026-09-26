@@ -59,6 +59,10 @@ export function clerkMiddlewareOptionsForRequest(req: Request): ClerkMiddlewareO
   const options: ClerkMiddlewareOptions = {
     publishableKey: clerkPublishableKeyFromEnv(),
     secretKey: process.env.CLERK_SECRET_KEY,
+    frontendApiProxy: {
+      enabled: false,
+      path: "/api/__clerk",
+    },
   };
 
   // Quick Cloudflare tunnels get a new hostname each run; strict azp lists break Bearer auth on /api/profile.
