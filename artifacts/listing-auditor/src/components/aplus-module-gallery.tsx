@@ -12,6 +12,7 @@ import { useTeam } from "@/hooks/use-team";
 import { Check, Download, Maximize2, RefreshCw, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProtectedAppImage } from "@/components/protected-app-image";
+import { downloadAppImage } from "@/lib/download-app-image";
 import {
   fetchProtectedAppImageBlobUrl,
   isProtectedAuditImageUrl,
@@ -121,8 +122,8 @@ function AplusImageCard({
   const normalized = normalizeModule(module);
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white">
-      <div className="group relative w-full aspect-[970/300] bg-slate-100">
+    <div className="w-full max-w-xl mx-auto border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white">
+      <div className="group relative w-full aspect-[970/300] bg-slate-100 max-h-40 sm:max-h-none">
         <ProtectedAppImage
           src={normalized.imageUrl}
           alt={normalized.title}
@@ -135,7 +136,7 @@ function AplusImageCard({
           </div>
         )}
         {!isLoading && (
-          <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <div className="absolute inset-0 bg-black/55 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
             {canEditAudits && (
               <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />
@@ -219,12 +220,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
         lightboxBlobRef.current = blobUrl;
         resolved = blobUrl;
       } catch {
-        toast({
-          title: "Could not open preview",
-          description: "Sign in again or regenerate this module image.",
-          variant: "destructive",
-        });
-        return;
+        resolved = resolveAppImageUrl(url);
       }
     }
     if (onLightbox) {
@@ -293,18 +289,9 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
   });
 
   const handleDownload = async (url: string, filename: string) => {
-    const fullUrl = resolveImageUrl(url);
     try {
-      const response = await fetch(fullUrl, { credentials: "include" });
-      if (!response.ok) throw new Error(`Download failed (${response.status})`);
-      const blob = await response.blob();
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
+      await downloadAppImage(url, filename);
+      toast({ title: "Download started", description: filename });
     } catch (err) {
       toast({
         title: "Download failed",
@@ -325,7 +312,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
             <Check className="w-4 h-4" /> Complete
           </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 max-w-xl">
           {modules.map((module) => (
             <AplusImageCard
               key={module.id}

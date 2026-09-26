@@ -56,6 +56,7 @@ import { getSafeReturnTo } from "@/lib/navigation-return";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
+import { downloadAppImage } from "@/lib/download-app-image";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
@@ -1206,15 +1207,7 @@ export default function AuditWorkflow() {
 
   const handleDownloadGeneratedImage = useCallback(async (url: string, filename: string) => {
     try {
-      const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(objectUrl);
+      await downloadAppImage(url, filename);
     } catch {
       toast({ title: "Download failed", variant: "destructive" });
     }

@@ -1,6 +1,6 @@
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-/** Audit-owned files under /api/images/:auditId/:file (auth required). */
+/** App-hosted audit or graphics files under /api/images/... */
 export function isProtectedAuditImageUrl(url: string | null | undefined): boolean {
   if (!url?.trim()) return false;
   let path = url.trim();
@@ -11,7 +11,9 @@ export function isProtectedAuditImageUrl(url: string | null | undefined): boolea
       return false;
     }
   }
-  return /^\/api\/images\/\d+\/[^/]+$/.test(path);
+  if (/^\/api\/images\/\d+\/[^/]+$/.test(path)) return true;
+  if (/^\/api\/images\/graphics\/\d+\/[^/]+$/.test(path)) return true;
+  return false;
 }
 
 export function resolveAppImageUrl(url: string): string {

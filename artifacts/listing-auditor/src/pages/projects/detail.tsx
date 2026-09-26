@@ -32,6 +32,7 @@ import {
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
+import { downloadAppImage } from "@/lib/download-app-image";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -303,17 +304,8 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   });
 
   const handleDownload = async (url: string, filename: string) => {
-    const fullUrl = url.startsWith("http") ? url : `${basePath}${url}`;
     try {
-      const response = await fetch(fullUrl, { credentials: "include" });
-      const blob = await response.blob();
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
+      await downloadAppImage(url, filename);
     } catch {
       toast({ title: "Download failed", variant: "destructive" });
     }

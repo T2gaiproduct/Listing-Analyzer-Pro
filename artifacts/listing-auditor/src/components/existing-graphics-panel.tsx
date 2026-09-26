@@ -163,7 +163,7 @@ export function ExistingGraphicsPanel({
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">
                     Generated Graphics ({generatedGraphics.length})
                   </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-md">
                     {generatedGraphics.map((item) => (
                       <GraphicsImageTile key={`generated-${item.url}`} url={item.url} label={item.label} />
                     ))}

@@ -31,6 +31,7 @@ import {
 } from "@/lib/graphics-image-types";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { ProtectedAppImage } from "@/components/protected-app-image";
+import { downloadAppImage } from "@/lib/download-app-image";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -632,20 +633,25 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     );
   };
 
-  const handleDownload = (url: string, filename: string) => {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
+  const handleDownload = async (url: string, filename: string) => {
+    try {
+      await downloadAppImage(url, filename);
+      toast({ title: "Download started", description: filename });
+    } catch (err) {
+      toast({
+        title: "Download failed",
+        description: err instanceof Error ? err.message : "Could not download this image.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownloadAll = () => {
     const allRecords: ImageRecord[] = project?.imageRecords ?? existingProject?.imageRecords ?? [];
     if (allRecords.length === 0) return;
     allRecords.forEach((r, i) => {
-      setTimeout(() => handleDownload(r.currentUrl, `${r.type}_${i + 1}.png`), i * 300);
+      setTimeout(() => void handleDownload(r.currentUrl, `${r.type}_${i + 1}.png`), i * 300);
     });
-    toast({ title: "Downloaded all images" });
   };
 
   const displayProject = project ?? existingProject ?? null;
@@ -729,7 +735,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
         {/* All Images */}
         {records.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
             {records.map((record) => (
               <ImageCard
                 key={record.id}
@@ -739,7 +745,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 onRegenerate={() => handleRegenerate(record)}
                 onEdit={() => handleEdit(record)}
                 onHistory={() => setHistoryRecord(record)}
-                onDownload={() => handleDownload(record.currentUrl, `${record.id}.png`)}
+                onDownload={() => void handleDownload(record.currentUrl, `${record.id}.png`)}
                 onView={() => setFullscreenUrl(record.currentUrl)}
               />
             ))}
@@ -1373,7 +1379,7 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
           </div>
         )}
         {!isLoading && (
-          <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <div className="absolute inset-0 bg-black/55 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
             {canEditGraphics && (
               <>
