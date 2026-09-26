@@ -17,10 +17,15 @@ import type { GeneratedContent } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { ListingExportButton } from "@/components/listing-export-button";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
+import { ProtectedAppImage } from "@/components/protected-app-image";
 import {
   collectListingPreviewImages,
   resolveListingPreviewImageUrl,
 } from "@/lib/collect-listing-preview-images";
+import {
+  fetchProtectedAppImageBlobUrl,
+  isProtectedAuditImageUrl,
+} from "@/lib/protected-app-image";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import {
   formatHtmlDescriptionForPreview,
@@ -113,7 +118,9 @@ export function ProductListingPreview({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [lightboxGalleryIndex, setLightboxGalleryIndex] = useState<number | null>(null);
-  const [lightboxStandaloneUrl, setLightboxStandaloneUrl] = useState<string | null>(null);
+  const [lightboxStandaloneRawUrl, setLightboxStandaloneRawUrl] = useState<string | null>(null);
+  const [lightboxDisplayUrl, setLightboxDisplayUrl] = useState<string | null>(null);
+  const lightboxBlobRef = useRef<string | null>(null);
   const thumbRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const { toast } = useToast();
@@ -257,17 +264,22 @@ export function ProductListingPreview({
     const clamped = Math.max(0, Math.min(index, imageCount - 1));
     setSelectedIndex(clamped);
     setLightboxGalleryIndex(clamped);
-    setLightboxStandaloneUrl(null);
+    setLightboxStandaloneRawUrl(null);
   };
 
   const openStandaloneLightbox = (url: string) => {
-    setLightboxStandaloneUrl(resolveListingPreviewImageUrl(url));
+    setLightboxStandaloneRawUrl(url);
     setLightboxGalleryIndex(null);
   };
 
   const closeLightbox = () => {
+    if (lightboxBlobRef.current) {
+      URL.revokeObjectURL(lightboxBlobRef.current);
+      lightboxBlobRef.current = null;
+    }
     setLightboxGalleryIndex(null);
-    setLightboxStandaloneUrl(null);
+    setLightboxStandaloneRawUrl(null);
+    setLightboxDisplayUrl(null);
   };
 
   useEffect(() => {
@@ -280,8 +292,53 @@ export function ProductListingPreview({
     thumbRefs.current[safeSelectedIndex]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [safeSelectedIndex]);
 
+  const lightboxRawUrl = useMemo(() => {
+    if (lightboxGalleryIndex !== null && galleryImages[lightboxGalleryIndex]) {
+      return galleryImages[lightboxGalleryIndex].url;
+    }
+    if (lightboxStandaloneRawUrl) return lightboxStandaloneRawUrl;
+    return null;
+  }, [lightboxGalleryIndex, galleryImages, lightboxStandaloneRawUrl]);
+
   useEffect(() => {
-    if (lightboxGalleryIndex === null && !lightboxStandaloneUrl) return;
+    if (!lightboxRawUrl) {
+      setLightboxDisplayUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    if (lightboxBlobRef.current) {
+      URL.revokeObjectURL(lightboxBlobRef.current);
+      lightboxBlobRef.current = null;
+    }
+
+    if (!isProtectedAuditImageUrl(lightboxRawUrl)) {
+      setLightboxDisplayUrl(resolveListingPreviewImageUrl(lightboxRawUrl));
+      return;
+    }
+
+    setLightboxDisplayUrl(null);
+    void fetchProtectedAppImageBlobUrl(lightboxRawUrl)
+      .then((blobUrl) => {
+        if (cancelled) {
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
+        lightboxBlobRef.current = blobUrl;
+        setLightboxDisplayUrl(blobUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setLightboxDisplayUrl(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lightboxRawUrl]);
+
+  useEffect(() => {
+    if (!lightboxRawUrl) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -301,13 +358,9 @@ export function ProductListingPreview({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [lightboxGalleryIndex, lightboxStandaloneUrl, canStepGallery, goPrevImage, goNextImage]);
+  }, [lightboxRawUrl, lightboxGalleryIndex, canStepGallery, goPrevImage, goNextImage]);
 
-  const lightboxGalleryUrl = lightboxGalleryIndex !== null && galleryImages[lightboxGalleryIndex]
-    ? resolveListingPreviewImageUrl(galleryImages[lightboxGalleryIndex].url)
-    : null;
-  const lightboxOpen = lightboxGalleryUrl !== null || lightboxStandaloneUrl !== null;
-  const lightboxDisplayUrl = lightboxGalleryUrl ?? lightboxStandaloneUrl;
+  const lightboxOpen = lightboxRawUrl !== null;
 
   return (
     <div className="space-y-3">
@@ -424,8 +477,8 @@ export function ProductListingPreview({
                     safeSelectedIndex === index ? "border-blue-500" : "border-slate-200 hover:border-slate-300",
                   )}
                 >
-                  <img
-                    src={resolveListingPreviewImageUrl(img.url)}
+                  <ProtectedAppImage
+                    src={img.url}
                     alt={img.label}
                     className="w-full h-full object-cover"
                   />
@@ -510,8 +563,8 @@ export function ProductListingPreview({
                   onClick={() => openGalleryLightbox(safeSelectedIndex)}
                   aria-label="View full size image"
                 >
-                  <img
-                    src={resolveListingPreviewImageUrl(selected.url)}
+                  <ProtectedAppImage
+                    src={selected.url}
                     alt={selected.label}
                     className="w-full h-full object-contain"
                   />
@@ -596,8 +649,8 @@ export function ProductListingPreview({
                       onClick={() => openStandaloneLightbox(module.imageUrl)}
                       aria-label={`View full size ${module.title}`}
                     >
-                      <img
-                        src={resolveListingPreviewImageUrl(module.imageUrl)}
+                      <ProtectedAppImage
+                        src={module.imageUrl}
                         alt={module.title}
                         className="w-full h-auto block"
                       />
@@ -610,7 +663,7 @@ export function ProductListingPreview({
         )}
       </div>
 
-      {lightboxOpen && lightboxDisplayUrl && createPortal(
+      {lightboxOpen && createPortal(
         <div
           className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
           onClick={closeLightbox}
@@ -633,12 +686,21 @@ export function ProductListingPreview({
               </button>
             )}
             <div className="relative min-w-0">
-              <img
-                src={lightboxDisplayUrl}
-                alt="Full size preview"
-                className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
-                onClick={(e) => e.stopPropagation()}
-              />
+              {lightboxDisplayUrl ? (
+                <img
+                  src={lightboxDisplayUrl}
+                  alt="Full size preview"
+                  className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <div
+                  className="w-[min(90vw,480px)] h-[min(85vh,360px)] rounded-xl bg-slate-800/80 flex items-center justify-center text-white text-sm"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Loading image…
+                </div>
+              )}
               {lightboxGalleryIndex !== null && canStepGallery && (
                 <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 text-white text-xs px-3 py-1 tabular-nums">
                   {lightboxGalleryIndex + 1} / {imageCount}
