@@ -1,5 +1,3 @@
-import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
-
 export interface ProfileSummaryForGate {
   onboardingCompleted?: boolean;
   subscription?: { status?: string } | null;
@@ -14,7 +12,6 @@ export function hasActiveSubscription(summary: ProfileSummaryForGate): boolean {
 
 /** Account owners must finish onboarding unless summary marks them exempt. */
 export function requiresOnboarding(summary: ProfileSummaryForGate): boolean {
-  if (isCloudflareQuickPreviewHost()) return false;
   if (summary.pendingWorkspaceInvite?.token) return false;
   if (summary.onboardingCompleted) return false;
   if (hasActiveSubscription(summary)) return false;

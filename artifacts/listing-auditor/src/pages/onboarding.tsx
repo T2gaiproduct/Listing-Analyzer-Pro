@@ -25,8 +25,6 @@ import {
   readSavedBillingYearly,
   readSavedPlanId,
 } from "@/lib/plan-selection";
-import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
-
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 async function readApiError(res: Response, fallback: string): Promise<string> {
@@ -141,12 +139,6 @@ export default function Onboarding() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (isCloudflareQuickPreviewHost()) {
-      setLocation("/dashboard");
-    }
-  }, [setLocation]);
 
   const [step, setStep] = useState(0);
   const [yearly, setYearly] = useState(() => readSavedBillingYearly() ?? false);
