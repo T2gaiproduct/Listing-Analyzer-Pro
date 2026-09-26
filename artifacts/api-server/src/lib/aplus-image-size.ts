@@ -7,28 +7,23 @@ export const APLUS_MODULE_HEIGHT = 300;
 const APLUS_SAFE_MARGIN_PROMPT =
   "Keep all text and product edges inside a safe area with at least 10% margin on every side; nothing clipped at the frame edge.";
 
+const APLUS_EDGE_TO_EDGE_PROMPT =
+  "Compose edge-to-edge across the full ultra-wide strip — no empty side margins, no pillarboxing. Fill the entire banner width with design, product, typography, and graphics like premium Amazon A+ Enhanced Brand Content.";
+
 /** Re-export for module prompts (generation + resize pipeline). */
-export { APLUS_SAFE_MARGIN_PROMPT };
+export { APLUS_SAFE_MARGIN_PROMPT, APLUS_EDGE_TO_EDGE_PROMPT };
 
 /**
- * Fit generated art into Amazon's 970×300 module without cropping (letterbox if needed).
- * Previously used `cover`, which cut off ~45% of 16:9 generations.
+ * Fit generated art into Amazon's 970×300 module using center crop (cover) so the banner
+ * fills the frame. Letterbox (`inside`) left ~46% of the width empty for 16:10 generations.
  */
 export async function resizeAplusModuleBuffer(buffer: Buffer): Promise<Buffer> {
-  const fitted = await sharp(buffer)
-    .resize(APLUS_MODULE_WIDTH, APLUS_MODULE_HEIGHT, { fit: "inside" })
-    .png()
-    .toBuffer();
-
-  return sharp({
-    create: {
-      width: APLUS_MODULE_WIDTH,
-      height: APLUS_MODULE_HEIGHT,
-      channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
-    },
-  })
-    .composite([{ input: fitted, gravity: "centre" }])
-    .png()
+  return sharp(buffer)
+    .resize(APLUS_MODULE_WIDTH, APLUS_MODULE_HEIGHT, {
+      fit: "cover",
+      position: "centre",
+      kernel: sharp.kernel.lanczos3,
+    })
+    .png({ compressionLevel: 6, adaptiveFiltering: true })
     .toBuffer();
 }

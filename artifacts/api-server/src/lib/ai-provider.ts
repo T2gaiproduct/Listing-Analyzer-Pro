@@ -63,6 +63,23 @@ function isDalleModel(model: string): boolean {
 
 type ImageSize = "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256";
 
+export type ImageGenerateOptions = {
+  /** OpenAI gpt-image: high | standard (medium). DALL·E: hd | standard. */
+  quality?: "high" | "standard";
+};
+
+function mapGptImageQuality(quality?: ImageGenerateOptions["quality"]): "high" | "medium" | undefined {
+  if (quality === "high") return "high";
+  if (quality === "standard") return "medium";
+  return undefined;
+}
+
+function mapDalleQuality(quality?: ImageGenerateOptions["quality"]): "hd" | "standard" | undefined {
+  if (quality === "high") return "hd";
+  if (quality === "standard") return "standard";
+  return undefined;
+}
+
 function mapSizeForGptImage(size: ImageSize): "1024x1024" | "1536x1024" | "1024x1536" | "auto" {
   if (size === "1792x1024") return "1536x1024";
   if (size === "1024x1792") return "1024x1536";
@@ -156,6 +173,7 @@ export interface ImageGenerationResult {
 export async function generateImage(
   prompt: string,
   size: ImageSize = "1024x1024",
+  options?: ImageGenerateOptions,
 ): Promise<Buffer> {
   const provider = await getActiveProvider();
   const model = await getImageModel(provider);
@@ -181,20 +199,24 @@ export async function generateImage(
   // Replit or OpenAI path
   const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
   if (isGptImageModel(model)) {
+    const gptQuality = mapGptImageQuality(options?.quality);
     const response = await client.images.generate({
       model,
       prompt,
       size: mapSizeForGptImage(size),
+      ...(gptQuality ? { quality: gptQuality } : {}),
     });
     const base64 = response.data?.[0]?.b64_json ?? "";
     if (!base64) throw new Error("No image data returned from AI");
     return Buffer.from(base64, "base64");
   }
 
+  const dalleQuality = isDalleModel(model) ? mapDalleQuality(options?.quality) : undefined;
   const response = await client.images.generate({
     model,
     prompt,
     size: size === "1792x1024" || size === "1024x1792" || size === "1024x1024" ? size : "1024x1024",
+    ...(dalleQuality ? { quality: dalleQuality } : {}),
     ...(isDalleModel(model) ? { response_format: "b64_json" as const } : {}),
   });
 
@@ -207,6 +229,7 @@ export async function generateImageWithReference(
   prompt: string,
   imageFilePath: string,
   size: ImageSize = "1024x1024",
+  options?: ImageGenerateOptions,
 ): Promise<Buffer> {
   const fs = await import("node:fs");
   const provider = await getActiveProvider();
@@ -256,6 +279,10 @@ export async function generateImageWithReference(
   };
   if (isGptImageModel(model)) {
     editParams.size = mapSizeForGptImage(size);
+    const gptQuality = mapGptImageQuality(options?.quality);
+    if (gptQuality) {
+      (editParams as { quality?: "high" | "medium" }).quality = gptQuality;
+    }
   }
   const response = await client.images.edit(editParams);
 

@@ -119,11 +119,11 @@ function AplusImageCard({
 
   return (
     <div className="w-full max-w-xl mx-auto border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white">
-      <div className="group relative w-full aspect-[970/300] bg-slate-100 max-h-40 sm:max-h-none">
+      <div className="group relative w-full aspect-[970/300] bg-slate-100">
         <ProtectedAppImage
           src={normalized.imageUrl}
           alt={normalized.title}
-          className="w-full h-full object-contain bg-white"
+          className="w-full h-full object-cover bg-white"
         />
         {isLoading && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
@@ -339,7 +339,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                     <ProtectedAppImage
                       src={editModule.imageUrl}
                       alt="Current"
-                      className="w-full h-full object-contain bg-white"
+                      className="w-full h-full object-cover bg-white"
                     />
                   </div>
                 </div>

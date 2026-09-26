@@ -10,7 +10,11 @@ import {
   imageUrlPath,
   resolveAuditImagePath,
 } from "./image-storage";
-import { APLUS_SAFE_MARGIN_PROMPT, resizeAplusModuleBuffer } from "./aplus-image-size.js";
+import {
+  APLUS_EDGE_TO_EDGE_PROMPT,
+  APLUS_SAFE_MARGIN_PROMPT,
+  resizeAplusModuleBuffer,
+} from "./aplus-image-size.js";
 
 const MIN_FILE_SIZE = 1024;
 const MAX_CONCURRENT_APLUS_IMAGES = 4;
@@ -103,7 +107,7 @@ const MODULE_SPECS: ModuleSpec[] = [
     description: "Full-width product hero image with headline",
     size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ Enhanced Brand Content ultra-wide horizontal banner (970x300 px aspect, very wide and short) for ${productDesc}. Compose the full scene inside one wide strip — product, headline "${c.heroHeadline}", and subheadline "${c.heroSubheadline}" must stay inside the frame with safe margins; do not use a tall portrait layout. Premium e-commerce design, professional commercial photography.`,
+      `Amazon A+ Enhanced Brand Content ultra-wide horizontal banner (970x300 px aspect, very wide and short) for ${productDesc}. ${APLUS_EDGE_TO_EDGE_PROMPT} Product, headline "${c.heroHeadline}", and subheadline "${c.heroSubheadline}" integrated in one strip; do not use a tall portrait layout. Premium e-commerce design, sharp legible typography, professional commercial photography.`,
     headline: (c) => c.heroHeadline,
     body: (c) => c.heroSubheadline,
   },
@@ -113,7 +117,7 @@ const MODULE_SPECS: ModuleSpec[] = [
     description: "Icon + text modules showcasing key features",
     size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ feature highlights ultra-wide banner (970x300 px aspect) for ${productDesc}. Three-column layout in one horizontal strip with product and callouts: "${c.feature1Title}", "${c.feature2Title}", "${c.feature3Title}". Keep all text and icons inside the wide frame with safe margins. Clean modern e-commerce infographic style.`,
+      `Amazon A+ feature highlights ultra-wide banner (970x300 px aspect) for ${productDesc}. ${APLUS_EDGE_TO_EDGE_PROMPT} Three-column infographic in one horizontal strip with product center or offset and icon callouts: "${c.feature1Title}", "${c.feature2Title}", "${c.feature3Title}". Crisp icons, serif or premium sans headlines, high-detail product render. Clean modern e-commerce infographic style.`,
     headline: (c) => c.feature1Title,
     body: (c) => `${c.feature1Body} · ${c.feature2Body}`,
   },
@@ -123,7 +127,7 @@ const MODULE_SPECS: ModuleSpec[] = [
     description: "Compare your product against competitors",
     size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ comparison chart ultra-wide banner (970x300 px aspect) for ${productDesc}. Side-by-side comparison in one horizontal strip. Title "${c.gridTitle}". Features: "${c.grid1Title}", "${c.grid2Title}", "${c.grid3Title}", "${c.grid4Title}". Keep chart labels inside the wide frame. Clean chart-style e-commerce design.`,
+      `Amazon A+ comparison chart ultra-wide banner (970x300 px aspect) for ${productDesc}. ${APLUS_EDGE_TO_EDGE_PROMPT} Side-by-side comparison filling the strip. Title "${c.gridTitle}". Features: "${c.grid1Title}", "${c.grid2Title}", "${c.grid3Title}", "${c.grid4Title}". Sharp chart labels and checkmarks. Clean chart-style e-commerce design.`,
     headline: (c) => c.gridTitle,
     body: (c) => `${c.grid1Title}: ${c.grid1Desc}`,
   },
@@ -133,7 +137,7 @@ const MODULE_SPECS: ModuleSpec[] = [
     description: "Tell your brand story with rich imagery",
     size: APLUS_GENERATION_SIZE,
     buildPrompt: (productDesc, c) =>
-      `Amazon A+ brand story ultra-wide banner (970x300 px aspect) for ${productDesc}. Emotional storytelling in one horizontal strip with product integration. Headline "${c.storyHeadline}" inside the frame with safe margins. Warm aspirational atmosphere, premium brand aesthetic.`,
+      `Amazon A+ brand story ultra-wide banner (970x300 px aspect) for ${productDesc}. ${APLUS_EDGE_TO_EDGE_PROMPT} Emotional storytelling with product integration. Headline "${c.storyHeadline}". Warm aspirational atmosphere, premium brand aesthetic, photographic depth.`,
     headline: (c) => c.storyHeadline,
     body: (c) => c.storyBody,
   },
@@ -166,6 +170,11 @@ function isValidSourcePath(sourcePath: string | null): boolean {
     && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
 }
 
+/** A+ banners always request high API quality; UI "HD" still adds extra prompt detail. */
+function aplusApiImageQuality(): "high" {
+  return "high";
+}
+
 async function generateModuleBuffer(
   spec: ModuleSpec,
   data: {
@@ -176,6 +185,7 @@ async function generateModuleBuffer(
     imageUrls: string[];
     sourcePath?: string | null;
     prompt?: string;
+    quality?: "standard" | "hd";
   },
 ): Promise<Buffer> {
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
@@ -183,6 +193,7 @@ async function generateModuleBuffer(
   const sourceValid = isValidSourcePath(sourcePath);
   const basePrompt = data.prompt ?? spec.buildPrompt(productDesc, data.content);
   const prompt = `${basePrompt} ${APLUS_SAFE_MARGIN_PROMPT}`;
+  const apiQuality = aplusApiImageQuality();
 
   let raw: Buffer;
   if (sourceValid) {
@@ -190,9 +201,10 @@ async function generateModuleBuffer(
       `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
       sourcePath!,
       spec.size,
+      { quality: apiQuality },
     );
   } else {
-    raw = await generateImageBuffer(prompt, spec.size);
+    raw = await generateImageBuffer(prompt, spec.size, { quality: apiQuality });
   }
   return resizeAplusModuleBuffer(raw);
 }
@@ -224,6 +236,7 @@ export async function regenerateAplusModule(data: {
   content: EbcContent;
   imageUrls: string[];
   existing: AplusModule;
+  quality?: "standard" | "hd";
 }): Promise<AplusModule> {
   const spec = getModuleSpec(data.moduleId);
   if (!spec) throw new Error("Invalid A+ module");
@@ -456,21 +469,21 @@ export async function generateAplusModuleImages(data: {
         imageDirection ? `${basePrompt} Additional creative direction: ${imageDirection}` : basePrompt,
         moduleConfig?.quality ?? data.quality,
       );
+      const moduleQuality = moduleConfig?.quality ?? data.quality;
 
       try {
-        let buffer: Buffer;
-        if (sourceValid) {
-          buffer = await generateImageWithReferenceProxy(
-            `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
-            sourcePath!,
-            spec.size,
-          );
-        } else {
-          buffer = await generateImageBuffer(prompt, spec.size);
-        }
+        const buffer = await generateModuleBuffer(spec, {
+          auditId: data.auditId,
+          productName: data.productName,
+          category: data.category,
+          content: data.content,
+          imageUrls: data.imageUrls,
+          sourcePath: sourceValid ? sourcePath : null,
+          prompt,
+          quality: moduleQuality,
+        });
         if (!buffer?.length) throw new Error("No image data returned");
-        const sized = await resizeAplusModuleBuffer(buffer);
-        fs.writeFileSync(filePath, sized);
+        fs.writeFileSync(filePath, buffer);
 
         const module = buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl);
         await progressLock(async () => {
