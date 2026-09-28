@@ -106,6 +106,8 @@ export const CreateAuditBody = zod.object({
   imageUrls: zod.array(zod.string()),
   targetKeywords: zod.array(zod.string()),
   forGraphicsAplus: zod.boolean().optional(),
+  aplusModuleCount: zod.number().int().min(0).optional(),
+  graphicsImageCount: zod.number().int().min(0).optional(),
 });
 
 /**
@@ -124,6 +126,10 @@ export const CreateAuditDraftBody = zod.object({
   targetKeywords: zod.array(zod.string()),
   /** Create Graphics A+ path — not a Build Your Brand / Product Explorer listing. */
   forGraphicsAplus: zod.boolean().optional(),
+  /** Imminent A+ modules — preflight image credits before creating shell audit. */
+  aplusModuleCount: zod.number().int().min(0).optional(),
+  /** Imminent gallery images — preflight image credits before creating BYB draft. */
+  graphicsImageCount: zod.number().int().min(0).optional(),
 });
 
 /**

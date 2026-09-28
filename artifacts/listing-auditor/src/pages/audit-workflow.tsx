@@ -45,6 +45,7 @@ import { BuildBrandExportStep } from "@/components/build-brand-export-step";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { hasTeamAwareImageCredits, teamAwareImageCreditBalance } from "@/lib/team-aware-image-credits";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import {
   formatHtmlDescriptionForPreview,
@@ -611,6 +612,13 @@ export default function AuditWorkflow() {
   const queryClient     = useQueryClient();
   const { isTeamMember, memberCredits, canEditGraphics } = useTeam();
   const apiAuthReady = useApiAuthReady();
+  const { data: userCredits } = useQuery({
+    queryKey: ["user-credits"],
+    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 30_000,
+    enabled: apiAuthReady,
+  });
+  const accountImageCredits = userCredits?.credits?.imageCredits ?? 0;
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
     queryKey: ["credit-rules"],
     queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
@@ -689,7 +697,10 @@ export default function AuditWorkflow() {
   }, [currentAuditId, patchAudit, queryClient]);
   const generateContentDirect = useGenerateContentDirect();
 
-  const ensureAuditDraft = useCallback(async (): Promise<number | null> => {
+  const ensureAuditDraft = useCallback(async (preflight?: {
+    graphicsImageCount?: number;
+    aplusModuleCount?: number;
+  }): Promise<number | null> => {
     if (currentAuditId) return currentAuditId;
     const data = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages, productDescription);
     if (!data) {
@@ -700,8 +711,17 @@ export default function AuditWorkflow() {
       });
       return null;
     }
+    const draftPayload = {
+      ...data,
+      ...(preflight?.graphicsImageCount && preflight.graphicsImageCount > 0
+        ? { graphicsImageCount: preflight.graphicsImageCount }
+        : {}),
+      ...(preflight?.aplusModuleCount && preflight.aplusModuleCount > 0
+        ? { aplusModuleCount: preflight.aplusModuleCount }
+        : {}),
+    };
     try {
-      const audit = await createAuditDraft.mutateAsync({ data });
+      const audit = await createAuditDraft.mutateAsync({ data: draftPayload });
       setCurrentAuditId(audit.id);
       void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
@@ -1195,7 +1215,15 @@ export default function AuditWorkflow() {
         body: JSON.stringify(createBody),
       });
       projectId = project.id;
-      await runGenerate(projectId);
+      try {
+        await runGenerate(projectId);
+      } catch (genErr) {
+        await fetch(`${basePath}/api/graphics/projects/${projectId}`, {
+          method: "DELETE",
+          credentials: "include",
+        }).catch(() => undefined);
+        throw genErr;
+      }
       void queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
     }
 
@@ -1569,8 +1597,19 @@ export default function AuditWorkflow() {
         toast({ title: "Custom prompt required", description: "Add a prompt for the Generate Custom image type.", variant: "destructive" });
         return;
       }
+      const graphicsCreditsNeeded = selectedImageTypes.length * aplusImageCostPerModule;
+      if (!hasTeamAwareImageCredits(isTeamMember, memberCredits?.imageCredits, accountImageCredits, graphicsCreditsNeeded)) {
+        setIsCreating(false);
+        const balance = teamAwareImageCreditBalance(isTeamMember, memberCredits?.imageCredits, accountImageCredits);
+        toast({
+          title: "Insufficient image credits",
+          description: `You need ${graphicsCreditsNeeded} image credits but only have ${balance}.`,
+          variant: "destructive",
+        });
+        return;
+      }
       // Reuse existing graphics project for this audit, or create new one
-      void ensureAuditDraft().then(async (auditId) => {
+      void ensureAuditDraft({ graphicsImageCount: selectedImageTypes.length }).then(async (auditId) => {
         if (!auditId) {
           setIsCreating(false);
           return;
@@ -1620,19 +1659,17 @@ export default function AuditWorkflow() {
       return;
     }
     const imageCreditsNeeded = aplusImageCostPerModule * selectedAplusModules.length;
-    if (isTeamMember) {
-      const imageBalance = memberCredits?.imageCredits ?? 0;
-      if (imageBalance < imageCreditsNeeded) {
-        toast({
-          title: "Insufficient image credits",
-          description: `You need ${imageCreditsNeeded} image credits but only have ${imageBalance}. Ask your workspace owner to assign more.`,
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!hasTeamAwareImageCredits(isTeamMember, memberCredits?.imageCredits, accountImageCredits, imageCreditsNeeded)) {
+      const imageBalance = teamAwareImageCreditBalance(isTeamMember, memberCredits?.imageCredits, accountImageCredits);
+      toast({
+        title: "Insufficient image credits",
+        description: `You need ${imageCreditsNeeded} image credits but only have ${imageBalance}.${isTeamMember ? " Ask your workspace owner to assign more." : ""}`,
+        variant: "destructive",
+      });
+      return;
     }
     void (async () => {
-      const auditId = await ensureAuditDraft();
+      const auditId = await ensureAuditDraft({ aplusModuleCount: selectedAplusModules.length });
       if (!auditId) return;
       try {
         await persistUploadTabToAudit(auditId);
@@ -1654,7 +1691,7 @@ export default function AuditWorkflow() {
         ...aplusGenerateOptions,
       });
     })();
-  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit]);
+  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, accountImageCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -2619,7 +2656,12 @@ export default function AuditWorkflow() {
                   || aplusStatus === "generating"
                   || !workflowUploadReady
                   || selectedAplusModules.length === 0
-                  || (isTeamMember && (memberCredits?.imageCredits ?? 0) < aplusImageCostPerModule * selectedAplusModules.length)
+                  || !hasTeamAwareImageCredits(
+                    isTeamMember,
+                    memberCredits?.imageCredits,
+                    accountImageCredits,
+                    aplusImageCostPerModule * selectedAplusModules.length,
+                  )
                 }
                 onClick={handleGenerateAplus}
               >

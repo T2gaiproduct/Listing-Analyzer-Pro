@@ -51,6 +51,7 @@ import {
   editSingleImage,
 } from "../lib/image-generator";
 import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, insufficientCreditsMessage, type TeamAwareContext } from "../lib/credits";
+import { requireImageCreditsForUnits } from "../lib/credit-preflight.js";
 import { withCreditUsage } from "../lib/credit-api.js";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
@@ -350,7 +351,21 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
       imageUrls,
       targetKeywords,
       forGraphicsAplus,
+      aplusModuleCount,
+      graphicsImageCount,
     } = parsed.data;
+
+    const creditCtx = getCreditCtx(req);
+    let preflightImageUnits = 0;
+    if (graphicsImageCount && graphicsImageCount > 0) {
+      preflightImageUnits += graphicsImageCount;
+    }
+    if (forGraphicsAplus && aplusModuleCount && aplusModuleCount > 0) {
+      preflightImageUnits += aplusModuleCount;
+    }
+    if (!(await requireImageCreditsForUnits(res, creditCtx, preflightImageUnits))) {
+      return;
+    }
 
     const resolvedDescription = forGraphicsAplus
       ? GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION

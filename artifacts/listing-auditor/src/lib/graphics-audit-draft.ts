@@ -38,6 +38,7 @@ export function buildGraphicsAuditDraftBody(
   brandName: string,
   category: string,
   uploadedImages: string[],
+  aplusModuleCount?: number,
 ) {
   if (!productName.trim() || !category.trim()) return null;
   const { syntheticTitle, syntheticBullets, syntheticKeywords } = buildSyntheticListingFields(
@@ -56,5 +57,6 @@ export function buildGraphicsAuditDraftBody(
     imageUrls: uploadedImages,
     productDescription: GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION,
     forGraphicsAplus: true,
+    aplusModuleCount: aplusModuleCount && aplusModuleCount > 0 ? aplusModuleCount : undefined,
   };
 }

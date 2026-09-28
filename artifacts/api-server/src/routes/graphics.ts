@@ -5,6 +5,7 @@ import { db, graphicsProjectsTable, adminUsersTable, auditsTable } from "@worksp
 import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, insufficientCreditsMessage, type TeamAwareContext } from "../lib/credits";
+import { requireImageCreditsForUnits } from "../lib/credit-preflight.js";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
@@ -867,6 +868,14 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
           return;
         }
       }
+    }
+
+    const totalNewImages = body.imageTypes && body.imageTypes.length > 0
+      ? body.imageTypes.length
+      : lifestyleCount + featureCount;
+    const creditCtx = getCreditCtx(req);
+    if (!(await requireImageCreditsForUnits(res, creditCtx, totalNewImages))) {
+      return;
     }
 
     const [project] = await db.insert(graphicsProjectsTable).values({

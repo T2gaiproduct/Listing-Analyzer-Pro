@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { hasTeamAwareImageCredits } from "@/lib/team-aware-image-credits";
 import { useTeam } from "@/hooks/use-team";
 import { useCreateAuditDraft } from "@workspace/api-client-react";
 import { APLUS_MODULE_CARDS } from "@/components/aplus-content-wizard";
@@ -139,6 +140,12 @@ export default function CreateProject() {
 
   const { isTeamMember, memberCredits } = useTeam();
   const createAuditDraft = useCreateAuditDraft();
+  const { data: userCredits } = useQuery({
+    queryKey: ["user-credits"],
+    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 30_000,
+  });
+  const accountImageCredits = userCredits?.credits?.imageCredits ?? 0;
   const { data: creditRules = [] } = useQuery({
     queryKey: ["credit-rules"],
     queryFn: () => fetch(`${basePath}/api/credit-rules`, { credentials: "include" }).then((r) => r.json()),
@@ -249,6 +256,7 @@ export default function CreateProject() {
           brandName,
           category,
           uploadedImages,
+          input.aplusModuleIds.length,
         );
         if (!draftBody) {
           throw new Error("Category is required when generating A+ content.");
@@ -282,6 +290,10 @@ export default function CreateProject() {
         });
         if (!genRes.ok) {
           const err = await genRes.json().catch(() => ({}));
+          await fetch(`${basePath}/api/graphics/projects/${project.id}`, {
+            method: "DELETE",
+            credentials: "include",
+          }).catch(() => undefined);
           throw new Error(err.error || "Failed to start graphics generation");
         }
       }
@@ -420,13 +432,17 @@ export default function CreateProject() {
     if (step === 3 && createPath === "graphics") {
       if (selectedGraphicsTypes.length === 0) return false;
       const creditsForRun = selectedGraphicsTypes.length * imageCreditPerUnit;
-      if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) return false;
+      if (!hasTeamAwareImageCredits(isTeamMember, memberCredits?.imageCredits, accountImageCredits, creditsForRun)) {
+        return false;
+      }
       return true;
     }
     if (step === 3 && createPath === "aplus") {
       if (selectedAplusModules.length === 0 || !category.trim()) return false;
       const creditsForRun = selectedAplusModules.length * imageCreditPerUnit;
-      if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) return false;
+      if (!hasTeamAwareImageCredits(isTeamMember, memberCredits?.imageCredits, accountImageCredits, creditsForRun)) {
+        return false;
+      }
       return true;
     }
     return false;
@@ -449,10 +465,11 @@ export default function CreateProject() {
     if (input.imageTypes.length === 0 && input.aplusModuleIds.length === 0) {
       return;
     }
-    if (isTeamMember && (memberCredits?.imageCredits ?? 0) < creditsForRun) {
+    if (!hasTeamAwareImageCredits(isTeamMember, memberCredits?.imageCredits, accountImageCredits, creditsForRun)) {
+      const balance = isTeamMember ? (memberCredits?.imageCredits ?? 0) : accountImageCredits;
       toast({
         title: "Insufficient image credits",
-        description: `You need ${creditsForRun} image credits for this run.`,
+        description: `You need ${creditsForRun} image credits for this run but only have ${balance}.`,
         variant: "destructive",
       });
       return;

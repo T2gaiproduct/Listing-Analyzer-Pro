@@ -1020,6 +1020,17 @@ components:
           type: array
           items:
             type: string
+        forGraphicsAplus:
+          type: boolean
+          description: Create Graphics A+ shell audit (not a Product Explorer listing)
+        aplusModuleCount:
+          type: integer
+          minimum: 0
+          description: Preflight image credits for imminent A+ modules
+        graphicsImageCount:
+          type: integer
+          minimum: 0
+          description: Preflight image credits for imminent gallery images
       required:
         - productName
         - title
