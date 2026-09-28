@@ -105,6 +105,7 @@ export const CreateAuditBody = zod.object({
   bulletPoints: zod.array(zod.string()),
   imageUrls: zod.array(zod.string()),
   targetKeywords: zod.array(zod.string()),
+  forGraphicsAplus: zod.boolean().optional(),
 });
 
 /**
@@ -121,6 +122,8 @@ export const CreateAuditDraftBody = zod.object({
   bulletPoints: zod.array(zod.string()),
   imageUrls: zod.array(zod.string()),
   targetKeywords: zod.array(zod.string()),
+  /** Create Graphics A+ path — not a Build Your Brand / Product Explorer listing. */
+  forGraphicsAplus: zod.boolean().optional(),
 });
 
 /**

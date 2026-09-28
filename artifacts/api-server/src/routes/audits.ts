@@ -12,10 +12,12 @@ import {
 } from "@workspace/db";
 import {
   CreateAuditBody,
+  CreateAuditDraftBody,
   GetAuditParams,
   DeleteAuditParams,
   GenerateContentDirectBody,
 } from "@workspace/api-zod";
+import { GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION } from "@workspace/graphics-aplus-audit";
 import { generateChatCompletion } from "../lib/ai-provider";
 import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
@@ -330,13 +332,29 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
 router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "create"), async (req, res): Promise<void> => {
   try {
     const ownerId = getEffectiveUserId(req);
-    const parsed = CreateAuditBody.safeParse(req.body);
+    const parsed = CreateAuditDraftBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;
     }
 
-    const { projectName, productName, productDescription, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
+    const {
+      projectName,
+      productName,
+      productDescription,
+      asin,
+      brandName,
+      category,
+      title,
+      bulletPoints,
+      imageUrls,
+      targetKeywords,
+      forGraphicsAplus,
+    } = parsed.data;
+
+    const resolvedDescription = forGraphicsAplus
+      ? GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION
+      : productDescription?.trim() || null;
 
     const [audit] = await db
       .insert(auditsTable)
@@ -346,7 +364,7 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
         workspaceId: getActiveWorkspaceId(req),
         projectName: projectName ?? productName,
         productName,
-        productDescription: productDescription?.trim() || null,
+        productDescription: resolvedDescription,
         asin: asin ?? null,
         brandName: brandName ?? null,
         category: category ?? null,

@@ -126,6 +126,8 @@ export async function loadScopedRecents(
         status: auditsTable.status,
         currentStep: auditsTable.currentStep,
         overallScore: auditsTable.overallScore,
+        productDescription: auditsTable.productDescription,
+        generatedContent: auditsTable.generatedContent,
         imageUrls: auditsTable.imageUrls,
         imageRecords: auditsTable.imageRecords,
         generatedImages: auditsTable.generatedImages,

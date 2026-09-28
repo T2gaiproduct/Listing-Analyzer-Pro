@@ -1,3 +1,5 @@
+import { GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION } from "@workspace/graphics-aplus-audit";
+
 /** Minimal audit draft for standalone Create Graphics + optional A+ generation. */
 
 export function buildSyntheticListingFields(productName: string, brandName: string, category: string) {
@@ -52,5 +54,7 @@ export function buildGraphicsAuditDraftBody(
     bulletPoints: syntheticBullets,
     targetKeywords: syntheticKeywords,
     imageUrls: uploadedImages,
+    productDescription: GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION,
+    forGraphicsAplus: true,
   };
 }

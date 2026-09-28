@@ -280,6 +280,8 @@ export interface CreateAuditBody {
   bulletPoints: string[];
   imageUrls: string[];
   targetKeywords: string[];
+  /** Create Graphics A+ backing audit — not a Product Explorer BYB listing. */
+  forGraphicsAplus?: boolean;
 }
 
 export type PatchAuditBodyGeneratedContent = { [key: string]: unknown };

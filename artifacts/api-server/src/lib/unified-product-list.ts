@@ -1,4 +1,7 @@
 import type { Request } from "express";
+import { and, eq, isNotNull } from "drizzle-orm";
+import { db, graphicsProjectsTable } from "@workspace/db";
+import { shouldExcludeAuditFromProductExplorer } from "@workspace/graphics-aplus-audit";
 import { loadScopedRecents, pickProjectThumbnail } from "./scoped-recents-load";
 import { getAccountOwnerId, getListScopeWorkspaceId, getWorkspaceCtx } from "./workspace-route-helpers";
 import { resolveTeamContext } from "../middlewares/team-auth";
@@ -118,7 +121,33 @@ export async function loadUnifiedProductList(
   const items: UnifiedProductListItem[] = [];
   const profileAuditIds = await loadAuditIdsWithProductProfiles(audits.map((a) => a.id));
 
+  const graphicsLinkedRows = await db
+    .select({ auditId: graphicsProjectsTable.auditId })
+    .from(graphicsProjectsTable)
+    .where(
+      and(
+        eq(graphicsProjectsTable.userId, ownerUserId),
+        eq(graphicsProjectsTable.isDeleted, 0),
+        isNotNull(graphicsProjectsTable.auditId),
+      ),
+    );
+  const graphicsLinkedAuditIds = new Set(
+    graphicsLinkedRows.map((r) => r.auditId).filter((id): id is number => id != null && id > 0),
+  );
+
   for (const a of audits) {
+    if (shouldExcludeAuditFromProductExplorer(
+      {
+        productDescription: a.productDescription,
+        asin: a.asin,
+        overallScore: a.overallScore,
+        generatedContent: a.generatedContent,
+        currentStep: a.currentStep,
+      },
+      graphicsLinkedAuditIds.has(a.id),
+    )) {
+      continue;
+    }
     const hasProductProfile = profileAuditIds.has(a.id);
     const classified = classifyAuditProductSource({ asin: a.asin, hasProductProfile });
     const { isShopifyImport, isWooCommerceImport, isAuditListing } = classified;

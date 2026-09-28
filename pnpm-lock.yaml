@@ -203,6 +203,9 @@ importers:
       '@workspace/email-validation':
         specifier: workspace:*
         version: link:../../lib/email-validation
+      '@workspace/graphics-aplus-audit':
+        specifier: workspace:*
+        version: link:../../lib/graphics-aplus-audit
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
@@ -457,6 +460,9 @@ importers:
       '@workspace/email-validation':
         specifier: workspace:*
         version: link:../../lib/email-validation
+      '@workspace/graphics-aplus-audit':
+        specifier: workspace:*
+        version: link:../../lib/graphics-aplus-audit
       '@workspace/workspace-permissions':
         specifier: workspace:*
         version: link:../../lib/workspace-permissions
@@ -768,6 +774,8 @@ importers:
         version: 4.21.0
 
   lib/email-validation: {}
+
+  lib/graphics-aplus-audit: {}
 
   lib/integrations-openai-ai-react: {}
 
