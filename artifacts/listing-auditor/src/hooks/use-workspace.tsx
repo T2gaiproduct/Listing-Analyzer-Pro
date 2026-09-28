@@ -456,7 +456,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isWorkspaceAccountOwner,
     isTeamMemberAccount,
     isLoading: listLoading || (!skipPermLoadingForNav && permLoading) || (profileLoading && workspaces.length === 0) || !isLoaded,
-    permissionsLoading: Boolean(activeWorkspaceId && permLoading && !skipPermLoadingForNav),
+    // Always gate routes while role permissions load (including members); skipPermLoadingForNav
+    // only applies to isLoading so nav/shell can render without blocking the whole app on first paint.
+    permissionsLoading: Boolean(activeWorkspaceId && permLoading),
     setActiveWorkspaceId: setWorkspace,
     can,
     canView,
