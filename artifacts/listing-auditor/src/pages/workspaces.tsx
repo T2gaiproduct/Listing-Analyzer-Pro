@@ -408,7 +408,7 @@ export default function WorkspacesPage() {
           <p className="text-sm text-slate-500 mt-1">
             {isAccountOwner
               ? "Agency account hub — plan credits, workspace pools, member allocation, and usage."
-              : "Manage client workspaces and members."}
+              : "Workspaces you belong to. Switch workspace from the header to work in a client."}
           </p>
         </div>
         {canCreate && (
@@ -717,19 +717,8 @@ export default function WorkspacesPage() {
                 <p className="text-xs text-slate-400">
                   Your role: {workspaces.find((w) => w.id === ws.id)?.roleName ?? "Unassigned"}
                 </p>
+                {(canEdit || canDeleteWorkspace) && (
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <Link href={`/workspaces/${ws.id}`}>
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <ChevronRight className="w-3.5 h-3.5" />
-                      Open
-                    </Button>
-                  </Link>
-                  <Link href={`/workspaces/${ws.id}/members`}>
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Users className="w-3.5 h-3.5" />
-                      Members
-                    </Button>
-                  </Link>
                   {canEdit && (
                     <Button
                       variant="outline"
@@ -757,6 +746,7 @@ export default function WorkspacesPage() {
                     </Button>
                   )}
                 </div>
+                )}
               </CardContent>
             </Card>
           ))}
