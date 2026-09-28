@@ -826,6 +826,7 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     targetKeywords: string[];
     descriptionHtml: string;
     price: number | string | null;
+    currency: string | null;
     runAnalysis: boolean;
   }>;
 
@@ -882,6 +883,7 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
       descriptionHtml: body.descriptionHtml,
       price: body.price,
       sku: body.sku,
+      currency: body.currency,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not update listing fields";

@@ -49,7 +49,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { LISTING_CURRENCY_OPTIONS, normalizeListingCurrency } from "@/lib/listing-currencies";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -186,6 +188,7 @@ type ProductEditForm = {
   tagsText: string;
   descriptionHtml: string;
   price: string;
+  currency: string;
 };
 
 type MarketplaceSyncPlatformResult = {
@@ -512,7 +515,13 @@ function clearListingDraft(productId: number): void {
 }
 
 function mergeListingEditForm(base: ProductEditForm, draft: ProductEditForm | null): ProductEditForm {
-  if (!draft) return { ...base, price: normalizePriceField(base.price) };
+  if (!draft) {
+    return {
+      ...base,
+      price: normalizePriceField(base.price),
+      currency: normalizeListingCurrency(base.currency),
+    };
+  }
   const draftPrice = parsePriceInput(draft.price);
   const basePrice = parsePriceInput(base.price);
   const mergedPrice = draftPrice != null
@@ -526,6 +535,7 @@ function mergeListingEditForm(base: ProductEditForm, draft: ProductEditForm | nu
     listingTitle: draft.listingTitle.trim() || base.listingTitle,
     sku: draft.sku.trim() || base.sku,
     price: mergedPrice,
+    currency: normalizeListingCurrency(draft.currency || base.currency),
     brandName: draft.brandName.trim() || base.brandName,
     category: draft.category.trim() || base.category,
     bulletPointsText: draft.bulletPointsText.trim() || base.bulletPointsText,
@@ -590,7 +600,47 @@ function buildListingEditForm(
     tagsText: tagsToTextarea(tags),
     descriptionHtml: description,
     price: normalizePriceField(formatListingPrice(product.listingPrice, product.listingCurrency)),
+    currency: normalizeListingCurrency(product.listingCurrency),
   };
+}
+
+function ListingPriceCurrencyFields({
+  price,
+  currency,
+  onPriceChange,
+  onCurrencyChange,
+}: {
+  price: string;
+  currency: string;
+  onPriceChange: (value: string) => void;
+  onCurrencyChange: (value: string) => void;
+}) {
+  return (
+    <EditDetailField label="Price">
+      <div className="flex items-center gap-2">
+        <Input
+          value={price}
+          onChange={(e) => onPriceChange(e.target.value)}
+          onBlur={(e) => onPriceChange(normalizePriceField(e.target.value))}
+          className="text-[11px] font-mono flex-1 min-w-0"
+          placeholder="Enter price"
+          inputMode="decimal"
+        />
+        <Select value={normalizeListingCurrency(currency)} onValueChange={onCurrencyChange}>
+          <SelectTrigger className="h-9 w-[5.5rem] shrink-0 text-[11px] font-mono px-2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {LISTING_CURRENCY_OPTIONS.map((opt) => (
+              <SelectItem key={opt.code} value={opt.code} className="text-xs font-mono">
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </EditDetailField>
+  );
 }
 
 function EditDetailField({
@@ -1813,6 +1863,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       if (parsedPrice != null) {
         payload.price = String(parsedPrice);
       }
+      payload.currency = normalizeListingCurrency(data.currency);
 
       if (isStoreImportProduct(product)) {
         payload.syncMarketplaces = true;
@@ -2601,21 +2652,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
                         className="text-[11px] font-mono"
                       />
                     </EditDetailField>
-                    <EditDetailField label="Price">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editForm.price}
-                          onChange={(e) => updateEditField("price", e.target.value)}
-                          onBlur={(e) => updateEditField("price", normalizePriceField(e.target.value))}
-                          className="text-[11px] font-mono"
-                          placeholder="Enter price"
-                          inputMode="decimal"
-                        />
-                        {product.listingCurrency && (
-                          <span className="text-[10px] text-slate-500 shrink-0">{product.listingCurrency}</span>
-                        )}
-                      </div>
-                    </EditDetailField>
+                    <ListingPriceCurrencyFields
+                      price={editForm.price}
+                      currency={editForm.currency}
+                      onPriceChange={(value) => updateEditField("price", value)}
+                      onCurrencyChange={(value) => updateEditField("currency", value)}
+                    />
                     <EditDetailField label="Brand">
                       <Input
                         value={editForm.brandName}
@@ -2669,23 +2711,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
                         className="text-[11px] font-mono"
                       />
                     </EditDetailField>
-                    <EditDetailField label="Price">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editForm.price}
-                          onChange={(e) => updateEditField("price", e.target.value)}
-                          onBlur={(e) => updateEditField("price", normalizePriceField(e.target.value))}
-                          className="text-[11px] font-mono"
-                          placeholder="Enter price"
-                          inputMode="decimal"
-                        />
-                        {(listingProduct?.listingCurrency ?? product.listingCurrency) && (
-                          <span className="text-[10px] text-slate-500 shrink-0">
-                            {listingProduct?.listingCurrency ?? product.listingCurrency}
-                          </span>
-                        )}
-                      </div>
-                    </EditDetailField>
+                    <ListingPriceCurrencyFields
+                      price={editForm.price}
+                      currency={editForm.currency}
+                      onPriceChange={(value) => updateEditField("price", value)}
+                      onCurrencyChange={(value) => updateEditField("currency", value)}
+                    />
                     <EditDetailField label="Brand">
                       <Input
                         value={editForm.brandName}

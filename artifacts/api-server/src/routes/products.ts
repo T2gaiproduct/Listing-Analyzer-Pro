@@ -514,6 +514,7 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
     targetKeywords: string[];
     descriptionHtml: string;
     price: number | string | null;
+    currency: string | null;
   }>;
 
   const where = await productsScopeWhere(req);
@@ -560,6 +561,7 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
       descriptionHtml: body.descriptionHtml,
       price: body.price,
       sku: body.sku,
+      currency: body.currency,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not update listing fields";

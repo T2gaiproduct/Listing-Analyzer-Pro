@@ -4,6 +4,7 @@ import { db, auditsTable, productMarketplaceListingsTable } from "@workspace/db"
 import { bulletsToHtmlDescription } from "./resolve-listing-content.js";
 import { sanitizeHtmlDescription } from "./sanitize-html.js";
 import { normalizeBulletPoints as normalizeListingBullets } from "./listing-content-format.js";
+import { normalizeStoreCurrency } from "./store-currency.js";
 
 export interface ProductListingPatchInput {
   listingTitle?: string;
@@ -12,6 +13,8 @@ export interface ProductListingPatchInput {
   descriptionHtml?: string;
   price?: number | string | null;
   sku?: string;
+  /** ISO 4217 code; applied to Shopify, Amazon, and WooCommerce listing rows with price updates. */
+  currency?: string | null;
 }
 
 function normalizeBulletPoints(raw: string[]): string[] {
@@ -112,11 +115,22 @@ export async function applyProductListingUpdates(
     await db.update(auditsTable).set(auditUpdates).where(eq(auditsTable.id, auditId));
   }
 
-  if (body.price !== undefined || typeof body.sku === "string") {
+  const currency = body.currency !== undefined
+    ? (body.currency == null || String(body.currency).trim() === ""
+      ? undefined
+      : normalizeStoreCurrency(String(body.currency).trim()))
+    : undefined;
+
+  if (body.price !== undefined || typeof body.sku === "string" || currency !== undefined) {
     const priceCents = body.price !== undefined ? parsePriceCents(body.price) : undefined;
     const sku = typeof body.sku === "string" ? body.sku.trim() || null : undefined;
     for (const marketplace of SYNC_MARKETPLACES) {
-      await upsertMarketplaceListingPriceSku(auditId, marketplace, { priceCents, sku }, existing.workspaceId);
+      await upsertMarketplaceListingPriceSku(
+        auditId,
+        marketplace,
+        { priceCents, sku, currency },
+        existing.workspaceId,
+      );
     }
   }
 }
@@ -127,7 +141,11 @@ type SyncMarketplace = (typeof SYNC_MARKETPLACES)[number];
 async function upsertMarketplaceListingPriceSku(
   auditId: number,
   marketplace: SyncMarketplace,
-  patch: { priceCents?: number | null; sku?: string | null | undefined },
+  patch: {
+    priceCents?: number | null;
+    sku?: string | null | undefined;
+    currency?: string | undefined;
+  },
   workspaceId?: number | null,
 ): Promise<void> {
   const listingPatch: Record<string, unknown> = { updatedAt: new Date() };
@@ -136,6 +154,9 @@ async function upsertMarketplaceListingPriceSku(
   }
   if (patch.sku !== undefined) {
     listingPatch.sku = patch.sku;
+  }
+  if (patch.currency) {
+    listingPatch.currency = patch.currency;
   }
   if (Object.keys(listingPatch).length <= 1) return;
 
@@ -159,6 +180,6 @@ async function upsertMarketplaceListingPriceSku(
     status: "pending",
     sku: patch.sku ?? null,
     priceCents: patch.priceCents != null && patch.priceCents > 0 ? patch.priceCents : null,
-    currency: "USD",
+    currency: patch.currency ?? "USD",
   });
 }

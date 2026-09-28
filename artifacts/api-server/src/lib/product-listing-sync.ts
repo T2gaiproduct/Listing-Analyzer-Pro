@@ -87,6 +87,7 @@ function hasListingFieldChanges(body: Record<string, unknown>): boolean {
     || body.targetKeywords !== undefined
     || body.descriptionHtml !== undefined
     || body.price !== undefined
+    || body.currency !== undefined
     || body.sku !== undefined
     || body.productName !== undefined
     || body.brandName !== undefined
