@@ -51,7 +51,15 @@ export function canViewPath(
   }
 
   if (p === "/team") return can("team", "viewGlobal");
-  if (p === "/workspaces" || p.startsWith("/workspaces/")) return canView("workspaces");
+  if (p === "/workspaces") return canView("workspaces");
+  if (p.startsWith("/workspaces/")) {
+    if (isBillingAccountOwner) return true;
+    return (
+      can("team", "viewGlobal")
+      || can("team", "create")
+      || can("team", "edit")
+    );
+  }
   if (p === "/notifications") return canView("notifications");
   if (p === "/profile") return canView("profile");
   if (p === "/settings") return canView("settings");
