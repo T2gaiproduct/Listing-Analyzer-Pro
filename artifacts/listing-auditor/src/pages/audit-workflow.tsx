@@ -1643,7 +1643,7 @@ export default function AuditWorkflow() {
       });
 
     }
-  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast, isTeamMember, memberCredits?.imageCredits, accountImageCredits, aplusImageCostPerModule]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!productName.trim()) {
