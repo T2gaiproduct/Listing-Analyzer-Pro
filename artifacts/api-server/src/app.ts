@@ -22,10 +22,6 @@ import {
 } from "./lib/marketplace-publish-images";
 import { isAllowedOrigin } from "./lib/allowed-origins";
 import { clerkMiddlewareOptionsForRequest } from "./lib/clerk-middleware-options.js";
-import {
-  CLERK_PROXY_PATH,
-  clerkProxyMiddleware,
-} from "./middlewares/clerkProxyMiddleware";
 import { WebhookHandlers } from "./webhookHandlers";
 import { handleJsonParseError } from "./middlewares/json-parse-error";
 
@@ -49,7 +45,7 @@ app.use(
   }),
 );
 
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+// Clerk loads via custom domain (clerk.sellerlens.io) — no /api/__clerk proxy on production.
 
 // ─── Stripe webhook MUST be registered BEFORE express.json() ─────────────────
 // Stripe requires the raw Buffer body to verify the signature.

@@ -23,6 +23,7 @@ import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import {
   clerkFrontendHostFromPublishableKey,
+  isSellerLensAppHostname,
   shouldUseSameOriginClerkProxy,
 } from "@/lib/clerk-proxy-host";
 import { buildClerkLocalization } from "@/lib/clerk-localization";
@@ -312,17 +313,21 @@ function sameOriginClerkProxyPath(): string {
 }
 
 function resolveClerkProxyUrl(): string | undefined {
-  if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
+  if (typeof window !== "undefined" && isSellerLensAppHostname(window.location.hostname)) {
+    return undefined;
+  }
+
+  const envProxy = clerkProxyUrlFromEnv?.trim();
+  if (envProxy) {
+    if (envProxy.includes("sellerlens.io")) return undefined;
+    return envProxy;
+  }
+
   if (typeof window === "undefined") return undefined;
 
   const host = window.location.hostname;
   if (shouldUseSameOriginClerkProxy(host, clerkPubKey)) {
     return sameOriginClerkProxyPath();
-  }
-
-  // pk_test on quick tunnels / localhost: Clerk CDN (dev-stack does not repoint production proxy_url).
-  if (clerkPubKey.startsWith("pk_test_")) {
-    return undefined;
   }
 
   return undefined;
