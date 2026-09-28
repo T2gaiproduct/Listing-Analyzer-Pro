@@ -102,7 +102,7 @@ type Step = 1 | 2 | 3;
 type CreatePath = "graphics" | "aplus";
 
 function stepLabels(path: CreatePath | null): { id: number; label: string }[] {
-  const step3Label = path === "aplus" ? "A+ Content" : path === "graphics" ? "Select Graphics" : "Create";
+  const step3Label = path === "aplus" ? "A+ images" : path === "graphics" ? "Gallery images" : "Create";
   return [
     { id: 1, label: "Upload Product" },
     { id: 2, label: "Choose what to create" },
@@ -239,6 +239,7 @@ export default function CreateProject() {
         promptReferenceImageUrls?: string[];
         quality?: GraphicsQuality;
       }>;
+      runFlow: CreatePath;
     }) => {
       let auditId: number | undefined;
       if (input.aplusModuleIds.length > 0) {
@@ -304,20 +305,21 @@ export default function CreateProject() {
       return {
         project,
         auditId,
-        flow: input.imageTypes.length > 0 ? "graphics" as const : "aplus" as const,
+        flow: input.runFlow,
       };
     },
-    onSuccess: ({ project, auditId, flow }) => {
+    onSuccess: ({ project, flow }) => {
       refreshCreditBalances(queryClient);
-      if (flow === "aplus" && auditId != null) {
+      const returnTo = encodeURIComponent("/projects");
+      if (flow === "aplus") {
         toast({
           title: "A+ generation started",
-          description: "Opening your listing project to track A+ progress.",
+          description: "Track module progress on your graphics project.",
         });
-        nav(`/audits/${auditId}?returnTo=${encodeURIComponent("/projects")}`);
+        nav(`/projects/${project.id}?returnTo=${returnTo}`);
         return;
       }
-      nav(`/projects/${project.id}/generating?returnTo=${encodeURIComponent("/projects")}`);
+      nav(`/projects/${project.id}/generating?returnTo=${returnTo}`);
     },
     onError: (err) => {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to create", variant: "destructive" });
@@ -455,6 +457,8 @@ export default function CreateProject() {
       });
       return;
     }
+    const runFlow: CreatePath =
+      input.aplusModuleIds.length > 0 ? "aplus" : "graphics";
     createProject.mutate({
       createBody: {
         name: `${productName} Project`,
@@ -467,6 +471,7 @@ export default function CreateProject() {
       typeConfigs: input.imageTypes.length > 0 ? graphicsTypeConfigsPayload : {},
       aplusModuleIds: input.aplusModuleIds,
       aplusModuleConfigs: input.aplusModuleIds.length > 0 ? aplusModuleConfigsPayload : {},
+      runFlow,
     });
   };
 
@@ -488,10 +493,17 @@ export default function CreateProject() {
     if (path === "aplus" && !category.trim()) {
       toast({
         title: "Category required",
-        description: "Select a category on step 1 before creating A+ content.",
+        description: "Select a category on step 1 before creating A+ images.",
         variant: "destructive",
       });
       return;
+    }
+    if (path === "graphics") {
+      setSelectedAplusModules([]);
+      setAplusModulePromptConfigs({});
+    } else {
+      setSelectedImageTypes([]);
+      setImageTypePromptConfigs({});
     }
     setCreatePath(path);
     setStep(3);
@@ -683,13 +695,13 @@ export default function CreateProject() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">What do you want to create?</h2>
             <p className="text-xs text-slate-500 mt-1">
-              Your uploads apply to either path. Pick one — not both in a single run.
+              Your uploads apply to either path. Pick gallery images or A+ images — one per run.
             </p>
             <p className="text-xs text-slate-600 mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 leading-relaxed">
-              <strong className="font-semibold text-slate-800">Product graphics</strong> stays in Create Graphics and opens the
-              graphics generating page. <strong className="font-semibold text-slate-800">A+ content</strong> creates a listing
-              project and opens <strong className="font-semibold text-slate-800">Build Your Brand</strong> so you can track A+
-              modules (same as starting A+ from a listing).
+              <strong className="font-semibold text-slate-800">Gallery images</strong> (lifestyle, hero, infographics) stay in
+              Create Graphics with a generating screen and gallery view.{" "}
+              <strong className="font-semibold text-slate-800">A+ images</strong> use Amazon A+ modules and open the same
+              graphics project page to track A+ progress — not Build Your Brand or Product Explorer.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -701,9 +713,9 @@ export default function CreateProject() {
               <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
                 <Wand2 className="w-5 h-5 text-orange-600" />
               </div>
-              <p className="text-base font-semibold text-slate-900">Product graphics</p>
+              <p className="text-base font-semibold text-slate-900">Gallery images</p>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Lifestyle shots, infographics, and listing images. You&apos;ll stay in Create Graphics.
+                Lifestyle shots, hero images, infographics, and feature graphics. Stays in Create Graphics.
               </p>
             </button>
             <button
@@ -714,9 +726,9 @@ export default function CreateProject() {
               <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
                 <Sparkles className="w-5 h-5 text-orange-600" />
               </div>
-              <p className="text-base font-semibold text-slate-900">A+ content</p>
+              <p className="text-base font-semibold text-slate-900">A+ images</p>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Amazon A+ modules (hero, features, comparison, brand story). Opens Build Your Brand to view results.
+                Amazon A+ modules (hero, features, comparison, brand story). Results on your graphics project page.
                 Category required on step 1.
               </p>
             </button>
@@ -732,8 +744,8 @@ export default function CreateProject() {
               <Wand2 className="w-4 h-4 text-orange-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Select Graphics</h2>
-              <p className="text-xs text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
+              <h2 className="text-lg font-bold text-slate-900">Gallery images</h2>
+              <p className="text-xs text-slate-500">Choose the gallery image types to generate. You can select multiple.</p>
             </div>
           </div>
 
