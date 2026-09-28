@@ -6,6 +6,14 @@ FRONTEND_DIR="/var/www/sellerlens"
 API_PM2_NAME="listing-auditor-api"
 BRANCH="${1:-staging}"
 
+# Server-only runtime/migrated data — never delete or reset; allow during deploy.
+DEPLOY_GIT_IGNORE_PREFIXES=(
+  "artifacts/api-server/public/images/"
+  "artifacts/api-server/public/images.before-old-server/"
+  "public/"
+  "ssh/"
+)
+
 cd "$APP_DIR"
 
 echo "=========================================="
@@ -14,12 +22,48 @@ echo " Branch: $BRANCH"
 echo "=========================================="
 echo
 
-echo "==> Checking Git working tree..."
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "ERROR: Working tree is not clean."
-  echo "Commit/stash local changes before deploying."
-  git status --short
+deploy_git_path_is_ignored() {
+  local path="$1"
+  path="${path#\"}"
+  path="${path%\"}"
+  if [[ "$path" == "deploy.sh" ]]; then
+    return 0
+  fi
+  local prefix
+  for prefix in "${DEPLOY_GIT_IGNORE_PREFIXES[@]}"; do
+    if [[ "$path" == "${prefix%/}" || "$path" == "$prefix"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+deploy_git_blocking_changes() {
+  local line path blocking=""
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    path="${line:3}"
+    if [[ "$path" == *" -> "* ]]; then
+      path="${path##* -> }"
+    fi
+    if deploy_git_path_is_ignored "$path"; then
+      continue
+    fi
+    blocking+="${line}"$'\n'
+  done < <(git status --porcelain)
+  printf '%s' "$blocking"
+}
+
+echo "==> Checking Git working tree (ignoring migrated runtime paths)..."
+BLOCKING_CHANGES="$(deploy_git_blocking_changes)"
+if [[ -n "${BLOCKING_CHANGES//$'\n'/}" ]]; then
+  echo "ERROR: Working tree has changes outside allowed runtime paths."
+  echo "Commit/stash those changes before deploying."
+  printf '%s' "$BLOCKING_CHANGES"
   exit 1
+fi
+if [[ -n "$(git status --porcelain)" && -z "${BLOCKING_CHANGES//$'\n'/}" ]]; then
+  echo "Note: ignored local/runtime paths (images, public/, ssh/, deploy.sh)."
 fi
 
 echo
