@@ -395,6 +395,24 @@ ALTER TABLE audits
 ALTER TABLE audits
   ADD COLUMN IF NOT EXISTS product_description text;
 
+-- ─── Marketplace-specific listing content generation ───────────────────────
+CREATE TABLE IF NOT EXISTS content_marketplaces (
+  id serial PRIMARY KEY,
+  slug text NOT NULL UNIQUE,
+  name text NOT NULL,
+  description text,
+  enabled integer NOT NULL DEFAULT 1,
+  is_default integer NOT NULL DEFAULT 0,
+  sort_order integer NOT NULL DEFAULT 0,
+  ai_instructions text NOT NULL,
+  rules jsonb,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+ALTER TABLE audits
+  ADD COLUMN IF NOT EXISTS content_marketplace_id integer;
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

@@ -888,13 +888,23 @@ export const getGenerateContentUrl = (id: number) => {
   return `/api/audits/${id}/generate-content`;
 };
 
+export type GenerateContentBody = {
+  customPrompt?: string;
+  promptReferenceImageUrls?: string[];
+  contentMarketplaceId?: number;
+  contentMarketplaceSlug?: string;
+};
+
 export const generateContent = async (
   id: number,
+  data?: GenerateContentBody,
   options?: RequestInit,
 ): Promise<GeneratedContent> => {
   return customFetch<GeneratedContent>(getGenerateContentUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
+    body: JSON.stringify(data ?? {}),
   });
 };
 
@@ -905,14 +915,14 @@ export const getGenerateContentMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof generateContent>>,
     TError,
-    { id: number },
+    { id: number; data?: GenerateContentBody },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof generateContent>>,
   TError,
-  { id: number },
+  { id: number; data?: GenerateContentBody },
   TContext
 > => {
   const mutationKey = ["generateContent"];
@@ -926,11 +936,11 @@ export const getGenerateContentMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof generateContent>>,
-    { id: number }
+    { id: number; data?: GenerateContentBody }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return generateContent(id, requestOptions);
+    return generateContent(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -952,14 +962,14 @@ export const useGenerateContent = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof generateContent>>,
     TError,
-    { id: number },
+    { id: number; data?: GenerateContentBody },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof generateContent>>,
   TError,
-  { id: number },
+  { id: number; data?: GenerateContentBody },
   TContext
 > => {
   return useMutation(getGenerateContentMutationOptions(options));

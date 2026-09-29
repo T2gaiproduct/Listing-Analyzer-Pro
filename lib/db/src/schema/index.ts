@@ -20,3 +20,4 @@ export * from "./product-orders";
 export * from "./product-marketplace-listings";
 export * from "./product-profiles";
 export * from "./sellermate";
+export * from "./content-marketplaces";

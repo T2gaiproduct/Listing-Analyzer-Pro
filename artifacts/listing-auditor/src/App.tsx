@@ -127,6 +127,7 @@ import {
   AdminSettingsSecurity,
   AdminSettingsPaymentGateway,
   AdminSettingsEmail,
+  AdminSettingsContentMarketplaces,
   AdminMarketingHomepage,
   AdminMarketingPages,
   AdminMarketingBlog,
@@ -728,6 +729,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/email">
         <AdminRoute><AdminSettingsEmail /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/content-marketplaces">
+        <AdminRoute><AdminSettingsContentMarketplaces /></AdminRoute>
       </Route>
 
       {/* Marketing */}

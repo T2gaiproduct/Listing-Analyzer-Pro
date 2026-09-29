@@ -59,6 +59,11 @@ import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { downloadAppImage } from "@/lib/download-app-image";
+import { ContentMarketplaceSelect } from "@/components/content-marketplace-select";
+import {
+  pickDefaultMarketplaceId,
+  useListingContentMarketplaces,
+} from "@/lib/content-marketplaces";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
@@ -696,6 +701,18 @@ export default function AuditWorkflow() {
     );
   }, [currentAuditId, patchAudit, queryClient]);
   const generateContentDirect = useGenerateContentDirect();
+  const { data: listingContentMarketplaceData, isLoading: marketplacesLoading } = useListingContentMarketplaces();
+  const contentMarketplaces = listingContentMarketplaceData?.marketplaces ?? [];
+  const [contentMarketplaceId, setContentMarketplaceId] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!contentMarketplaces.length) return;
+    setContentMarketplaceId((prev) =>
+      pickDefaultMarketplaceId(contentMarketplaces, prev) ?? contentMarketplaces[0]?.id,
+    );
+  }, [contentMarketplaces]);
+
+  const selectedMarketplace = contentMarketplaces.find((m) => m.id === contentMarketplaceId);
 
   const ensureAuditDraft = useCallback(async (preflight?: {
     graphicsImageCount?: number;
@@ -791,6 +808,10 @@ export default function AuditWorkflow() {
     setUploadedImages((auditData.imageUrls as string[]) || []);
     if (auditData.generatedContent) {
       setGeneratedContent(auditData.generatedContent as any);
+    }
+    const savedMarketplaceId = (auditData as { contentMarketplaceId?: number | null }).contentMarketplaceId;
+    if (savedMarketplaceId != null) {
+      setContentMarketplaceId(savedMarketplaceId);
     }
     // Restore graphics selections from saved payload only
     if ((auditData as any).selectedImageTypes && Array.isArray((auditData as any).selectedImageTypes)) {
@@ -1569,6 +1590,7 @@ export default function AuditWorkflow() {
             bulletPoints: syntheticBullets,
             targetKeywords: syntheticKeywords,
             imageUrls: uploadedImages,
+            contentMarketplaceId,
           },
         },
         {
@@ -2140,11 +2162,23 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
+              <ContentMarketplaceSelect
+                marketplaces={contentMarketplaces}
+                value={contentMarketplaceId}
+                onChange={setContentMarketplaceId}
+                loading={marketplacesLoading}
+                disabled={isCreating}
+                className="bg-card border border-border rounded-2xl p-4"
+              />
+
               <div className="bg-orange-500/10 border border-orange-100 rounded-2xl p-5 flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-xs font-semibold text-orange-900">AI-Powered Optimization</p>
-                  <p className="text-xs text-orange-700 mt-1">Our AI generates compelling titles, bullet points, keywords, and descriptions optimized for Amazon search and conversions.</p>
+                  <p className="text-xs text-orange-700 mt-1">
+                    Our AI generates titles, bullet points, keywords, and descriptions using the rules configured for{" "}
+                    <span className="font-medium">{selectedMarketplace?.name ?? "your selected marketplace"}</span>.
+                  </p>
                 </div>
               </div>
 
@@ -2169,7 +2203,9 @@ export default function AuditWorkflow() {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       credentials: "include",
-                      body: JSON.stringify({}),
+                      body: JSON.stringify({
+                        contentMarketplaceId,
+                      }),
                     })
                       .then(async (res) => {
                         if (!res.ok) {
@@ -2228,6 +2264,7 @@ export default function AuditWorkflow() {
                         bulletPoints: syntheticBullets,
                         targetKeywords: syntheticKeywords.slice(0, 10),
                         imageUrls: uploadedImages,
+                        contentMarketplaceId,
                       },
                     },
                     {

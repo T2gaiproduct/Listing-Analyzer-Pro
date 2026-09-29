@@ -25,6 +25,10 @@ import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/lis
 import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
 import {
+  ContentMarketplaceError,
+  resolveContentMarketplaceForGeneration,
+} from "../lib/content-marketplace-service.js";
+import {
   analyzeReferenceIntelligence,
   fetchReferenceListingSummaries,
 } from "../lib/analyze-reference-intelligence.js";
@@ -1169,10 +1173,16 @@ router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWo
       currentBullets: parsed.data.bulletPoints,
       currentKeywords: parsed.data.targetKeywords,
       customPrompt: parsed.data.customPrompt,
+      contentMarketplaceId: parsed.data.contentMarketplaceId,
+      contentMarketplaceSlug: parsed.data.contentMarketplaceSlug,
     });
     await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "content", { userId: ownerId });
     res.json(generatedContent);
   } catch (err) {
+    if (err instanceof ContentMarketplaceError) {
+      res.status(err.code === "disabled" ? 400 : 404).json({ error: err.message });
+      return;
+    }
     const { httpStatus, message } = mapAiProviderError(err);
     res.status(httpStatus).json({ error: message });
   }
@@ -1198,6 +1208,8 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
   const body = (req.body ?? {}) as {
     customPrompt?: string;
     promptReferenceImageUrls?: string[];
+    contentMarketplaceId?: number;
+    contentMarketplaceSlug?: string;
   };
 
   try {
@@ -1205,6 +1217,10 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       ...(body.promptReferenceImageUrls ?? []),
       ...((audit.imageUrls as string[]) ?? []),
     ];
+    const marketplace = await resolveContentMarketplaceForGeneration({
+      contentMarketplaceId: body.contentMarketplaceId ?? audit.contentMarketplaceId,
+      contentMarketplaceSlug: body.contentMarketplaceSlug,
+    });
     const generatedContent = await generateListingContent({
       productName: audit.productName,
       asin: audit.asin,
@@ -1217,6 +1233,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       currentKeywords: audit.targetKeywords as string[],
       auditSummary: audit.result?.summary,
       customPrompt: body.customPrompt,
+      contentMarketplaceId: marketplace.id,
     });
 
     const contentDeduct = await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
@@ -1227,12 +1244,17 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       .set({
         generatedContent,
         sourceListingContent,
+        contentMarketplaceId: marketplace.id,
         updatedAt: new Date(),
       })
       .where(eq(auditsTable.id, id));
 
     res.json(withCreditUsage(generatedContent as Record<string, unknown>, contentDeduct));
   } catch (err) {
+    if (err instanceof ContentMarketplaceError) {
+      res.status(err.code === "disabled" ? 400 : 404).json({ error: err.message });
+      return;
+    }
     const { httpStatus, message } = mapAiProviderError(err);
     res.status(httpStatus).json({ error: message });
   }

@@ -105,6 +105,7 @@ export const AdminSettingsAPI = lazyWithRetry(() => import("@/pages/admin/settin
 export const AdminSettingsSecurity = lazyWithRetry(() => import("@/pages/admin/settings/security"));
 export const AdminSettingsPaymentGateway = lazyWithRetry(() => import("@/pages/admin/settings/payment-gateway"));
 export const AdminSettingsEmail = lazyWithRetry(() => import("@/pages/admin/settings/email"));
+export const AdminSettingsContentMarketplaces = lazyWithRetry(() => import("@/pages/admin/settings/content-marketplaces"));
 export const AdminMarketingHomepage = lazyWithRetry(() => import("@/pages/admin/marketing/homepage"));
 export const AdminMarketingPages = lazyWithRetry(() => import("@/pages/admin/marketing/pages"));
 export const AdminMarketingBlog = lazyWithRetry(() => import("@/pages/admin/marketing/blog"));

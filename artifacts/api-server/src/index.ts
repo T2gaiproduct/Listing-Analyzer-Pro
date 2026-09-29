@@ -13,6 +13,10 @@ import { ensureWorkspaceCreditsMigrated } from "./lib/ensure-workspace-credits.j
 import { ensureSellermateSchemaMigrated } from "./lib/ensure-sellermate-schema.js";
 import { ensureGraphicsProjectsSchemaMigrated } from "./lib/ensure-graphics-schema.js";
 import { ensureProductOrdersSchemaMigrated } from "./lib/ensure-product-orders-schema.js";
+import {
+  ensureContentMarketplacesSchemaMigrated,
+  ensureDefaultContentMarketplacesSeeded,
+} from "./lib/ensure-content-marketplaces.js";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -110,6 +114,11 @@ ensureGraphicsProjectsSchemaMigrated()
 ensureProductOrdersSchemaMigrated()
   .then(() => logger.info("Product orders schema migration ready"))
   .catch((err) => logger.error({ err }, "Product orders schema migration failed"));
+
+ensureContentMarketplacesSchemaMigrated()
+  .then(() => ensureDefaultContentMarketplacesSeeded())
+  .then(() => logger.info("Content marketplaces schema and seed ready"))
+  .catch((err) => logger.error({ err }, "Content marketplaces migration failed"));
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);

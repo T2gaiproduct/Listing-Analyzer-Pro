@@ -9,7 +9,7 @@ import {
   BrainCircuit, Bot, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
-  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
+  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen, Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -116,6 +116,7 @@ const navSections: Array<{
     items: [
       { href: "/admin/settings/platform", label: "Company Settings", icon: Settings, permission: "manage_settings" },
       { href: "/admin/settings/ai", label: "AI Settings", icon: BrainCircuit, permission: "manage_settings" },
+      { href: "/admin/settings/content-marketplaces", label: "Marketplace Content", icon: Store, permission: "manage_settings" },
       { href: "/admin/settings/default-agents", label: "Default SellerLens Agents", icon: Bot, permission: "manage_settings" },
       { href: "/admin/settings/api", label: "Webhook Settings", icon: KeyRound, permission: "manage_settings" },
       { href: "/admin/settings/email", label: "Email Settings", icon: Mail, permission: "manage_settings" },

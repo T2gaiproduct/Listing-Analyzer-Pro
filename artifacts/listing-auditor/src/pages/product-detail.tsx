@@ -44,6 +44,11 @@ import { fetchShopifyStatus } from "@/lib/shopify-publish";
 import { ShopifyPublishCollectionsDialog } from "@/components/shopify-publish-collections-dialog";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
+import { ContentMarketplaceSelect } from "@/components/content-marketplace-select";
+import {
+  pickDefaultMarketplaceId,
+  useListingContentMarketplaces,
+} from "@/lib/content-marketplaces";
 import { ScoreBadge, ScoreRing } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -1045,6 +1050,11 @@ function OptimizedContentPanel({
   optimizeDisabled,
   hideBulletPoints = false,
   showExistingContent = true,
+  contentMarketplaces,
+  contentMarketplaceId,
+  onContentMarketplaceChange,
+  marketplacesLoading,
+  selectedMarketplaceName,
 }: {
   generatedContent?: GeneratedContent | null;
   existingContent?: ListingContentView | null;
@@ -1055,6 +1065,11 @@ function OptimizedContentPanel({
   optimizeDisabled?: boolean;
   hideBulletPoints?: boolean;
   showExistingContent?: boolean;
+  contentMarketplaces: import("@/lib/content-marketplaces").ContentMarketplaceOption[];
+  contentMarketplaceId?: number;
+  onContentMarketplaceChange: (id: number) => void;
+  marketplacesLoading?: boolean;
+  selectedMarketplaceName?: string;
 }) {
   const optimizedContent: ListingContentView | null = hasGeneratedContent && generatedContent?.title
     ? {
@@ -1069,6 +1084,18 @@ function OptimizedContentPanel({
 
   return (
     <div className="space-y-4">
+      <ContentMarketplaceSelect
+        marketplaces={contentMarketplaces}
+        value={contentMarketplaceId}
+        onChange={onContentMarketplaceChange}
+        loading={marketplacesLoading}
+        disabled={isOptimizing || optimizeDisabled}
+      />
+      {selectedMarketplaceName ? (
+        <p className="text-[11px] text-slate-500">
+          Content will follow <span className="font-medium text-slate-700">{selectedMarketplaceName}</span> rules configured in Admin.
+        </p>
+      ) : null}
       <div
         className={cn(
           "grid gap-4 items-start",
@@ -1439,6 +1466,19 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }, [auditData, linkedAuditData, optimizeAuditId]);
 
   const generateContent = useGenerateContent();
+  const { data: listingContentMarketplaceData, isLoading: marketplacesLoading } = useListingContentMarketplaces();
+  const contentMarketplaces = listingContentMarketplaceData?.marketplaces ?? [];
+  const [contentMarketplaceId, setContentMarketplaceId] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!contentMarketplaces.length) return;
+    const saved = (effectiveAudit as { contentMarketplaceId?: number | null } | undefined)?.contentMarketplaceId;
+    setContentMarketplaceId((prev) =>
+      pickDefaultMarketplaceId(contentMarketplaces, saved ?? prev) ?? contentMarketplaces[0]?.id,
+    );
+  }, [contentMarketplaces, effectiveAudit]);
+
+  const selectedContentMarketplace = contentMarketplaces.find((m) => m.id === contentMarketplaceId);
 
   const resolvedSource = product?.sourceType ?? source ?? "listing";
 
@@ -2363,7 +2403,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!canEditProduct) return;
 
     generateContent.mutate(
-      { id: optimizeAuditId },
+      { id: optimizeAuditId, data: { contentMarketplaceId } },
       {
         onSuccess: (generatedContent: GeneratedContent) => {
           const sourceSnapshot = existingListingContent
@@ -2518,6 +2558,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
               {...panelProps}
               hideBulletPoints={isStoreImportProduct(product)}
               showExistingContent={shouldShowExistingListingContent(product, effectiveAudit)}
+              contentMarketplaces={contentMarketplaces}
+              contentMarketplaceId={contentMarketplaceId}
+              onContentMarketplaceChange={setContentMarketplaceId}
+              marketplacesLoading={marketplacesLoading}
+              selectedMarketplaceName={selectedContentMarketplace?.name}
             />
           )}
           overviewContent={

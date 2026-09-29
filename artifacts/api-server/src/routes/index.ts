@@ -22,12 +22,16 @@ import marketplacesRouter from "./marketplaces";
 import adsRouter from "./ads";
 import sellermateRouter from "./sellermate";
 import agentToolsRouter from "./agent-tools";
+import contentGenerationMarketplacesRouter from "./content-generation-marketplaces";
+import adminContentMarketplacesRouter from "./admin-content-marketplaces";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(fetchListingRouter);
 router.use(adminRouter);
+router.use(adminContentMarketplacesRouter);
+router.use(contentGenerationMarketplacesRouter);
 router.use(publicRouter);
 router.use(teamRouter);
 router.use(accountRolesRouter);

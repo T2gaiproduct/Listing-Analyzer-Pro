@@ -52,6 +52,8 @@ export interface GenerateContentDirectBody {
   imageUrls?: string[];
   customPrompt?: string;
   promptReferenceImageUrls?: string[];
+  contentMarketplaceId?: number;
+  contentMarketplaceSlug?: string;
 }
 
 export interface GeneratedContent {

@@ -94,6 +94,8 @@ export const auditsTable = pgTable("audits", {
   currentStep: integer("current_step").default(1),
   /** Product Explorer reference listings + intelligence (research only). */
   referenceResearch: jsonb("reference_research").$type<ReferenceResearchData>(),
+  /** Marketplace used for AI listing content generation (content_marketplaces.id). */
+  contentMarketplaceId: integer("content_marketplace_id"),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -29,6 +29,8 @@ export const GenerateContentDirectBody = zod.object({
   imageUrls: zod.array(zod.string()).optional(),
   customPrompt: zod.string().optional(),
   promptReferenceImageUrls: zod.array(zod.string()).optional(),
+  contentMarketplaceId: zod.number().int().positive().optional(),
+  contentMarketplaceSlug: zod.string().optional(),
 });
 
 export const GenerateContentDirectResponse = zod.object({
