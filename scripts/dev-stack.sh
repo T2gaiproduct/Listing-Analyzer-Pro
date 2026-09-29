@@ -530,6 +530,7 @@ tmux_cmd new-session -d -s db-push -c "$ROOT" -- bash -lc "
 echo "==> Starting API server (port 8080)"
 tmux_cmd kill-session -t api-server-live 2>/dev/null || true
 tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
+  if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
   export DATABASE_URL='$DATABASE_URL'
   export PORT=8080
   export ENABLE_CLERK_PROXY=\"\${ENABLE_CLERK_PROXY:-true}\"
@@ -612,6 +613,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
 
   tmux_cmd kill-session -t api-server-live 2>/dev/null || true
   tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
+    if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
     export DATABASE_URL='$DATABASE_URL'
     export PORT=8080
     export ENABLE_CLERK_PROXY=true
