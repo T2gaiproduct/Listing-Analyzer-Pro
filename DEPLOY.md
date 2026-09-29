@@ -109,6 +109,8 @@ PORT=8080
 # eBay OAuth (Marketplaces → Connect with eBay). Use Sandbox first; add Production when going live.
 # RuName values come from developer.ebay.com → your app → User Tokens (not the raw callback URL string).
 EBAY_OAUTH_DEFAULT_ENV=sandbox
+# Staging hosts: set to true so OAuth never uses Production keys even if mis-set
+EBAY_STAGING_SANDBOX_ONLY=true
 EBAY_SANDBOX_CLIENT_ID=
 EBAY_SANDBOX_CLIENT_SECRET=
 EBAY_SANDBOX_RUNAME=
@@ -116,6 +118,8 @@ EBAY_PRODUCTION_CLIENT_ID=
 EBAY_PRODUCTION_CLIENT_SECRET=
 EBAY_PRODUCTION_RUNAME=
 ```
+
+After setting eBay vars on staging, run `bash scripts/verify-ebay-oauth-env.sh` (no secrets printed), then restart the API.
 
 ---
 

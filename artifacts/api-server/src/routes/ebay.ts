@@ -5,6 +5,7 @@ import {
   ebayConnectUnavailableMessageForSellers,
   isEbayOAuthConnectReady,
   resolveActiveEbayOAuthEnvironment,
+  getEbayOAuthPublicDiagnostics,
 } from "../lib/ebay-oauth-config.js";
 import { EBAY_OAUTH_SCOPES } from "../lib/ebay-oauth-scopes.js";
 import { createEbayOAuthState, parseEbayOAuthState } from "../lib/ebay-oauth-state.js";
@@ -44,11 +45,14 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 }
 
 router.get("/ebay/oauth/config", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const diagnostics = getEbayOAuthPublicDiagnostics();
   res.json({
     connectReady: isEbayOAuthConnectReady(),
     unavailableMessage: isEbayOAuthConnectReady() ? null : ebayConnectUnavailableMessageForSellers(),
     scopes: [...EBAY_OAUTH_SCOPES],
     callbackUrl: buildEbayOAuthCallbackUrl(req),
+    activeEnvironment: diagnostics.effectiveEnv,
+    oauth: diagnostics,
   });
 });
 
