@@ -57,3 +57,4 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 ### External secrets
 - Real Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) are required for auth / any UI — currently provisioned.
 - A real OpenAI key enables the full audit flow; when present it lives in the DB `settings` table (see above). The `AI_INTEGRATIONS_OPENAI_API_KEY` env is only a dummy and does not drive the default OpenAI provider.
+- **eBay (staging):** `EBAY_OAUTH_DEFAULT_ENV=sandbox`, `EBAY_STAGING_SANDBOX_ONLY=true`, and `EBAY_SANDBOX_*` (Client ID, Client Secret, RuName). Verify with `bash scripts/verify-ebay-oauth-env.sh`. Production keys only on live deploy with `EBAY_OAUTH_DEFAULT_ENV=production`.

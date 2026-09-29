@@ -18,6 +18,18 @@ export function ebayOAuthDefaultEnvironment(): EbayOAuthEnvironment {
   return raw === "production" ? "production" : "sandbox";
 }
 
+/** When true, OAuth always uses Sandbox credentials (recommended on staging hosts). */
+export function isEbayStagingSandboxOnly(): boolean {
+  const raw = process.env.EBAY_STAGING_SANDBOX_ONLY?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+/** Environment used for connect after applying EBAY_STAGING_SANDBOX_ONLY. */
+export function ebayOAuthEffectiveEnvironment(): EbayOAuthEnvironment {
+  if (isEbayStagingSandboxOnly()) return "sandbox";
+  return ebayOAuthDefaultEnvironment();
+}
+
 function readCredentialsForEnv(environment: EbayOAuthEnvironment): EbayAppCredentials | null {
   const prefix = environment === "sandbox" ? "EBAY_SANDBOX_" : "EBAY_PRODUCTION_";
   const clientId = process.env[`${prefix}CLIENT_ID`]?.trim() ?? "";
@@ -69,8 +81,40 @@ export function describeEbayOAuthSetupIssue(environment: EbayOAuthEnvironment): 
 
 /** Environment used for OAuth on this deployment (from EBAY_OAUTH_DEFAULT_ENV). */
 export function resolveActiveEbayOAuthEnvironment(): EbayOAuthEnvironment | null {
-  const env = ebayOAuthDefaultEnvironment();
+  const env = ebayOAuthEffectiveEnvironment();
   return isEbayOAuthAppConfigured(env) ? env : null;
+}
+
+export type EbayOAuthPublicDiagnostics = {
+  configuredDefaultEnv: EbayOAuthEnvironment;
+  effectiveEnv: EbayOAuthEnvironment;
+  stagingSandboxOnly: boolean;
+  sandboxConfigured: boolean;
+  productionConfigured: boolean;
+  authorizeHost: string;
+  tokenHost: string;
+};
+
+export function getEbayOAuthPublicDiagnostics(): EbayOAuthPublicDiagnostics {
+  const effectiveEnv = ebayOAuthEffectiveEnvironment();
+  const endpoints = ebayOAuthEndpoints(effectiveEnv);
+  let authorizeHost = "unknown";
+  let tokenHost = "unknown";
+  try {
+    authorizeHost = new URL(endpoints.authorizeUrl).host;
+    tokenHost = new URL(endpoints.tokenUrl).host;
+  } catch {
+    // ignore
+  }
+  return {
+    configuredDefaultEnv: ebayOAuthDefaultEnvironment(),
+    effectiveEnv,
+    stagingSandboxOnly: isEbayStagingSandboxOnly(),
+    sandboxConfigured: isEbayOAuthAppConfigured("sandbox"),
+    productionConfigured: isEbayOAuthAppConfigured("production"),
+    authorizeHost,
+    tokenHost,
+  };
 }
 
 export function isEbayOAuthConnectReady(): boolean {
