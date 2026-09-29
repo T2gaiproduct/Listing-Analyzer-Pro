@@ -197,8 +197,6 @@ export async function buildGraphicsPromptForType(
 ): Promise<string | null> {
   const row = await getImagePromptTemplateBySlug("graphics", typeSlug);
   if (!row || row.enabled !== 1) return null;
-  const meta = parseImagePromptMetadata(row.metadata);
-  if (meta.isUserCustomType) return "";
   if (!row.promptTemplate.trim()) return null;
   return renderPromptTemplate(row.promptTemplate, { productDesc });
 }
@@ -266,7 +264,6 @@ export function serializeImagePromptTemplatePublic(row: ImagePromptTemplate) {
     name: row.name,
     description: row.description,
     icon: meta.icon ?? null,
-    isUserCustomType: meta.isUserCustomType === true,
     sortOrder: row.sortOrder,
   };
 }

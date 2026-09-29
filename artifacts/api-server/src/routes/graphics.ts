@@ -269,33 +269,18 @@ async function buildNewImageSpecs(
 
   for (const type of imageTypes) {
     const config = resolveTypeConfig(typeConfigs, type, legacyConfig);
-    if (type === "custom") {
-      if (!config.customPrompt) continue;
-      const idx = lifestyleIndex;
-      const prompt = `${config.customPrompt} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
-      specs.push({
-        id: `lifestyle_${idx}`,
-        type: "lifestyle",
-        index: idx,
-        prompt,
-        imageType: type,
-        aspectRatio: config.aspectRatio,
-        quality: config.quality,
-        promptReferenceImageUrls: config.promptReferenceImageUrls,
-      });
-      lifestyleIndex++;
-      continue;
-    }
     const typePrompt = await buildGraphicsPromptForType(type, productDesc);
     if (typePrompt === null) continue;
-    const basePrompt = typePrompt
-      ? `${typePrompt} Professional commercial product photography. High-resolution.`
+    const basePrompt = typePrompt.trim()
+      ? `${typePrompt.trim()} Professional commercial product photography. High-resolution.`
       : "";
-    const prompt = config.customPrompt
-      ? (basePrompt
-        ? `${basePrompt} Additional creative direction: ${config.customPrompt}`
-        : `${config.customPrompt} Product: ${productDesc}. Professional commercial product photography. High-resolution.`)
-      : basePrompt;
+    const userExtra = config.customPrompt?.trim();
+    let prompt = basePrompt;
+    if (userExtra) {
+      prompt = basePrompt
+        ? `${basePrompt} Additional creative direction: ${userExtra}`
+        : `${userExtra} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
+    }
     if (!prompt.trim()) continue;
     const isFeature = (await resolveGraphicsBucketForType(type)) === "feature";
     if (isFeature) {

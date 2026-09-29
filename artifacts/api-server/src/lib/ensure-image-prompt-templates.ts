@@ -61,4 +61,25 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
       metadata: seed.metadata ?? null,
     });
   }
+
+  const customSeed = DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS.find(
+    (s) => s.category === "graphics" && s.slug === "custom",
+  );
+  if (customSeed) {
+    await db
+      .update(imagePromptTemplatesTable)
+      .set({
+        promptTemplate: customSeed.promptTemplate,
+        metadata: customSeed.metadata ?? null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(imagePromptTemplatesTable.slug, "custom"),
+          eq(imagePromptTemplatesTable.category, "graphics"),
+          eq(imagePromptTemplatesTable.isSystem, 1),
+          sql`length(trim(${imagePromptTemplatesTable.promptTemplate})) < 10`,
+        ),
+      );
+  }
 }

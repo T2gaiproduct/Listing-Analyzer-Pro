@@ -107,8 +107,9 @@ export const DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS: ImagePromptTemplateSeed[] = [
     enabled: 1,
     isSystem: 1,
     sortOrder: 80,
-    metadata: { icon: "✨", graphicsBucket: "lifestyle", isUserCustomType: true },
-    promptTemplate: "",
+    metadata: { icon: "✨", graphicsBucket: "lifestyle" },
+    promptTemplate:
+      "Custom creative product image for {{productDesc}}. Interpret any seller creative direction as refinements on this brief. Professional commercial product photography. High-resolution, clean e-commerce quality. No logos, no watermarks unless the seller direction explicitly allows on-image text.",
   },
   {
     slug: "hero",

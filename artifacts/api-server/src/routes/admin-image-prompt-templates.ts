@@ -75,9 +75,8 @@ function parseUpsertBody(body: unknown): { ok: true; data: ParsedUpsert } | { ok
     return { ok: false, error: "Invalid metadata." };
   }
 
-  const isCustom = meta?.success && meta.data.isUserCustomType;
-  if (categoryParsed.data === "graphics" && !isCustom && promptTemplate.trim().length < 10) {
-    return { ok: false, error: "Image prompt must be at least 10 characters (or enable user custom prompt type)." };
+  if (categoryParsed.data === "graphics" && promptTemplate.trim().length < 10) {
+    return { ok: false, error: "Image prompt must be at least 10 characters." };
   }
   if (categoryParsed.data === "aplus" && promptTemplate.trim().length < 20) {
     return { ok: false, error: "A+ image prompt must be at least 20 characters." };

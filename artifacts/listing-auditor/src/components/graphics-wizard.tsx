@@ -560,7 +560,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     if (step === 2) {
       if (sourceImages.length === 0) return false;
       if (selectedImageTypes.length === 0) return false;
-      if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) return false;
       return true;
     }
     return true;
@@ -998,7 +997,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     disabled={
                       moreImageTypes.length === 0
                       || !canAffordImages(moreImageTypes.length)
-                      || (moreImageTypes.includes("custom") && !getMoreImageTypeConfig("custom").customPrompt.trim())
                     }
                     onClick={() => {
                       if (!requireImageCredits(moreImageTypes.length)) return;

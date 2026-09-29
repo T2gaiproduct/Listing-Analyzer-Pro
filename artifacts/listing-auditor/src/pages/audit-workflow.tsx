@@ -1604,11 +1604,6 @@ export default function AuditWorkflow() {
         toast({ title: "Select image types", description: "Please select at least one image type.", variant: "destructive" });
         return;
       }
-      if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) {
-        setIsCreating(false);
-        toast({ title: "Custom prompt required", description: "Add a prompt for the Generate Custom image type.", variant: "destructive" });
-        return;
-      }
       const graphicsCreditsNeeded = selectedImageTypes.length * aplusImageCostPerModule;
       if (!hasTeamAwareImageCredits(isTeamMember, memberCredits?.imageCredits, accountImageCredits, graphicsCreditsNeeded)) {
         setIsCreating(false);

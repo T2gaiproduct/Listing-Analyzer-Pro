@@ -797,10 +797,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
               </Button>
               <Button
                 className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
-                disabled={
-                  moreImageTypes.length === 0
-                  || (moreImageTypes.includes("custom") && !getMoreImageTypeConfig("custom").customPrompt.trim())
-                }
+                disabled={moreImageTypes.length === 0}
                 onClick={() => {
                   generateMutation.mutate({
                     imageTypes: moreImageTypes,

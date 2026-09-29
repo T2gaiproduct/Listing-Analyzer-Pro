@@ -145,7 +145,8 @@ export default function AdminSettingsImagePromptTemplates() {
         </h1>
         <p className="text-sm text-slate-500 mt-1">
           Manage AI prompts for Create Graphics gallery types and A+ content image modules.
-          Enabled templates appear in the graphics and A+ wizards.
+          Enabled templates appear in the graphics and A+ wizards. Seller text from Customize is always appended
+          to these admin prompts (never replaces them).
         </p>
       </div>
 
@@ -314,18 +315,6 @@ export default function AdminSettingsImagePromptTemplates() {
                           <option value="lifestyle">Lifestyle slot</option>
                           <option value="feature">Feature / infographic slot</option>
                         </select>
-                      </div>
-                      <div className="flex items-center gap-2 sm:col-span-2">
-                        <Switch
-                          checked={draft.metadata?.isUserCustomType === true}
-                          onCheckedChange={(v) =>
-                            setDraft({
-                              ...draft,
-                              metadata: { ...draft.metadata, isUserCustomType: v },
-                            })
-                          }
-                        />
-                        <Label>User custom prompt type (no default template)</Label>
                       </div>
                     </>
                   ) : (
