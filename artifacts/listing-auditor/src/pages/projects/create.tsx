@@ -451,7 +451,7 @@ export default function CreateProject() {
 
   const runGenerate = (input: {
     imageTypes: string[];
-    aplusModuleIds: AplusModuleId[];
+    aplusModuleIds: string[];
   }) => {
     const creditsForRun =
       input.imageTypes.length * imageCreditPerUnit + input.aplusModuleIds.length * imageCreditPerUnit;
