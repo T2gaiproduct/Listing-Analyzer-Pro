@@ -19,18 +19,16 @@ import { refreshCreditBalances } from "@/lib/credit-queries";
 import { cn } from "@/lib/utils";
 import { useApiAuthReady } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
+import { useAplusModuleCards } from "@/lib/image-prompt-templates";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export const APLUS_MODULE_CARDS = [
-  { id: "hero" as const, label: "Hero Banner", desc: "High-impact visual for the top of the page", icon: "🖼️" },
-  { id: "features" as const, label: "Features Highlights", desc: "Detailed breakdown of key product benefits", icon: "🔍" },
-  { id: "comparison" as const, label: "Comparison Charts", desc: "Side-by-side comparison with competitors or models", icon: "📊" },
-  { id: "brand_story" as const, label: "Brand Story", desc: "Connect with customers through your brand's mission", icon: "📖" },
+  { id: "hero", label: "Hero Banner", desc: "High-impact visual for the top of the page", icon: "🖼️" },
+  { id: "features", label: "Features Highlights", desc: "Detailed breakdown of key product benefits", icon: "🔍" },
+  { id: "comparison", label: "Comparison Charts", desc: "Side-by-side comparison with competitors or models", icon: "📊" },
+  { id: "brand_story", label: "Brand Story", desc: "Connect with customers through your brand's mission", icon: "📖" },
 ];
-
-type AplusModuleId = (typeof APLUS_MODULE_CARDS)[number]["id"];
-const ALL_APLUS_MODULE_IDS: AplusModuleId[] = APLUS_MODULE_CARDS.map((m) => m.id);
 
 function formatAplusApiError(status: number, apiError?: string): string {
   if (apiError) return apiError;
@@ -102,6 +100,8 @@ export function AplusContentWizard({
   /** Product Explorer split view: create/optimize on the right; gallery on the left. */
   createOnly?: boolean;
 }) {
+  const { modules: APLUS_MODULE_CARDS } = useAplusModuleCards();
+  const allAplusModuleIds = useMemo(() => APLUS_MODULE_CARDS.map((m) => m.id), [APLUS_MODULE_CARDS]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isTeamMember, memberCredits } = useTeam();
@@ -119,7 +119,7 @@ export function AplusContentWizard({
   });
   const aplusImageCostPerModule = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
 
-  const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
+  const [selectedAplusModules, setSelectedAplusModules] = useState<string[]>([]);
   const [aplusModulePromptConfigs, setAplusModulePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [aplusModules, setAplusModules] = useState<AplusModuleItem[]>([]);
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
@@ -372,7 +372,7 @@ export function AplusContentWizard({
             {selectedAplusModules.length} selected
           </span>
           <span className="text-xs text-slate-400">
-            {selectedAplusModules.length === ALL_APLUS_MODULE_IDS.length
+            {selectedAplusModules.length === allAplusModuleIds.length
               ? "All modules will be generated"
               : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
           </span>

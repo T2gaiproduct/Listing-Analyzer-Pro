@@ -413,6 +413,25 @@ CREATE TABLE IF NOT EXISTS content_marketplaces (
 ALTER TABLE audits
   ADD COLUMN IF NOT EXISTS content_marketplace_id integer;
 
+-- ─── Admin-managed image generation prompts (graphics + A+) ───────────────
+CREATE TABLE IF NOT EXISTS image_prompt_templates (
+  id serial PRIMARY KEY,
+  slug text NOT NULL,
+  category text NOT NULL,
+  name text NOT NULL,
+  description text,
+  enabled integer NOT NULL DEFAULT 1,
+  is_system integer NOT NULL DEFAULT 0,
+  sort_order integer NOT NULL DEFAULT 0,
+  prompt_template text NOT NULL,
+  headline_template text,
+  body_template text,
+  metadata jsonb,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now(),
+  UNIQUE (slug, category)
+);
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

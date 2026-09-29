@@ -24,6 +24,8 @@ import sellermateRouter from "./sellermate";
 import agentToolsRouter from "./agent-tools";
 import contentGenerationMarketplacesRouter from "./content-generation-marketplaces";
 import adminContentMarketplacesRouter from "./admin-content-marketplaces";
+import imagePromptTemplatesRouter from "./image-prompt-templates";
+import adminImagePromptTemplatesRouter from "./admin-image-prompt-templates";
 
 const router: IRouter = Router();
 
@@ -31,7 +33,9 @@ router.use(healthRouter);
 router.use(fetchListingRouter);
 router.use(adminRouter);
 router.use(adminContentMarketplacesRouter);
+router.use(adminImagePromptTemplatesRouter);
 router.use(contentGenerationMarketplacesRouter);
+router.use(imagePromptTemplatesRouter);
 router.use(publicRouter);
 router.use(teamRouter);
 router.use(accountRolesRouter);

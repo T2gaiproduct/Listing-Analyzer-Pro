@@ -26,9 +26,9 @@ import {
 } from "@/components/graphics-type-customize-ui";
 import {
   GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
-  GRAPHICS_IMAGE_TYPES,
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
+import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
@@ -94,6 +94,7 @@ function fetchProject(id: string): Promise<GraphicsProject> {
 
 export default function ProjectDetail({ params }: { params?: { id?: string } }) {
   const id = params?.id ?? "";
+  const { imageTypes: GRAPHICS_IMAGE_TYPES } = useGraphicsImageTypesFromApi();
   const [, nav] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();

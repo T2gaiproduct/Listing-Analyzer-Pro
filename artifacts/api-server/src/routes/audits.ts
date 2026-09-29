@@ -37,6 +37,7 @@ import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refre
 import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-product-listing-refresh.js";
 import { listProductMarketplacesSafe } from "../lib/product-marketplaces.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
+import { isEnabledAplusModuleSlug } from "../lib/image-prompt-template-service.js";
 import {
   buildDefaultAplusPrompt,
   generateAplusModuleImages,
@@ -1004,7 +1005,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
 
   let moduleIds: AplusModule["id"][];
   try {
-    moduleIds = parseAplusModuleIds(rawModuleIds);
+    moduleIds = await parseAplusModuleIds(rawModuleIds);
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Invalid module selection" });
     return;
@@ -1093,7 +1094,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
         moduleConfigs,
         onModuleComplete: async (module, done, total) => {
           newlyGenerated.push(module);
-          const merged = mergeAplusModules(preservedModules, newlyGenerated);
+          const merged = await mergeAplusModules(preservedModules, newlyGenerated);
           const [current] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
           if (!current) return;
           await saveAplusState(id, current, {
@@ -1105,7 +1106,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
         },
       });
 
-      const finalModules = mergeAplusModules(preservedModules, newlyGenerated);
+      const finalModules = await mergeAplusModules(preservedModules, newlyGenerated);
       const [auditFinal] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
       if (!auditFinal) return;
 
@@ -1552,7 +1553,7 @@ router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAn
   const id = parseInt(String(req.params.id ?? ""));
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
 
-  if (isNaN(id) || !["hero", "features", "comparison", "brand_story"].includes(moduleId)) {
+  if (isNaN(id) || !(await isEnabledAplusModuleSlug(moduleId))) {
     res.status(400).json({ error: "Invalid parameters" });
     return;
   }
@@ -1620,7 +1621,7 @@ router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeamAndWorks
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
   const body = req.body as { prompt?: string; referenceImageUrls?: string[] };
 
-  if (isNaN(id) || !["hero", "features", "comparison", "brand_story"].includes(moduleId)) {
+  if (isNaN(id) || !(await isEnabledAplusModuleSlug(moduleId))) {
     res.status(400).json({ error: "Invalid parameters" });
     return;
   }

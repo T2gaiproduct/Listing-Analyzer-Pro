@@ -22,6 +22,10 @@ import {
 } from "../lib/workspace-route-helpers";
 import { requireWorkspacePerm } from "../lib/workspace-context";
 import { formatGraphicsProjectError, isGraphicsSchemaError } from "../lib/db-client-errors";
+import {
+  buildGraphicsPromptForType,
+  resolveGraphicsBucketForType,
+} from "../lib/image-prompt-template-service.js";
 import * as fs from "fs";
 import * as path from "path";
 import pLimit from "p-limit";
@@ -204,18 +208,6 @@ function buildGraphicsSpecs(
   return specs;
 }
 
-// AI prompt instructions for each image type (from the Listing Image Instructions)
-const IMAGE_TYPE_PROMPTS: Record<string, (productDesc: string) => string> = {
-  hero: (productDesc) => `Amazon main product image for ${productDesc}. Pure white background, product centered, product taking 80-85% of the canvas. No lifestyle props, no heavy text, no decorative background. Product sharp, clean, and premium. Studio lighting with soft shadows. No logos, no watermarks. No text, no decorative elements.`,
-  lifestyle: (productDesc) => `Lifestyle product scene for ${productDesc}. Product being used by a target customer in a realistic environment. Emotional buying appeal, product clearly visible, natural lighting, clean composition. No logos, no watermarks. No text, no decorative elements.`,
-  callouts: (productDesc) => `Infographic image for ${productDesc}. Product in center with numbered feature callouts. Arrows, labels, or pointers. Short benefit-driven text. Clean Amazon-style layout. No logos, no watermarks. Text only for feature callouts, labels, and arrows.`,
-  size: (productDesc) => `Size reference image for ${productDesc}. Product scale clearly shown with dimensions. Human hand, table, ruler, or common object for comparison. Easy-to-understand layout. No logos, no watermarks. Dimension text and scale labels are allowed.`,
-  beforeafter: (productDesc) => `Before/after transformation image for ${productDesc}. Clear left-right comparison with "Before" and "After" labels. Product benefit or transformation shown. Clean and credible design. No logos, no watermarks. "Before" and "After" labels are allowed.`,
-  bundle: (productDesc) => `Bundle shot image for ${productDesc}. Main product with accessories or included items. Labels if needed. Clean product arrangement. Premium e-commerce look. No logos, no watermarks. Product labels and item names are allowed.`,
-  social: (productDesc) => `Social proof image for ${productDesc}. Star rating style, short review-style highlight, product visible. Clean and trustworthy layout. No logos, no watermarks. Star ratings and short review text are allowed. Avoid fake customer names or fake review claims.`,
-  custom: () => "",
-};
-
 function formatGraphicsProductDesc(
   productName: string,
   category: string | null,
@@ -228,6 +220,23 @@ function formatGraphicsProductDesc(
   return `${base}. Seller product description: ${short}`;
 }
 
+async function countGraphicsTypesByBucket(
+  imageTypes: string[],
+): Promise<{ lifestyle: number; feature: number }> {
+  let lifestyle = 0;
+  let feature = 0;
+  for (const type of imageTypes) {
+    if (type === "custom") {
+      lifestyle++;
+      continue;
+    }
+    const bucket = await resolveGraphicsBucketForType(type);
+    if (bucket === "feature") feature++;
+    else lifestyle++;
+  }
+  return { lifestyle, feature };
+}
+
 async function loadAuditProductDescription(auditId: number | null | undefined): Promise<string | null> {
   if (!auditId) return null;
   const [row] = await db
@@ -238,7 +247,7 @@ async function loadAuditProductDescription(auditId: number | null | undefined): 
   return row?.productDescription?.trim() || null;
 }
 
-function buildNewImageSpecs(
+async function buildNewImageSpecs(
   productName: string,
   category: string | null,
   imageTypes: string[],
@@ -246,7 +255,7 @@ function buildNewImageSpecs(
   legacyCustomPrompt?: string,
   existingRecords?: GraphicsImageRecord[],
   productDescription?: string | null,
-): GraphicsSpec[] {
+): Promise<GraphicsSpec[]> {
   const productDesc = formatGraphicsProductDesc(productName, category, productDescription);
   const existing = existingRecords ?? [];
   const existingLifestyle = existing.filter(r => r.type === "lifestyle").length;
@@ -277,13 +286,18 @@ function buildNewImageSpecs(
       lifestyleIndex++;
       continue;
     }
-    const promptBuilder = IMAGE_TYPE_PROMPTS[type];
-    if (!promptBuilder) continue;
-    const basePrompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution.`;
+    const typePrompt = await buildGraphicsPromptForType(type, productDesc);
+    if (typePrompt === null) continue;
+    const basePrompt = typePrompt
+      ? `${typePrompt} Professional commercial product photography. High-resolution.`
+      : "";
     const prompt = config.customPrompt
-      ? `${basePrompt} Additional creative direction: ${config.customPrompt}`
+      ? (basePrompt
+        ? `${basePrompt} Additional creative direction: ${config.customPrompt}`
+        : `${config.customPrompt} Product: ${productDesc}. Professional commercial product photography. High-resolution.`)
       : basePrompt;
-    const isFeature = type === "callouts" || type === "social" || type === "size" || type === "beforeafter";
+    if (!prompt.trim()) continue;
+    const isFeature = (await resolveGraphicsBucketForType(type)) === "feature";
     if (isFeature) {
       const idx = featureIndex;
       specs.push({
@@ -453,7 +467,7 @@ async function generateNewImageTypes(
   ensureDir(dir);
 
   const existing = existingRecords ?? [];
-  const specs = buildNewImageSpecs(productName, category, imageTypes, typeConfigs, legacy?.customPrompt, existing, productDescription);
+  const specs = await buildNewImageSpecs(productName, category, imageTypes, typeConfigs, legacy?.customPrompt, existing, productDescription);
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
@@ -770,12 +784,12 @@ async function applyGraphicsProjectUploadSync(
   }
 }
 
-function buildRegeneratePrompt(
+async function buildRegeneratePrompt(
   existingRecord: GraphicsImageRecord,
   productName: string,
   category: string | null,
   regenStyle: string,
-): string {
+): Promise<string> {
   const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
   const styleSuffix = DESIGN_STYLE_PROMPTS[regenStyle] ?? DESIGN_STYLE_PROMPTS.modern;
 
@@ -786,9 +800,12 @@ function buildRegeneratePrompt(
     return `${savedPrompt} ${styleSuffix}`.trim();
   }
 
-  const base = existingRecord.type === "feature"
-    ? IMAGE_TYPE_PROMPTS.callouts(productDesc)
-    : IMAGE_TYPE_PROMPTS.lifestyle(productDesc);
+  const fallbackType = existingRecord.type === "feature" ? "callouts" : "lifestyle";
+  const imageType = existingRecord.imageType ?? fallbackType;
+  const typePrompt = await buildGraphicsPromptForType(imageType, productDesc);
+  const base = typePrompt ?? (existingRecord.type === "feature"
+    ? await buildGraphicsPromptForType("callouts", productDesc)
+    : await buildGraphicsPromptForType("lifestyle", productDesc)) ?? "";
 
   return `${base} Professional commercial product photography. High-resolution. ${styleSuffix}`;
 }
@@ -802,8 +819,9 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
   let lifestyleCount = body.lifestyleCount ?? 0;
   let featureCount = body.featureCount ?? 0;
   if (body.imageTypes && body.imageTypes.length > 0) {
-    lifestyleCount = body.imageTypes.filter((t) => !["callouts", "social", "size", "beforeafter"].includes(t)).length;
-    featureCount = body.imageTypes.filter((t) => ["callouts", "social", "size", "beforeafter"].includes(t)).length;
+    const counts = await countGraphicsTypesByBucket(body.imageTypes);
+    lifestyleCount = counts.lifestyle;
+    featureCount = counts.feature;
   }
 
   const sourceImages = body.sourceImageUrls ?? [];
@@ -1036,11 +1054,9 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
   let newLifestyleCount = 0;
   let newFeatureCount = 0;
   if (isNewFlow && body.imageTypes) {
-    for (const t of body.imageTypes) {
-      const isFeature = t === "callouts" || t === "social" || t === "size" || t === "beforeafter";
-      if (isFeature) newFeatureCount++;
-      else newLifestyleCount++;
-    }
+    const counts = await countGraphicsTypesByBucket(body.imageTypes);
+    newLifestyleCount = counts.lifestyle;
+    newFeatureCount = counts.feature;
   } else {
     newLifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
     newFeatureCount = isAdditional ? (body.additionalFeatureCount ?? 0) : project.featureCount;
@@ -1210,7 +1226,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
 
   try {
     const dir = ensureGraphicsImageDir(id);
-    const prompt = buildRegeneratePrompt(existingRecord, project.productName, project.category, regenStyle);
+    const prompt = await buildRegeneratePrompt(existingRecord, project.productName, project.category, regenStyle);
     const size = ASPECT_SIZES[regenAspectRatio as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
     const sourcePath = await resolveRegenerateReferencePath(id, project.sourceImageUrls, existingRecord);
     const sourceFileIsValid = sourcePath !== null;

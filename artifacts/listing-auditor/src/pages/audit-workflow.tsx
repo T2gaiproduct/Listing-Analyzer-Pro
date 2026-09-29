@@ -74,7 +74,7 @@ import {
   ImageTypeCustomizeDialog,
   SelectedGraphicsTypesSummary,
 } from "@/components/graphics-type-customize-ui";
-import { GRAPHICS_IMAGE_TYPES } from "@/lib/graphics-image-types";
+import { useAplusModuleCards, useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import {
   useCreateAuditDraft,
   usePatchAudit,
@@ -211,16 +211,6 @@ interface AplusContent {
   closingBody: string;
   closingCta: string;
 }
-
-const APLUS_MODULE_CARDS = [
-  { id: "hero" as const, label: "Hero Banner", desc: "High-impact visual for the top of the page", icon: "🖼️" },
-  { id: "features" as const, label: "Features Highlights", desc: "Detailed breakdown of key product benefits", icon: "🔍" },
-  { id: "comparison" as const, label: "Comparison Charts", desc: "Side-by-side comparison with competitors or models", icon: "📊" },
-  { id: "brand_story" as const, label: "Brand Story", desc: "Connect with customers through your brand's mission", icon: "📖" },
-];
-
-type AplusModuleId = AplusModule["id"];
-const ALL_APLUS_MODULE_IDS: AplusModuleId[] = APLUS_MODULE_CARDS.map((m) => m.id);
 
 function formatAplusApiError(status: number, apiError?: string): string {
   if (apiError) return apiError;
@@ -444,9 +434,6 @@ const AMAZON_CATEGORIES = [
   "Boys' Scarves", "Boys' Socks", "Boys' Underwear",
 ];
 
-/* ── Image types ────────────────────────────────────────────────────────── */
-const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES;
-
 /* ═══════════════════════════════════════════════════════════════════════════
    Loading Panel Component
 ═══════════════════════════════════════════════════════════════════════════ */
@@ -611,6 +598,9 @@ function CreatingPanel({
    Main Page
 ═══════════════════════════════════════════════════════════════════════════ */
 export default function AuditWorkflow() {
+  const { imageTypes: IMAGE_TYPES } = useGraphicsImageTypesFromApi();
+  const { modules: APLUS_MODULE_CARDS } = useAplusModuleCards();
+  const allAplusModuleIds = useMemo(() => APLUS_MODULE_CARDS.map((m) => m.id), [APLUS_MODULE_CARDS]);
   const [, nav]         = useLocation();
   const search          = useSearch();
   const { toast }       = useToast();
@@ -901,7 +891,7 @@ export default function AuditWorkflow() {
   const hasSeenGeneratingRef = useRef(false);
 
   /* ── A+ Content step state ── */
-  const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
+  const [selectedAplusModules, setSelectedAplusModules] = useState<string[]>([]);
   const [aplusModulePromptConfigs, setAplusModulePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
   const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
@@ -917,7 +907,7 @@ export default function AuditWorkflow() {
       moduleConfigs,
     }: {
       auditId: number;
-      moduleIds: AplusModuleId[];
+      moduleIds: string[];
       moduleConfigs: Record<string, {
         imageCustomPrompt?: string;
         promptReferenceImageUrls?: string[];
@@ -2648,7 +2638,7 @@ export default function AuditWorkflow() {
                     {selectedAplusModules.length} selected
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {selectedAplusModules.length === ALL_APLUS_MODULE_IDS.length
+                    {selectedAplusModules.length === allAplusModuleIds.length
                       ? "All modules will be generated"
                       : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
                   </span>

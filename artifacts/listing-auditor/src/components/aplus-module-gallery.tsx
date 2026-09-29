@@ -25,7 +25,7 @@ export interface AplusModuleVersion {
 }
 
 export interface AplusModuleItem {
-  id: "hero" | "features" | "comparison" | "brand_story";
+  id: string;
   title: string;
   description: string;
   headline: string;

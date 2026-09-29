@@ -26,16 +26,15 @@ import {
 } from "@/components/graphics-type-customize-ui";
 import {
   GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
-  GRAPHICS_IMAGE_TYPES,
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
+import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { downloadAppImage } from "@/lib/download-app-image";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES;
 const PROMPT_MAX_CHARS = GRAPHICS_PROMPT_MAX_CHARS;
 const CUSTOM_EXAMPLES = GRAPHICS_CUSTOM_PROMPT_EXAMPLES;
 
@@ -133,6 +132,7 @@ function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: str
 export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords, embedded = false, createOnly = false }: GraphicsWizardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { imageTypes: IMAGE_TYPES } = useGraphicsImageTypesFromApi();
   const { canEditGraphics, isTeamMember, memberCredits } = useTeam();
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
     queryKey: ["credit-rules"],

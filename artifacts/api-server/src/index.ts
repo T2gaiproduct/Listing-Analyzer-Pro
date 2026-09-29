@@ -17,6 +17,10 @@ import {
   ensureContentMarketplacesSchemaMigrated,
   ensureDefaultContentMarketplacesSeeded,
 } from "./lib/ensure-content-marketplaces.js";
+import {
+  ensureImagePromptTemplatesSchemaMigrated,
+  ensureDefaultImagePromptTemplatesSeeded,
+} from "./lib/ensure-image-prompt-templates.js";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -119,6 +123,11 @@ ensureContentMarketplacesSchemaMigrated()
   .then(() => ensureDefaultContentMarketplacesSeeded())
   .then(() => logger.info("Content marketplaces schema and seed ready"))
   .catch((err) => logger.error({ err }, "Content marketplaces migration failed"));
+
+ensureImagePromptTemplatesSchemaMigrated()
+  .then(() => ensureDefaultImagePromptTemplatesSeeded())
+  .then(() => logger.info("Image prompt templates schema and seed ready"))
+  .catch((err) => logger.error({ err }, "Image prompt templates migration failed"));
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);

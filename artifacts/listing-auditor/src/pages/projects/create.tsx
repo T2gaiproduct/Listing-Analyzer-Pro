@@ -8,7 +8,7 @@ import { refreshCreditBalances } from "@/lib/credit-queries";
 import { hasTeamAwareImageCredits } from "@/lib/team-aware-image-credits";
 import { useTeam } from "@/hooks/use-team";
 import { useCreateAuditDraft } from "@workspace/api-client-react";
-import { APLUS_MODULE_CARDS } from "@/components/aplus-content-wizard";
+import { useAplusModuleCards, useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { buildGraphicsAuditDraftBody } from "@/lib/graphics-audit-draft";
 import { cn } from "@/lib/utils";
 import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Search, Camera, Monitor, Lightbulb, Sparkles } from "lucide-react";
@@ -24,7 +24,6 @@ import {
 } from "@/components/graphics-type-customize-ui";
 import {
   GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
-  GRAPHICS_IMAGE_TYPES,
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 
@@ -88,16 +87,11 @@ const AMAZON_CATEGORIES = [
   "Wine",
 ];
 
-/** Create Graphics — preset types only (no standalone "Generate Custom" card). */
-const CREATE_GRAPHICS_IMAGE_TYPES = GRAPHICS_IMAGE_TYPES.filter((type) => type.id !== "custom");
-const IMAGE_TYPES = CREATE_GRAPHICS_IMAGE_TYPES;
 const PROMPT_MAX_CHARS = GRAPHICS_PROMPT_MAX_CHARS;
 
 function visibleSelectedImageTypes(ids: string[]): string[] {
   return ids.filter((id) => id !== "custom");
 }
-
-type AplusModuleId = (typeof APLUS_MODULE_CARDS)[number]["id"];
 
 type Step = 1 | 2 | 3;
 type CreatePath = "graphics" | "aplus";
@@ -112,6 +106,13 @@ function stepLabels(path: CreatePath | null): { id: number; label: string }[] {
 }
 
 export default function CreateProject() {
+  const { imageTypes: graphicsImageTypes } = useGraphicsImageTypesFromApi();
+  const CREATE_GRAPHICS_IMAGE_TYPES = useMemo(
+    () => graphicsImageTypes.filter((type) => type.id !== "custom"),
+    [graphicsImageTypes],
+  );
+  const IMAGE_TYPES = CREATE_GRAPHICS_IMAGE_TYPES;
+  const { modules: APLUS_MODULE_CARDS } = useAplusModuleCards();
   const [, nav] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -134,7 +135,7 @@ export default function CreateProject() {
   );
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
-  const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
+  const [selectedAplusModules, setSelectedAplusModules] = useState<string[]>([]);
   const [aplusModulePromptConfigs, setAplusModulePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [aplusCustomizeModuleId, setAplusCustomizeModuleId] = useState<string | null>(null);
 
@@ -240,7 +241,7 @@ export default function CreateProject() {
         quality: GraphicsQuality;
         promptReferenceImageUrls?: string[];
       }>;
-      aplusModuleIds: AplusModuleId[];
+      aplusModuleIds: string[];
       aplusModuleConfigs: Record<string, {
         imageCustomPrompt?: string;
         promptReferenceImageUrls?: string[];

@@ -11,10 +11,14 @@ import {
   resolveAuditImagePath,
 } from "./image-storage";
 import {
-  APLUS_EDGE_TO_EDGE_PROMPT,
   APLUS_SAFE_MARGIN_PROMPT,
   resizeAplusModuleBuffer,
 } from "./aplus-image-size.js";
+import {
+  getRuntimeAplusModuleSpec,
+  getRuntimeAplusModuleSpecs,
+  type RuntimeAplusModuleSpec,
+} from "./image-prompt-template-service.js";
 
 const MIN_FILE_SIZE = 1024;
 const MAX_CONCURRENT_APLUS_IMAGES = 4;
@@ -42,8 +46,10 @@ export type AplusAspectRatio = "970:300" | "16:10" | "9:16" | "1:1";
 
 const APLUS_GENERATION_SIZE = "1792x1024" as const;
 
+export type AplusModuleId = string;
+
 export interface AplusModule {
-  id: "hero" | "features" | "comparison" | "brand_story";
+  id: AplusModuleId;
   title: string;
   description: string;
   headline: string;
@@ -66,96 +72,24 @@ export interface AplusStoredState {
   errorMessage?: string;
 }
 
-export const ALL_APLUS_MODULE_IDS: AplusModule["id"][] = ["hero", "features", "comparison", "brand_story"];
+export {
+  parseAplusModuleIds,
+  mergeAplusModules,
+  getEnabledAplusModuleSlugs,
+} from "./image-prompt-template-service.js";
 
-export function parseAplusModuleIds(moduleIds: unknown): AplusModule["id"][] {
-  if (!Array.isArray(moduleIds) || moduleIds.length === 0) {
-    return [...ALL_APLUS_MODULE_IDS];
-  }
-  const valid = new Set<string>(ALL_APLUS_MODULE_IDS);
-  const parsed = moduleIds.filter(
-    (id): id is AplusModule["id"] => typeof id === "string" && valid.has(id),
-  );
-  if (parsed.length === 0) {
-    throw new Error("Select at least one A+ module");
-  }
-  return parsed;
-}
-
-export function mergeAplusModules(existing: AplusModule[], incoming: AplusModule[]): AplusModule[] {
-  const byId = new Map(existing.map((m) => [m.id, m]));
-  for (const module of incoming) byId.set(module.id, module);
-  return ALL_APLUS_MODULE_IDS
-    .map((id) => byId.get(id))
-    .filter((m): m is AplusModule => !!m);
-}
-
-type ModuleSpec = {
-  id: AplusModule["id"];
-  title: string;
-  description: string;
-  size: typeof APLUS_GENERATION_SIZE;
-  buildPrompt: (productDesc: string, content: EbcContent) => string;
-  headline: (content: EbcContent) => string;
-  body: (content: EbcContent) => string;
-};
-
-const MODULE_SPECS: ModuleSpec[] = [
-  {
-    id: "hero",
-    title: "Hero Banner",
-    description: "Full-width product hero image with headline",
-    size: APLUS_GENERATION_SIZE,
-    buildPrompt: (productDesc, c) =>
-      `Amazon A+ Enhanced Brand Content ultra-wide horizontal banner (970x300 px aspect, very wide and short) for ${productDesc}. ${APLUS_EDGE_TO_EDGE_PROMPT} Product, headline "${c.heroHeadline}", and subheadline "${c.heroSubheadline}" integrated in one strip; do not use a tall portrait layout. Premium e-commerce design, sharp legible typography, professional commercial photography.`,
-    headline: (c) => c.heroHeadline,
-    body: (c) => c.heroSubheadline,
-  },
-  {
-    id: "features",
-    title: "Feature Highlights",
-    description: "Icon + text modules showcasing key features",
-    size: APLUS_GENERATION_SIZE,
-    buildPrompt: (productDesc, c) =>
-      `Amazon A+ feature highlights ultra-wide banner (970x300 px aspect) for ${productDesc}. ${APLUS_EDGE_TO_EDGE_PROMPT} Three-column infographic in one horizontal strip with product center or offset and icon callouts: "${c.feature1Title}", "${c.feature2Title}", "${c.feature3Title}". Crisp icons, serif or premium sans headlines, high-detail product render. Clean modern e-commerce infographic style.`,
-    headline: (c) => c.feature1Title,
-    body: (c) => `${c.feature1Body} · ${c.feature2Body}`,
-  },
-  {
-    id: "comparison",
-    title: "Comparison Chart",
-    description: "Compare your product against competitors",
-    size: APLUS_GENERATION_SIZE,
-    buildPrompt: (productDesc, c) =>
-      `Amazon A+ comparison chart ultra-wide banner (970x300 px aspect) for ${productDesc}. ${APLUS_EDGE_TO_EDGE_PROMPT} Side-by-side comparison filling the strip. Title "${c.gridTitle}". Features: "${c.grid1Title}", "${c.grid2Title}", "${c.grid3Title}", "${c.grid4Title}". Sharp chart labels and checkmarks. Clean chart-style e-commerce design.`,
-    headline: (c) => c.gridTitle,
-    body: (c) => `${c.grid1Title}: ${c.grid1Desc}`,
-  },
-  {
-    id: "brand_story",
-    title: "Brand Story",
-    description: "Tell your brand story with rich imagery",
-    size: APLUS_GENERATION_SIZE,
-    buildPrompt: (productDesc, c) =>
-      `Amazon A+ brand story ultra-wide banner (970x300 px aspect) for ${productDesc}. ${APLUS_EDGE_TO_EDGE_PROMPT} Emotional storytelling with product integration. Headline "${c.storyHeadline}". Warm aspirational atmosphere, premium brand aesthetic, photographic depth.`,
-    headline: (c) => c.storyHeadline,
-    body: (c) => c.storyBody,
-  },
-];
-
-function specToAspectRatio(_size: ModuleSpec["size"]): AplusAspectRatio {
+function specToAspectRatio(): AplusAspectRatio {
   return "970:300";
 }
 
-export function getModuleSpec(id: AplusModule["id"]): ModuleSpec | undefined {
-  return MODULE_SPECS.find((spec) => spec.id === id);
+export async function getModuleSpec(id: AplusModuleId): Promise<RuntimeAplusModuleSpec | undefined> {
+  return getRuntimeAplusModuleSpec(id);
 }
 
 export function normalizeAplusModule(module: AplusModule): AplusModule {
-  const spec = getModuleSpec(module.id);
   return {
     ...module,
-    aspectRatio: module.aspectRatio ?? specToAspectRatio(spec?.size ?? APLUS_GENERATION_SIZE),
+    aspectRatio: module.aspectRatio ?? specToAspectRatio(),
     versions: module.versions ?? [],
   };
 }
@@ -176,7 +110,7 @@ function aplusApiImageQuality(): "high" {
 }
 
 async function generateModuleBuffer(
-  spec: ModuleSpec,
+  spec: RuntimeAplusModuleSpec,
   data: {
     auditId: number;
     productName: string;
@@ -200,17 +134,17 @@ async function generateModuleBuffer(
     raw = await generateImageWithReferenceProxy(
       `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
       sourcePath!,
-      spec.size,
+      APLUS_GENERATION_SIZE,
       { quality: apiQuality },
     );
   } else {
-    raw = await generateImageBuffer(prompt, spec.size, { quality: apiQuality });
+    raw = await generateImageBuffer(prompt, APLUS_GENERATION_SIZE, { quality: apiQuality });
   }
   return resizeAplusModuleBuffer(raw);
 }
 
 function buildAplusModuleFromSpec(
-  spec: ModuleSpec,
+  spec: RuntimeAplusModuleSpec,
   auditId: number,
   content: EbcContent,
   imageUrl: string,
@@ -223,7 +157,7 @@ function buildAplusModuleFromSpec(
     headline: spec.headline(content),
     body: spec.body(content),
     imageUrl,
-    aspectRatio: specToAspectRatio(spec.size),
+    aspectRatio: specToAspectRatio(),
     versions: existing?.versions ?? [],
   });
 }
@@ -238,7 +172,7 @@ export async function regenerateAplusModule(data: {
   existing: AplusModule;
   quality?: "standard" | "hd";
 }): Promise<AplusModule> {
-  const spec = getModuleSpec(data.moduleId);
+  const spec = await getModuleSpec(data.moduleId);
   if (!spec) throw new Error("Invalid A+ module");
 
   const dir = ensureAuditImageDir(data.auditId);
@@ -272,7 +206,7 @@ export async function editAplusModule(data: {
   editPrompt: string;
   referenceImageUrls?: string[];
 }): Promise<AplusModule> {
-  const spec = getModuleSpec(data.moduleId);
+  const spec = await getModuleSpec(data.moduleId);
   if (!spec) throw new Error("Invalid A+ module");
 
   const normalized = normalizeAplusModule(data.existing);
@@ -419,7 +353,7 @@ export async function generateAplusModuleImages(data: {
 }): Promise<AplusModule[]> {
   const dir = ensureAuditImageDir(data.auditId);
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-  const specs = MODULE_SPECS.filter((spec) => data.moduleIds.includes(spec.id));
+  const specs = await getRuntimeAplusModuleSpecs(data.moduleIds);
   const total = specs.length;
   const globalImageDirection = data.imageCustomPrompt?.trim();
   const globalRefUrls = [
