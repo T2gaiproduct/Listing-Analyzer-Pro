@@ -451,7 +451,7 @@ function HomeRedirect() {
   if ((envAdmin || (adminLoaded && isAdmin)) && !permLoaded) return <AuthLoading />;
   if (envAdmin || (adminLoaded && isAdmin)) return <Redirect to={defaultRoute} />;
   if (!summaryFetched) return <AuthLoading />;
-  if (summaryError || !summary) {
+  if ((summaryError || !summary) && !isCloudflareQuickPreviewHost()) {
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
   }
   const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
