@@ -148,6 +148,15 @@ export async function deleteAdminImagePromptTemplate(id: number) {
   });
 }
 
+export function slugifyImagePromptTemplateName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-");
+}
+
 export const GRAPHICS_PLACEHOLDER_HELP =
   "Placeholders: {{productDesc}} — formatted product name, category, and seller description.";
 

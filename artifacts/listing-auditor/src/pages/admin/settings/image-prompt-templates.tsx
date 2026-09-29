@@ -15,6 +15,7 @@ import {
   type ImagePromptTemplateCategory,
   deleteAdminImagePromptTemplate,
   saveAdminImagePromptTemplate,
+  slugifyImagePromptTemplateName,
   useAdminImagePromptTemplates,
 } from "@/lib/image-prompt-templates";
 
@@ -56,9 +57,9 @@ export default function AdminSettingsImagePromptTemplates() {
   }, [draft, templates, selectedId]);
 
   const saveMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (payload: ImagePromptTemplateAdmin) =>
       saveAdminImagePromptTemplate({
-        ...draft,
+        ...payload,
         category: tab,
         id: selectedId === "new" ? undefined : (selectedId as number),
       }),
@@ -95,6 +96,36 @@ export default function AdminSettingsImagePromptTemplates() {
   function startCreate() {
     setSelectedId("new");
     setDraft(blankTemplate(tab));
+  }
+
+  function handleSave() {
+    const slug = (draft.slug.trim() || slugifyImagePromptTemplateName(draft.name)).trim();
+    if (!draft.name.trim()) {
+      toast({ title: "Name required", description: "Enter a display name for this template.", variant: "destructive" });
+      return;
+    }
+    if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      toast({
+        title: "Invalid slug",
+        description: "Use lowercase letters, numbers, and hyphens (e.g. my-gallery-shot).",
+        variant: "destructive",
+      });
+      return;
+    }
+    saveMutation.mutate({ ...draft, slug });
+  }
+
+  function handleDeleteTemplate(t: ImagePromptTemplateAdmin) {
+    if (t.isSystem) {
+      toast({
+        title: "Cannot delete system template",
+        description: "Turn off “Enabled in user wizards” to hide it from the frontend, or delete custom templates only.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!window.confirm(`Delete “${t.name}”? It will be removed from admin and user wizards.`)) return;
+    deleteMutation.mutate(t.id);
   }
 
   function switchTab(next: ImagePromptTemplateCategory) {
@@ -151,24 +182,38 @@ export default function AdminSettingsImagePromptTemplates() {
               <p className="text-xs text-muted-foreground">Loading…</p>
             ) : (
               templates.map((t) => (
-                <button
+                <div
                   key={t.id}
-                  type="button"
-                  onClick={() => startEdit(t)}
-                  className={`w-full text-left rounded-lg px-3 py-2 text-sm border ${
+                  className={`flex items-stretch gap-1 rounded-lg border ${
                     selectedId === t.id ? "border-orange-300 bg-orange-50" : "border-transparent hover:bg-slate-50"
                   }`}
                 >
-                  <div className="font-medium flex items-center gap-1.5">
-                    <span>{t.metadata?.icon ?? "✨"}</span>
-                    {t.name}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground font-mono">{t.slug}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {t.enabled ? "Enabled" : "Disabled"}
-                    {t.isSystem ? " · System" : ""}
-                  </div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(t)}
+                    className="flex-1 text-left px-3 py-2 text-sm min-w-0"
+                  >
+                    <div className="font-medium flex items-center gap-1.5">
+                      <span>{t.metadata?.icon ?? "✨"}</span>
+                      {t.name}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground font-mono">{t.slug}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {t.enabled ? "Enabled" : "Disabled"}
+                      {t.isSystem ? " · System" : " · Custom"}
+                    </div>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-auto my-1 text-slate-400 hover:text-red-600"
+                    title={t.isSystem ? "System templates cannot be deleted (disable instead)" : "Delete template"}
+                    onClick={() => handleDeleteTemplate(t)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               ))
             )}
           </CardContent>
@@ -191,7 +236,17 @@ export default function AdminSettingsImagePromptTemplates() {
                     <Label>Name (shown in UI)</Label>
                     <Input
                       value={draft.name}
-                      onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        setDraft((prev) => ({
+                          ...prev,
+                          name,
+                          slug:
+                            selectedId === "new" && !prev.slug.trim()
+                              ? slugifyImagePromptTemplateName(name)
+                              : prev.slug,
+                        }));
+                      }}
                       className="mt-1"
                     />
                   </div>
@@ -201,8 +256,14 @@ export default function AdminSettingsImagePromptTemplates() {
                       value={draft.slug}
                       onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
                       disabled={draft.isSystem && selectedId !== "new"}
+                      placeholder="auto-generated-from-name"
                       className="mt-1 font-mono text-xs"
                     />
+                    {selectedId === "new" ? (
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Leave blank to auto-generate from the name (e.g. &quot;My Shot&quot; → my-shot).
+                      </p>
+                    ) : null}
                   </div>
                   <div>
                     <Label>Sort order</Label>
@@ -320,16 +381,17 @@ export default function AdminSettingsImagePromptTemplates() {
                   </>
                 ) : null}
                 <div className="flex flex-wrap gap-2 pt-2">
-                  <Button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                  <Button type="button" onClick={handleSave} disabled={saveMutation.isPending}>
                     <Save className="w-4 h-4 mr-1" />
                     Save
                   </Button>
-                  {selectedId !== "new" && typeof selectedId === "number" && !draft.isSystem ? (
+                  {selectedId !== "new" && typeof selectedId === "number" ? (
                     <Button
                       type="button"
                       variant="destructive"
-                      onClick={() => deleteMutation.mutate(selectedId)}
-                      disabled={deleteMutation.isPending}
+                      onClick={() => handleDeleteTemplate(draft)}
+                      disabled={deleteMutation.isPending || draft.isSystem}
+                      title={draft.isSystem ? "System templates cannot be deleted" : undefined}
                     >
                       <Trash2 className="w-4 h-4 mr-1" />
                       Delete
