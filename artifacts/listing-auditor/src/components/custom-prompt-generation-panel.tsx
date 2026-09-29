@@ -96,7 +96,7 @@ export function CustomPromptGenerationPanel({
         <textarea
           value={customPrompt}
           onChange={(e) => onCustomPromptChange(e.target.value)}
-          placeholder="Describe exactly what you want the AI to create. Be specific about the scene, lighting, composition, and mood."
+          placeholder="Optional — added on top of the admin image prompt. Describe scene, lighting, composition, and mood."
           rows={4}
           maxLength={promptMaxChars}
           className="w-full resize-none text-sm sm:text-base bg-transparent border-0 p-4 min-h-[7rem] focus:outline-none focus:ring-0 placeholder:text-slate-400"
