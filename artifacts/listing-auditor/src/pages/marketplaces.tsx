@@ -872,9 +872,7 @@ export default function MarketplacesPage() {
                 : data?.ebay.ebayUserId
                   ? `eBay user ${data.ebay.ebayUserId}`
                   : "Seller account linked"
-              : ebayConnectReady
-                ? "Sign in with eBay to authorize SellerLens."
-                : null
+              : null
           }
           loading={pendingAction === "ebay"}
           onConnect={() => void handleEbayConnect()}
