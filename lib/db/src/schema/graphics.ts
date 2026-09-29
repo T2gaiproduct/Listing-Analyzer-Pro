@@ -13,6 +13,8 @@ export const graphicsImageRecordSchema = z.object({
   id: z.string(),
   type: z.enum(["lifestyle", "feature"]),
   index: z.number(),
+  /** Gallery prompt template slug (hero, lifestyle, custom, etc.) when generated via imageTypes flow */
+  imageType: z.string().optional(),
   style: z.string(),
   aspectRatio: z.string(),
   currentUrl: z.string(),
