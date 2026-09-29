@@ -55,7 +55,7 @@ export function ebayOAuthEndpoints(environment: EbayOAuthEnvironment): {
 }
 
 /** Documented callback path; RuName in eBay Developer Portal must point at this URL on your public host. */
-export function buildEbayOAuthCallbackUrl(req?: Request): string {
+export function buildEbayOAuthCallbackUrl(req: Request): string {
   const base = resolvePublicBaseUrl(req).replace(/\/$/, "");
   return `${base}/api/ebay/oauth/callback`;
 }
