@@ -19,8 +19,6 @@ export type MarketplaceAmazonStatus = AmazonConnectionStatus & {
   awsRoleArn?: string | null;
 };
 
-export type EbayOAuthEnvironment = "sandbox" | "production";
-
 export type MarketplaceConnectionsResponse = {
   amazon: MarketplaceAmazonStatus;
   shopify: {
@@ -39,8 +37,8 @@ export type MarketplaceConnectionsResponse = {
   };
   ebay: {
     connected: boolean;
+    connectReady: boolean;
     publishReady: boolean;
-    environment: EbayOAuthEnvironment | null;
     username: string | null;
     ebayUserId: string | null;
     connectedAt: string | null;
@@ -48,10 +46,8 @@ export type MarketplaceConnectionsResponse = {
 };
 
 export type EbayOAuthConfigResponse = {
-  scopes: string[];
-  defaultEnvironment: EbayOAuthEnvironment;
-  sandbox: { configured: boolean; setupIssue: string | null };
-  production: { configured: boolean; setupIssue: string | null };
+  connectReady: boolean;
+  unavailableMessage: string | null;
   callbackUrl: string;
 };
 
@@ -241,9 +237,8 @@ export async function fetchEbayOAuthConfig(): Promise<EbayOAuthConfigResponse> {
   return fetchJson<EbayOAuthConfigResponse>(`${basePath}/api/ebay/oauth/config`);
 }
 
-export async function startEbayConnect(environment: EbayOAuthEnvironment): Promise<{ url: string }> {
-  const params = new URLSearchParams({ environment });
-  return fetchJson<{ url: string }>(`${basePath}/api/ebay/oauth/authorize?${params.toString()}`);
+export async function startEbayConnect(): Promise<{ url: string }> {
+  return fetchJson<{ url: string }>(`${basePath}/api/ebay/oauth/authorize`);
 }
 
 export async function disconnectEbay(): Promise<void> {

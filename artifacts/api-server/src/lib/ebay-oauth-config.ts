@@ -66,3 +66,18 @@ export function describeEbayOAuthSetupIssue(environment: EbayOAuthEnvironment): 
   const label = environment === "sandbox" ? "Sandbox" : "Production";
   return `${label} eBay app credentials are not configured on the server (EBAY_${environment === "sandbox" ? "SANDBOX" : "PRODUCTION"}_CLIENT_ID, CLIENT_SECRET, RUNAME).`;
 }
+
+/** Environment used for OAuth on this deployment (from EBAY_OAUTH_DEFAULT_ENV). */
+export function resolveActiveEbayOAuthEnvironment(): EbayOAuthEnvironment | null {
+  const env = ebayOAuthDefaultEnvironment();
+  return isEbayOAuthAppConfigured(env) ? env : null;
+}
+
+export function isEbayOAuthConnectReady(): boolean {
+  return resolveActiveEbayOAuthEnvironment() != null;
+}
+
+/** Shown to sellers when the platform has not configured eBay OAuth on this host. */
+export function ebayConnectUnavailableMessageForSellers(): string {
+  return "eBay connect is not available on this site yet. Please try again later or contact support.";
+}

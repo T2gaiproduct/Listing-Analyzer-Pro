@@ -30,6 +30,7 @@ import {
   disconnectEbayWorkspaceConnection,
   getEbayWorkspaceConnectionPublic,
 } from "../lib/ebay-workspace-connection.js";
+import { isEbayOAuthConnectReady } from "../lib/ebay-oauth-config.js";
 import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
   buildAmazonOAuthRedirectUri,
@@ -217,8 +218,8 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
     },
     ebay: {
       connected: ebay.connected,
+      connectReady: isEbayOAuthConnectReady(),
       publishReady: ebay.connected,
-      environment: ebay.environment,
       username: ebay.username,
       ebayUserId: ebay.ebayUserId,
       connectedAt: ebay.connectedAt,

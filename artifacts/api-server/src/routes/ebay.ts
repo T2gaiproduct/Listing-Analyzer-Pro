@@ -2,10 +2,9 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { getAuth } from "@clerk/express";
 import {
   buildEbayOAuthCallbackUrl,
-  describeEbayOAuthSetupIssue,
-  ebayOAuthDefaultEnvironment,
-  isEbayOAuthAppConfigured,
-  parseEbayOAuthEnvironment,
+  ebayConnectUnavailableMessageForSellers,
+  isEbayOAuthConnectReady,
+  resolveActiveEbayOAuthEnvironment,
 } from "../lib/ebay-oauth-config.js";
 import { EBAY_OAUTH_SCOPES } from "../lib/ebay-oauth-scopes.js";
 import { createEbayOAuthState, parseEbayOAuthState } from "../lib/ebay-oauth-state.js";
@@ -44,19 +43,12 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-router.get("/ebay/oauth/config", requireAuth, resolveTeamAndWorkspace, async (_req: Request, res: Response): Promise<void> => {
+router.get("/ebay/oauth/config", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   res.json({
+    connectReady: isEbayOAuthConnectReady(),
+    unavailableMessage: isEbayOAuthConnectReady() ? null : ebayConnectUnavailableMessageForSellers(),
     scopes: [...EBAY_OAUTH_SCOPES],
-    defaultEnvironment: ebayOAuthDefaultEnvironment(),
-    sandbox: {
-      configured: isEbayOAuthAppConfigured("sandbox"),
-      setupIssue: describeEbayOAuthSetupIssue("sandbox"),
-    },
-    production: {
-      configured: isEbayOAuthAppConfigured("production"),
-      setupIssue: describeEbayOAuthSetupIssue("production"),
-    },
-    callbackUrl: buildEbayOAuthCallbackUrl(_req),
+    callbackUrl: buildEbayOAuthCallbackUrl(req),
   });
 });
 
@@ -77,11 +69,9 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     const userId = (req as AuthedRequest).userId;
     const workspaceId = getActiveWorkspaceId(req);
-    const environment = parseEbayOAuthEnvironment(req.query.environment);
-
-    const setupIssue = describeEbayOAuthSetupIssue(environment);
-    if (setupIssue) {
-      res.status(400).json({ error: setupIssue });
+    const environment = resolveActiveEbayOAuthEnvironment();
+    if (!environment) {
+      res.status(400).json({ error: ebayConnectUnavailableMessageForSellers() });
       return;
     }
 
@@ -167,7 +157,7 @@ router.get("/ebay/oauth/callback", async (req: Request, res: Response): Promise<
     });
 
     const base = resolvePublicBaseUrl(req).replace(/\/$/, "");
-    res.redirect(`${base}/marketplaces?ebay=connected&ebayEnv=${parsed.environment}`);
+    res.redirect(`${base}/marketplaces?ebay=connected`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "eBay authorization failed";
     res.status(400).send(message);
