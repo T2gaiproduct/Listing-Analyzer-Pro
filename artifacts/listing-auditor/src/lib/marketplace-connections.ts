@@ -19,6 +19,8 @@ export type MarketplaceAmazonStatus = AmazonConnectionStatus & {
   awsRoleArn?: string | null;
 };
 
+export type EbayOAuthEnvironment = "sandbox" | "production";
+
 export type MarketplaceConnectionsResponse = {
   amazon: MarketplaceAmazonStatus;
   shopify: {
@@ -35,6 +37,22 @@ export type MarketplaceConnectionsResponse = {
     consumerKey: string | null;
     connectedAt: string | null;
   };
+  ebay: {
+    connected: boolean;
+    publishReady: boolean;
+    environment: EbayOAuthEnvironment | null;
+    username: string | null;
+    ebayUserId: string | null;
+    connectedAt: string | null;
+  };
+};
+
+export type EbayOAuthConfigResponse = {
+  scopes: string[];
+  defaultEnvironment: EbayOAuthEnvironment;
+  sandbox: { configured: boolean; setupIssue: string | null };
+  production: { configured: boolean; setupIssue: string | null };
+  callbackUrl: string;
 };
 
 export type SaveAmazonMarketplaceCredentialsInput = {
@@ -215,6 +233,21 @@ export async function syncAmazonProducts(input?: MarketplaceImportInput): Promis
 
 export async function disconnectAmazon(): Promise<void> {
   await fetchJson(`${basePath}/api/marketplaces/connections/amazon`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchEbayOAuthConfig(): Promise<EbayOAuthConfigResponse> {
+  return fetchJson<EbayOAuthConfigResponse>(`${basePath}/api/ebay/oauth/config`);
+}
+
+export async function startEbayConnect(environment: EbayOAuthEnvironment): Promise<{ url: string }> {
+  const params = new URLSearchParams({ environment });
+  return fetchJson<{ url: string }>(`${basePath}/api/ebay/oauth/authorize?${params.toString()}`);
+}
+
+export async function disconnectEbay(): Promise<void> {
+  await fetchJson(`${basePath}/api/marketplaces/connections/ebay`, {
     method: "DELETE",
   });
 }

@@ -105,6 +105,16 @@ SESSION_SECRET=change_me_to_a_random_64_char_string_here
 # Node env
 NODE_ENV=production
 PORT=8080
+
+# eBay OAuth (Marketplaces → Connect with eBay). Use Sandbox first; add Production when going live.
+# RuName values come from developer.ebay.com → your app → User Tokens (not the raw callback URL string).
+EBAY_OAUTH_DEFAULT_ENV=sandbox
+EBAY_SANDBOX_CLIENT_ID=
+EBAY_SANDBOX_CLIENT_SECRET=
+EBAY_SANDBOX_RUNAME=
+EBAY_PRODUCTION_CLIENT_ID=
+EBAY_PRODUCTION_CLIENT_SECRET=
+EBAY_PRODUCTION_RUNAME=
 ```
 
 ---

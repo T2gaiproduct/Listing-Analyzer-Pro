@@ -6,6 +6,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const LOGO_FILES: Record<string, string> = {
   Amazon: "amazon.svg",
   Shopify: "shopify.svg",
+  eBay: "ebay.svg",
   Flipkart: "flipkart.svg",
   WooCommerce: "woocommerce.svg",
   Meesho: "meesho.svg",
@@ -17,6 +18,7 @@ function normalizeMarketplaceName(marketplace: string): string {
   const aliases: Record<string, string> = {
     amazon: "Amazon",
     shopify: "Shopify",
+    ebay: "eBay",
     woocommerce: "WooCommerce",
     flipkart: "Flipkart",
     meesho: "Meesho",

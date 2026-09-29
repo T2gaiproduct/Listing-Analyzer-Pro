@@ -26,6 +26,10 @@ import {
   saveWooCommerceConnection,
   type StoreMarketplace,
 } from "../lib/marketplace-connections.js";
+import {
+  disconnectEbayWorkspaceConnection,
+  getEbayWorkspaceConnectionPublic,
+} from "../lib/ebay-workspace-connection.js";
 import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
   buildAmazonOAuthRedirectUri,
@@ -131,8 +135,9 @@ function normalizeStoreUrl(raw: string): string | null {
   }
 }
 
-function parseConnectionPlatform(raw: string): StoreMarketplace | "amazon" | null {
+function parseConnectionPlatform(raw: string): StoreMarketplace | "amazon" | "ebay" | null {
   if (raw === "amazon") return "amazon";
+  if (raw === "ebay") return "ebay";
   return parseStorePlatform(raw);
 }
 
@@ -175,10 +180,11 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
   const userId = (req as AuthedRequest).userId;
   const workspaceId = getActiveWorkspaceId(req);
 
-  const [amazon, shopify, woocommerce] = await Promise.all([
+  const [amazon, shopify, woocommerce, ebay] = await Promise.all([
     loadAmazonConnectionStatus(userId, workspaceId, req),
     getShopifyConnectionPublic(workspaceId),
     getWooCommerceConnectionPublic(workspaceId),
+    getEbayWorkspaceConnectionPublic(workspaceId),
   ]);
 
   const shopifyWithSecret = await getShopifyConnection(workspaceId);
@@ -208,6 +214,14 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
       storeUrl: woocommerce?.storeUrl ?? null,
       consumerKey: woocommerce?.consumerKey ?? null,
       connectedAt: woocommerce?.connectedAt ?? null,
+    },
+    ebay: {
+      connected: ebay.connected,
+      publishReady: ebay.connected,
+      environment: ebay.environment,
+      username: ebay.username,
+      ebayUserId: ebay.ebayUserId,
+      connectedAt: ebay.connectedAt,
     },
   });
 });
@@ -402,6 +416,12 @@ router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAnd
 
   if (platform === "amazon") {
     await disconnectAmazonWorkspaceSellerConnection(workspaceId);
+    res.status(204).end();
+    return;
+  }
+
+  if (platform === "ebay") {
+    await disconnectEbayWorkspaceConnection(workspaceId);
     res.status(204).end();
     return;
   }

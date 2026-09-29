@@ -37,6 +37,10 @@ import {
   syncShopifyProducts,
   syncWooCommerceProducts,
   syncAmazonProducts,
+  fetchEbayOAuthConfig,
+  startEbayConnect,
+  disconnectEbay,
+  type EbayOAuthEnvironment,
   type MarketplacePlatform,
   type ShopifySyncResult,
   type StoreMarketplace,
@@ -258,7 +262,8 @@ export default function MarketplacesPage() {
   const [clientSecret, setClientSecret] = useState("");
   const [consumerKey, setConsumerKey] = useState("");
   const [consumerSecret, setConsumerSecret] = useState("");
-  const [pendingAction, setPendingAction] = useState<DialogTarget | "amazon" | null>(null);
+  const [pendingAction, setPendingAction] = useState<DialogTarget | "amazon" | "ebay" | null>(null);
+  const [ebayConnectEnvironment, setEbayConnectEnvironment] = useState<EbayOAuthEnvironment>("sandbox");
   const [amazonSelfAuthOpen, setAmazonSelfAuthOpen] = useState(false);
   const [amazonCredentialsOpen, setAmazonCredentialsOpen] = useState(false);
   const [amazonSellerId, setAmazonSellerId] = useState("");
@@ -281,6 +286,18 @@ export default function MarketplacesPage() {
     refetchOnMount: "always",
     retry: 1,
   });
+
+  const { data: ebayOAuthConfig } = useQuery({
+    queryKey: ["ebay-oauth-config"],
+    queryFn: fetchEbayOAuthConfig,
+    enabled: clerkLoaded && !!user && !!featureWorkspaceId,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (!ebayOAuthConfig?.defaultEnvironment) return;
+    setEbayConnectEnvironment(ebayOAuthConfig.defaultEnvironment);
+  }, [ebayOAuthConfig?.defaultEnvironment]);
 
   const connectStoreMutation = useMutation({
     mutationFn: ({
@@ -419,6 +436,66 @@ export default function MarketplacesPage() {
     toast({ title: "Amazon connected", description: "Your seller account is linked to this workspace." });
     window.history.replaceState({}, "", window.location.pathname);
   }, [queryClient, toast]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("ebay") !== "connected") return;
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+    const env = params.get("ebayEnv") === "production" ? "Production" : "Sandbox";
+    toast({
+      title: "eBay connected",
+      description: `Your ${env} seller account is linked to this workspace. Import and publish flows are coming next.`,
+    });
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [queryClient, toast]);
+
+  const ebayEnvConfigured = ebayConnectEnvironment === "production"
+    ? Boolean(ebayOAuthConfig?.production.configured)
+    : Boolean(ebayOAuthConfig?.sandbox.configured);
+
+  const ebaySetupMessage = ebayConnectEnvironment === "production"
+    ? ebayOAuthConfig?.production.setupIssue
+    : ebayOAuthConfig?.sandbox.setupIssue;
+
+  async function handleEbayConnect() {
+    if (!ebayEnvConfigured) {
+      toast({
+        title: "eBay not configured",
+        description: ebaySetupMessage ?? "Add eBay API credentials on the server for this environment.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setPendingAction("ebay");
+    try {
+      const { url } = await startEbayConnect(ebayConnectEnvironment);
+      window.location.assign(url);
+    } catch (error) {
+      toast({
+        title: "Could not start eBay sign-in",
+        description: error instanceof Error ? error.message : "Try again or contact support.",
+        variant: "destructive",
+      });
+      setPendingAction(null);
+    }
+  }
+
+  async function handleEbayDisconnect() {
+    setPendingAction("ebay");
+    try {
+      await disconnectEbay();
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+      toast({ title: "eBay disconnected" });
+    } catch (error) {
+      toast({
+        title: "Disconnect failed",
+        description: error instanceof Error ? error.message : "Could not disconnect eBay.",
+        variant: "destructive",
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }
 
   async function handleAmazonDisconnect() {
     setPendingAction("amazon");
@@ -657,8 +734,8 @@ export default function MarketplacesPage() {
       <div className="space-y-4 animate-in fade-in w-full min-w-0">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-56 rounded-2xl" />
           ))}
         </div>
@@ -686,6 +763,7 @@ export default function MarketplacesPage() {
   const amazonCanSignRequests = Boolean(data?.amazon.canSignRequests);
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
+  const ebayConnected = Boolean(data?.ebay.connected);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300 w-full min-w-0">
@@ -698,11 +776,11 @@ export default function MarketplacesPage() {
       <div className="space-y-2">
         <h1 className="text-lg font-semibold text-foreground tracking-tight">Marketplaces</h1>
         <p className="text-xs text-muted-foreground max-w-2xl">
-          Connect the sales channels you use in this workspace. Once connected, you can publish and export listings to Amazon, Shopify, and WooCommerce.
+          Connect the sales channels you use in this workspace. Shopify, WooCommerce, and eBay support OAuth or API connect; listing import, optimization, and publish expand per channel.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="space-y-2">
           <ConnectCard
             marketplace="Amazon"
@@ -799,6 +877,65 @@ export default function MarketplacesPage() {
               : undefined
           }
         />
+        <div className="space-y-2">
+          <ConnectCard
+            marketplace="eBay"
+            description="Connect your eBay seller account (Sandbox or Production) to import listings, sync orders and sales, and publish optimized listings."
+            connected={ebayConnected}
+            connectLabel="Connect with eBay"
+            setupRequired={!ebayConnected && !ebayEnvConfigured}
+            setupMessage={
+              ebaySetupMessage
+              ?? "Server-side eBay Client ID, Client Secret, and RuName are required for the selected environment."
+            }
+            detail={
+              ebayConnected
+                ? [
+                    data?.ebay.username ? `@${data.ebay.username}` : data?.ebay.ebayUserId ? `User ${data.ebay.ebayUserId}` : "Seller account linked",
+                    data?.ebay.environment === "production" ? "Production" : "Sandbox",
+                  ].filter(Boolean).join(" · ")
+                : null
+            }
+            loading={pendingAction === "ebay"}
+            onConnect={() => void handleEbayConnect()}
+            onDisconnect={() => void handleEbayDisconnect()}
+          />
+          {!ebayConnected ? (
+            <div className="rounded-xl border border-border bg-muted/30 px-3 py-2.5 space-y-2">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Connect environment
+              </p>
+              <div className="flex gap-2">
+                {(["sandbox", "production"] as const).map((env) => {
+                  const configured = env === "sandbox"
+                    ? ebayOAuthConfig?.sandbox.configured
+                    : ebayOAuthConfig?.production.configured;
+                  return (
+                    <button
+                      key={env}
+                      type="button"
+                      disabled={!configured}
+                      onClick={() => setEbayConnectEnvironment(env)}
+                      className={cn(
+                        "flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-colors",
+                        ebayConnectEnvironment === env
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-card text-foreground hover:bg-muted",
+                        !configured && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      {env === "sandbox" ? "Sandbox" : "Production"}
+                      {!configured ? " (not set up)" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                Test with Sandbox first, then switch to Production and reconnect. RuName in the eBay Developer Portal must match this app&apos;s callback URL.
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <Dialog open={dialogTarget != null} onOpenChange={(open) => !open && setDialogTarget(null)}>
