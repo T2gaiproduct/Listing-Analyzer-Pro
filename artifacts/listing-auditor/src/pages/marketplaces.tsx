@@ -37,6 +37,7 @@ import {
   syncShopifyProducts,
   syncWooCommerceProducts,
   syncAmazonProducts,
+  syncEbayProducts,
   startEbayConnect,
   disconnectEbay,
   type MarketplacePlatform,
@@ -404,9 +405,28 @@ export default function MarketplacesPage() {
     }
   }
 
+  function handleEbayImportSuccess(result: ShopifySyncResult) {
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+    const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+    const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from eBay.` : "";
+    toast({
+      title: "eBay inventory imported",
+      description: `Imported ${result.imported} of ${result.total} items.${updatedNote}${skippedNote}`,
+    });
+    if (result.errors.length > 0) {
+      toast({
+        title: "Some items could not be imported",
+        description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
+        variant: "destructive",
+      });
+    }
+  }
+
   const shopifySyncMutation = useMutation({ mutationFn: syncShopifyProducts });
   const amazonSyncMutation = useMutation({ mutationFn: syncAmazonProducts });
   const woocommerceSyncMutation = useMutation({ mutationFn: syncWooCommerceProducts });
+  const ebaySyncMutation = useMutation({ mutationFn: syncEbayProducts });
 
   function handleAmazonConnect() {
     if (!data?.amazon.workspaceCredentialsSaved) {
@@ -596,6 +616,7 @@ export default function MarketplacesPage() {
   function handleImportWizardSuccess(platform: MarketplacePlatform, result: ShopifySyncResult) {
     if (platform === "shopify") handleShopifyImportSuccess(result);
     else if (platform === "woocommerce") handleWooCommerceImportSuccess(result);
+    else if (platform === "ebay") handleEbayImportSuccess(result);
     else handleAmazonImportSuccess(result);
     setImportWizardPlatform(null);
   }
@@ -859,7 +880,7 @@ export default function MarketplacesPage() {
         />
         <ConnectCard
           marketplace="eBay"
-          description="Link your eBay seller account to this workspace. Catalog import and publish will be available after connect."
+          description="Link your eBay seller account to import inventory items into SellerLens (same flow as Shopify and WooCommerce)."
           connected={ebayConnected}
           connectLabel="Connect with eBay"
           connectDisabled={!ebayConnectReady}
@@ -875,8 +896,14 @@ export default function MarketplacesPage() {
               : null
           }
           loading={pendingAction === "ebay"}
+          importLoading={ebaySyncMutation.isPending}
           onConnect={() => void handleEbayConnect()}
           onDisconnect={() => void handleEbayDisconnect()}
+          onImport={
+            ebayConnected && data?.ebay.importReady
+              ? () => setImportWizardPlatform("ebay")
+              : undefined
+          }
         />
       </div>
 
@@ -1225,7 +1252,9 @@ export default function MarketplacesPage() {
               ? "Shopify"
               : importWizardPlatform === "woocommerce"
                 ? "WooCommerce"
-                : "Amazon"
+                : importWizardPlatform === "ebay"
+                  ? "eBay"
+                  : "Amazon"
           }
           marketplace={importWizardPlatform === "amazon" ? (data?.amazon.defaultMarketplace ?? "US") : undefined}
           onImport={async (input) => {
@@ -1234,6 +1263,7 @@ export default function MarketplacesPage() {
             try {
               if (platform === "shopify") return await shopifySyncMutation.mutateAsync(input);
               if (platform === "woocommerce") return await woocommerceSyncMutation.mutateAsync(input);
+              if (platform === "ebay") return await ebaySyncMutation.mutateAsync(input);
               return await amazonSyncMutation.mutateAsync(input);
             } catch (error) {
               handleImportWizardError(platform, error);
