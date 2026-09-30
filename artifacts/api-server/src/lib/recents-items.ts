@@ -57,7 +57,9 @@ export function classifyAuditRecentsItem(
       ? "Shopify Import"
       : classified.isWooCommerceImport
         ? "WooCommerce Import"
-        : recentsTypeLabel(type),
+        : classified.isEbayImport
+          ? "eBay Import"
+          : recentsTypeLabel(type),
   };
 }
 
