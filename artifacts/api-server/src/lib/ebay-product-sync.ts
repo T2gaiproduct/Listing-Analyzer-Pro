@@ -14,6 +14,7 @@ import {
   resolveEbayAccessToken,
   type EbayInventoryItem,
 } from "./ebay-inventory-client.js";
+import { migrateLegacyEbayListingsForWorkspace } from "./ebay-listing-migrate.js";
 import { clampImportLimit } from "./marketplace-catalog-types.js";
 import type { ShopifySyncResult } from "./shopify-product-sync.js";
 
@@ -126,6 +127,10 @@ export async function syncEbayProducts(input: {
   search?: string;
 }): Promise<ShopifySyncResult> {
   const importLimit = clampImportLimit(input.limit ?? MAX_IMPORT);
+  const migration = await migrateLegacyEbayListingsForWorkspace({
+    workspaceId: input.workspaceId,
+    maxListings: importLimit,
+  });
   const { accessToken, environment } = await resolveEbayAccessToken(input.workspaceId);
 
   let catalog: EbayInventoryItem[] = [];
@@ -170,6 +175,13 @@ export async function syncEbayProducts(input: {
   }
 
   if (catalog.length === 0) {
+    const errors = migration.errors.map((message) => ({ handle: "ebay-migrate", error: message }));
+    if (migration.activeListingsFound > 0 && migration.migrated === 0 && errors.length === 0) {
+      errors.push({
+        handle: "ebay-migrate",
+        error: "Active eBay listings were found but could not be converted to inventory items. Check eBay listing eligibility for migration.",
+      });
+    }
     return {
       imported: 0,
       skipped: 0,
@@ -178,7 +190,7 @@ export async function syncEbayProducts(input: {
       auditsQueued: 0,
       pendingAuditIds: [],
       products: [],
-      errors: [],
+      errors,
     };
   }
 
