@@ -3,7 +3,7 @@ import { eq, and, desc, or, sql, type SQL } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, graphicsProjectsTable, teamMembersTable,
-  videosProjectsTable, adsProjectsTable, workspacesTable, workspaceMembersTable,
+  videosProjectsTable, adsProjectsTable, workspacesTable,
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { ownerProjectFilter } from "../lib/workspace-route-helpers";
@@ -13,7 +13,9 @@ import {
   type ArchiveListScope,
 } from "../lib/archive-scope.js";
 import { createNotification } from "../lib/notifications";
-import { returnWorkspaceCreditsToAccountOnArchive } from "../lib/workspace-credits.js";
+import { archiveListPolicy, withArchiveRetentionMeta } from "../lib/archive-list-meta.js";
+import { permanentlyDeleteArchivedItem } from "../lib/archive-permanent-delete.js";
+import type { ArchivePermanentDeleteType } from "../lib/archive-permanent-delete.js";
 
 const router: IRouter = Router();
 
@@ -176,14 +178,16 @@ router.get("/archive", requireAuth, resolveTeam, async (req, res): Promise<void>
     .where(and(eq(workspacesTable.accountOwnerId, ownerId), eq(workspacesTable.isDeleted, 1)))
     .orderBy(desc(workspacesTable.deletedAt));
 
+  const policy = archiveListPolicy();
   res.json({
-    audits: audits.map(a => ({ ...a, type: "audit" })),
-    projects: projects.map(p => ({ ...p, type: "project" })),
-    videos: videos.map(v => ({ ...v, type: "video" })),
-    ads: ads.map(a => ({ ...a, type: "ad" })),
-    competitors: competitorRows.map(c => ({ ...c, type: "competitor" })),
-    teamMembers: teamMembers.map(m => ({ ...m, type: "teamMember" })),
-    workspaces: archivedWorkspaces.map(w => ({ ...w, type: "workspace" })),
+    ...policy,
+    audits: audits.map((a) => withArchiveRetentionMeta({ ...a, type: "audit" as const })),
+    projects: projects.map((p) => withArchiveRetentionMeta({ ...p, type: "project" as const })),
+    videos: videos.map((v) => withArchiveRetentionMeta({ ...v, type: "video" as const })),
+    ads: ads.map((a) => withArchiveRetentionMeta({ ...a, type: "ad" as const })),
+    competitors: competitorRows.map((c) => withArchiveRetentionMeta({ ...c, type: "competitor" as const })),
+    teamMembers: teamMembers.map((m) => withArchiveRetentionMeta({ ...m, type: "teamMember" as const })),
+    workspaces: archivedWorkspaces.map((w) => withArchiveRetentionMeta({ ...w, type: "workspace" as const })),
   });
 });
 
@@ -306,9 +310,22 @@ router.delete("/archive/:type/:id", requireAuth, resolveTeam, async (req, res): 
   const ownerId = getEffectiveUserId(req);
   const userId = (req as AuthedRequest).userId;
   const admin = isAdmin(userId);
-  const type = String(req.params.type);
+  const type = String(req.params.type) as ArchivePermanentDeleteType;
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const validTypes: ArchivePermanentDeleteType[] = [
+    "audit", "project", "video", "ad", "competitor", "teamMember", "workspace",
+  ];
+  if (!validTypes.includes(type)) {
+    res.status(400).json({ error: "Unknown type" });
+    return;
+  }
+
+  if (type === "workspace" && ownerId !== userId) {
+    res.status(403).json({ error: "Only the account owner can permanently delete workspaces" });
+    return;
+  }
 
   const scope = await resolveArchiveListScope(userId, ownerId, req);
   if (scope.mode === "denied") {
@@ -318,101 +335,19 @@ router.delete("/archive/:type/:id", requireAuth, resolveTeam, async (req, res): 
   const wsClause = (col: { workspaceId: unknown }): SQL | undefined =>
     archiveItemWorkspaceClause(col, scope);
 
-  const isArchivedOrDeleted = or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived"));
+  const outcome = await permanentlyDeleteArchivedItem(type, id, {
+    ownerId,
+    admin,
+    wsClause,
+    notifyUserId: userId,
+    source: "manual",
+  });
 
-  let result;
-  switch (type) {
-    case "audit": {
-      const where = admin
-        ? scopedAnd(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")), wsClause(auditsTable))
-        : scopedAnd(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")), eq(auditsTable.userId, ownerId), wsClause(auditsTable));
-      const [item] = await db.delete(auditsTable).where(where).returning();
-      result = item;
-      break;
-    }
-    case "project": {
-      const where = admin
-        ? scopedAnd(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")), wsClause(graphicsProjectsTable))
-        : scopedAnd(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")), eq(graphicsProjectsTable.userId, ownerId), wsClause(graphicsProjectsTable));
-      const [item] = await db.delete(graphicsProjectsTable).where(where).returning();
-      result = item;
-      break;
-    }
-    case "video": {
-      const where = admin
-        ? scopedAnd(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")), wsClause(videosProjectsTable))
-        : scopedAnd(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")), eq(videosProjectsTable.userId, ownerId), wsClause(videosProjectsTable));
-      const [item] = await db.delete(videosProjectsTable).where(where).returning();
-      result = item;
-      break;
-    }
-    case "ad": {
-      const where = admin
-        ? scopedAnd(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")), wsClause(adsProjectsTable))
-        : scopedAnd(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")), eq(adsProjectsTable.userId, ownerId), wsClause(adsProjectsTable));
-      const [item] = await db.delete(adsProjectsTable).where(where).returning();
-      result = item;
-      break;
-    }
-    case "competitor": {
-      if (admin) {
-        const [item] = await db.delete(competitorsTable).where(and(eq(competitorsTable.id, id), eq(competitorsTable.isDeleted, 1))).returning();
-        result = item;
-      } else {
-        const rows = await db
-          .select({ competitorId: competitorsTable.id })
-          .from(competitorsTable)
-          .innerJoin(auditsTable, eq(competitorsTable.auditId, auditsTable.id))
-          .where(scopedAnd(eq(competitorsTable.id, id), eq(competitorsTable.isDeleted, 1), eq(auditsTable.userId, ownerId), wsClause(auditsTable)));
-        if (rows.length === 0) { res.status(404).json({ error: "Item not found" }); return; }
-        const [item] = await db.delete(competitorsTable).where(eq(competitorsTable.id, id)).returning();
-        result = item;
-      }
-      break;
-    }
-    case "teamMember": {
-      const [item] = await db.delete(teamMembersTable).where(and(eq(teamMembersTable.id, id), eq(teamMembersTable.isDeleted, 1), eq(teamMembersTable.ownerUserId, ownerId))).returning();
-      result = item;
-      break;
-    }
-    case "workspace": {
-      if (ownerId !== userId) { res.status(403).json({ error: "Only the account owner can permanently delete workspaces" }); return; }
-      const [archived] = await db.select().from(workspacesTable).where(and(
-        eq(workspacesTable.id, id),
-        eq(workspacesTable.accountOwnerId, ownerId),
-        eq(workspacesTable.isDeleted, 1),
-      )).limit(1);
-      if (!archived) { res.status(404).json({ error: "Item not found" }); return; }
-      try {
-        await returnWorkspaceCreditsToAccountOnArchive(ownerId, id);
-      } catch (err) {
-        console.error("[archive] return workspace credits before permanent delete failed", err);
-        res.status(500).json({ error: "Failed to return workspace credits to your account" });
-        return;
-      }
-      await db.delete(workspaceMembersTable).where(eq(workspaceMembersTable.workspaceId, id));
-      const [item] = await db.delete(workspacesTable).where(eq(workspacesTable.id, id)).returning();
-      result = item;
-      break;
-    }
-    default:
-      res.status(400).json({ error: "Unknown type" });
-      return;
+  if (!outcome.ok) {
+    res.status(outcome.status).json({ error: outcome.error });
+    return;
   }
 
-  // Suppress unused variable warning
-  void isArchivedOrDeleted;
-
-  if (!result) { res.status(404).json({ error: "Item not found" }); return; }
-
-  await createNotification({
-    userId,
-    type: "project_deleted",
-    title: type === "workspace" ? "Workspace permanently deleted" : "Project permanently deleted",
-    message: type === "workspace"
-      ? "Your workspace was permanently removed from the Archive."
-      : `Your ${type} project was permanently removed from the Archive.`,
-  });
   res.sendStatus(204);
 });
 
