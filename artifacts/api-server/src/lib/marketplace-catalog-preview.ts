@@ -22,6 +22,7 @@ import {
   fetchEbayInventoryItemsPage,
   resolveEbayAccessToken,
 } from "./ebay-inventory-client.js";
+import { migrateLegacyEbayListingsForWorkspace } from "./ebay-listing-migrate.js";
 
 function mapShopifyAdminProduct(product: ShopifyAdminCatalogProduct): CatalogPreviewItem {
   const sku = product.variants?.find((variant) => variant.sku?.trim())?.sku?.trim() ?? null;
@@ -328,6 +329,12 @@ export async function previewEbayCatalog(input: {
   search: string;
   cursor: string | null;
 }): Promise<CatalogPreviewResponse> {
+  if (input.page === 1 && !input.cursor) {
+    await migrateLegacyEbayListingsForWorkspace({
+      workspaceId: input.workspaceId,
+      maxListings: 200,
+    });
+  }
   const { accessToken, environment } = await resolveEbayAccessToken(input.workspaceId);
   const offset = input.page === 1
     ? 0
