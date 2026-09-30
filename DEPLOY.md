@@ -29,8 +29,9 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 source ~/.bashrc
 nvm install 24 && nvm use 24
 
-# Install pnpm
-npm install -g pnpm
+# Install pnpm (required — do not use `npm install` in the repo root)
+npm install -g pnpm@10
+pnpm --version   # must be 9+
 
 # Install PM2 (process manager)
 npm install -g pm2
