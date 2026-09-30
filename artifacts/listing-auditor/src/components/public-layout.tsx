@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, Facebook, Twitter, Linkedin, Youtube, Mail, MapPin } from "lucide-react";
+import { Menu, Facebook, Twitter, Linkedin, Youtube, Mail, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SiteLogo } from "@/components/site-logo";
@@ -380,7 +380,7 @@ function FooterLinkList({ links }: { links: { id: number; label: string; href: s
 }
 
 export function PublicFooter() {
-  const { platformName, supportEmail, companyAddress } = useBranding();
+  const { platformName, supportEmail, supportPhone, companyAddress } = useBranding();
   const cms = useHomepageCmsContext();
   const { footerLinks } = usePublicNav();
   const year = new Date().getFullYear();
@@ -405,7 +405,7 @@ export function PublicFooter() {
             >
               <SiteLogo variant="footer" />
             </Link>
-            {(supportEmail || companyAddress) && (
+            {(supportEmail || supportPhone || companyAddress) && (
               <div className="space-y-2 mb-4 max-w-xs">
                 {supportEmail && (
                   <a
@@ -414,6 +414,15 @@ export function PublicFooter() {
                   >
                     <Mail className="w-4 h-4 shrink-0 mt-0.5 text-orange-500" />
                     <span className="break-all">{supportEmail}</span>
+                  </a>
+                )}
+                {supportPhone && (
+                  <a
+                    href={`tel:${supportPhone.replace(/\s/g, "")}`}
+                    className="flex items-start gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+                  >
+                    <Phone className="w-4 h-4 shrink-0 mt-0.5 text-orange-500" />
+                    <span>{supportPhone}</span>
                   </a>
                 )}
                 {companyAddress && (
