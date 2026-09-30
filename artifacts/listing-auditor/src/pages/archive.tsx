@@ -33,6 +33,8 @@ interface ArchivedItem {
 }
 
 interface ArchiveResponse {
+  retentionDays?: number;
+  policySummary?: string;
   audits: ArchivedItem[];
   projects: ArchivedItem[];
   videos: ArchivedItem[];
@@ -40,6 +42,12 @@ interface ArchiveResponse {
   competitors: ArchivedItem[];
   teamMembers: ArchivedItem[];
   workspaces: ArchivedItem[];
+}
+
+interface ArchivedItemWithRetention extends ArchivedItem {
+  purgeAt?: string | null;
+  daysUntilPurge?: number | null;
+  retentionDays?: number;
 }
 
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -70,6 +78,14 @@ function archivedAgo(item: ArchivedItem): string {
   if (!ts) return "";
   try { return formatDistanceToNow(new Date(ts), { addSuffix: true }); }
   catch { return ""; }
+}
+
+function purgeCountdown(item: ArchivedItemWithRetention): string {
+  const days = item.daysUntilPurge;
+  if (days == null) return "";
+  if (days <= 0) return "Scheduled for permanent deletion";
+  if (days === 1) return "Permanently deletes in 1 day";
+  return `Permanently deletes in ${days} days`;
 }
 
 function RecoverButton({ type, id }: { type: string; id: number }) {
@@ -210,6 +226,10 @@ function ArchiveList({
                     {item.clientLabel && <span>Client: {item.clientLabel}</span>}
                     {item.invitedEmail && <span>{item.invitedEmail}</span>}
                     {(() => { const ago = archivedAgo(item); return ago ? <span>Archived {ago}</span> : null; })()}
+                    {(() => {
+                      const countdown = purgeCountdown(item as ArchivedItemWithRetention);
+                      return countdown ? <span className="text-amber-700">{countdown}</span> : null;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -267,6 +287,7 @@ export default function ArchivePage() {
         <h1 className="text-2xl font-bold">Archive</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {total} archived item{total !== 1 ? "s" : ""}
+          {data?.policySummary ? ` · ${data.policySummary}` : " · Items are permanently deleted after 30 days if not restored."}
         </p>
       </div>
 

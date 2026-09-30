@@ -8,7 +8,8 @@
     "dev:once": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "purge-archive": "tsx src/run-purge-expired-archive.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.7",

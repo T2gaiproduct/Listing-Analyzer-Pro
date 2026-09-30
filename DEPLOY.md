@@ -141,6 +141,15 @@ This runs:
 
 Then restart the API (`pm2 restart listing-auditor-api`). Boot also runs `ensureWorkspaceCreditsMigrated`, but the SQL data step aligns production before restart.
 
+**Archive retention (30 days)** — schedule a daily cron on the server (after `DATABASE_URL` is in `.env`):
+
+```bash
+# crontab -e
+0 3 * * * cd /root/Listing-Analyzer-Pro && bash scripts/purge-expired-archive.sh >> /var/log/listingauditor-purge-archive.log 2>&1
+```
+
+This permanently deletes archive items older than 30 days and sends in-app/email notices (respecting user notification preferences under **Projects**).
+
 **Option A — Drizzle push only**
 
 ```bash

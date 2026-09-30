@@ -10,6 +10,7 @@ import {
   pinnedProjectsTable,
 } from "@workspace/db";
 import { createNotification } from "../lib/notifications";
+import { archiveRetentionPolicySummary } from "../lib/archive-retention.js";
 import { resolveTeamContext, type TeamAuthedRequest, requireWriteAccess } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
@@ -479,29 +480,30 @@ router.patch("/projects/:type/:id/archive", requireAuth, resolveTeam, requireWri
   const ownerUserId = await ensureProjectMutationAccess(req, res, dbType, itemId);
   if (!ownerUserId) return;
 
+  const now = new Date();
   switch (dbType) {
     case "audit":
       await db
         .update(auditsTable)
-        .set({ status: "archived", updatedAt: new Date() })
+        .set({ status: "archived", deletedAt: now, updatedAt: now })
         .where(and(eq(auditsTable.id, itemId), eq(auditsTable.userId, ownerUserId)));
       break;
     case "graphics":
       await db
         .update(graphicsProjectsTable)
-        .set({ status: "archived", updatedAt: new Date() })
+        .set({ status: "archived", deletedAt: now, updatedAt: now })
         .where(and(eq(graphicsProjectsTable.id, itemId), eq(graphicsProjectsTable.userId, ownerUserId)));
       break;
     case "video":
       await db
         .update(videosProjectsTable)
-        .set({ status: "archived", updatedAt: new Date() })
+        .set({ status: "archived", deletedAt: now, updatedAt: now })
         .where(and(eq(videosProjectsTable.id, itemId), eq(videosProjectsTable.userId, ownerUserId)));
       break;
     case "ads":
       await db
         .update(adsProjectsTable)
-        .set({ status: "archived", updatedAt: new Date() })
+        .set({ status: "archived", deletedAt: now, updatedAt: now })
         .where(and(eq(adsProjectsTable.id, itemId), eq(adsProjectsTable.userId, ownerUserId)));
       break;
     default:
@@ -521,7 +523,7 @@ router.patch("/projects/:type/:id/archive", requireAuth, resolveTeam, requireWri
     userId,
     type: "project_archived",
     title: "Project archived",
-    message: `Your ${type} project was moved to Archive.`,
+    message: `Your ${type} project was moved to Archive. ${archiveRetentionPolicySummary()}`,
     link: "/archive",
   });
   res.json({ ok: true });
@@ -614,9 +616,10 @@ router.delete("/projects/:type/:id", requireAuth, resolveTeamAndWorkspace, requi
 
   await createNotification({
     userId,
-    type: "project_deleted",
+    type: "project_archived",
     title: "Project deleted",
-    message: `Your ${type} project was permanently deleted.`,
+    message: `Your ${type} project was moved to Archive. ${archiveRetentionPolicySummary()}`,
+    link: "/archive",
   });
   res.json({ ok: true });
 });
