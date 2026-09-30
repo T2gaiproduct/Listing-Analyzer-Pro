@@ -84,6 +84,15 @@ git log -1 --oneline
 
 echo
 echo "==> Installing dependencies..."
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "ERROR: pnpm is not installed on this server." >&2
+  echo "       Run: npm install -g pnpm@10   (or: corepack enable && corepack prepare pnpm@10.33.3 --activate)" >&2
+  exit 1
+fi
+PNPM_VERSION="$(pnpm --version)"
+echo "pnpm version: $PNPM_VERSION"
+# Some hosts run lifecycle scripts without a pnpm/* user-agent; preinstall accepts npm_execpath too.
+export npm_config_user_agent="pnpm/${PNPM_VERSION}"
 pnpm install --frozen-lockfile
 
 echo
