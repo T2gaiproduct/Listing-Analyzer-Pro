@@ -43,9 +43,12 @@ async function ebayInventoryFetch(
 ): Promise<Response> {
   const { apiBaseUrl } = ebayOAuthEndpoints(environment);
   const url = `${apiBaseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  // Node fetch (undici) defaults Accept-Language to `*`, which eBay Inventory rejects (error 25709).
   return fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      "Accept-Language": "en-US",
       "Content-Type": "application/json",
       "Content-Language": "en-US",
     },
