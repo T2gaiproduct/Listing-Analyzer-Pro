@@ -28,8 +28,10 @@ import {
 } from "../lib/marketplace-connections.js";
 import {
   disconnectEbayWorkspaceConnection,
+  getEbayWorkspaceConnection,
   getEbayWorkspaceConnectionPublic,
 } from "../lib/ebay-workspace-connection.js";
+import { syncEbayProducts } from "../lib/ebay-product-sync.js";
 import { isEbayOAuthConnectReady } from "../lib/ebay-oauth-config.js";
 import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
@@ -56,6 +58,7 @@ import {
 } from "../lib/marketplace-catalog-types.js";
 import {
   previewAmazonCatalog,
+  previewEbayCatalog,
   previewShopifyCatalog,
   previewWooCommerceCatalog,
 } from "../lib/marketplace-catalog-preview.js";
@@ -219,7 +222,8 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
     ebay: {
       connected: ebay.connected,
       connectReady: isEbayOAuthConnectReady(),
-      publishReady: ebay.connected,
+      importReady: ebay.connected,
+      publishReady: false,
       username: ebay.username,
       ebayUserId: ebay.ebayUserId,
       connectedAt: ebay.connectedAt,
@@ -560,6 +564,37 @@ router.get(
 );
 
 router.get(
+  "/marketplaces/ebay/catalog-preview",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceView("amazon"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getEbayWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your eBay seller account on the Marketplaces page first." });
+      return;
+    }
+    const { page, pageSize, search, cursor } = parseCatalogPreviewQuery(req.query as Record<string, unknown>);
+
+    try {
+      const preview = await previewEbayCatalog({
+        workspaceId,
+        page,
+        pageSize,
+        search,
+        cursor,
+      });
+      res.json(preview);
+    } catch (err) {
+      req.log?.error?.({ err }, "eBay catalog preview failed");
+      const message = err instanceof Error ? err.message : "Failed to load eBay catalog";
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
+router.get(
   "/marketplaces/amazon/catalog-preview",
   requireAuth,
   resolveTeamAndWorkspace,
@@ -597,6 +632,44 @@ router.get(
     } catch (err) {
       req.log?.error?.({ err }, "Amazon catalog preview failed");
       const message = err instanceof Error ? err.message : "Failed to load Amazon catalog";
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
+router.post(
+  "/marketplaces/ebay/sync",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceAction("amazon", "edit"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getEbayWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your eBay seller account on the Marketplaces page first." });
+      return;
+    }
+
+    const importBody = parseMarketplaceImportBody(req.body);
+
+    try {
+      const result = await syncEbayProducts({
+        workspaceId,
+        ownerId: getEffectiveUserId(req),
+        createdByUserId: auditCreatedByUserId(req),
+        productIds: importBody.productIds,
+        limit: importBody.limit,
+      });
+
+      res.status(201).json({
+        ...result,
+        auditsCompleted: 0,
+        auditsFailed: 0,
+        auditsRemaining: 0,
+      });
+    } catch (err) {
+      req.log?.error?.({ err }, "eBay product sync failed");
+      const message = err instanceof Error ? err.message : "Failed to import eBay products";
       res.status(500).json({ error: message });
     }
   },

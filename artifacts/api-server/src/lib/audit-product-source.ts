@@ -1,25 +1,27 @@
 import { inArray } from "drizzle-orm";
 import { db, productProfilesTable } from "@workspace/db";
+import { isEbayImportAsin } from "./ebay-import-utils.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
 import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 
 export type AuditProductSourceType = "listing" | "audit";
 
 export function isStorePlatformAsin(asin: string | null | undefined): boolean {
-  return isShopifyImportAsin(asin) || isWooCommerceImportAsin(asin);
+  return isShopifyImportAsin(asin) || isWooCommerceImportAsin(asin) || isEbayImportAsin(asin);
 }
 
 /** Catalog sync from Shopify/Woo admin (has product_profiles), not Audit Listing fetch of a store URL. */
 export function isSyncedStoreImport(opts: {
   asin: string | null | undefined;
   hasProductProfile: boolean;
-}): { isShopifyImport: boolean; isWooCommerceImport: boolean } {
+}): { isShopifyImport: boolean; isWooCommerceImport: boolean; isEbayImport: boolean } {
   if (!opts.hasProductProfile) {
-    return { isShopifyImport: false, isWooCommerceImport: false };
+    return { isShopifyImport: false, isWooCommerceImport: false, isEbayImport: false };
   }
   return {
     isShopifyImport: isShopifyImportAsin(opts.asin),
     isWooCommerceImport: isWooCommerceImportAsin(opts.asin),
+    isEbayImport: isEbayImportAsin(opts.asin),
   };
 }
 
@@ -41,6 +43,7 @@ export function classifyAuditProductSource(opts: {
   sourceType: AuditProductSourceType;
   isShopifyImport: boolean;
   isWooCommerceImport: boolean;
+  isEbayImport: boolean;
   isAuditListing: boolean;
 } {
   const store = isSyncedStoreImport(opts);
@@ -50,6 +53,7 @@ export function classifyAuditProductSource(opts: {
     sourceType,
     isShopifyImport: store.isShopifyImport,
     isWooCommerceImport: store.isWooCommerceImport,
+    isEbayImport: store.isEbayImport,
     isAuditListing,
   };
 }

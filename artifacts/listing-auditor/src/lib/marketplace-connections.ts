@@ -8,7 +8,7 @@ import {
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export type StoreMarketplace = "shopify" | "woocommerce";
-export type MarketplacePlatform = StoreMarketplace | "amazon";
+export type MarketplacePlatform = StoreMarketplace | "amazon" | "ebay";
 
 export type MarketplaceAmazonStatus = AmazonConnectionStatus & {
   applicationId?: string | null;
@@ -38,6 +38,7 @@ export type MarketplaceConnectionsResponse = {
   ebay: {
     connected: boolean;
     connectReady: boolean;
+    importReady: boolean;
     publishReady: boolean;
     username: string | null;
     ebayUserId: string | null;
@@ -221,6 +222,14 @@ export async function syncWooCommerceProducts(input?: MarketplaceImportInput): P
 
 export async function syncAmazonProducts(input?: MarketplaceImportInput): Promise<ShopifySyncResult> {
   return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/amazon/sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input ?? {}),
+  });
+}
+
+export async function syncEbayProducts(input?: MarketplaceImportInput): Promise<ShopifySyncResult> {
+  return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/ebay/sync`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input ?? {}),

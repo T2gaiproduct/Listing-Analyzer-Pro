@@ -18,6 +18,10 @@ import {
   type ShopifyCatalogProduct,
 } from "./shopify-product-sync.js";
 import { fetchWooCommerceProducts } from "./woocommerce-admin-client.js";
+import {
+  fetchEbayInventoryItemsPage,
+  resolveEbayAccessToken,
+} from "./ebay-inventory-client.js";
 
 function mapShopifyAdminProduct(product: ShopifyAdminCatalogProduct): CatalogPreviewItem {
   const sku = product.variants?.find((variant) => variant.sku?.trim())?.sku?.trim() ?? null;
@@ -315,4 +319,90 @@ export async function fetchShopifyCatalogForImport(input: {
     product.variants?.find((variant) => variant.sku)?.sku,
   ]));
   return filtered.slice(0, input.limit);
+}
+
+export async function previewEbayCatalog(input: {
+  workspaceId: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  cursor: string | null;
+}): Promise<CatalogPreviewResponse> {
+  const { accessToken, environment } = await resolveEbayAccessToken(input.workspaceId);
+  const offset = input.page === 1
+    ? 0
+    : (input.cursor ? Number.parseInt(input.cursor, 10) : (input.page - 1) * input.pageSize);
+  const safeOffset = Number.isFinite(offset) && offset >= 0 ? offset : 0;
+
+  if (input.search.trim()) {
+    const collected: CatalogPreviewItem[] = [];
+    let scanOffset = safeOffset;
+    let hasMore = false;
+    const maxScan = 2_000;
+
+    while (collected.length < input.pageSize) {
+      const batch = await fetchEbayInventoryItemsPage({
+        environment,
+        accessToken,
+        limit: 100,
+        offset: scanOffset,
+      });
+      if (batch.items.length === 0) break;
+
+      for (const item of batch.items) {
+        const title = item.product?.title?.trim() || item.sku;
+        const preview: CatalogPreviewItem = {
+          id: item.sku.trim(),
+          title,
+          sku: item.sku.trim(),
+          imageUrl: item.product?.imageUrls?.[0]?.trim() || null,
+          status: item.condition ?? null,
+          subtitle: item.sku.trim(),
+        };
+        if (!matchesCatalogSearch(input.search, [preview.title, preview.sku, preview.subtitle])) continue;
+        collected.push(preview);
+        if (collected.length >= input.pageSize) break;
+      }
+
+      if (!batch.hasMore) break;
+      scanOffset += batch.items.length;
+      hasMore = batch.hasMore;
+      if (scanOffset >= maxScan) break;
+    }
+
+    return {
+      items: collected,
+      page: input.page,
+      pageSize: input.pageSize,
+      hasMore: collected.length >= input.pageSize || hasMore,
+      totalHint: null,
+      nextCursor: String(scanOffset),
+    };
+  }
+
+  const batch = await fetchEbayInventoryItemsPage({
+    environment,
+    accessToken,
+    limit: input.pageSize,
+    offset: safeOffset,
+  });
+
+  const items: CatalogPreviewItem[] = batch.items.map((item) => ({
+    id: item.sku.trim(),
+    title: item.product?.title?.trim() || item.sku.trim(),
+    sku: item.sku.trim(),
+    imageUrl: item.product?.imageUrls?.[0]?.trim() || null,
+    status: item.condition ?? null,
+    subtitle: item.sku.trim(),
+  }));
+
+  const nextOffset = safeOffset + items.length;
+  return {
+    items,
+    page: input.page,
+    pageSize: input.pageSize,
+    hasMore: batch.hasMore,
+    totalHint: batch.total,
+    nextCursor: String(nextOffset),
+  };
 }

@@ -150,7 +150,7 @@ export async function loadUnifiedProductList(
     }
     const hasProductProfile = profileAuditIds.has(a.id);
     const classified = classifyAuditProductSource({ asin: a.asin, hasProductProfile });
-    const { isShopifyImport, isWooCommerceImport, isAuditListing } = classified;
+    const { isShopifyImport, isWooCommerceImport, isEbayImport, isAuditListing } = classified;
     const sourceType: ProductSourceType = classified.sourceType;
     const name = a.name?.trim() || a.productName?.trim() || "Untitled Project";
     const hasAuditScore = (a.overallScore ?? 0) > 0;
@@ -185,7 +185,9 @@ export async function loadUnifiedProductList(
         ? "Shopify Import"
         : isWooCommerceImport
           ? "WooCommerce Import"
-          : sourceTypeLabel(sourceType),
+          : isEbayImport
+            ? "eBay Import"
+            : sourceTypeLabel(sourceType),
       isShopifyImport,
       isWooCommerceImport,
       referenceUrl: null,
