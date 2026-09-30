@@ -94,9 +94,9 @@ export default function AuditListings() {
           const isBlocked = lower.includes("captcha") || lower.includes("blocked") || lower.includes("automated");
           const isNotFound = lower.includes("not found") || lower.includes("404");
           toast({
-            title: isBlocked ? "Store blocked the request" : isNotFound ? "Product not found" : "Failed to fetch listing",
+            title: isBlocked ? "We couldn't access this product page automatically." : isNotFound ? "Product not found" : "Failed to fetch listing",
             description: isBlocked
-              ? "Some stores block automated fetches from cloud servers. Try again later or use Build Your Brand to enter listing details manually."
+              ? "Some stores restrict automated access. You can connect your marketplace account or enter the product details manually to continue."
               : msg,
             variant: "destructive",
           });
