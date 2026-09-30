@@ -1,8 +1,8 @@
 /**
- * Cloud Agent quick tunnel (*.trycloudflare.com). Opt-in via VITE_CLOUD_AGENT_PREVIEW=true
- * (dev-stack only). Default off so staging/main deploys never enable preview-only auth/onboarding hacks.
+ * Cloud Agent quick tunnel (*.trycloudflare.com).
+ * Hostname-only check: production/staging on real domains never use trycloudflare.com.
+ * VITE_CLOUD_AGENT_PREVIEW is still set by dev-stack for clarity in local builds.
  */
 export function isCloudflareQuickPreviewHost(): boolean {
-  if (import.meta.env.VITE_CLOUD_AGENT_PREVIEW !== "true") return false;
   return typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com");
 }

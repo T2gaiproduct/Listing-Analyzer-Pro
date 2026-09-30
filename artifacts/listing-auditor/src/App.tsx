@@ -442,6 +442,7 @@ function HomeRedirect() {
   const {
     data: summary,
     isFetched: summaryFetched,
+    isFetching: summaryFetching,
     isError: summaryError,
     refetch: refetchSummary,
   } = useOnboardingSummary();
@@ -450,7 +451,7 @@ function HomeRedirect() {
   if (envAdmin && !adminLoaded) return <AuthLoading />;
   if ((envAdmin || (adminLoaded && isAdmin)) && !permLoaded) return <AuthLoading />;
   if (envAdmin || (adminLoaded && isAdmin)) return <Redirect to={defaultRoute} />;
-  if (!summaryFetched) return <AuthLoading />;
+  if (!summaryFetched || (summaryFetching && !summary)) return <AuthLoading />;
   if (summaryError || !summary) {
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
   }
@@ -468,13 +469,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const {
     data: summary,
     isFetched: summaryFetched,
+    isFetching: summaryFetching,
     isError: summaryError,
     refetch: refetchSummary,
   } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
   if (user && envAdmin && !adminLoaded) return <AuthLoading />;
-  if (user && !isAdminUser && !summaryFetched) return <AuthLoading />;
+  if (user && !isAdminUser && (!summaryFetched || (summaryFetching && !summary))) return <AuthLoading />;
   if (user && !isAdminUser && (summaryError || !summary) && !isCloudflareQuickPreviewHost()) {
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
   }
