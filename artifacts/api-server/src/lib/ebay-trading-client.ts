@@ -56,6 +56,12 @@ async function postTradingApiRequest(input: {
   if (/<Ack>Failure<\/Ack>/i.test(text)) {
     throw new Error(parseTradingErrorMessage(text, `${input.callName} failed`));
   }
+  if (
+    /<Ack>PartialFailure<\/Ack>/i.test(text)
+    && input.callName !== "UploadSiteHostedPictures"
+  ) {
+    throw new Error(parseTradingErrorMessage(text, `${input.callName} failed`));
+  }
   return text;
 }
 
@@ -349,6 +355,11 @@ export async function uploadEbaySiteHostedPicture(input: {
   });
   const fullUrl = parseHostedPictureUrlFromUploadResponse(text);
   if (!fullUrl) {
+    if (/<Ack>Warning<\/Ack>/i.test(text) || /<Ack>Success<\/Ack>/i.test(text)) {
+      throw new Error(
+        parseTradingErrorMessage(text, "UploadSiteHostedPictures did not return a picture URL."),
+      );
+    }
     throw new Error(parseTradingErrorMessage(text, "UploadSiteHostedPictures failed"));
   }
   return fullUrl;

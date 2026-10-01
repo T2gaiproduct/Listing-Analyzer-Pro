@@ -75,6 +75,10 @@ async function resolveEbayPublishPriceCents(auditId: number): Promise<{
   };
 }
 
+function isEbayTransientReviseError(message: string): boolean {
+  return /trouble updating your listing|try again later|system error|internal error/i.test(message);
+}
+
 async function reviseListingContentWithPictureFallback(input: {
   environment: "sandbox" | "production";
   accessToken: string;
@@ -83,28 +87,43 @@ async function reviseListingContentWithPictureFallback(input: {
   descriptionHtml: string;
   pictureUrls: string[];
 }): Promise<string | undefined> {
-  try {
-    await reviseEbayListingContent({
-      environment: input.environment,
-      accessToken: input.accessToken,
-      itemId: input.itemId,
-      title: input.title,
-      descriptionHtml: input.descriptionHtml,
-      pictureUrls: input.pictureUrls,
-    });
-    return undefined;
-  } catch (contentErr) {
-    if (input.pictureUrls.length === 0) throw contentErr;
-    await reviseEbayListingContent({
-      environment: input.environment,
-      accessToken: input.accessToken,
-      itemId: input.itemId,
-      title: input.title,
-      descriptionHtml: input.descriptionHtml,
-      pictureUrls: [],
-    });
-    return "Gallery images could not be applied on eBay; title and description were updated. Try push again in a few minutes.";
+  const warnings: string[] = [];
+  const attempts: Array<{ pictureUrls: string[]; descriptionHtml: string; label: string }> = [
+    { pictureUrls: input.pictureUrls, descriptionHtml: input.descriptionHtml, label: "full" },
+    { pictureUrls: [], descriptionHtml: input.descriptionHtml, label: "no-gallery" },
+    { pictureUrls: [], descriptionHtml: "", label: "title-only" },
+  ];
+
+  let lastError: Error | null = null;
+  for (const attempt of attempts) {
+    if (attempt.label === "no-gallery" && input.pictureUrls.length === 0) continue;
+    if (attempt.label === "title-only" && !lastError) break;
+    try {
+      await reviseEbayListingContent({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        itemId: input.itemId,
+        title: input.title,
+        descriptionHtml: attempt.descriptionHtml,
+        pictureUrls: attempt.pictureUrls,
+      });
+      if (attempt.label === "no-gallery" && input.pictureUrls.length > 0) {
+        warnings.push("Gallery images could not be applied on eBay; title and description were updated.");
+      } else if (attempt.label === "title-only") {
+        warnings.push(
+          "eBay only accepted a title update this time. Try push again later for description and images.",
+        );
+      }
+      return warnings.length > 0 ? warnings.join(" ") : undefined;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (!isEbayTransientReviseError(lastError.message) && attempt.label === "full") {
+        throw lastError;
+      }
+    }
   }
+
+  throw lastError ?? new Error("eBay listing update failed.");
 }
 
 export async function publishListingToEbay(input: {
