@@ -122,13 +122,42 @@ export function resolveListingPreviewShareBaseUrl(req: Request): string {
   return base;
 }
 
+function isPublicHostname(hostname: string): boolean {
+  if (!hostname || hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+    return false;
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return false;
+  return hostname.includes(".");
+}
+
+/** eBay/Shopify/WooCommerce require HTTPS image URLs; upgrade http APP_URL on public hosts. */
+function upgradePublicOriginToHttps(origin: string): string {
+  const trimmed = origin.trim().replace(/\/$/, "");
+  if (!trimmed.startsWith("http://")) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if (!isPublicHostname(url.hostname)) return trimmed;
+    url.protocol = "https:";
+    if (url.port === "80") url.port = "";
+    return url.origin;
+  } catch {
+    return trimmed;
+  }
+}
+
 function resolveConfiguredHttpsBaseUrl(): string | undefined {
   const fromPublishEnv = readConfiguredPublishBaseUrl();
-  if (fromPublishEnv?.startsWith("https://")) return fromPublishEnv;
+  if (fromPublishEnv) {
+    const upgraded = upgradePublicOriginToHttps(fromPublishEnv);
+    if (upgraded.startsWith("https://")) return upgraded;
+  }
   const configured = getConfiguredAppUrl();
   if (!configured || isLocalhostOrigin(configured)) return undefined;
-  if (!configured.startsWith("https://")) return undefined;
-  return configured.replace(/\/$/, "");
+  const upgraded = upgradePublicOriginToHttps(
+    configured.startsWith("http") ? configured : `https://${configured}`,
+  );
+  if (!upgraded.startsWith("https://")) return undefined;
+  return upgraded.replace(/\/$/, "");
 }
 
 /** WooCommerce/Shopify must fetch images from a public HTTPS URL — never localhost. */
@@ -154,12 +183,13 @@ export function resolveMarketplacePublishBaseUrl(req: Request): string {
       "Cannot publish store images from localhost. Open SellerLens through your Cloudflare preview link (or production URL) and publish again.",
     );
   }
-  if (!base.startsWith("https://")) {
+  const httpsBase = upgradePublicOriginToHttps(base);
+  if (!httpsBase.startsWith("https://")) {
     throw new Error(
       "Marketplace publish requires HTTPS image URLs. Use your public preview or production site URL.",
     );
   }
-  return base;
+  return httpsBase;
 }
 
 /**
