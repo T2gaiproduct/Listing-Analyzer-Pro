@@ -17,6 +17,7 @@ export type EbayImportDiagnostics = {
   activeListingsFound: number;
   migrated: number;
   skippedAlreadyInventory: number;
+  skusAssigned: number;
   listingIds: string[];
   errors: string[];
   apiBuildId?: string;

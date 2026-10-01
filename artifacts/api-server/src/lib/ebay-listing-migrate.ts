@@ -5,7 +5,15 @@ import {
 } from "./ebay-inventory-client.js";
 import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
 import { ebayOAuthEndpoints } from "./ebay-oauth-config.js";
-import { fetchAllEbayActiveListings, type EbayActiveListing } from "./ebay-trading-client.js";
+import {
+  generatedEbayListingSku,
+  listingNeedsGeneratedSku,
+} from "./ebay-listing-sku.js";
+import {
+  fetchAllEbayActiveListings,
+  reviseEbayListingSku,
+  type EbayActiveListing,
+} from "./ebay-trading-client.js";
 
 const MIGRATE_BATCH_SIZE = 5;
 
@@ -96,6 +104,8 @@ export type EbayListingMigrateResult = {
   activeListingsFound: number;
   migrated: number;
   skippedAlreadyInventory: number;
+  /** Listings that received an auto-generated SKU via ReviseItem before migrate. */
+  skusAssigned: number;
   listingIds: string[];
   /** Active UI / Trading listings (same source as GetMyeBaySelling). */
   activeListings: EbayActiveListing[];
@@ -115,6 +125,7 @@ export async function migrateLegacyEbayListingsForWorkspace(input: {
     activeListingsFound: 0,
     migrated: 0,
     skippedAlreadyInventory: 0,
+    skusAssigned: 0,
     listingIds: [],
     activeListings: [],
     errors: [],
@@ -138,6 +149,27 @@ export async function migrateLegacyEbayListingsForWorkspace(input: {
   result.listingIds = activeListings.map((row) => row.itemId);
   result.activeListings = activeListings;
   if (activeListings.length === 0) return result;
+
+  for (const listing of activeListings) {
+    if (!listingNeedsGeneratedSku(listing.sku)) continue;
+    const sku = generatedEbayListingSku(listing.itemId);
+    try {
+      await reviseEbayListingSku({
+        environment,
+        accessToken,
+        itemId: listing.itemId,
+        sku,
+      });
+      listing.sku = sku;
+      result.skusAssigned += 1;
+    } catch (err) {
+      result.errors.push(
+        err instanceof Error
+          ? `Listing ${listing.itemId}: ${err.message}`
+          : `Listing ${listing.itemId}: could not assign SKU`,
+      );
+    }
+  }
 
   const inventorySkus = await loadInventorySkuSet({
     environment,

@@ -337,6 +337,11 @@ function EbayImportDiagnosticsPanel({
             ? ` (${diagnostics.skippedAlreadyInventory} already in inventory)`
             : null}
         </li>
+        {diagnostics.skusAssigned > 0 ? (
+          <li>
+            SKUs assigned on eBay (ReviseItem): <strong>{diagnostics.skusAssigned}</strong>
+          </li>
+        ) : null}
         {diagnostics.listingIds.length > 0 ? (
           <li>
             Item IDs: {diagnostics.listingIds.slice(0, 5).join(", ")}

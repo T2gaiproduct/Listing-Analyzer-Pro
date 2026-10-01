@@ -354,6 +354,7 @@ function buildEbayDiagnostics(
     activeListingsFound: migrate?.activeListingsFound ?? 0,
     migrated: migrate?.migrated ?? 0,
     skippedAlreadyInventory: migrate?.skippedAlreadyInventory ?? 0,
+    skusAssigned: migrate?.skusAssigned ?? 0,
     listingIds: migrate?.listingIds ?? [],
     errors: migrate?.errors ?? [],
     apiBuildId: loadedBuildId,
