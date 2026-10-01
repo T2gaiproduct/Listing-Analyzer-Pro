@@ -83,6 +83,14 @@ export type EbayTradingItemDetails = {
   title: string;
   descriptionHtml: string | null;
   imageUrls: string[];
+  primaryCategoryId: string | null;
+  priceCents: number | null;
+  currency: string;
+};
+
+export type EbayItemSpecific = {
+  name: string;
+  values: string[];
 };
 
 function tradingApiUrl(environment: EbayOAuthEnvironment): string {
@@ -244,8 +252,70 @@ function wrapCdata(html: string): string {
   return `<![CDATA[${safe}]]>`;
 }
 
+function parsePriceCentsFromItemXml(xml: string): number | null {
+  const priceMatch = xml.match(/<StartPrice[^>]*>([^<]+)<\/StartPrice>/)
+    ?? xml.match(/<BuyItNowPrice[^>]*>([^<]+)<\/BuyItNowPrice>/);
+  if (!priceMatch?.[1]) return null;
+  const value = Number.parseFloat(priceMatch[1].trim());
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.round(value * 100);
+}
+
+function parseCurrencyFromItemXml(xml: string): string {
+  const attr = xml.match(/<StartPrice currencyID="([^"]+)"/)?.[1]
+    ?? xml.match(/<BuyItNowPrice currencyID="([^"]+)"/)?.[1];
+  return attr?.trim() || "USD";
+}
+
+function buildItemSpecificsXml(specifics: EbayItemSpecific[]): string {
+  const rows = specifics
+    .map((row) => {
+      const name = row.name.trim();
+      const values = row.values.map((v) => v.trim()).filter(Boolean).slice(0, 5);
+      if (!name || values.length === 0) return "";
+      const valueXml = values.map((value) => `<Value>${escapeXml(value)}</Value>`).join("");
+      return `<NameValueList><Name>${escapeXml(name)}</Name>${valueXml}</NameValueList>`;
+    })
+    .filter(Boolean);
+  if (rows.length === 0) return "";
+  return `<ItemSpecifics>${rows.join("")}</ItemSpecifics>`;
+}
+
 /**
- * Update title, description, and gallery on one existing listing (this Item ID only).
+ * Host gallery images on eBay (EPS) so listings do not depend on SellerLens fetch URLs.
+ */
+export async function uploadEbaySiteHostedPicture(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  pictureName: string;
+  pictureData: Buffer;
+  siteId?: number;
+}): Promise<string> {
+  const name = input.pictureName.trim() || "sellerlens.jpg";
+  const base64 = input.pictureData.toString("base64");
+  const body = `<?xml version="1.0" encoding="utf-8"?>
+<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <PictureName>${escapeXml(name)}</PictureName>
+  <PictureData>${base64}</PictureData>
+</UploadSiteHostedPicturesRequest>`;
+
+  const text = await postTradingApiRequest({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    callName: "UploadSiteHostedPictures",
+    body,
+    siteId: input.siteId,
+  });
+  const fullUrl = text.match(/<FullURL>([^<]+)<\/FullURL>/)?.[1]?.trim()
+    ?? text.match(/<MemberURL>([^<]+)<\/MemberURL>/)?.[1]?.trim();
+  if (!fullUrl) {
+    throw new Error(parseTradingErrorMessage(text, "UploadSiteHostedPictures failed"));
+  }
+  return fullUrl;
+}
+
+/**
+ * Update title, description, gallery, price, and item specifics on one existing listing (this Item ID only).
  */
 export async function reviseEbayListingContent(input: {
   environment: EbayOAuthEnvironment;
@@ -254,6 +324,10 @@ export async function reviseEbayListingContent(input: {
   title: string;
   descriptionHtml: string;
   pictureUrls: string[];
+  priceCents?: number | null;
+  currency?: string | null;
+  primaryCategoryId?: string | null;
+  itemSpecifics?: EbayItemSpecific[];
   siteId?: number;
 }): Promise<void> {
   const itemId = input.itemId.trim();
@@ -273,6 +347,20 @@ export async function reviseEbayListingContent(input: {
     ? `<Description>${wrapCdata(input.descriptionHtml.trim())}</Description>`
     : "";
 
+  let priceXml = "";
+  if (input.priceCents != null && input.priceCents > 0) {
+    const currency = (input.currency?.trim() || "USD").toUpperCase();
+    const amount = (input.priceCents / 100).toFixed(2);
+    priceXml = `<StartPrice currencyID="${escapeXml(currency)}">${escapeXml(amount)}</StartPrice>`;
+  }
+
+  const categoryId = input.primaryCategoryId?.trim();
+  const categoryXml = categoryId
+    ? `<PrimaryCategory><CategoryID>${escapeXml(categoryId)}</CategoryID></PrimaryCategory>`
+    : "";
+
+  const specificsXml = buildItemSpecificsXml(input.itemSpecifics ?? []);
+
   const body = `<?xml version="1.0" encoding="utf-8"?>
 <ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <Item>
@@ -280,6 +368,9 @@ export async function reviseEbayListingContent(input: {
     <Title>${escapeXml(title)}</Title>
     ${descriptionBlock}
     ${pictureXml}
+    ${priceXml}
+    ${categoryXml}
+    ${specificsXml}
   </Item>
 </ReviseItemRequest>`;
 
@@ -299,6 +390,8 @@ function parseGetItemDetailsXml(xml: string, itemId: string): EbayTradingItemDet
   const title = xml.match(/<Title>([^<]*)<\/Title>/)?.[1]?.trim() || "";
   const sku = xml.match(/<SKU>([^<]*)<\/SKU>/)?.[1]?.trim() || "";
   const descriptionHtml = xml.match(/<Description>([\s\S]*?)<\/Description>/)?.[1]?.trim() || null;
+  const primaryCategoryId = xml.match(/<PrimaryCategory>[\s\S]*?<CategoryID>(\d+)<\/CategoryID>/)?.[1]?.trim()
+    ?? null;
   const imageUrls: string[] = [];
   for (const match of xml.matchAll(/<PictureURL>([^<]+)<\/PictureURL>/g)) {
     const url = match[1]?.trim();
@@ -310,6 +403,9 @@ function parseGetItemDetailsXml(xml: string, itemId: string): EbayTradingItemDet
     title,
     descriptionHtml,
     imageUrls,
+    primaryCategoryId,
+    priceCents: parsePriceCentsFromItemXml(xml),
+    currency: parseCurrencyFromItemXml(xml),
   };
 }
 
