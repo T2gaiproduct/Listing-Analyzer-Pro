@@ -9,6 +9,8 @@ import {
 import { maybeSyncShopifyOrdersForWorkspace } from "./shopify-order-sync.js";
 import { maybeSyncWooCommerceOrdersForWorkspace } from "./woocommerce-order-sync.js";
 import { maybeSyncAmazonOrdersForWorkspace } from "./amazon-order-sync.js";
+import { maybeSyncEbayOrdersForWorkspace } from "./ebay-order-sync.js";
+import { getEbayWorkspaceConnection } from "./ebay-workspace-connection.js";
 import { resolveAmazonConnectionForWorkspace } from "./resolve-amazon-settings.js";
 
 export type MarketplaceOrderRefreshResult = {
@@ -62,6 +64,17 @@ export async function maybeRefreshMarketplaceOrders(
       if (amazonResult?.errors?.length) {
         warnings.push(...amazonResult.errors);
       }
+    }
+  }
+
+  const ebayConnection = await getEbayWorkspaceConnection(workspaceId);
+  if (ebayConnection) {
+    const ebayResult = await maybeSyncEbayOrdersForWorkspace({
+      workspaceId,
+      force: opts?.force === true,
+    });
+    if (ebayResult?.errors?.length) {
+      warnings.push(...ebayResult.errors);
     }
   }
 

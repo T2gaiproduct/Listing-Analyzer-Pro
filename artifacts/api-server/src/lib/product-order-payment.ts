@@ -83,3 +83,24 @@ export function mapAmazonPaymentStatus(orderStatus: string): ProductOrderPayment
   if (normalized === "Pending") return "pending";
   return "received";
 }
+
+type EbayPaymentOrder = {
+  cancelStatus?: { cancelState?: string };
+  paymentSummary?: { paymentStatus?: string };
+};
+
+export function mapEbayPaymentStatus(order: EbayPaymentOrder): ProductOrderPaymentStatus {
+  const cancelState = order.cancelStatus?.cancelState?.trim().toUpperCase();
+  if (cancelState && cancelState !== "NONE_REQUESTED") {
+    return "refunded";
+  }
+
+  const paymentStatus = order.paymentSummary?.paymentStatus?.trim().toUpperCase();
+  if (paymentStatus === "FAILED" || paymentStatus === "FULLY_REFUNDED" || paymentStatus === "PARTIALLY_REFUNDED") {
+    return "refunded";
+  }
+  if (paymentStatus === "PAID" || paymentStatus === "PARTIALLY_PAID") {
+    return "received";
+  }
+  return "pending";
+}

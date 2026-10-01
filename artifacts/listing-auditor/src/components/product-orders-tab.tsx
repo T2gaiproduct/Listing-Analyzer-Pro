@@ -49,7 +49,8 @@ const MARKETPLACE_FILTER_OPTIONS: Array<{
   { value: "all", label: "All marketplaces" },
   { value: "Shopify", label: "Shopify" },
   { value: "WooCommerce", label: "WooCommerce" },
-  { value: "Amazon", label: "Amazon — Coming soon", disabled: true },
+  { value: "Amazon", label: "Amazon" },
+  { value: "eBay", label: "eBay" },
 ];
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -268,7 +269,7 @@ export function ProductOrdersTab({
                 <td colSpan={8} className="px-4 py-12 text-center text-[11px] text-slate-500">
                   No orders match your filters yet.
                   <span className="block mt-1 text-[10px] text-slate-400">
-                    Orders sync from connected Shopify, WooCommerce, and Amazon stores when you open this tab or run a marketplace sync.
+                    Orders sync from connected Shopify, WooCommerce, Amazon, and eBay stores when you open this tab or run a marketplace sync.
                   </span>
                 </td>
               </tr>

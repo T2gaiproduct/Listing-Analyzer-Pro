@@ -32,6 +32,7 @@ import {
   getEbayWorkspaceConnectionPublic,
 } from "../lib/ebay-workspace-connection.js";
 import { syncEbayProducts } from "../lib/ebay-product-sync.js";
+import { maybeSyncEbayOrdersForWorkspace } from "../lib/ebay-order-sync.js";
 import { isEbayOAuthConnectReady, isEbayTradingApiConfigured } from "../lib/ebay-oauth-config.js";
 import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
@@ -667,11 +668,16 @@ router.post(
         limit: importBody.limit,
       });
 
+      void maybeSyncEbayOrdersForWorkspace({ workspaceId, force: true }).catch((err) => {
+        req.log?.error?.({ err }, "eBay order sync failed");
+      });
+
       res.status(201).json({
         ...result,
         auditsCompleted: 0,
         auditsFailed: 0,
         auditsRemaining: 0,
+        ordersSyncQueued: true,
       });
     } catch (err) {
       req.log?.error?.({ err }, "eBay product sync failed");
