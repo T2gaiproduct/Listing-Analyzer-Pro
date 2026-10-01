@@ -18,3 +18,21 @@ export function ebaySkuFromAsin(asin: string | null | undefined): string | null 
 export function ebayAsin(sku: string): string {
   return `${EBAY_IMPORT_ASIN_PREFIX}${encodeURIComponent(sku.trim())}`;
 }
+
+/** Item ID from sandbox/production listing URL (`.../itm/123`). */
+export function parseEbayItemIdFromListingUrl(url: string | null | undefined): string | null {
+  const match = url?.match(/\/itm\/(\d+)/i);
+  return match?.[1] ?? null;
+}
+
+/** Item ID from SellerLens auto-SKU `SL-{itemId}` or a numeric id. */
+export function parseEbayItemIdFromSku(sku: string | null | undefined): string | null {
+  const trimmed = sku?.trim();
+  if (!trimmed) return null;
+  if (/^\d{6,}$/.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("SL-")) {
+    const id = trimmed.slice(3).trim();
+    return /^\d+$/.test(id) ? id : null;
+  }
+  return null;
+}

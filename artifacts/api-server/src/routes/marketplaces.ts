@@ -32,7 +32,7 @@ import {
   getEbayWorkspaceConnectionPublic,
 } from "../lib/ebay-workspace-connection.js";
 import { syncEbayProducts } from "../lib/ebay-product-sync.js";
-import { isEbayOAuthConnectReady } from "../lib/ebay-oauth-config.js";
+import { isEbayOAuthConnectReady, isEbayTradingApiConfigured } from "../lib/ebay-oauth-config.js";
 import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
   buildAmazonOAuthRedirectUri,
@@ -194,6 +194,12 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
   const shopifyWithSecret = await getShopifyConnection(workspaceId);
   const woocommerceWithSecret = await getWooCommerceConnection(workspaceId);
   const amazonWorkspace = await getAmazonWorkspaceConnection(workspaceId);
+  const ebayConnection = await getEbayWorkspaceConnection(workspaceId);
+  const ebayPublishReady = Boolean(
+    ebay.connected
+    && ebayConnection
+    && isEbayTradingApiConfigured(ebayConnection.environment),
+  );
 
   res.json({
     amazon: {
@@ -223,7 +229,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
       connected: ebay.connected,
       connectReady: isEbayOAuthConnectReady(),
       importReady: ebay.connected,
-      publishReady: false,
+      publishReady: ebayPublishReady,
       username: ebay.username,
       ebayUserId: ebay.ebayUserId,
       connectedAt: ebay.connectedAt,

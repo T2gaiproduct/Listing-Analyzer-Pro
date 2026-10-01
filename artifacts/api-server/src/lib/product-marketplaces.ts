@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, productMarketplaceListingsTable, productProfilesTable, auditsTable } from "@workspace/db";
+import { isEbayImportAsin } from "./ebay-import-utils.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
 import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 
@@ -34,7 +35,7 @@ export interface MarketplaceListingRow {
   listingUrl: string | null;
 }
 
-const MARKETPLACE_ORDER = ["Amazon", "Flipkart", "Shopsy", "Shopify", "WooCommerce", "Meesho"] as const;
+const MARKETPLACE_ORDER = ["Amazon", "Flipkart", "Shopsy", "Shopify", "WooCommerce", "eBay", "Meesho"] as const;
 
 const STATUS_LABELS: Record<MarketplaceListingStatus, string> = {
   live: "Live",
@@ -92,6 +93,7 @@ function resolveEffectiveListingStatus(opts: {
 
   if (marketplace === "Shopify" && isShopifyImportAsin(opts.asin)) return stored;
   if (marketplace === "WooCommerce" && isWooCommerceImportAsin(opts.asin)) return stored;
+  if (marketplace === "eBay" && isEbayImportAsin(opts.asin)) return stored;
   if (marketplace === "Amazon" && isRealAmazonAsin(opts.asin)) return stored;
   if (targets.has(marketplace)) return stored;
   if (hasPublishEvidence) return stored;
