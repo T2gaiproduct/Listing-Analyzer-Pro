@@ -22,7 +22,10 @@ export async function resolveEbayHostedPictureUrls(input: {
   publicBaseUrl: string;
   maxImages?: number;
 }): Promise<{ urls: string[]; warning?: string }> {
-  const productImages = collectGeneratedProductImages(input.audit, input.graphicsImageRecords);
+  const productImages = collectGeneratedProductImages(
+    input.audit,
+    input.graphicsImageRecords ?? undefined,
+  );
   const max = input.maxImages ?? 12;
   const urls: string[] = [];
   const seen = new Set<string>();
