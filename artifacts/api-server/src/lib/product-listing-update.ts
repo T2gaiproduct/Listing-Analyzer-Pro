@@ -5,6 +5,10 @@ import { bulletsToHtmlDescription } from "./resolve-listing-content.js";
 import { sanitizeHtmlDescription } from "./sanitize-html.js";
 import { normalizeBulletPoints as normalizeListingBullets } from "./listing-content-format.js";
 import { normalizeStoreCurrency } from "./store-currency.js";
+import { isEbayImportAsin } from "./ebay-import-utils.js";
+import { isShopifyImportAsin } from "./shopify-import-utils.js";
+import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
+import { isRealAmazonAsin } from "./amazon-asin-utils.js";
 
 export interface ProductListingPatchInput {
   listingTitle?: string;
@@ -39,6 +43,7 @@ export async function applyProductListingUpdates(
   const [existing] = await db
     .select({
       title: auditsTable.title,
+      asin: auditsTable.asin,
       workspaceId: auditsTable.workspaceId,
       generatedContent: auditsTable.generatedContent,
       bulletPoints: auditsTable.bulletPoints,
@@ -124,7 +129,7 @@ export async function applyProductListingUpdates(
   if (body.price !== undefined || typeof body.sku === "string" || currency !== undefined) {
     const priceCents = body.price !== undefined ? parsePriceCents(body.price) : undefined;
     const sku = typeof body.sku === "string" ? body.sku.trim() || null : undefined;
-    for (const marketplace of SYNC_MARKETPLACES) {
+    for (const marketplace of resolveListingPriceMarketplaces(existing.asin)) {
       await upsertMarketplaceListingPriceSku(
         auditId,
         marketplace,
@@ -137,6 +142,14 @@ export async function applyProductListingUpdates(
 
 const SYNC_MARKETPLACES = ["Shopify", "WooCommerce", "Amazon", "eBay"] as const;
 type SyncMarketplace = (typeof SYNC_MARKETPLACES)[number];
+
+function resolveListingPriceMarketplaces(asin: string | null | undefined): SyncMarketplace[] {
+  if (isEbayImportAsin(asin)) return ["eBay"];
+  if (isShopifyImportAsin(asin)) return ["Shopify"];
+  if (isWooCommerceImportAsin(asin)) return ["WooCommerce"];
+  if (isRealAmazonAsin(asin)) return ["Amazon"];
+  return [...SYNC_MARKETPLACES];
+}
 
 async function upsertMarketplaceListingPriceSku(
   auditId: number,
