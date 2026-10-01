@@ -17,6 +17,8 @@ export type EbayFulfillmentLineItem = {
     legacyItemId?: string;
     legacyTransactionId?: string;
   };
+  /** Present on some legacy listing line items (same as legacyReference.legacyItemId). */
+  legacyItemId?: string;
 };
 
 export type EbayFulfillmentOrder = {

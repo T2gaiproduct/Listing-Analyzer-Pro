@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import {
   auditsTable,
   db,
@@ -15,7 +15,12 @@ import {
   parseEbayItemIdFromListingUrl,
   parseEbayItemIdFromSku,
 } from "./ebay-import-utils.js";
+import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
 import { resolveEbayAccessToken } from "./ebay-inventory-client.js";
+import {
+  fetchEbayTradingOrderLines,
+  type EbayTradingOrderLine,
+} from "./ebay-trading-client.js";
 import {
   listEbayFulfillmentOrders,
   type EbayFulfillmentLineItem,
@@ -66,8 +71,11 @@ async function loadEbayAuditMatchers(workspaceId: number): Promise<{
       ),
     )
     .where(and(
-      eq(auditsTable.workspaceId, workspaceId),
       eq(auditsTable.isDeleted, 0),
+      or(
+        eq(auditsTable.workspaceId, workspaceId),
+        eq(productMarketplaceListingsTable.workspaceId, workspaceId),
+      ),
     ));
 
   const bySku = new Map<string, number>();
@@ -90,26 +98,56 @@ async function loadEbayAuditMatchers(workspaceId: number): Promise<{
   return { bySku, byItemId };
 }
 
-function resolveAuditIdForLineItem(
-  lineItem: EbayFulfillmentLineItem,
+function resolveAuditIdForIdentifiers(
+  identifiers: { sku?: string | null; itemId?: string | null },
   matchers: { bySku: Map<string, number>; byItemId: Map<string, number> },
 ): number | null {
-  const sku = lineItem.sku?.trim().toLowerCase();
+  const sku = identifiers.sku?.trim().toLowerCase();
   if (sku && matchers.bySku.has(sku)) {
     return matchers.bySku.get(sku)!;
   }
 
-  const legacyItemId = lineItem.legacyReference?.legacyItemId?.trim();
-  if (legacyItemId && matchers.byItemId.has(legacyItemId)) {
-    return matchers.byItemId.get(legacyItemId)!;
+  const itemId = identifiers.itemId?.trim();
+  if (itemId && matchers.byItemId.has(itemId)) {
+    return matchers.byItemId.get(itemId)!;
   }
 
-  const itemFromSku = parseEbayItemIdFromSku(lineItem.sku);
+  const itemFromSku = parseEbayItemIdFromSku(identifiers.sku);
   if (itemFromSku && matchers.byItemId.has(itemFromSku)) {
     return matchers.byItemId.get(itemFromSku)!;
   }
 
   return null;
+}
+
+function resolveAuditIdForLineItem(
+  lineItem: EbayFulfillmentLineItem,
+  matchers: { bySku: Map<string, number>; byItemId: Map<string, number> },
+): number | null {
+  const legacyItemId = lineItem.legacyReference?.legacyItemId?.trim()
+    || lineItem.legacyItemId?.trim();
+  return resolveAuditIdForIdentifiers(
+    { sku: lineItem.sku, itemId: legacyItemId ?? null },
+    matchers,
+  );
+}
+
+function resolveAuditIdForTradingLine(
+  line: EbayTradingOrderLine,
+  matchers: { bySku: Map<string, number>; byItemId: Map<string, number> },
+): number | null {
+  return resolveAuditIdForIdentifiers(
+    { sku: line.sku, itemId: line.itemId },
+    matchers,
+  );
+}
+
+function mapTradingOrderStatus(orderStatus: string): ProductOrderStatus {
+  const normalized = orderStatus.trim().toLowerCase();
+  if (normalized.includes("cancel")) return "returned";
+  if (normalized.includes("shipped") || normalized === "shipped") return "shipped";
+  if (normalized === "completed" || normalized.includes("complete")) return "delivered";
+  return "processing";
 }
 
 function mapEbayOrderStatus(order: EbayFulfillmentOrder, lineItem: EbayFulfillmentLineItem): ProductOrderStatus {
@@ -216,6 +254,7 @@ export async function syncEbayOrders(input: {
   }
 
   result.totalOrders = orders.length;
+  const importedKeys = new Set<string>();
 
   for (const order of orders) {
     const orderId = order.orderId?.trim();
@@ -225,8 +264,11 @@ export async function syncEbayOrders(input: {
     const orderedAt = parseOrderDate(order);
 
     for (const lineItem of order.lineItems ?? []) {
-      const lineItemId = lineItem.lineItemId?.trim();
-      if (!lineItemId) {
+      const lineRef = lineItem.lineItemId?.trim()
+        || lineItem.legacyReference?.legacyTransactionId?.trim()
+        || lineItem.legacyReference?.legacyItemId?.trim()
+        || lineItem.legacyItemId?.trim();
+      if (!lineRef) {
         result.skipped += 1;
         continue;
       }
@@ -237,12 +279,16 @@ export async function syncEbayOrders(input: {
         continue;
       }
 
+      const dedupeKey = `${auditId}|${orderId}|${lineRef}`;
+      if (importedKeys.has(dedupeKey)) continue;
+      importedKeys.add(dedupeKey);
+
       try {
         const outcome = await upsertProductOrderRow({
           auditId,
           workspaceId: input.workspaceId,
           marketplace: "eBay",
-          orderNumber: orderNumberForLineItem(orderId, lineItemId),
+          orderNumber: orderNumberForLineItem(orderId, lineRef),
           customerName: customerName(order),
           quantity: lineItem.quantity ?? 1,
           amountCents: lineItemAmountCents(lineItem),
@@ -260,8 +306,80 @@ export async function syncEbayOrders(input: {
     }
   }
 
+  if (isEbayTradingApiConfigured(environment)) {
+    try {
+      const tradingLines = await fetchEbayTradingOrderLines({
+        environment,
+        accessToken,
+        createTimeFrom: createdAtMin,
+        createTimeTo: new Date(),
+        maxOrders: 200,
+      });
+      result.totalOrders += tradingLines.length;
+
+      for (const line of tradingLines) {
+        const auditId = resolveAuditIdForTradingLine(line, matchers);
+        if (!auditId) {
+          result.skipped += 1;
+          continue;
+        }
+
+        const dedupeKey = `${auditId}|${line.orderId}|${line.transactionId}`;
+        if (importedKeys.has(dedupeKey)) continue;
+        importedKeys.add(dedupeKey);
+
+        try {
+          const outcome = await upsertProductOrderRow({
+            auditId,
+            workspaceId: input.workspaceId,
+            marketplace: "eBay",
+            orderNumber: orderNumberForLineItem(line.orderId, line.transactionId),
+            customerName: line.customerName,
+            quantity: line.quantity,
+            amountCents: line.amountCents,
+            currency: line.currency,
+            status: mapTradingOrderStatus(line.orderStatus),
+            paymentStatus: line.paid ? "received" : "pending",
+            orderedAt: line.orderedAt,
+            trackingNumber: null,
+          });
+          if (outcome === "imported") result.imported += 1;
+          else result.updated += 1;
+        } catch (err) {
+          result.errors.push(formatProductOrderSyncError(err, line.orderId));
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (orders.length === 0) {
+        result.errors.push(`Could not fetch eBay orders (Trading API): ${message}`);
+      } else {
+        reqLogTradingFallback(message);
+      }
+    }
+  } else if (orders.length === 0 && result.imported === 0 && result.updated === 0) {
+    result.errors.push(
+      "No eBay orders returned from Fulfillment API. Configure Trading API keys (DEV_ID/CERT_ID) on the server for sandbox order sync, or reconnect eBay with fulfillment access.",
+    );
+  }
+
+  if (
+    result.totalOrders > 0
+    && result.imported === 0
+    && result.updated === 0
+    && result.errors.length === 0
+  ) {
+    result.errors.push(
+      "eBay returned orders but none matched this workspace's product SKUs or item IDs. Confirm the listing SKU (e.g. SL-{itemId}) matches SellerLens.",
+    );
+  }
+
   lastSyncByWorkspace.set(input.workspaceId, Date.now());
   return result;
+}
+
+function reqLogTradingFallback(message: string): void {
+  console.warn("eBay Trading order sync fallback failed:", message);
 }
 
 export async function maybeSyncEbayOrdersForWorkspace(input: {

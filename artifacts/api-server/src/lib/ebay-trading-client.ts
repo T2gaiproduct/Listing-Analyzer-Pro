@@ -524,3 +524,131 @@ export async function fetchEbayTradingItemDetails(input: {
   }
   return parseGetItemDetailsXml(text, itemId);
 }
+
+export type EbayTradingOrderLine = {
+  orderId: string;
+  transactionId: string;
+  itemId: string | null;
+  sku: string | null;
+  quantity: number;
+  amountCents: number;
+  currency: string;
+  customerName: string;
+  orderStatus: string;
+  paid: boolean;
+  orderedAt: Date;
+};
+
+function parseTradingMoneyToCents(raw: string | null | undefined, quantity: number): number {
+  const value = Number.parseFloat(raw ?? "");
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const qty = quantity > 0 ? quantity : 1;
+  return Math.round(value * qty * 100);
+}
+
+function parseTradingOrderLinesXml(xml: string): EbayTradingOrderLine[] {
+  const lines: EbayTradingOrderLine[] = [];
+  const orderBlocks = xml.match(/<Order>[\s\S]*?<\/Order>/g) ?? [];
+
+  for (const orderBlock of orderBlocks) {
+    const orderId = orderBlock.match(/<OrderID>([^<]*)<\/OrderID>/)?.[1]?.trim()
+      || orderBlock.match(/<ExtendedOrderID>([^<]*)<\/ExtendedOrderID>/)?.[1]?.trim()
+      || "";
+    if (!orderId) continue;
+
+    const orderStatus = orderBlock.match(/<OrderStatus>([^<]*)<\/OrderStatus>/)?.[1]?.trim() || "";
+    const createdTime = orderBlock.match(/<CreatedTime>([^<]*)<\/CreatedTime>/)?.[1]?.trim();
+    const orderedAt = createdTime ? new Date(createdTime) : new Date();
+    const buyerUserId = orderBlock.match(/<BuyerUserID>([^<]*)<\/BuyerUserID>/)?.[1]?.trim();
+    const buyerName = orderBlock.match(/<Name>([^<]*)<\/Name>/)?.[1]?.trim();
+    const customerName = buyerName || buyerUserId || "eBay buyer";
+
+    const transactionBlocks = orderBlock.match(/<Transaction>[\s\S]*?<\/Transaction>/g) ?? [];
+    for (const txBlock of transactionBlocks) {
+      const transactionId = txBlock.match(/<TransactionID>([^<]*)<\/TransactionID>/)?.[1]?.trim() || "";
+      if (!transactionId) continue;
+
+      const itemId = txBlock.match(/<ItemID>([^<]*)<\/ItemID>/)?.[1]?.trim() || null;
+      const sku = txBlock.match(/<SKU>([^<]*)<\/SKU>/)?.[1]?.trim() || null;
+      const quantity = Number.parseInt(txBlock.match(/<QuantityPurchased>(\d+)<\/QuantityPurchased>/)?.[1] ?? "1", 10);
+      const priceMatch = txBlock.match(/<TransactionPrice([^>]*)>([^<]*)<\/TransactionPrice>/);
+      const priceAttrs = priceMatch?.[1] ?? "";
+      const priceRaw = priceMatch?.[2]?.trim();
+      const currency = priceAttrs.match(/currencyID="([^"]*)"/)?.[1]?.trim() || "USD";
+      const amountCents = parseTradingMoneyToCents(priceRaw, quantity);
+
+      const paymentHoldStatus = txBlock.match(/<PaymentHoldStatus>([^<]*)<\/PaymentHoldStatus>/)?.[1]?.trim().toLowerCase();
+      const checkoutStatus = txBlock.match(/<Status>[\s\S]*?<eBayPaymentStatus>([^<]*)<\/eBayPaymentStatus>/)?.[1]?.trim().toLowerCase()
+        || txBlock.match(/<CheckoutStatus>[\s\S]*?<eBayPaymentStatus>([^<]*)<\/eBayPaymentStatus>/)?.[1]?.trim().toLowerCase();
+      const paid = checkoutStatus === "nopaymentfailure"
+        || paymentHoldStatus === "none"
+        || /completed|paid/i.test(orderStatus);
+
+      lines.push({
+        orderId,
+        transactionId,
+        itemId,
+        sku,
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+        amountCents,
+        currency,
+        customerName,
+        orderStatus,
+        paid,
+        orderedAt: Number.isNaN(orderedAt.getTime()) ? new Date() : orderedAt,
+      });
+    }
+  }
+
+  return lines;
+}
+
+export async function fetchEbayTradingOrderLines(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  createTimeFrom: Date;
+  createTimeTo: Date;
+  maxOrders: number;
+  siteId?: number;
+}): Promise<EbayTradingOrderLine[]> {
+  const maxOrders = Math.min(Math.max(input.maxOrders, 1), 500);
+  const createTimeFrom = input.createTimeFrom.toISOString();
+  const createTimeTo = input.createTimeTo.toISOString();
+  const collected: EbayTradingOrderLine[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (collected.length < maxOrders && page <= totalPages) {
+    const body = `<?xml version="1.0" encoding="utf-8"?>
+<GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <CreateTimeFrom>${escapeXml(createTimeFrom)}</CreateTimeFrom>
+  <CreateTimeTo>${escapeXml(createTimeTo)}</CreateTimeTo>
+  <OrderRole>Seller</OrderRole>
+  <OrderStatus>All</OrderStatus>
+  <Pagination>
+    <EntriesPerPage>100</EntriesPerPage>
+    <PageNumber>${page}</PageNumber>
+  </Pagination>
+</GetOrdersRequest>`;
+
+    const text = await postTradingApiRequest({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      callName: "GetOrders",
+      body,
+      siteId: input.siteId,
+    });
+
+    const batch = parseTradingOrderLinesXml(text);
+    for (const line of batch) {
+      collected.push(line);
+      if (collected.length >= maxOrders) break;
+    }
+
+    totalPages = parseTotalPages(text);
+    page += 1;
+    if (batch.length === 0) break;
+  }
+
+  return collected;
+}
