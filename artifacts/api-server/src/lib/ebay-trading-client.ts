@@ -77,6 +77,14 @@ export type EbayActiveListing = {
   title: string | null;
 };
 
+export type EbayTradingItemDetails = {
+  itemId: string;
+  sku: string;
+  title: string;
+  descriptionHtml: string | null;
+  imageUrls: string[];
+};
+
 function tradingApiUrl(environment: EbayOAuthEnvironment): string {
   const { apiBaseUrl } = ebayOAuthEndpoints(environment);
   return `${apiBaseUrl}/ws/api.dll`;
@@ -229,4 +237,52 @@ function escapeXml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function parseGetItemDetailsXml(xml: string, itemId: string): EbayTradingItemDetails {
+  const title = xml.match(/<Title>([^<]*)<\/Title>/)?.[1]?.trim() || "";
+  const sku = xml.match(/<SKU>([^<]*)<\/SKU>/)?.[1]?.trim() || "";
+  const descriptionHtml = xml.match(/<Description>([\s\S]*?)<\/Description>/)?.[1]?.trim() || null;
+  const imageUrls: string[] = [];
+  for (const match of xml.matchAll(/<PictureURL>([^<]+)<\/PictureURL>/g)) {
+    const url = match[1]?.trim();
+    if (url) imageUrls.push(url);
+  }
+  return {
+    itemId,
+    sku,
+    title,
+    descriptionHtml,
+    imageUrls,
+  };
+}
+
+/** Full listing payload for sandbox import when inventory migrate is unavailable. */
+export async function fetchEbayTradingItemDetails(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  itemId: string;
+  siteId?: number;
+}): Promise<EbayTradingItemDetails> {
+  const itemId = input.itemId.trim();
+  if (!itemId) {
+    throw new Error("Item ID is required for GetItem.");
+  }
+  const body = `<?xml version="1.0" encoding="utf-8"?>
+<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <ItemID>${escapeXml(itemId)}</ItemID>
+  <DetailLevel>ReturnAll</DetailLevel>
+</GetItemRequest>`;
+
+  const text = await postTradingApiRequest({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    callName: "GetItem",
+    body,
+    siteId: input.siteId,
+  });
+  if (/<Ack>PartialFailure<\/Ack>/i.test(text)) {
+    throw new Error(parseTradingErrorMessage(text, "GetItem failed"));
+  }
+  return parseGetItemDetailsXml(text, itemId);
 }
