@@ -5,14 +5,17 @@ import {
   parseEbayItemIdFromListingUrl,
   parseEbayItemIdFromSku,
 } from "./ebay-import-utils.js";
+import { buildEbayListingDescriptionHtml } from "./ebay-listing-description.js";
+import { resolveEbayHostedPictureUrls } from "./ebay-publish-images.js";
 import { resolveEbayAccessToken } from "./ebay-inventory-client.js";
-import { reviseEbayListingContent } from "./ebay-trading-client.js";
+import {
+  fetchEbayTradingItemDetails,
+  reviseEbayListingContent,
+  type EbayItemSpecific,
+} from "./ebay-trading-client.js";
 import { getEbayWorkspaceConnection } from "./ebay-workspace-connection.js";
 import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
-import {
-  materializeAuditImagesForPublish,
-  resolvePublishImageUrlsFromAudit,
-} from "./materialize-audit-images-for-publish.js";
+import { materializeAuditImagesForPublish } from "./materialize-audit-images-for-publish.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
 export type EbayPublishResult = {
@@ -24,6 +27,73 @@ export type EbayPublishResult = {
 function productionListingUrl(environment: "sandbox" | "production", itemId: string): string {
   const host = environment === "sandbox" ? "https://www.sandbox.ebay.com" : "https://www.ebay.com";
   return `${host}/itm/${itemId}`;
+}
+
+function buildEbayItemSpecifics(input: {
+  bulletPoints: string[];
+  keywords: string[];
+  category?: string | null;
+}): EbayItemSpecific[] {
+  const specifics: EbayItemSpecific[] = [];
+  const bullets = input.bulletPoints.map((b) => b.trim()).filter(Boolean).slice(0, 5);
+  if (bullets.length > 0) {
+    specifics.push({ name: "Features", values: bullets });
+  }
+  const keywords = input.keywords.map((k) => k.trim()).filter(Boolean).slice(0, 10);
+  if (keywords.length > 0) {
+    specifics.push({ name: "Tags", values: keywords });
+  }
+  const category = input.category?.trim();
+  if (category) {
+    specifics.push({ name: "Type", values: [category] });
+  }
+  return specifics;
+}
+
+async function resolveEbayPublishPriceCents(auditId: number): Promise<{
+  priceCents: number | null;
+  currency: string;
+}> {
+  const [ebayRow] = await db
+    .select({
+      priceCents: productMarketplaceListingsTable.priceCents,
+      currency: productMarketplaceListingsTable.currency,
+    })
+    .from(productMarketplaceListingsTable)
+    .where(and(
+      eq(productMarketplaceListingsTable.auditId, auditId),
+      eq(productMarketplaceListingsTable.marketplace, "eBay"),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  if (ebayRow?.priceCents != null && ebayRow.priceCents > 0) {
+    return {
+      priceCents: ebayRow.priceCents,
+      currency: ebayRow.currency?.trim() || "USD",
+    };
+  }
+
+  const rows = await db
+    .select({
+      marketplace: productMarketplaceListingsTable.marketplace,
+      priceCents: productMarketplaceListingsTable.priceCents,
+      currency: productMarketplaceListingsTable.currency,
+    })
+    .from(productMarketplaceListingsTable)
+    .where(and(
+      eq(productMarketplaceListingsTable.auditId, auditId),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ));
+
+  const any = rows.find((row) => row.priceCents != null && row.priceCents > 0);
+  if (!any?.priceCents) {
+    return { priceCents: null, currency: "USD" };
+  }
+  return {
+    priceCents: any.priceCents,
+    currency: any.currency?.trim() || "USD",
+  };
 }
 
 export async function publishListingToEbay(input: {
@@ -71,22 +141,41 @@ export async function publishListingToEbay(input: {
 
   const auditAfterImages = await materializeAuditImagesForPublish(input.audit);
 
-  const pictureUrls = resolvePublishImageUrlsFromAudit({
-    audit: auditAfterImages,
-    graphicsImageRecords: input.graphicsImageRecords ?? undefined,
-    graphicsProjectId: input.graphicsProjectId ?? null,
-    publicBaseUrl: input.publicBaseUrl,
-    maxImages: 12,
-  });
-
-  const descriptionHtml = content.htmlDescription?.trim()
-    || input.audit.storeDescriptionHtml?.trim()
-    || "";
-
   const { accessToken, environment } = await resolveEbayAccessToken(input.workspaceId);
   if (environment !== connection.environment) {
     throw new Error("eBay connection environment does not match the server token. Reconnect eBay on Marketplaces.");
   }
+
+  const existingItem = await fetchEbayTradingItemDetails({
+    environment,
+    accessToken,
+    itemId,
+  });
+
+  const { urls: pictureUrls, warning: imageWarning } = await resolveEbayHostedPictureUrls({
+    environment,
+    accessToken,
+    audit: auditAfterImages,
+    graphicsImageRecords: input.graphicsImageRecords ?? undefined,
+    graphicsProjectId: input.graphicsProjectId ?? null,
+    publicBaseUrl: input.publicBaseUrl,
+  });
+
+  const descriptionHtml = buildEbayListingDescriptionHtml({
+    htmlDescription: content.htmlDescription?.trim()
+      || input.audit.storeDescriptionHtml?.trim()
+      || "",
+    bulletPoints: content.bulletPoints ?? [],
+    keywords: content.keywords ?? [],
+    category: input.audit.category,
+  });
+
+  const { priceCents, currency } = await resolveEbayPublishPriceCents(input.audit.id);
+  const itemSpecifics = buildEbayItemSpecifics({
+    bulletPoints: content.bulletPoints ?? [],
+    keywords: content.keywords ?? [],
+    category: input.audit.category,
+  });
 
   await reviseEbayListingContent({
     environment,
@@ -95,6 +184,10 @@ export async function publishListingToEbay(input: {
     title,
     descriptionHtml,
     pictureUrls,
+    priceCents,
+    currency,
+    primaryCategoryId: existingItem.primaryCategoryId,
+    itemSpecifics,
   });
 
   const now = new Date();
@@ -105,16 +198,26 @@ export async function publishListingToEbay(input: {
         status: "live",
         sku: listingRow.sku ?? `SL-${itemId}`,
         listingUrl,
+        priceCents: priceCents ?? listingRow.priceCents,
+        currency: currency || listingRow.currency,
         publishedAt: listingRow.publishedAt ?? now,
         updatedAt: now,
       })
       .where(eq(productMarketplaceListingsTable.id, listingRow.id));
   }
 
-  let warning: string | undefined;
+  const warnings: string[] = [];
+  if (imageWarning) warnings.push(imageWarning);
   if (pictureUrls.length === 0) {
-    warning = "Title and description were updated on eBay; no gallery images were sent (add images in Graphics or use public image URLs).";
+    warnings.push("Title and description were updated; no gallery images were sent.");
+  }
+  if (priceCents == null || priceCents <= 0) {
+    warnings.push("Price was not updated — set a price in Product Explorer overview and push again.");
   }
 
-  return { itemId, listingUrl, warning };
+  return {
+    itemId,
+    listingUrl,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
+  };
 }

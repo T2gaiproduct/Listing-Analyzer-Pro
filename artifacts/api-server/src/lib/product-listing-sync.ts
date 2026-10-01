@@ -15,6 +15,10 @@ import {
 } from "./marketplace-connections.js";
 import { publishListingToShopify } from "./shopify-publish.js";
 import { publishListingToWooCommerce } from "./woocommerce-publish.js";
+import { publishListingToEbay } from "./ebay-publish.js";
+import { getEbayWorkspaceConnection } from "./ebay-workspace-connection.js";
+import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
+import { isEbayImportAsin } from "./ebay-import-utils.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
 import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 import { resolveMarketplacePublishBaseUrl } from "./resolve-public-base-url.js";
@@ -31,6 +35,7 @@ export type MarketplaceSyncResult = {
   shopify?: MarketplaceSyncPlatformResult;
   woocommerce?: MarketplaceSyncPlatformResult;
   amazon?: MarketplaceSyncPlatformResult;
+  ebay?: MarketplaceSyncPlatformResult;
   synced: boolean;
 };
 
@@ -77,6 +82,7 @@ function resolveSyncTargets(audit: Audit, listingRows: Array<{ marketplace: stri
     shopify: isShopifyImportAsin(audit.asin) || hasActiveListing(listingRows, "Shopify"),
     woocommerce: isWooCommerceImportAsin(audit.asin) || hasActiveListing(listingRows, "WooCommerce"),
     amazon: isRealAmazonAsin(audit.asin) || hasActiveListing(listingRows, "Amazon"),
+    ebay: isEbayImportAsin(audit.asin) || hasActiveListing(listingRows, "eBay"),
   };
 }
 
@@ -117,7 +123,7 @@ export async function syncListingToConnectedMarketplaces(opts: {
   const { audit, graphicsProject } = loaded;
   const listingRows = await loadMarketplaceListingRows(opts.auditId);
   const targets = resolveSyncTargets(audit, listingRows);
-  if (!targets.shopify && !targets.woocommerce && !targets.amazon) {
+  if (!targets.shopify && !targets.woocommerce && !targets.amazon && !targets.ebay) {
     return { synced: false };
   }
 
@@ -224,6 +230,38 @@ export async function syncListingToConnectedMarketplaces(opts: {
         result.amazon = {
           ok: false,
           error: err instanceof Error ? err.message : "Amazon sync failed",
+        };
+      }
+    }
+  }
+
+  if (targets.ebay) {
+    const connection = await getEbayWorkspaceConnection(workspaceId);
+    if (!connection || !isEbayTradingApiConfigured(connection.environment)) {
+      result.ebay = {
+        ok: false,
+        error: "Connect eBay on Marketplaces to sync listing changes to your linked eBay item.",
+      };
+    } else {
+      try {
+        const publicBaseUrl = resolveMarketplacePublishBaseUrl(opts.req);
+        const publishResult = await publishListingToEbay({
+          workspaceId,
+          audit,
+          graphicsImageRecords,
+          graphicsProjectId,
+          publicBaseUrl,
+        });
+        result.ebay = {
+          ok: true,
+          listingUrl: publishResult.listingUrl,
+          warning: publishResult.warning,
+        };
+        result.synced = true;
+      } catch (err) {
+        result.ebay = {
+          ok: false,
+          error: err instanceof Error ? err.message : "eBay sync failed",
         };
       }
     }

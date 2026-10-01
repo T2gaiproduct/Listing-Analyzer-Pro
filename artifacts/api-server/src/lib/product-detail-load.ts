@@ -453,7 +453,8 @@ async function loadAuditDetail(
     : listingKeywords.length > 0
       ? listingKeywords
       : (generated?.keywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
-  const pricedListing = [shopifyListing, wooListing, amazonListing].find(
+  const ebayListing = marketplaceStats.listings.find((listing) => listing.marketplace === "eBay");
+  const pricedListing = [ebayListing, shopifyListing, wooListing, amazonListing].find(
     (listing) => listing?.price != null && listing.price > 0,
   );
   const listingPrice = pricedListing?.price ?? null;

@@ -207,6 +207,7 @@ type MarketplaceSyncResult = {
   shopify?: MarketplaceSyncPlatformResult;
   woocommerce?: MarketplaceSyncPlatformResult;
   amazon?: MarketplaceSyncPlatformResult;
+  ebay?: MarketplaceSyncPlatformResult;
   synced: boolean;
 };
 
@@ -216,10 +217,11 @@ function extractMarketplaceSync(payload: unknown): MarketplaceSyncResult | null 
   return sync ?? null;
 }
 
-const MARKETPLACE_SYNC_LABELS: Record<"shopify" | "woocommerce" | "amazon", string> = {
+const MARKETPLACE_SYNC_LABELS: Record<"shopify" | "woocommerce" | "amazon" | "ebay", string> = {
   shopify: "Shopify",
   woocommerce: "WooCommerce",
   amazon: "Amazon",
+  ebay: "eBay",
 };
 
 function describeMarketplaceSyncResult(sync: MarketplaceSyncResult | null | undefined): {
@@ -231,7 +233,7 @@ function describeMarketplaceSyncResult(sync: MarketplaceSyncResult | null | unde
   const warnings: string[] = [];
   const errors: string[] = [];
 
-  for (const key of ["shopify", "woocommerce", "amazon"] as const) {
+  for (const key of ["shopify", "woocommerce", "amazon", "ebay"] as const) {
     const entry = sync?.[key];
     if (!entry) continue;
     if (entry.ok) {

@@ -124,7 +124,7 @@ function normalizeListingRow(
   return mapListingRow({ ...row, status: effectiveStatus });
 }
 
-const LISTING_PRICE_PRIORITY = ["Shopify", "WooCommerce", "Amazon", "Flipkart", "Shopsy", "Meesho"] as const;
+const LISTING_PRICE_PRIORITY = ["eBay", "Shopify", "WooCommerce", "Amazon", "Flipkart", "Shopsy", "Meesho"] as const;
 
 export async function resolveAuditListingPriceCents(auditId: number): Promise<{
   priceCents: number | null;

@@ -134,6 +134,19 @@ async function upsertAuditFromTradingItem(input: {
           updatedAt: new Date(),
         })
         .where(eq(auditsTable.id, auditId));
+      if (input.details.priceCents != null && input.details.priceCents > 0) {
+        await db
+          .update(productMarketplaceListingsTable)
+          .set({
+            priceCents: input.details.priceCents,
+            currency: input.details.currency?.trim() || "USD",
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(productMarketplaceListingsTable.auditId, auditId),
+            eq(productMarketplaceListingsTable.marketplace, "eBay"),
+          ));
+      }
       input.result.updated += 1;
       input.result.skipped += 1;
     } catch (err) {
@@ -185,8 +198,10 @@ async function upsertAuditFromTradingItem(input: {
         marketplace,
         status: marketplace === "eBay" ? "live" : "not_listed",
         sku: marketplace === "eBay" ? sku : null,
-        priceCents: null,
-        currency: "USD",
+        priceCents: marketplace === "eBay" ? input.details.priceCents : null,
+        currency: marketplace === "eBay"
+          ? (input.details.currency?.trim() || "USD")
+          : "USD",
         listingUrl: marketplace === "eBay" ? listingUrl : null,
         publishedAt: marketplace === "eBay" ? new Date() : null,
         inventory: null,

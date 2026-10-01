@@ -135,7 +135,7 @@ export async function applyProductListingUpdates(
   }
 }
 
-const SYNC_MARKETPLACES = ["Shopify", "WooCommerce", "Amazon"] as const;
+const SYNC_MARKETPLACES = ["Shopify", "WooCommerce", "Amazon", "eBay"] as const;
 type SyncMarketplace = (typeof SYNC_MARKETPLACES)[number];
 
 async function upsertMarketplaceListingPriceSku(
