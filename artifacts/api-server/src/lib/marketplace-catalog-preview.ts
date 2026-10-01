@@ -22,7 +22,13 @@ import {
   fetchEbayInventoryItemsPage,
   resolveEbayAccessToken,
 } from "./ebay-inventory-client.js";
-import { migrateLegacyEbayListingsForWorkspace } from "./ebay-listing-migrate.js";
+import {
+  migrateLegacyEbayListingsForWorkspace,
+  type EbayListingMigrateResult,
+} from "./ebay-listing-migrate.js";
+import type { EbayActiveListing } from "./ebay-trading-client.js";
+import { getEbayWorkspaceConnectionPublic } from "./ebay-workspace-connection.js";
+import type { EbayImportDiagnostics } from "./marketplace-catalog-types.js";
 
 function mapShopifyAdminProduct(product: ShopifyAdminCatalogProduct): CatalogPreviewItem {
   const sku = product.variants?.find((variant) => variant.sku?.trim())?.sku?.trim() ?? null;
@@ -322,6 +328,70 @@ export async function fetchShopifyCatalogForImport(input: {
   return filtered.slice(0, input.limit);
 }
 
+function mapEbayActiveListingToPreview(listing: EbayActiveListing): CatalogPreviewItem {
+  const sku = listing.sku?.trim() || null;
+  const id = sku || listing.itemId;
+  return {
+    id,
+    title: listing.title?.trim() || `eBay listing ${listing.itemId}`,
+    sku,
+    imageUrl: null,
+    status: "active",
+    subtitle: `Item ${listing.itemId}`,
+  };
+}
+
+function buildEbayDiagnostics(
+  migrate: EbayListingMigrateResult | null,
+  connection: Awaited<ReturnType<typeof getEbayWorkspaceConnectionPublic>>,
+): EbayImportDiagnostics {
+  return {
+    connectedUsername: connection.username,
+    connectedEnvironment: connection.environment,
+    activeListingsFound: migrate?.activeListingsFound ?? 0,
+    migrated: migrate?.migrated ?? 0,
+    skippedAlreadyInventory: migrate?.skippedAlreadyInventory ?? 0,
+    listingIds: migrate?.listingIds ?? [],
+    errors: migrate?.errors ?? [],
+  };
+}
+
+function previewFromActiveListings(input: {
+  listings: EbayActiveListing[];
+  page: number;
+  pageSize: number;
+  search: string;
+  cursor: string | null;
+  ebay: EbayImportDiagnostics;
+}): CatalogPreviewResponse {
+  const filtered = input.listings.filter((listing) => {
+    const preview = mapEbayActiveListingToPreview(listing);
+    return matchesCatalogSearch(input.search, [preview.title, preview.sku, preview.subtitle]);
+  });
+  const offset = input.page === 1
+    ? 0
+    : (input.cursor ? Number.parseInt(input.cursor, 10) : (input.page - 1) * input.pageSize);
+  const safeOffset = Number.isFinite(offset) && offset >= 0 ? offset : 0;
+  const slice = filtered.slice(safeOffset, safeOffset + input.pageSize);
+  const nextOffset = safeOffset + slice.length;
+  return {
+    items: slice.map(mapEbayActiveListingToPreview),
+    page: input.page,
+    pageSize: input.pageSize,
+    hasMore: nextOffset < filtered.length,
+    totalHint: filtered.length,
+    nextCursor: String(nextOffset),
+    ebay: input.ebay,
+  };
+}
+
+function withEbayDiagnostics(
+  response: CatalogPreviewResponse,
+  ebay: EbayImportDiagnostics,
+): CatalogPreviewResponse {
+  return { ...response, ebay };
+}
+
 export async function previewEbayCatalog(input: {
   workspaceId: number;
   page: number;
@@ -329,12 +399,15 @@ export async function previewEbayCatalog(input: {
   search: string;
   cursor: string | null;
 }): Promise<CatalogPreviewResponse> {
+  const connection = await getEbayWorkspaceConnectionPublic(input.workspaceId);
+  let migrate: EbayListingMigrateResult | null = null;
   if (input.page === 1 && !input.cursor) {
-    await migrateLegacyEbayListingsForWorkspace({
+    migrate = await migrateLegacyEbayListingsForWorkspace({
       workspaceId: input.workspaceId,
       maxListings: 200,
     });
   }
+  const ebayDiag = buildEbayDiagnostics(migrate, connection);
   const { accessToken, environment } = await resolveEbayAccessToken(input.workspaceId);
   const offset = input.page === 1
     ? 0
@@ -377,7 +450,7 @@ export async function previewEbayCatalog(input: {
       if (scanOffset >= maxScan) break;
     }
 
-    return {
+    const response: CatalogPreviewResponse = {
       items: collected,
       page: input.page,
       pageSize: input.pageSize,
@@ -385,6 +458,17 @@ export async function previewEbayCatalog(input: {
       totalHint: null,
       nextCursor: String(scanOffset),
     };
+    if (collected.length === 0 && migrate?.activeListings.length) {
+      return previewFromActiveListings({
+        listings: migrate.activeListings,
+        page: input.page,
+        pageSize: input.pageSize,
+        search: input.search,
+        cursor: input.cursor,
+        ebay: ebayDiag,
+      });
+    }
+    return withEbayDiagnostics(response, ebayDiag);
   }
 
   const batch = await fetchEbayInventoryItemsPage({
@@ -404,7 +488,7 @@ export async function previewEbayCatalog(input: {
   }));
 
   const nextOffset = safeOffset + items.length;
-  return {
+  const response: CatalogPreviewResponse = {
     items,
     page: input.page,
     pageSize: input.pageSize,
@@ -412,4 +496,15 @@ export async function previewEbayCatalog(input: {
     totalHint: batch.total,
     nextCursor: String(nextOffset),
   };
+  if (items.length === 0 && migrate?.activeListings.length) {
+    return previewFromActiveListings({
+      listings: migrate.activeListings,
+      page: input.page,
+      pageSize: input.pageSize,
+      search: input.search,
+      cursor: input.cursor,
+      ebay: ebayDiag,
+    });
+  }
+  return withEbayDiagnostics(response, ebayDiag);
 }

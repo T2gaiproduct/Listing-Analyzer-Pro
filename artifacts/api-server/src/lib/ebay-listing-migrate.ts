@@ -96,6 +96,9 @@ export type EbayListingMigrateResult = {
   activeListingsFound: number;
   migrated: number;
   skippedAlreadyInventory: number;
+  listingIds: string[];
+  /** Active UI / Trading listings (same source as GetMyeBaySelling). */
+  activeListings: EbayActiveListing[];
   errors: string[];
 };
 
@@ -112,6 +115,8 @@ export async function migrateLegacyEbayListingsForWorkspace(input: {
     activeListingsFound: 0,
     migrated: 0,
     skippedAlreadyInventory: 0,
+    listingIds: [],
+    activeListings: [],
     errors: [],
   };
 
@@ -130,6 +135,8 @@ export async function migrateLegacyEbayListingsForWorkspace(input: {
   }
 
   result.activeListingsFound = activeListings.length;
+  result.listingIds = activeListings.map((row) => row.itemId);
+  result.activeListings = activeListings;
   if (activeListings.length === 0) return result;
 
   const inventorySkus = await loadInventorySkuSet({
