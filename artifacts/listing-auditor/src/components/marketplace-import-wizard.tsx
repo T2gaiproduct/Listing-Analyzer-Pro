@@ -343,6 +343,15 @@ function EbayImportDiagnosticsPanel({
             {diagnostics.listingIds.length > 5 ? "…" : ""}
           </li>
         ) : null}
+        {diagnostics.apiBuildId ? (
+          <li>API build: {diagnostics.apiBuildId}</li>
+        ) : null}
+        {diagnostics.tradingApiConfigured === false ? (
+          <li className="text-destructive font-medium">
+            Server missing eBay Trading keys (DEV_ID / CERT_ID). Ask admin to set EBAY_SANDBOX_DEV_ID and
+            EBAY_SANDBOX_CERT_ID on test, then redeploy.
+          </li>
+        ) : null}
       </ul>
       {diagnostics.errors.length > 0 ? (
         <div className="mt-2 space-y-1">

@@ -28,6 +28,8 @@ import {
 } from "./ebay-listing-migrate.js";
 import type { EbayActiveListing } from "./ebay-trading-client.js";
 import { getEbayWorkspaceConnectionPublic } from "./ebay-workspace-connection.js";
+import { loadedBuildId } from "./api-build-meta.js";
+import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
 import type { EbayImportDiagnostics } from "./marketplace-catalog-types.js";
 
 function mapShopifyAdminProduct(product: ShopifyAdminCatalogProduct): CatalogPreviewItem {
@@ -345,6 +347,7 @@ function buildEbayDiagnostics(
   migrate: EbayListingMigrateResult | null,
   connection: Awaited<ReturnType<typeof getEbayWorkspaceConnectionPublic>>,
 ): EbayImportDiagnostics {
+  const environment = connection.environment ?? "sandbox";
   return {
     connectedUsername: connection.username,
     connectedEnvironment: connection.environment,
@@ -353,6 +356,8 @@ function buildEbayDiagnostics(
     skippedAlreadyInventory: migrate?.skippedAlreadyInventory ?? 0,
     listingIds: migrate?.listingIds ?? [],
     errors: migrate?.errors ?? [],
+    apiBuildId: loadedBuildId,
+    tradingApiConfigured: isEbayTradingApiConfigured(environment),
   };
 }
 
