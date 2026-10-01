@@ -172,6 +172,8 @@ export type EbayImportDiagnostics = {
   skippedAlreadyInventory: number;
   listingIds: string[];
   errors: string[];
+  apiBuildId?: string;
+  tradingApiConfigured?: boolean;
 };
 
 export type CatalogPreviewResponse = {

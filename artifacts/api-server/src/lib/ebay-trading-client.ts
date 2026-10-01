@@ -1,5 +1,32 @@
-import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
-import { ebayOAuthEndpoints, getEbayAppCredentials } from "./ebay-oauth-config.js";
+import type { EbayAppCredentials, EbayOAuthEnvironment } from "./ebay-oauth-config.js";
+import {
+  describeEbayTradingApiSetupIssue,
+  ebayOAuthEndpoints,
+  getEbayAppCredentials,
+} from "./ebay-oauth-config.js";
+
+function buildTradingApiHeaders(input: {
+  creds: EbayAppCredentials;
+  accessToken: string;
+  callName: string;
+  siteId: number;
+}): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "text/xml",
+    "X-EBAY-API-IAF-TOKEN": input.accessToken,
+    "X-EBAY-API-CALL-NAME": input.callName,
+    "X-EBAY-API-SITEID": String(input.siteId),
+    "X-EBAY-API-COMPATIBILITY-LEVEL": "1423",
+  };
+  if (input.creds.devId && input.creds.certId) {
+    headers["X-EBAY-API-DEV-NAME"] = input.creds.devId;
+    headers["X-EBAY-API-APP-NAME"] = input.creds.clientId;
+    headers["X-EBAY-API-CERT-NAME"] = input.creds.certId;
+  } else {
+    headers["X-EBAY-API-APP-ID"] = input.creds.clientId;
+  }
+  return headers;
+}
 
 export type EbayActiveListing = {
   itemId: string;
@@ -54,6 +81,10 @@ export async function fetchEbayActiveListingsPage(input: {
   if (!creds) {
     throw new Error(`eBay ${input.environment} app credentials are not configured.`);
   }
+  const tradingSetupIssue = describeEbayTradingApiSetupIssue(input.environment);
+  if (tradingSetupIssue) {
+    throw new Error(tradingSetupIssue);
+  }
 
   const page = Math.max(1, input.page);
   const entriesPerPage = Math.min(Math.max(input.entriesPerPage, 1), 200);
@@ -68,17 +99,14 @@ export async function fetchEbayActiveListingsPage(input: {
   </ActiveList>
 </GetMyeBaySellingRequest>`;
 
-  // Trading (SOAP) APIs use OAuth via X-EBAY-API-IAF-TOKEN — not Authorization: Bearer (REST only).
   const res = await fetch(tradingApiUrl(input.environment), {
     method: "POST",
-    headers: {
-      "Content-Type": "text/xml",
-      "X-EBAY-API-IAF-TOKEN": input.accessToken,
-      "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
-      "X-EBAY-API-SITEID": String(input.siteId ?? 0),
-      "X-EBAY-API-COMPATIBILITY-LEVEL": "1423",
-      "X-EBAY-API-APP-ID": creds.clientId,
-    },
+    headers: buildTradingApiHeaders({
+      creds,
+      accessToken: input.accessToken,
+      callName: "GetMyeBaySelling",
+      siteId: input.siteId ?? 0,
+    }),
     body,
   });
 

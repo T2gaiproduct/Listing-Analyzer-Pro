@@ -7,6 +7,10 @@ export type EbayAppCredentials = {
   clientId: string;
   clientSecret: string;
   ruName: string;
+  /** eBay Developer Portal → Application keys → Dev ID (required for Trading API). */
+  devId?: string;
+  /** eBay Developer Portal → Application keys → Cert ID (not the OAuth client secret). */
+  certId?: string;
 };
 
 export function parseEbayOAuthEnvironment(raw: unknown): EbayOAuthEnvironment {
@@ -23,8 +27,29 @@ function readCredentialsForEnv(environment: EbayOAuthEnvironment): EbayAppCreden
   const clientId = process.env[`${prefix}CLIENT_ID`]?.trim() ?? "";
   const clientSecret = process.env[`${prefix}CLIENT_SECRET`]?.trim() ?? "";
   const ruName = process.env[`${prefix}RUNAME`]?.trim() ?? "";
+  const devId = process.env[`${prefix}DEV_ID`]?.trim() ?? "";
+  const certId = process.env[`${prefix}CERT_ID`]?.trim() ?? "";
   if (!clientId || !clientSecret || !ruName) return null;
-  return { clientId, clientSecret, ruName };
+  return {
+    clientId,
+    clientSecret,
+    ruName,
+    devId: devId || undefined,
+    certId: certId || undefined,
+  };
+}
+
+export function isEbayTradingApiConfigured(environment: EbayOAuthEnvironment): boolean {
+  const creds = getEbayAppCredentials(environment);
+  return Boolean(creds?.devId && creds?.certId);
+}
+
+export function describeEbayTradingApiSetupIssue(environment: EbayOAuthEnvironment): string | null {
+  const creds = getEbayAppCredentials(environment);
+  if (!creds) return describeEbayOAuthSetupIssue(environment);
+  if (creds.devId && creds.certId) return null;
+  const label = environment === "sandbox" ? "SANDBOX" : "PRODUCTION";
+  return `Trading API keys missing on server: set EBAY_${label}_DEV_ID and EBAY_${label}_CERT_ID from eBay Developer Portal → Application keys (Cert ID is not the OAuth client secret).`;
 }
 
 export function getEbayAppCredentials(environment: EbayOAuthEnvironment): EbayAppCredentials | null {
