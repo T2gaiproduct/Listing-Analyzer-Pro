@@ -19,6 +19,7 @@ import {
   MAX_IMPORT_PER_RUN,
   fetchCatalogPreview,
   type CatalogPreviewItem,
+  type EbayImportDiagnostics,
   type MarketplaceImportInput,
   type MarketplacePlatform,
   type ShopifySyncResult,
@@ -87,6 +88,7 @@ export function MarketplaceImportWizard({
   const items = previewQuery.data?.items ?? [];
   const hasMore = previewQuery.data?.hasMore ?? false;
   const totalHint = previewQuery.data?.totalHint;
+  const ebayDiagnostics = platform === "ebay" ? previewQuery.data?.ebay : undefined;
 
   const pageIds = useMemo(() => items.map((item) => item.id), [items]);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
@@ -196,6 +198,12 @@ export function MarketplaceImportWizard({
             ) : null}
           </div>
 
+          {platform === "ebay" && ebayDiagnostics && items.length > 0
+            && ebayDiagnostics.activeListingsFound > 0
+            && (ebayDiagnostics.migrated > 0 || ebayDiagnostics.errors.length > 0) ? (
+              <EbayImportDiagnosticsPanel diagnostics={ebayDiagnostics} compact />
+            ) : null}
+
           <div className="rounded-xl border border-border divide-y divide-border overflow-hidden min-h-[240px]">
             {previewQuery.isLoading ? (
               <div className="flex items-center justify-center py-16 text-muted-foreground gap-2 text-sm">
@@ -209,8 +217,11 @@ export function MarketplaceImportWizard({
                   : "Could not load catalog preview."}
               </div>
             ) : items.length === 0 ? (
-              <div className="px-4 py-10 text-sm text-muted-foreground text-center">
-                No products match your search.
+              <div className="px-4 py-10 text-sm text-muted-foreground text-center space-y-3">
+                <p>{search ? "No products match your search." : "No products found in your eBay inventory yet."}</p>
+                {platform === "ebay" && ebayDiagnostics ? (
+                  <EbayImportDiagnosticsPanel diagnostics={ebayDiagnostics} />
+                ) : null}
               </div>
             ) : (
               items.map((item) => (
@@ -291,6 +302,67 @@ export function MarketplaceImportWizard({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EbayImportDiagnosticsPanel({
+  diagnostics,
+  compact = false,
+}: {
+  diagnostics: EbayImportDiagnostics;
+  compact?: boolean;
+}) {
+  const userLabel = diagnostics.connectedUsername
+    ? `@${diagnostics.connectedUsername}`
+    : "unknown seller";
+  const envLabel = diagnostics.connectedEnvironment === "sandbox" ? "Sandbox" : "Production";
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-amber-200 bg-amber-50/80 text-left text-xs text-amber-950",
+        compact ? "px-3 py-2" : "px-4 py-3 max-w-md mx-auto",
+      )}
+    >
+      <p className="font-medium text-amber-900">
+        eBay connection: {userLabel} ({envLabel})
+      </p>
+      <ul className="mt-2 space-y-1 list-disc pl-4 text-amber-900/90">
+        <li>
+          Active listings (Trading API): <strong>{diagnostics.activeListingsFound}</strong>
+        </li>
+        <li>
+          Migrated to inventory: <strong>{diagnostics.migrated}</strong>
+          {diagnostics.skippedAlreadyInventory > 0
+            ? ` (${diagnostics.skippedAlreadyInventory} already in inventory)`
+            : null}
+        </li>
+        {diagnostics.listingIds.length > 0 ? (
+          <li>
+            Item IDs: {diagnostics.listingIds.slice(0, 5).join(", ")}
+            {diagnostics.listingIds.length > 5 ? "…" : ""}
+          </li>
+        ) : null}
+      </ul>
+      {diagnostics.errors.length > 0 ? (
+        <div className="mt-2 space-y-1">
+          <p className="font-medium text-destructive">Errors</p>
+          {diagnostics.errors.slice(0, 3).map((err) => (
+            <p key={err} className="text-destructive/90 break-words">{err}</p>
+          ))}
+        </div>
+      ) : diagnostics.activeListingsFound === 0 ? (
+        <p className="mt-2 text-amber-900/90">
+          SellerLens sees no active listings for this account. Disconnect eBay on Marketplaces, then
+          connect again while signed in as the sandbox seller that owns your listings (e.g. testuser_pradyuman).
+        </p>
+      ) : diagnostics.migrated === 0 && diagnostics.activeListingsFound > 0 ? (
+        <p className="mt-2 text-amber-900/90">
+          Listings were found but inventory is still empty. Try Import anyway (migration runs again), or
+          reconnect eBay if the connected user does not match your sandbox seller.
+        </p>
+      ) : null}
+    </div>
   );
 }
 

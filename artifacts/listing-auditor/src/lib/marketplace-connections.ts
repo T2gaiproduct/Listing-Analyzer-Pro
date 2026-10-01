@@ -164,6 +164,16 @@ export type CatalogPreviewItem = {
   subtitle: string | null;
 };
 
+export type EbayImportDiagnostics = {
+  connectedUsername: string | null;
+  connectedEnvironment: string | null;
+  activeListingsFound: number;
+  migrated: number;
+  skippedAlreadyInventory: number;
+  listingIds: string[];
+  errors: string[];
+};
+
 export type CatalogPreviewResponse = {
   items: CatalogPreviewItem[];
   page: number;
@@ -171,6 +181,7 @@ export type CatalogPreviewResponse = {
   hasMore: boolean;
   totalHint: number | null;
   nextCursor: string | null;
+  ebay?: EbayImportDiagnostics;
 };
 
 export type MarketplaceImportInput = {

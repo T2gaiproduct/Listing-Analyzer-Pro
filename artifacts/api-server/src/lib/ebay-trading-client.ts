@@ -14,13 +14,23 @@ function tradingApiUrl(environment: EbayOAuthEnvironment): string {
 
 function parseActiveListingsXml(xml: string): EbayActiveListing[] {
   const listings: EbayActiveListing[] = [];
+  const seen = new Set<string>();
   const itemBlocks = xml.match(/<Item>[\s\S]*?<\/Item>/g) ?? [];
   for (const block of itemBlocks) {
     const itemId = block.match(/<ItemID>(\d+)<\/ItemID>/)?.[1];
-    if (!itemId) continue;
+    if (!itemId || seen.has(itemId)) continue;
+    seen.add(itemId);
     const sku = block.match(/<SKU>([^<]*)<\/SKU>/)?.[1]?.trim() || null;
     const title = block.match(/<Title>([^<]*)<\/Title>/)?.[1]?.trim() || null;
     listings.push({ itemId, sku, title });
+  }
+  if (listings.length === 0) {
+    for (const match of xml.matchAll(/<ItemID>(\d+)<\/ItemID>/g)) {
+      const itemId = match[1];
+      if (!itemId || seen.has(itemId)) continue;
+      seen.add(itemId);
+      listings.push({ itemId, sku: null, title: null });
+    }
   }
   return listings;
 }
