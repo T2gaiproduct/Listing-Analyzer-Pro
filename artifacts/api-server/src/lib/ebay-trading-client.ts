@@ -287,20 +287,52 @@ function buildItemSpecificsXml(specifics: EbayItemSpecific[]): string {
 /**
  * Host gallery images on eBay (EPS) so listings do not depend on SellerLens fetch URLs.
  */
+function parseHostedPictureUrlFromUploadResponse(xml: string): string | null {
+  const raw = xml.match(/<FullURL>([^<]+)<\/FullURL>/)?.[1]?.trim()
+    ?? xml.match(/<MemberURL>([^<]+)<\/MemberURL>/)?.[1]?.trim();
+  if (!raw) return null;
+  const decoded = decodeXmlEntities(raw).trim();
+  if (!decoded) return null;
+  try {
+    const url = new URL(decoded.startsWith("http") ? decoded : `https:${decoded}`);
+    if (url.protocol === "http:") url.protocol = "https:";
+    return url.toString();
+  } catch {
+    return decoded.replace(/^http:/i, "https:");
+  }
+}
+
 export async function uploadEbaySiteHostedPicture(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
   pictureName: string;
-  pictureData: Buffer;
+  pictureData?: Buffer;
+  externalPictureUrl?: string;
   siteId?: number;
 }): Promise<string> {
   const name = input.pictureName.trim() || "sellerlens.jpg";
-  const base64 = input.pictureData.toString("base64");
-  const body = `<?xml version="1.0" encoding="utf-8"?>
+  const external = input.externalPictureUrl?.trim();
+  const data = input.pictureData;
+
+  let body: string;
+  if (data && data.length > 0) {
+    const base64 = data.toString("base64");
+    body = `<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <PictureName>${escapeXml(name)}</PictureName>
+  <PictureSet>Standard</PictureSet>
   <PictureData>${base64}</PictureData>
 </UploadSiteHostedPicturesRequest>`;
+  } else if (external && /^https:\/\//i.test(external)) {
+    body = `<?xml version="1.0" encoding="utf-8"?>
+<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <PictureName>${escapeXml(name)}</PictureName>
+  <PictureSet>Standard</PictureSet>
+  <ExternalPictureURL>${escapeXml(external)}</ExternalPictureURL>
+</UploadSiteHostedPicturesRequest>`;
+  } else {
+    throw new Error("Picture bytes or an HTTPS image URL is required for eBay picture upload.");
+  }
 
   const text = await postTradingApiRequest({
     environment: input.environment,
@@ -309,8 +341,7 @@ export async function uploadEbaySiteHostedPicture(input: {
     body,
     siteId: input.siteId,
   });
-  const fullUrl = text.match(/<FullURL>([^<]+)<\/FullURL>/)?.[1]?.trim()
-    ?? text.match(/<MemberURL>([^<]+)<\/MemberURL>/)?.[1]?.trim();
+  const fullUrl = parseHostedPictureUrlFromUploadResponse(text);
   if (!fullUrl) {
     throw new Error(parseTradingErrorMessage(text, "UploadSiteHostedPictures failed"));
   }
@@ -344,7 +375,7 @@ export async function reviseEbayListingContent(input: {
     .filter(Boolean)
     .slice(0, 12);
   const pictureXml = pictures.length > 0
-    ? `<PictureDetails>${pictures.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}</PictureDetails>`
+    ? `<PictureDetails><GalleryType>Gallery</GalleryType>${pictures.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}</PictureDetails>`
     : "";
   const descriptionBlock = input.descriptionHtml.trim()
     ? `<Description>${wrapCdata(input.descriptionHtml.trim())}</Description>`
