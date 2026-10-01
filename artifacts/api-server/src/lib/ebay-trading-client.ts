@@ -239,6 +239,62 @@ function escapeXml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function wrapCdata(html: string): string {
+  const safe = html.replace(/\]\]>/g, "]]]]><![CDATA[>");
+  return `<![CDATA[${safe}]]>`;
+}
+
+/**
+ * Update title, description, and gallery on one existing listing (this Item ID only).
+ */
+export async function reviseEbayListingContent(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  itemId: string;
+  title: string;
+  descriptionHtml: string;
+  pictureUrls: string[];
+  siteId?: number;
+}): Promise<void> {
+  const itemId = input.itemId.trim();
+  const title = input.title.trim();
+  if (!itemId || !title) {
+    throw new Error("Item ID and title are required to update an eBay listing.");
+  }
+
+  const pictures = input.pictureUrls
+    .map((url) => url.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+  const pictureXml = pictures.length > 0
+    ? `<PictureDetails>${pictures.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}</PictureDetails>`
+    : "";
+  const descriptionBlock = input.descriptionHtml.trim()
+    ? `<Description>${wrapCdata(input.descriptionHtml.trim())}</Description>`
+    : "";
+
+  const body = `<?xml version="1.0" encoding="utf-8"?>
+<ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <Item>
+    <ItemID>${escapeXml(itemId)}</ItemID>
+    <Title>${escapeXml(title)}</Title>
+    ${descriptionBlock}
+    ${pictureXml}
+  </Item>
+</ReviseItemRequest>`;
+
+  const text = await postTradingApiRequest({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    callName: "ReviseItem",
+    body,
+    siteId: input.siteId,
+  });
+  if (/<Ack>PartialFailure<\/Ack>/i.test(text)) {
+    throw new Error(parseTradingErrorMessage(text, "ReviseItem failed"));
+  }
+}
+
 function parseGetItemDetailsXml(xml: string, itemId: string): EbayTradingItemDetails {
   const title = xml.match(/<Title>([^<]*)<\/Title>/)?.[1]?.trim() || "";
   const sku = xml.match(/<SKU>([^<]*)<\/SKU>/)?.[1]?.trim() || "";

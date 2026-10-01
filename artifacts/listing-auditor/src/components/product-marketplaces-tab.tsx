@@ -16,11 +16,12 @@ import {
 import { ShopifyPublishCollectionsDialog } from "@/components/shopify-publish-collections-dialog";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
+import { fetchEbayStatus, publishAuditToEbay } from "@/lib/ebay-publish";
 import { useToast } from "@/hooks/use-toast";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const PUBLISH_PLATFORMS = ["Amazon", "Shopify", "WooCommerce"] as const;
+const PUBLISH_PLATFORMS = ["Amazon", "Shopify", "WooCommerce", "eBay"] as const;
 type PublishPlatform = (typeof PUBLISH_PLATFORMS)[number];
 
 type ListingStatus = "live" | "pending" | "not_listed";
@@ -226,7 +227,8 @@ function MarketplaceCard({
     ? format(new Date(listing.publishedAt), "MMM d, yyyy")
     : "—";
   const isAmazon = listing.marketplace === "Amazon";
-  const showPublishActions = canPublish && listing.status !== "live";
+  const isEbay = listing.marketplace === "eBay";
+  const showPublishActions = canPublish && (listing.status !== "live" || isEbay);
   const publishDisabled = isPublishing || !publishReady || !connected;
 
   return (
@@ -284,7 +286,7 @@ function MarketplaceCard({
               ) : (
                 <>
                   <Upload className="w-3.5 h-3.5 mr-1" />
-                  Update listing
+                  {isEbay ? "Push to eBay listing" : "Update listing"}
                 </>
               )}
             </Button>
@@ -348,7 +350,7 @@ function MarketplaceCard({
               ) : (
                 <>
                   <Upload className="w-3.5 h-3.5 mr-1" />
-                  {isAmazon ? "Publish to Amazon" : "Publish live"}
+                  {isAmazon ? "Publish to Amazon" : isEbay ? "Push to eBay listing" : "Publish live"}
                 </>
               )}
             </Button>
@@ -370,7 +372,7 @@ function ListedMarketplacesSummary({
   const liveCount = liveMarketplaces.length;
   const totalListed = listedListings.length;
 
-  let headline = "Publish to Amazon, Shopify, or WooCommerce";
+  let headline = "Publish to Amazon, Shopify, WooCommerce, or eBay";
   if (liveCount > 0) {
     headline = liveCount === 1
       ? `Live on ${liveMarketplaces[0]}`
@@ -479,6 +481,13 @@ export function ProductMarketplacesTab({
     staleTime: 60_000,
   });
 
+  const { data: ebayStatus } = useQuery({
+    queryKey: ["ebay-status"],
+    queryFn: fetchEbayStatus,
+    enabled: enabled,
+    staleTime: 60_000,
+  });
+
   const invalidateAfterPublish = () => {
     void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", productId, source] });
     void queryClient.invalidateQueries({ queryKey: ["product", productId] });
@@ -503,6 +512,28 @@ export function ProductMarketplacesTab({
       toast({
         title: "WooCommerce publish failed",
         description: error instanceof Error ? error.message : "Could not publish to WooCommerce.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const publishEbayMutation = useMutation({
+    mutationFn: () => publishAuditToEbay({ auditId: publishAuditId }),
+    onSuccess: (result) => {
+      invalidateAfterPublish();
+      if (result.warning) {
+        toast({ title: "eBay updated with a warning", description: result.warning, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "Pushed to eBay listing",
+        description: result.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "eBay publish failed",
+        description: error instanceof Error ? error.message : "Could not update the linked eBay listing.",
         variant: "destructive",
       });
     },
@@ -579,6 +610,13 @@ export function ProductMarketplacesTab({
       isPublishing: publishWooCommerceMutation.isPending,
       onPublishLive: () => publishWooCommerceMutation.mutate("live"),
     },
+    eBay: {
+      connected: Boolean(ebayStatus?.connected),
+      publishReady: Boolean(ebayStatus?.publishReady),
+      connectHint: "Connect eBay on Marketplaces. Import links this product to one listing Item ID; publish updates that listing only.",
+      isPublishing: publishEbayMutation.isPending,
+      onPublishLive: () => publishEbayMutation.mutate(),
+    },
   };
 
   if (isLoading) {
@@ -601,7 +639,7 @@ export function ProductMarketplacesTab({
         listedListings={listedListings}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {publishPlatformCards.map((listing) => {
           const platform = listing.marketplace as PublishPlatform;
           const state = platformPublishState[platform];

@@ -19,10 +19,17 @@ import {
   saveEbayWorkspaceSellerConnection,
 } from "../lib/ebay-workspace-connection.js";
 import { resolvePublicBaseUrl } from "../lib/resolve-public-base-url.js";
+import type { ImageRecord } from "@workspace/db";
+import { loadAuditForExport } from "../lib/audit-export-loader.js";
+import { publishListingToEbay } from "../lib/ebay-publish.js";
+import { isEbayTradingApiConfigured } from "../lib/ebay-oauth-config.js";
+import { getEbayWorkspaceConnection } from "../lib/ebay-workspace-connection.js";
+import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url.js";
 import {
   getActiveWorkspaceId,
   resolveTeamAndWorkspace,
   requireWorkspaceAction,
+  requireWorkspaceActionAny,
 } from "../lib/workspace-route-helpers.js";
 import { resolveWorkspaceContext, requireWorkspacePerm as checkPerm } from "../lib/workspace-context.js";
 
@@ -55,9 +62,15 @@ router.get("/ebay/oauth/config", requireAuth, resolveTeamAndWorkspace, async (re
 router.get("/ebay/status", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const workspaceId = getActiveWorkspaceId(req);
   const status = await getEbayWorkspaceConnectionPublic(workspaceId);
+  const connection = await getEbayWorkspaceConnection(workspaceId);
+  const publishReady = Boolean(
+    status.connected
+    && connection
+    && isEbayTradingApiConfigured(connection.environment),
+  );
   res.json({
     ...status,
-    publishReady: status.connected,
+    publishReady,
   });
 });
 
@@ -163,6 +176,66 @@ router.get("/ebay/oauth/callback", async (req: Request, res: Response): Promise<
     res.status(400).send(message);
   }
 });
+
+router.post(
+  "/audits/:id/publish/ebay",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["build_brand", "audits"], "edit"),
+  async (req: Request, res: Response): Promise<void> => {
+    const auditId = Number.parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(auditId)) {
+      res.status(400).json({ error: "Invalid audit id" });
+      return;
+    }
+
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getEbayWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your eBay seller account on the Marketplaces page before publishing." });
+      return;
+    }
+    if (!isEbayTradingApiConfigured(connection.environment)) {
+      res.status(400).json({
+        error: "eBay publish is not configured on this server (Trading API keys).",
+      });
+      return;
+    }
+
+    const loaded = await loadAuditForExport(req, auditId);
+    if (!loaded) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
+    const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+    const graphicsProjectId = loaded.graphicsProject?.id ?? null;
+
+    try {
+      const publicBaseUrl = resolveMarketplacePublishBaseUrl(req);
+      const result = await publishListingToEbay({
+        workspaceId,
+        audit: loaded.audit,
+        graphicsImageRecords,
+        graphicsProjectId,
+        publicBaseUrl,
+      });
+
+      res.json({
+        ok: true,
+        itemId: result.itemId,
+        listingUrl: result.listingUrl,
+        warning: result.warning,
+        message: result.warning
+          ? "eBay listing updated with a warning."
+          : "This product’s content was pushed to its linked eBay listing only.",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Publish failed";
+      res.status(400).json({ error: message });
+    }
+  },
+);
 
 router.delete(
   "/ebay/connection",
