@@ -32,6 +32,11 @@ import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { downloadAppImage } from "@/lib/download-app-image";
+import {
+  formatGraphicsFileTooLarge,
+  GRAPHICS_MAX_SOURCE_FILE_BYTES,
+  readApiErrorMessage,
+} from "@/lib/http-error-message";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -287,6 +292,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   const activeProjectId = projectId ?? existingProject?.id ?? null;
   const [isGenerating, setIsGenerating] = useState(false);
+  const [lastGraphicsError, setLastGraphicsError] = useState<string | null>(null);
 
   const { data: project, refetch } = useQuery({
     queryKey: ["graphics-project", activeProjectId],
@@ -329,6 +335,14 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     }
     if (project.status === "failed") {
       setIsGenerating(false);
+      if (project.errorMessage?.trim()) {
+        setLastGraphicsError(project.errorMessage.trim());
+        toast({
+          title: "Generation failed",
+          description: project.errorMessage.trim(),
+          variant: "destructive",
+        });
+      }
       void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
       return;
     }
@@ -377,8 +391,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         body: JSON.stringify(input.createBody),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Failed to create project (${res.status})`);
+        throw new Error(await readApiErrorMessage(res, "Failed to create graphics project"));
       }
       const project = await res.json();
       return { project, imageTypes: input.imageTypes, typeConfigs: input.typeConfigs };
@@ -397,21 +410,23 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           }),
         });
         if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error((err as { error?: string }).error || `Generation failed (${res.status})`);
+          throw new Error(await readApiErrorMessage(res, "Graphics generation failed"));
         }
+        setLastGraphicsError(null);
         setIsGenerating(true);
         startTimeRef.current = Date.now();
       } catch (err) {
         setIsGenerating(false);
+        const description = err instanceof Error ? err.message : "Please try again";
+        setLastGraphicsError(description);
         void fetch(`${basePath}/api/graphics/projects/${project.id}`, {
           method: "DELETE",
           credentials: "include",
         });
         void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
         toast({
-          title: "Generation failed",
-          description: err instanceof Error ? err.message : "Please try again",
+          title: description.includes("too large") ? "Image too large" : "Generation failed",
+          description,
           variant: "destructive",
         });
       }
@@ -430,8 +445,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         body: JSON.stringify({}),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Regeneration failed");
+        throw new Error(await readApiErrorMessage(res, "Image regeneration failed"));
       }
       return res.json();
     },
@@ -467,8 +481,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Edit failed");
+        throw new Error(await readApiErrorMessage(res, "Image edit failed"));
       }
       return res.json();
     },
@@ -502,12 +515,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Generation failed");
+        throw new Error(await readApiErrorMessage(res, "Graphics generation failed"));
       }
       return res.json();
     },
     onSuccess: () => {
+      setLastGraphicsError(null);
       creditsRefreshedRef.current = false;
       toast({ title: "Additional generation started" });
       setIsGenerating(true);
@@ -517,7 +530,13 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       }, 500);
     },
     onError: (err) => {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Generation failed", variant: "destructive" });
+      const description = err instanceof Error ? err.message : "Generation failed";
+      setLastGraphicsError(description);
+      toast({
+        title: description.includes("too large") ? "Image too large" : "Generation failed",
+        description,
+        variant: "destructive",
+      });
     },
   });
 
@@ -526,6 +545,15 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (imageFiles.length === 0) {
       toast({ title: "Invalid files", description: "Please upload image files only", variant: "destructive" });
+      return;
+    }
+    const tooLarge = imageFiles.find((f) => f.size > GRAPHICS_MAX_SOURCE_FILE_BYTES);
+    if (tooLarge) {
+      toast({
+        title: "Image too large",
+        description: formatGraphicsFileTooLarge(tooLarge.name),
+        variant: "destructive",
+      });
       return;
     }
     setIsUploading(true);
@@ -1030,11 +1058,14 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center space-y-3">
         <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
         <p className="text-red-600 font-medium">Generation failed</p>
-        <p className="text-sm text-red-400">{displayProject?.errorMessage || "Please try again or contact support."}</p>
+        <p className="text-sm text-red-400">
+          {lastGraphicsError || displayProject?.errorMessage || "Please try again or contact support."}
+        </p>
         <Button
           variant="outline"
           className="mt-2 gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
           onClick={() => {
+            setLastGraphicsError(null);
             setProjectId(null);
             setStep(createOnly ? 2 : 1);
             setUploadedImages(imageUrls ?? []);
@@ -1057,7 +1088,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     <div className="w-full min-w-0 max-w-full space-y-6">
       {showFailedBanner && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {displayProject?.errorMessage || "Graphics generation failed. Try again or contact support."}
+          {lastGraphicsError || displayProject?.errorMessage || "Graphics generation failed. Try again or contact support."}
+        </div>
+      )}
+      {lastGraphicsError && !showFailedBanner && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {lastGraphicsError}
         </div>
       )}
 
