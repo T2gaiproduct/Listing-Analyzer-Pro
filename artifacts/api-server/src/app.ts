@@ -144,6 +144,13 @@ app.use("/api", (err: unknown, req: Request, res: Response, next: NextFunction) 
     next(err);
     return;
   }
+  const payloadErr = err as { type?: string; status?: number };
+  if (payloadErr?.type === "entity.too.large" || payloadErr?.status === 413) {
+    res.status(413).json({
+      error: "Request body is too large. Use smaller images (under 4 MB each) or fewer reference images.",
+    });
+    return;
+  }
   logger.error({ err, method: req.method, url: req.originalUrl }, "Unhandled API error");
   const message = process.env.NODE_ENV === "production"
     ? "Internal server error"
