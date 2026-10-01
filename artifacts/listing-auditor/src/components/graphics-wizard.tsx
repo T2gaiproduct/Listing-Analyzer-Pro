@@ -29,6 +29,7 @@ import {
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
+import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { downloadAppImage } from "@/lib/download-app-image";
@@ -62,6 +63,7 @@ interface ImageVersion {
 interface ImageRecord {
   id: string;
   type: "lifestyle" | "feature";
+  imageType?: string;
   index: number;
   style: string;
   aspectRatio: string;
@@ -858,7 +860,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 <Clock className="h-4 w-4" />
                 Version History
                 {historyRecord && (
-                  <span className="text-slate-500 font-normal text-sm">- {TYPE_LABELS[historyRecord.type]} {historyRecord.index + 1}</span>
+                  <span className="text-slate-500 font-normal text-sm">
+                    - {resolveGraphicsRecordLabel(historyRecord, IMAGE_TYPES)} {historyRecord.index + 1}
+                  </span>
                 )}
               </DialogTitle>
             </DialogHeader>

@@ -29,6 +29,7 @@ import {
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
+import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
@@ -60,6 +61,7 @@ interface ImageVersion {
 interface ImageRecord {
   id: string;
   type: "lifestyle" | "feature";
+  imageType?: string;
   index: number;
   style: string;
   aspectRatio: string;
@@ -591,7 +593,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
               Version History
               {historyRecord && (
                 <span className="text-slate-400 font-normal text-sm">
-                  - {TYPE_LABELS[historyRecord.type]} {historyRecord.index + 1}
+                  - {resolveGraphicsRecordLabel(historyRecord, GRAPHICS_IMAGE_TYPES)} {historyRecord.index + 1}
                 </span>
               )}
             </DialogTitle>

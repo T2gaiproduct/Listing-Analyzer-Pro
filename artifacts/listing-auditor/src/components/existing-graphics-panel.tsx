@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
+import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { useQuery } from "@tanstack/react-query";
 import { ImageIcon } from "lucide-react";
 import { ProtectedAppImage } from "@/components/protected-app-image";
@@ -9,6 +11,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 type GraphicsImageRecord = {
   id?: string;
   type?: string;
+  imageType?: string;
   currentUrl?: string;
 };
 
@@ -75,6 +78,7 @@ export function ExistingGraphicsPanel({
   audit: AuditGraphicsLike | null | undefined;
   fallbackImageUrls?: string[] | null;
 }) {
+  const { imageTypes } = useGraphicsImageTypesFromApi();
   const { data: graphicsProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId],
     queryFn: () => fetchGraphicsProjectForAudit(auditId),
@@ -106,13 +110,7 @@ export function ExistingGraphicsPanel({
     };
 
     for (const record of graphicsProject?.imageRecords ?? audit?.imageRecords ?? []) {
-      const typeLabel = record.type === "lifestyle"
-        ? "Lifestyle"
-        : record.type === "feature"
-          ? "Infographic"
-          : record.type === "main"
-            ? "Main"
-            : "Graphic";
+      const typeLabel = resolveGraphicsRecordLabel(record, imageTypes);
       add(record.currentUrl, typeLabel);
     }
 
@@ -121,7 +119,7 @@ export function ExistingGraphicsPanel({
     }
 
     return items;
-  }, [audit?.generatedImages, audit?.imageRecords, graphicsProject?.imageRecords, uploadedUrlSet]);
+  }, [audit?.generatedImages, audit?.imageRecords, graphicsProject?.imageRecords, imageTypes, uploadedUrlSet]);
 
   const hasContent = uploadedImages.length > 0 || generatedGraphics.length > 0;
 

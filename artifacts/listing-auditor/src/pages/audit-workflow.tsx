@@ -75,6 +75,7 @@ import {
   SelectedGraphicsTypesSummary,
 } from "@/components/graphics-type-customize-ui";
 import { useAplusModuleCards, useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
+import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import {
   useCreateAuditDraft,
   usePatchAudit,
@@ -93,6 +94,7 @@ type WorkflowGeneratedImage = {
   type: string;
   index: number;
   recordId?: string;
+  imageType?: string;
 };
 
 /** Upload-tab images used as default AI references when the user did not add custom refs. */
@@ -114,6 +116,7 @@ function graphicsRecordToWorkflowImage(r: {
   currentUrl?: string;
   type?: string;
   index?: number;
+  imageType?: string;
 }): WorkflowGeneratedImage | null {
   if (!r.currentUrl?.trim()) return null;
   return {
@@ -121,6 +124,7 @@ function graphicsRecordToWorkflowImage(r: {
     type: r.type ?? "lifestyle",
     index: r.index ?? 0,
     recordId: r.id,
+    imageType: r.imageType,
   };
 }
 
@@ -2509,7 +2513,10 @@ export default function AuditWorkflow() {
                     {generatedImages.map((img, i) => {
                       const recordKey = img.recordId ?? `${img.type}-${img.index}-${i}`;
                       const isEditing = img.recordId ? graphicsEditingIds.has(img.recordId) : false;
-                      const typeLabel = img.type === "feature" ? "infographic" : img.type;
+                      const typeLabel = resolveGraphicsRecordLabel(
+                        { type: img.type, imageType: img.imageType },
+                        IMAGE_TYPES,
+                      );
                       return (
                         <div
                           key={`${recordKey}-${img.url}`}
