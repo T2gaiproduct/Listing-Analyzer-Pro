@@ -6,17 +6,16 @@ import {
   parseEbayItemIdFromSku,
 } from "./ebay-import-utils.js";
 import { buildEbayListingDescriptionHtml } from "./ebay-listing-description.js";
+import { truncateEbayListingTitle } from "./ebay-item-specific-limits.js";
 import { resolveEbayHostedPictureUrls } from "./ebay-publish-images.js";
 import { resolveEbayAccessToken } from "./ebay-inventory-client.js";
 import {
-  fetchEbayTradingItemDetails,
   reviseEbayListingContent,
-  type EbayItemSpecific,
+  reviseEbayListingPrice,
 } from "./ebay-trading-client.js";
 import { getEbayWorkspaceConnection } from "./ebay-workspace-connection.js";
 import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
 import { materializeAuditImagesForPublish } from "./materialize-audit-images-for-publish.js";
-import { sanitizeEbayItemSpecificValues } from "./ebay-item-specific-limits.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
 export type EbayPublishResult = {
@@ -28,27 +27,6 @@ export type EbayPublishResult = {
 function productionListingUrl(environment: "sandbox" | "production", itemId: string): string {
   const host = environment === "sandbox" ? "https://www.sandbox.ebay.com" : "https://www.ebay.com";
   return `${host}/itm/${itemId}`;
-}
-
-function buildEbayItemSpecifics(input: {
-  keywords: string[];
-  category?: string | null;
-}): EbayItemSpecific[] {
-  const specifics: EbayItemSpecific[] = [];
-  // Full bullet copy lives in the HTML description; eBay item specifics allow max 65 chars per value.
-  const keywords = sanitizeEbayItemSpecificValues(
-    input.keywords.map((k) => k.trim()).filter(Boolean),
-  ).slice(0, 10);
-  if (keywords.length > 0) {
-    specifics.push({ name: "Tags", values: keywords });
-  }
-  const categoryValues = sanitizeEbayItemSpecificValues(
-    input.category?.trim() ? [input.category.trim()] : [],
-  );
-  if (categoryValues.length > 0) {
-    specifics.push({ name: "Type", values: categoryValues });
-  }
-  return specifics;
 }
 
 async function resolveEbayPublishPriceCents(auditId: number): Promise<{
@@ -97,6 +75,38 @@ async function resolveEbayPublishPriceCents(auditId: number): Promise<{
   };
 }
 
+async function reviseListingContentWithPictureFallback(input: {
+  environment: "sandbox" | "production";
+  accessToken: string;
+  itemId: string;
+  title: string;
+  descriptionHtml: string;
+  pictureUrls: string[];
+}): Promise<string | undefined> {
+  try {
+    await reviseEbayListingContent({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      itemId: input.itemId,
+      title: input.title,
+      descriptionHtml: input.descriptionHtml,
+      pictureUrls: input.pictureUrls,
+    });
+    return undefined;
+  } catch (contentErr) {
+    if (input.pictureUrls.length === 0) throw contentErr;
+    await reviseEbayListingContent({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      itemId: input.itemId,
+      title: input.title,
+      descriptionHtml: input.descriptionHtml,
+      pictureUrls: [],
+    });
+    return "Gallery images could not be applied on eBay; title and description were updated. Try push again in a few minutes.";
+  }
+}
+
 export async function publishListingToEbay(input: {
   workspaceId: number;
   audit: Audit;
@@ -135,7 +145,7 @@ export async function publishListingToEbay(input: {
   const listingUrl = listingRow?.listingUrl?.trim() || productionListingUrl(connection.environment, itemId);
 
   const content = resolveListingContentForExport(input.audit);
-  const title = content.title?.trim();
+  const title = truncateEbayListingTitle(content.title?.trim() ?? "");
   if (!title) {
     throw new Error("Add a listing title before publishing to eBay.");
   }
@@ -146,12 +156,6 @@ export async function publishListingToEbay(input: {
   if (environment !== connection.environment) {
     throw new Error("eBay connection environment does not match the server token. Reconnect eBay on Marketplaces.");
   }
-
-  const existingItem = await fetchEbayTradingItemDetails({
-    environment,
-    accessToken,
-    itemId,
-  });
 
   const { urls: pictureUrls, warning: imageWarning } = await resolveEbayHostedPictureUrls({
     environment,
@@ -172,23 +176,36 @@ export async function publishListingToEbay(input: {
   });
 
   const { priceCents, currency } = await resolveEbayPublishPriceCents(input.audit.id);
-  const itemSpecifics = buildEbayItemSpecifics({
-    keywords: content.keywords ?? [],
-    category: input.audit.category,
-  });
 
-  await reviseEbayListingContent({
+  const pictureFallbackWarning = await reviseListingContentWithPictureFallback({
     environment,
     accessToken,
     itemId,
     title,
     descriptionHtml,
     pictureUrls,
-    priceCents,
-    currency,
-    primaryCategoryId: existingItem.primaryCategoryId,
-    itemSpecifics,
   });
+
+  const warnings: string[] = [];
+  if (imageWarning) warnings.push(imageWarning);
+  if (pictureFallbackWarning) warnings.push(pictureFallbackWarning);
+
+  if (priceCents != null && priceCents > 0) {
+    try {
+      await reviseEbayListingPrice({
+        environment,
+        accessToken,
+        itemId,
+        priceCents,
+        currency,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Price update failed";
+      warnings.push(`Listing content was updated but price could not be changed: ${message}`);
+    }
+  } else {
+    warnings.push("Price was not updated — set a price in Product Explorer overview and push again.");
+  }
 
   const now = new Date();
   if (listingRow) {
@@ -204,15 +221,6 @@ export async function publishListingToEbay(input: {
         updatedAt: now,
       })
       .where(eq(productMarketplaceListingsTable.id, listingRow.id));
-  }
-
-  const warnings: string[] = [];
-  if (imageWarning) warnings.push(imageWarning);
-  if (pictureUrls.length === 0) {
-    warnings.push("Title and description were updated; no gallery images were sent.");
-  }
-  if (priceCents == null || priceCents <= 0) {
-    warnings.push("Price was not updated — set a price in Product Explorer overview and push again.");
   }
 
   return {
