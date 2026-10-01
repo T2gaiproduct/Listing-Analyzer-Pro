@@ -15,6 +15,7 @@ import {
   type EbayInventoryItem,
 } from "./ebay-inventory-client.js";
 import { migrateLegacyEbayListingsForWorkspace } from "./ebay-listing-migrate.js";
+import { importEbaySandboxListingsViaTrading } from "./ebay-sandbox-trading-import.js";
 import { clampImportLimit } from "./marketplace-catalog-types.js";
 import type { ShopifySyncResult } from "./shopify-product-sync.js";
 
@@ -174,30 +175,8 @@ export async function syncEbayProducts(input: {
     catalog = catalog.slice(0, importLimit);
   }
 
-  if (catalog.length === 0) {
-    const errors = migration.errors.map((message) => ({ handle: "ebay-migrate", error: message }));
-    if (migration.activeListingsFound > 0 && migration.migrated === 0 && errors.length === 0) {
-      errors.push({
-        handle: "ebay-migrate",
-        error: "Active eBay listings were found but could not be converted to inventory items. Check eBay listing eligibility for migration.",
-      });
-    }
-    return {
-      imported: 0,
-      skipped: 0,
-      updated: 0,
-      total: 0,
-      auditsQueued: 0,
-      pendingAuditIds: [],
-      products: [],
-      errors,
-    };
-  }
-
-  const existingAudits = await loadExistingEbayAudits(
-    input.workspaceId,
-    catalog.map((item) => item.sku.trim()),
-  );
+  const inventorySkusImported = new Set<string>();
+  const migrateErrors = migration.errors.map((message) => ({ handle: "ebay-migrate", error: message }));
 
   const result: ShopifySyncResult = {
     imported: 0,
@@ -207,8 +186,25 @@ export async function syncEbayProducts(input: {
     auditsQueued: 0,
     pendingAuditIds: [],
     products: [],
-    errors: [],
+    errors: catalog.length === 0 ? [...migrateErrors] : [],
   };
+
+  if (catalog.length === 0
+    && migration.activeListingsFound > 0
+    && migration.migrated === 0
+    && result.errors.length === 0) {
+    result.errors.push({
+      handle: "ebay-migrate",
+      error: "Active eBay listings were found but could not be converted to inventory items. Check eBay listing eligibility for migration.",
+    });
+  }
+
+  const existingAudits = catalog.length > 0
+    ? await loadExistingEbayAudits(
+      input.workspaceId,
+      catalog.map((item) => item.sku.trim()),
+    )
+    : new Map<string, number>();
 
   for (const item of catalog) {
     const sku = item.sku?.trim();
@@ -217,6 +213,7 @@ export async function syncEbayProducts(input: {
       result.errors.push({ handle: sku || "unknown", error: "Missing SKU or title" });
       continue;
     }
+    inventorySkusImported.add(sku);
 
     if (existingAudits.has(sku)) {
       const auditId = existingAudits.get(sku)!;
@@ -304,5 +301,26 @@ export async function syncEbayProducts(input: {
   }
 
   result.auditsQueued = result.pendingAuditIds.length;
+  result.total = catalog.length > 0 ? catalog.length : result.total;
+
+  if (environment === "sandbox") {
+    return importEbaySandboxListingsViaTrading({
+      workspaceId: input.workspaceId,
+      ownerId: input.ownerId,
+      createdByUserId: input.createdByUserId,
+      environment,
+      accessToken,
+      migration,
+      productIds: input.productIds,
+      importLimit,
+      inventorySkusImported,
+      baseResult: result,
+    });
+  }
+
+  if (catalog.length === 0) {
+    return result;
+  }
+
   return result;
 }

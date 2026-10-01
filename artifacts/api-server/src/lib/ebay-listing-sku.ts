@@ -7,11 +7,3 @@ export function generatedEbayListingSku(itemId: string): string {
 export function listingNeedsGeneratedSku(sku: string | null | undefined): boolean {
   return !sku?.trim();
 }
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
