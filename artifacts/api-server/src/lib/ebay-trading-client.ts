@@ -68,11 +68,12 @@ export async function fetchEbayActiveListingsPage(input: {
   </ActiveList>
 </GetMyeBaySellingRequest>`;
 
+  // Trading (SOAP) APIs use OAuth via X-EBAY-API-IAF-TOKEN — not Authorization: Bearer (REST only).
   const res = await fetch(tradingApiUrl(input.environment), {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${input.accessToken}`,
       "Content-Type": "text/xml",
+      "X-EBAY-API-IAF-TOKEN": input.accessToken,
       "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
       "X-EBAY-API-SITEID": String(input.siteId ?? 0),
       "X-EBAY-API-COMPATIBILITY-LEVEL": "1423",
