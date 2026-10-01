@@ -5,10 +5,13 @@ import {
   getEbayAppCredentials,
 } from "./ebay-oauth-config.js";
 
+import { decodeXmlEntities, sanitizeEbayItemSpecificValues } from "./ebay-item-specific-limits.js";
+
 function parseTradingErrorMessage(xml: string, fallback: string): string {
-  return xml.match(/<LongMessage>([^<]*)<\/LongMessage>/)?.[1]
+  const raw = xml.match(/<LongMessage>([^<]*)<\/LongMessage>/)?.[1]
     || xml.match(/<ShortMessage>([^<]*)<\/ShortMessage>/)?.[1]
     || fallback;
+  return decodeXmlEntities(raw);
 }
 
 async function postTradingApiRequest(input: {
@@ -271,7 +274,7 @@ function buildItemSpecificsXml(specifics: EbayItemSpecific[]): string {
   const rows = specifics
     .map((row) => {
       const name = row.name.trim();
-      const values = row.values.map((v) => v.trim()).filter(Boolean).slice(0, 5);
+      const values = sanitizeEbayItemSpecificValues(row.values).slice(0, 5);
       if (!name || values.length === 0) return "";
       const valueXml = values.map((value) => `<Value>${escapeXml(value)}</Value>`).join("");
       return `<NameValueList><Name>${escapeXml(name)}</Name>${valueXml}</NameValueList>`;

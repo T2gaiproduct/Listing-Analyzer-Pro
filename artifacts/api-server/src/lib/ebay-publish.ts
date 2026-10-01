@@ -16,6 +16,7 @@ import {
 import { getEbayWorkspaceConnection } from "./ebay-workspace-connection.js";
 import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
 import { materializeAuditImagesForPublish } from "./materialize-audit-images-for-publish.js";
+import { sanitizeEbayItemSpecificValues } from "./ebay-item-specific-limits.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
 export type EbayPublishResult = {
@@ -30,22 +31,22 @@ function productionListingUrl(environment: "sandbox" | "production", itemId: str
 }
 
 function buildEbayItemSpecifics(input: {
-  bulletPoints: string[];
   keywords: string[];
   category?: string | null;
 }): EbayItemSpecific[] {
   const specifics: EbayItemSpecific[] = [];
-  const bullets = input.bulletPoints.map((b) => b.trim()).filter(Boolean).slice(0, 5);
-  if (bullets.length > 0) {
-    specifics.push({ name: "Features", values: bullets });
-  }
-  const keywords = input.keywords.map((k) => k.trim()).filter(Boolean).slice(0, 10);
+  // Full bullet copy lives in the HTML description; eBay item specifics allow max 65 chars per value.
+  const keywords = sanitizeEbayItemSpecificValues(
+    input.keywords.map((k) => k.trim()).filter(Boolean),
+  ).slice(0, 10);
   if (keywords.length > 0) {
     specifics.push({ name: "Tags", values: keywords });
   }
-  const category = input.category?.trim();
-  if (category) {
-    specifics.push({ name: "Type", values: [category] });
+  const categoryValues = sanitizeEbayItemSpecificValues(
+    input.category?.trim() ? [input.category.trim()] : [],
+  );
+  if (categoryValues.length > 0) {
+    specifics.push({ name: "Type", values: categoryValues });
   }
   return specifics;
 }
@@ -172,7 +173,6 @@ export async function publishListingToEbay(input: {
 
   const { priceCents, currency } = await resolveEbayPublishPriceCents(input.audit.id);
   const itemSpecifics = buildEbayItemSpecifics({
-    bulletPoints: content.bulletPoints ?? [],
     keywords: content.keywords ?? [],
     category: input.audit.category,
   });
