@@ -78,11 +78,43 @@ async function loadMarketplaceListingRows(auditId: number) {
 }
 
 function resolveSyncTargets(audit: Audit, listingRows: Array<{ marketplace: string; status: string }>) {
+  if (isEbayImportAsin(audit.asin)) {
+    return {
+      shopify: false,
+      woocommerce: false,
+      amazon: false,
+      ebay: true,
+    };
+  }
+  if (isShopifyImportAsin(audit.asin)) {
+    return {
+      shopify: true,
+      woocommerce: false,
+      amazon: false,
+      ebay: hasActiveListing(listingRows, "eBay"),
+    };
+  }
+  if (isWooCommerceImportAsin(audit.asin)) {
+    return {
+      shopify: false,
+      woocommerce: true,
+      amazon: false,
+      ebay: hasActiveListing(listingRows, "eBay"),
+    };
+  }
+  if (isRealAmazonAsin(audit.asin)) {
+    return {
+      shopify: hasActiveListing(listingRows, "Shopify"),
+      woocommerce: hasActiveListing(listingRows, "WooCommerce"),
+      amazon: true,
+      ebay: hasActiveListing(listingRows, "eBay"),
+    };
+  }
   return {
-    shopify: isShopifyImportAsin(audit.asin) || hasActiveListing(listingRows, "Shopify"),
-    woocommerce: isWooCommerceImportAsin(audit.asin) || hasActiveListing(listingRows, "WooCommerce"),
-    amazon: isRealAmazonAsin(audit.asin) || hasActiveListing(listingRows, "Amazon"),
-    ebay: isEbayImportAsin(audit.asin) || hasActiveListing(listingRows, "eBay"),
+    shopify: hasActiveListing(listingRows, "Shopify"),
+    woocommerce: hasActiveListing(listingRows, "WooCommerce"),
+    amazon: hasActiveListing(listingRows, "Amazon"),
+    ebay: hasActiveListing(listingRows, "eBay"),
   };
 }
 
