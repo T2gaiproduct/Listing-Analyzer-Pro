@@ -61,10 +61,11 @@ function resolveEbayExternalFetchUrl(input: {
   return null;
 }
 
-function isEbayHostedPictureUrl(url: string): boolean {
+function isHostedPictureUrlFromEbayUpload(url: string): boolean {
+  if (!url.startsWith("https://")) return false;
   try {
     const host = new URL(url).hostname.toLowerCase();
-    return host.includes("ebayimg.com") || host.includes("ebaystatic.com");
+    return host.includes("ebay");
   } catch {
     return false;
   }
@@ -94,66 +95,68 @@ export async function resolveEbayHostedPictureUrls(input: {
     const pictureName = pictureNameForIndex(input.audit.id, index);
     let hosted: string | null = null;
 
-    const buffer = await loadImageBuffer({
+    const external = resolveEbayExternalFetchUrl({
       auditId: input.audit.id,
       sourceUrl: img.url,
+      publicBaseUrl: input.publicBaseUrl,
       graphicsProjectId: input.graphicsProjectId ?? null,
+      index,
     });
-
-    if (buffer && buffer.length >= 512) {
+    if (external) {
       try {
-        const normalized = await normalizeImageBufferForEbayUpload(buffer);
         hosted = await uploadEbaySiteHostedPicture({
           environment: input.environment,
           accessToken: input.accessToken,
           pictureName,
-          pictureData: normalized,
+          externalPictureUrl: external,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "binary upload failed";
-        errors.push(`Image ${index + 1}: ${message}`);
+        const message = err instanceof Error ? err.message : "URL import failed";
+        errors.push(`Image ${index + 1} (URL): ${message}`);
       }
     }
 
     if (!hosted) {
-      const external = resolveEbayExternalFetchUrl({
+      const buffer = await loadImageBuffer({
         auditId: input.audit.id,
         sourceUrl: img.url,
-        publicBaseUrl: input.publicBaseUrl,
         graphicsProjectId: input.graphicsProjectId ?? null,
-        index,
       });
-      if (external) {
+
+      if (buffer && buffer.length >= 512) {
         try {
+          const normalized = await normalizeImageBufferForEbayUpload(buffer);
           hosted = await uploadEbaySiteHostedPicture({
             environment: input.environment,
             accessToken: input.accessToken,
             pictureName,
-            externalPictureUrl: external,
+            pictureData: normalized,
           });
         } catch (err) {
-          const message = err instanceof Error ? err.message : "URL import failed";
-          errors.push(`Image ${index + 1}: ${message}`);
+          const message = err instanceof Error ? err.message : "binary upload failed";
+          errors.push(`Image ${index + 1} (file): ${message}`);
         }
+      } else if (productImages.length > 0) {
+        errors.push(`Image ${index + 1}: file not found on server or too small to upload.`);
       }
     }
 
-    if (hosted && isEbayHostedPictureUrl(hosted) && !seen.has(hosted)) {
+    if (hosted && isHostedPictureUrlFromEbayUpload(hosted) && !seen.has(hosted)) {
       urls.push(hosted);
       seen.add(hosted);
+    } else if (hosted) {
+      errors.push(`Image ${index + 1}: eBay returned an unexpected picture URL.`);
     }
   }
 
-  if (urls.length === 0 && productImages.length > 0) {
-    const detail = errors[0] ? ` ${errors[0]}` : "";
-    throw new Error(
-      `Could not upload gallery images to eBay.${detail} Add images in Graphics and try again.`,
-    );
-  }
-
   let warning: string | undefined;
-  if (errors.length > 0 && urls.length > 0) {
-    warning = "Some gallery images could not be uploaded to eBay; only hosted pictures were applied.";
+  if (errors.length > 0) {
+    const summary = errors.slice(0, 2).join(" ");
+    if (urls.length === 0 && productImages.length > 0) {
+      warning = `Gallery images could not be uploaded to eBay. ${summary} Title, description, and price will still be pushed.`;
+    } else if (urls.length > 0) {
+      warning = `Some gallery images could not be uploaded to eBay. ${summary}`;
+    }
   }
 
   return { urls, warning };
