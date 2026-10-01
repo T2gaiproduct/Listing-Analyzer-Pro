@@ -230,15 +230,17 @@ export async function syncEbayOrders(input: {
     return result;
   }
 
-  const createdAtMin = new Date();
-  createdAtMin.setDate(createdAtMin.getDate() - 365);
+  const fulfillmentSince = new Date();
+  fulfillmentSince.setDate(fulfillmentSince.getDate() - 365);
+  const tradingSince = new Date();
+  tradingSince.setDate(tradingSince.getDate() - 89);
 
   let orders: EbayFulfillmentOrder[] = [];
   try {
     orders = await listEbayFulfillmentOrders({
       environment,
       accessToken,
-      creationDateMin: createdAtMin.toISOString(),
+      creationDateMin: fulfillmentSince.toISOString(),
       maxOrders: 200,
     });
   } catch (err) {
@@ -311,7 +313,7 @@ export async function syncEbayOrders(input: {
       const tradingLines = await fetchEbayTradingOrderLines({
         environment,
         accessToken,
-        createTimeFrom: createdAtMin,
+        createTimeFrom: tradingSince,
         createTimeTo: new Date(),
         maxOrders: 200,
       });
