@@ -8,6 +8,14 @@ import {
 import { decodeXmlEntities, sanitizeEbayItemSpecificValues } from "./ebay-item-specific-limits.js";
 
 function parseTradingErrorMessage(xml: string, fallback: string): string {
+  const parts: string[] = [];
+  for (const match of xml.matchAll(/<Errors>[\s\S]*?<ErrorCode>(\d+)<\/ErrorCode>[\s\S]*?<LongMessage>([^<]*)<\/LongMessage>/gi)) {
+    const code = match[1]?.trim();
+    const message = decodeXmlEntities(match[2]?.trim() ?? "");
+    if (message) parts.push(code ? `[${code}] ${message}` : message);
+  }
+  if (parts.length > 0) return parts.join(" ");
+
   const raw = xml.match(/<LongMessage>([^<]*)<\/LongMessage>/)?.[1]
     || xml.match(/<ShortMessage>([^<]*)<\/ShortMessage>/)?.[1]
     || fallback;
@@ -320,14 +328,12 @@ export async function uploadEbaySiteHostedPicture(input: {
     body = `<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <PictureName>${escapeXml(name)}</PictureName>
-  <PictureSet>Standard</PictureSet>
   <PictureData>${base64}</PictureData>
 </UploadSiteHostedPicturesRequest>`;
   } else if (external && /^https:\/\//i.test(external)) {
     body = `<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <PictureName>${escapeXml(name)}</PictureName>
-  <PictureSet>Standard</PictureSet>
   <ExternalPictureURL>${escapeXml(external)}</ExternalPictureURL>
 </UploadSiteHostedPicturesRequest>`;
   } else {
@@ -375,7 +381,7 @@ export async function reviseEbayListingContent(input: {
     .filter(Boolean)
     .slice(0, 12);
   const pictureXml = pictures.length > 0
-    ? `<PictureDetails><GalleryType>Gallery</GalleryType>${pictures.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}</PictureDetails>`
+    ? `<PictureDetails>${pictures.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}</PictureDetails>`
     : "";
   const descriptionBlock = input.descriptionHtml.trim()
     ? `<Description>${wrapCdata(input.descriptionHtml.trim())}</Description>`
@@ -417,6 +423,41 @@ export async function reviseEbayListingContent(input: {
   });
   if (/<Ack>PartialFailure<\/Ack>/i.test(text)) {
     throw new Error(parseTradingErrorMessage(text, "ReviseItem failed"));
+  }
+}
+
+/** Price-only revise — separated from content/gallery to avoid sandbox ReviseItem failures. */
+export async function reviseEbayListingPrice(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  itemId: string;
+  priceCents: number;
+  currency?: string | null;
+  siteId?: number;
+}): Promise<void> {
+  const itemId = input.itemId.trim();
+  if (!itemId || input.priceCents <= 0) {
+    throw new Error("Item ID and price are required to update an eBay listing price.");
+  }
+  const currency = (input.currency?.trim() || "USD").toUpperCase();
+  const amount = (input.priceCents / 100).toFixed(2);
+  const body = `<?xml version="1.0" encoding="utf-8"?>
+<ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <Item>
+    <ItemID>${escapeXml(itemId)}</ItemID>
+    <StartPrice currencyID="${escapeXml(currency)}">${escapeXml(amount)}</StartPrice>
+  </Item>
+</ReviseItemRequest>`;
+
+  const text = await postTradingApiRequest({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    callName: "ReviseItem",
+    body,
+    siteId: input.siteId,
+  });
+  if (/<Ack>PartialFailure<\/Ack>/i.test(text)) {
+    throw new Error(parseTradingErrorMessage(text, "ReviseItem price update failed"));
   }
 }
 
