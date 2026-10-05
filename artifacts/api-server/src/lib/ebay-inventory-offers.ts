@@ -215,6 +215,16 @@ function liveListingIdFromOffer(details: EbayOfferSummary): string | null {
   return null;
 }
 
+/** Withdraw/delete a single offer (e.g. after sandbox 25713 on push). */
+export async function discardEbayOfferForRecovery(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  offerId: string;
+  status?: string;
+}): Promise<void> {
+  await removeStaleOffer(input);
+}
+
 async function removeStaleOffer(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;

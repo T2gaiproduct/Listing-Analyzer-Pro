@@ -9,6 +9,7 @@ import { buildEbayListingDescriptionHtml } from "./ebay-listing-description.js";
 import { truncateEbayListingTitle } from "./ebay-item-specific-limits.js";
 import { resolveEbayHostedPictureUrls } from "./ebay-publish-images.js";
 import { resolveEbayAccessToken } from "./ebay-inventory-client.js";
+import { purgeBlockingOffersForSku } from "./ebay-inventory-offers.js";
 import {
   reviseEbayListingContent,
   reviseEbayListingPrice,
@@ -23,6 +24,7 @@ import {
   updateInventoryBasedEbayListing,
 } from "./ebay-inventory-listing-update.js";
 import {
+  isEbayOfferNotAvailableMessage,
   isValidEbayInventorySku,
   normalizeToEbayInventorySku,
   resolveEbayInventorySku,
@@ -173,6 +175,7 @@ async function publishInventoryBasedEbayListing(
     environment: input.environment,
     accessToken: input.accessToken,
     offerRow: resolvedOffer,
+    listingId: input.itemId,
     title: input.title,
     descriptionHtml: input.descriptionHtml,
     pictureUrls: input.pictureUrls,
@@ -228,7 +231,37 @@ async function tryPublishInventoryListingFirst(
     }),
   });
   if (!offerRow) return null;
-  return publishInventoryBasedEbayListing(input, offerRow);
+  try {
+    return await publishInventoryBasedEbayListing(input, offerRow);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!isEbayOfferNotAvailableMessage(message)) {
+      throw err;
+    }
+    const skuCandidates = buildInventorySkuCandidates({
+      auditId: input.auditId,
+      listingSku: input.listingRow?.sku,
+      profileSku: await loadProfileSku(input.auditId),
+    });
+    for (const sku of skuCandidates) {
+      if (!isValidEbayInventorySku(sku)) continue;
+      await purgeBlockingOffersForSku({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        sku,
+      }).catch(() => undefined);
+    }
+    const retryOffer = await resolveInventoryOfferForListing({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      listingId: input.itemId,
+      skuCandidates,
+    });
+    if (retryOffer) {
+      return await publishInventoryBasedEbayListing(input, retryOffer);
+    }
+    return null;
+  }
 }
 
 async function loadProfileSku(auditId: number): Promise<string | null | undefined> {

@@ -1,8 +1,13 @@
 import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
 import { ebayRestFetch, parseEbayRestError } from "./ebay-rest-fetch.js";
-import { upsertEbayInventoryItem } from "./ebay-inventory-offers.js";
+import {
+  discardEbayOfferForRecovery,
+  purgeBlockingOffersForSku,
+  upsertEbayInventoryItem,
+} from "./ebay-inventory-offers.js";
 import {
   coerceEbayOfferSku,
+  isEbayOfferNotAvailableMessage,
   isValidEbayInventorySku,
 } from "./ebay-listing-sku.js";
 
@@ -118,13 +123,27 @@ async function hydrateInventoryOfferRow(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
   row: InventoryOfferRow;
-}): Promise<InventoryOfferRow> {
-  const full = await fetchEbayOfferFull({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    offerId: input.row.offerId,
-  });
-  return inventoryRowFromOfferFull(full, input.row.status);
+}): Promise<InventoryOfferRow | null> {
+  try {
+    const full = await fetchEbayOfferFull({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: input.row.offerId,
+    });
+    return inventoryRowFromOfferFull(full, input.row.status);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!isEbayOfferNotAvailableMessage(message)) {
+      throw err;
+    }
+    await discardEbayOfferForRecovery({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: input.row.offerId,
+      status: input.row.status,
+    }).catch(() => undefined);
+    return null;
+  }
 }
 
 export async function findInventoryOfferByListingId(input: {
@@ -147,25 +166,40 @@ export async function findInventoryOfferByListingId(input: {
 
     for (const row of batch.offers) {
       if (row.listingId === target) {
-        return hydrateInventoryOfferRow({
+        const hydrated = await hydrateInventoryOfferRow({
           environment: input.environment,
           accessToken: input.accessToken,
           row,
         });
+        if (hydrated) return hydrated;
       }
     }
 
     // Paged offer summaries often omit listingId — resolve via GET offer.
     for (const row of batch.offers) {
       if (row.listingId) continue;
-      const full = await fetchEbayOfferFull({
-        environment: input.environment,
-        accessToken: input.accessToken,
-        offerId: row.offerId,
-      });
-      const listingId = full.listing?.listingId?.trim();
-      if (listingId === target) {
-        return inventoryRowFromOfferFull(full, row.status);
+      try {
+        const full = await fetchEbayOfferFull({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          offerId: row.offerId,
+        });
+        const listingId = full.listing?.listingId?.trim();
+        if (listingId === target) {
+          return inventoryRowFromOfferFull(full, row.status);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (isEbayOfferNotAvailableMessage(message)) {
+          await discardEbayOfferForRecovery({
+            environment: input.environment,
+            accessToken: input.accessToken,
+            offerId: row.offerId,
+            status: row.status,
+          }).catch(() => undefined);
+          continue;
+        }
+        throw err;
       }
     }
 
@@ -233,23 +267,15 @@ export async function resolveInventoryOfferForListing(input: {
       sku: trimmed,
     });
     for (const row of offers) {
-      if (row.listingId === input.listingId) {
-        return hydrateInventoryOfferRow({
-          environment: input.environment,
-          accessToken: input.accessToken,
-          row,
-        });
+      if (row.listingId !== input.listingId) {
+        continue;
       }
-      if (!row.listingId) {
-        const full = await fetchEbayOfferFull({
-          environment: input.environment,
-          accessToken: input.accessToken,
-          offerId: row.offerId,
-        });
-        if (full.listing?.listingId?.trim() === input.listingId) {
-          return inventoryRowFromOfferFull(full, row.status);
-        }
-      }
+      const hydrated = await hydrateInventoryOfferRow({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        row,
+      });
+      if (hydrated) return hydrated;
     }
   }
   return null;
@@ -303,7 +329,7 @@ function mapInventoryCondition(raw: string | undefined): "NEW" | "LIKE_NEW" | "U
   return "NEW";
 }
 
-export async function updateInventoryBasedEbayListing(input: {
+async function updateInventoryBasedEbayListingOnce(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
   offerRow: InventoryOfferRow;
@@ -387,4 +413,77 @@ export async function updateInventoryBasedEbayListing(input: {
     : undefined;
 
   return { listingId, inventorySku, warning };
+}
+
+export async function updateInventoryBasedEbayListing(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  offerRow: InventoryOfferRow;
+  listingId: string;
+  title: string;
+  descriptionHtml: string;
+  pictureUrls: string[];
+  priceCents: number | null;
+  currency: string;
+}): Promise<{ listingId: string; inventorySku: string; warning?: string }> {
+  const targetListingId = input.listingId.trim();
+  let offerRow = input.offerRow;
+  let staleRecoveryWarning: string | undefined;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await updateInventoryBasedEbayListingOnce({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerRow,
+        title: input.title,
+        descriptionHtml: input.descriptionHtml,
+        pictureUrls: input.pictureUrls,
+        priceCents: input.priceCents,
+        currency: input.currency,
+      });
+      const warnings = [staleRecoveryWarning, result.warning].filter(Boolean);
+      return {
+        ...result,
+        warning: warnings.length > 0 ? warnings.join(" ") : undefined,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!isEbayOfferNotAvailableMessage(message) || attempt > 0) {
+        throw err;
+      }
+
+      const sku = offerRow.sku.trim();
+      if (sku) {
+        await purgeBlockingOffersForSku({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          sku,
+        });
+      }
+      await discardEbayOfferForRecovery({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: offerRow.offerId,
+        status: offerRow.status,
+      }).catch(() => undefined);
+
+      const resolved = await findInventoryOfferByListingId({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        listingId: targetListingId,
+      });
+      if (!resolved) {
+        throw new Error(
+          `${message} SellerLens cleared stale sandbox offers but could not find a live inventory offer for listing ${targetListingId}. `
+          + "In eBay sandbox Seller Hub, confirm the listing is active or reconnect and import the listing again.",
+        );
+      }
+      offerRow = resolved;
+      staleRecoveryWarning =
+        "eBay had a stale inventory offer for this listing. SellerLens found the live offer and retried the push.";
+    }
+  }
+
+  throw new Error("Could not update eBay inventory listing.");
 }
