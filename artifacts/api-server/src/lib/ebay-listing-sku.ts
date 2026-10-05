@@ -30,6 +30,25 @@ export function isEbayOfferNotAvailableMessage(message: string): boolean {
   return /\[?25713\]?|offer is not available/i.test(message);
 }
 
+export function isInvalidEbayInventorySkuError(message: string): boolean {
+  return /\[?25707\]?|invalid value for a SKU|only alphanumeric characters can be used for SKUs/i.test(message);
+}
+
+/** Pick a SKU safe for Inventory API calls (offer body, inventory_item path). */
+export function pickEbayInventorySkuForApi(opts: {
+  offerSku?: string | null;
+  rowSku?: string | null;
+  auditId: number;
+}): string {
+  for (const raw of [opts.offerSku, opts.rowSku]) {
+    const trimmed = raw?.trim() ?? "";
+    if (isValidEbayInventorySku(trimmed)) return trimmed;
+    const normalized = normalizeToEbayInventorySku(trimmed);
+    if (normalized && isValidEbayInventorySku(normalized)) return normalized;
+  }
+  return defaultEbayInventorySkuForAudit(opts.auditId);
+}
+
 export function coerceEbayOfferSku(raw: unknown): string {
   if (typeof raw === "string") return raw.trim();
   if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);

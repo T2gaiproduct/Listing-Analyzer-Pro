@@ -67,10 +67,10 @@ export function shouldUseInventoryApiAfterTradingReviseError(message: string): b
 function inventoryRowFromOfferFull(
   full: EbayOfferFull,
   status?: string,
-): InventoryOfferRow {
+): InventoryOfferRow | null {
   const sku = coerceEbayOfferSku(full.sku);
-  if (!sku) {
-    throw new Error("eBay offer is missing a product SKU. Reconnect eBay or contact support.");
+  if (!sku || !isValidEbayInventorySku(sku)) {
+    return null;
   }
   return {
     offerId: full.offerId,
@@ -186,7 +186,8 @@ export async function findInventoryOfferByListingId(input: {
         });
         const listingId = full.listing?.listingId?.trim();
         if (listingId === target) {
-          return inventoryRowFromOfferFull(full, row.status);
+          const rowFromFull = inventoryRowFromOfferFull(full, row.status);
+          if (rowFromFull) return rowFromFull;
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -333,6 +334,7 @@ async function updateInventoryBasedEbayListingOnce(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
   offerRow: InventoryOfferRow;
+  auditId: number;
   title: string;
   descriptionHtml: string;
   pictureUrls: string[];
@@ -345,9 +347,13 @@ async function updateInventoryBasedEbayListingOnce(input: {
     offerId: input.offerRow.offerId,
   });
 
-  const inventorySku = coerceEbayOfferSku(offer.sku) || input.offerRow.sku.trim();
-  if (!inventorySku) {
-    throw new Error("eBay offer is missing a product SKU. Cannot update this inventory listing.");
+  const inventorySku = coerceEbayOfferSku(offer.sku).trim();
+  if (!isValidEbayInventorySku(inventorySku)) {
+    throw new Error(
+      `[25707] This is an invalid value for a SKU. Only alphanumeric characters can be used for SKUs, and their length must not exceed 50 characters. `
+      + `Your eBay listing uses SKU "${coerceEbayOfferSku(offer.sku) || input.offerRow.sku}". `
+      + "SellerLens will update this listing via eBay Trading instead of Inventory.",
+    );
   }
 
   const existingItem = await fetchEbayInventoryItemFull({
@@ -420,6 +426,7 @@ export async function updateInventoryBasedEbayListing(input: {
   accessToken: string;
   offerRow: InventoryOfferRow;
   listingId: string;
+  auditId: number;
   title: string;
   descriptionHtml: string;
   pictureUrls: string[];
@@ -436,6 +443,7 @@ export async function updateInventoryBasedEbayListing(input: {
         environment: input.environment,
         accessToken: input.accessToken,
         offerRow,
+        auditId: input.auditId,
         title: input.title,
         descriptionHtml: input.descriptionHtml,
         pictureUrls: input.pictureUrls,

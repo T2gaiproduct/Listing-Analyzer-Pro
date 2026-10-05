@@ -24,9 +24,12 @@ import {
   updateInventoryBasedEbayListing,
 } from "./ebay-inventory-listing-update.js";
 import {
+  defaultEbayInventorySkuForAudit,
   isEbayOfferNotAvailableMessage,
+  isInvalidEbayInventorySkuError,
   isValidEbayInventorySku,
   normalizeToEbayInventorySku,
+  pickEbayInventorySkuForApi,
   resolveEbayInventorySku,
 } from "./ebay-listing-sku.js";
 
@@ -176,6 +179,7 @@ async function publishInventoryBasedEbayListing(
     accessToken: input.accessToken,
     offerRow: resolvedOffer,
     listingId: input.itemId,
+    auditId: input.auditId,
     title: input.title,
     descriptionHtml: input.descriptionHtml,
     pictureUrls: input.pictureUrls,
@@ -235,7 +239,7 @@ async function tryPublishInventoryListingFirst(
     return await publishInventoryBasedEbayListing(input, offerRow);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (!isEbayOfferNotAvailableMessage(message)) {
+    if (!isEbayOfferNotAvailableMessage(message) && !isInvalidEbayInventorySkuError(message)) {
       throw err;
     }
     const skuCandidates = buildInventorySkuCandidates({
@@ -278,7 +282,7 @@ function buildInventorySkuCandidates(input: {
   listingSku: string | null | undefined;
   profileSku: string | null | undefined;
 }): string[] {
-  const skuCandidates: string[] = [];
+  const skuCandidates: string[] = [defaultEbayInventorySkuForAudit(input.auditId)];
   const pushCandidate = (raw: string | null | undefined) => {
     if (isValidEbayInventorySku(raw)) {
       skuCandidates.push(raw!.trim());
@@ -435,12 +439,17 @@ export async function publishListingToEbay(input: {
   }
 
   const now = new Date();
+  const tradingPersistSku = pickEbayInventorySkuForApi({
+    offerSku: null,
+    rowSku: listingRow?.sku,
+    auditId: input.audit.id,
+  });
   if (listingRow) {
     await db
       .update(productMarketplaceListingsTable)
       .set({
         status: "live",
-        sku: listingRow.sku ?? `SL-${itemId}`,
+        sku: isValidEbayInventorySku(listingRow.sku) ? listingRow.sku!.trim() : tradingPersistSku,
         listingUrl,
         priceCents: priceCents ?? listingRow.priceCents,
         currency: currency || listingRow.currency,
