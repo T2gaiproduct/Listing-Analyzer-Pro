@@ -43,6 +43,13 @@ import { resolveWorkspaceContext, requireWorkspacePerm as checkPerm } from "../l
 
 const router: IRouter = Router();
 
+function ebayCustomLabelHint(errorMessage: string): string | undefined {
+  if (!/\[?25707\]?|invalid value for a SKU/i.test(errorMessage)) {
+    return undefined;
+  }
+  return "Push hit eBay Inventory with a hyphenated custom label (e.g. WAL-LAM-0880). Use Push after redeploy, or set Custom label in sandbox to letters/digits only (WALLAMP0880).";
+}
+
 interface AuthedRequest extends Request {
   userId: string;
 }
@@ -409,7 +416,11 @@ router.post(
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Publish failed";
-      res.status(400).json({ error: message });
+      res.status(400).json({
+        error: message,
+        apiBuildId: loadedBuildId,
+        hint: ebayCustomLabelHint(message),
+      });
     }
   },
 );

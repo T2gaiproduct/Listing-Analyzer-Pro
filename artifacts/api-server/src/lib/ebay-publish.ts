@@ -14,6 +14,7 @@ import {
   fetchEbayTradingItemDetails,
   reviseEbayListingContent,
   reviseEbayListingPrice,
+  reviseEbayListingSku,
 } from "./ebay-trading-client.js";
 import { getEbayWorkspaceConnection } from "./ebay-workspace-connection.js";
 import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
@@ -277,29 +278,58 @@ async function tryPublishInventoryListingFirst(
   }
 }
 
+async function tryNormalizeHyphenEbayCustomLabel(input: {
+  environment: "sandbox" | "production";
+  accessToken: string;
+  itemId: string;
+  ebayCustomLabel: string;
+}): Promise<string | null> {
+  if (isValidEbayInventorySku(input.ebayCustomLabel)) {
+    return input.ebayCustomLabel;
+  }
+  const normalized = normalizeToEbayInventorySku(input.ebayCustomLabel);
+  if (!normalized || input.environment !== "sandbox") {
+    return null;
+  }
+  await reviseEbayListingSku({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    itemId: input.itemId,
+    sku: normalized,
+  });
+  return normalized;
+}
+
 async function tryInventoryPushAfterTradingFailure(
   input: Parameters<typeof publishInventoryBasedEbayListing>[0],
   tradingErr: unknown,
+  ebayCustomLabel: string | null,
 ): Promise<EbayPublishResult> {
   const tradingMessage = tradingErr instanceof Error ? tradingErr.message : String(tradingErr);
-  try {
-    const details = await fetchEbayTradingItemDetails({
+  const label = ebayCustomLabel?.trim() || "";
+  if (label && !isValidEbayInventorySku(label)) {
+    const normalized = await tryNormalizeHyphenEbayCustomLabel({
       environment: input.environment,
       accessToken: input.accessToken,
       itemId: input.itemId,
+      ebayCustomLabel: label,
     });
-    const ebayCustomLabel = details.sku?.trim() || "";
-    if (ebayCustomLabel && !isValidEbayInventorySku(ebayCustomLabel)) {
-      throw new Error(
-        `${tradingMessage} This listing's eBay custom label (SKU) is "${ebayCustomLabel}". `
-        + "SellerLens cannot use the Inventory API for hyphenated SKUs. "
-        + "Deploy the latest API so Push uses Trading first, or change the custom label in eBay sandbox to alphanumeric only (e.g. WALLAMP0880), then push again.",
-      );
+    if (normalized) {
+      const inventory = await tryPublishInventoryListingFirst(input);
+      if (inventory) {
+        const skuNote =
+          `eBay custom label was updated from "${label}" to "${normalized}" so SellerLens could sync this inventory-based listing.`;
+        return {
+          ...inventory,
+          warning: inventory.warning ? `${inventory.warning} ${skuNote}` : skuNote,
+        };
+      }
     }
-  } catch (lookupErr) {
-    if (lookupErr instanceof Error && lookupErr.message.includes("custom label")) {
-      throw lookupErr;
-    }
+    throw new Error(
+      `${tradingMessage} This listing's eBay custom label (SKU) is "${label}". `
+      + "eBay Inventory only allows letters and digits (no hyphens). "
+      + "In sandbox Seller Hub, change Custom label to something like WALLAMP0880, or redeploy the latest SellerLens API and push again.",
+    );
   }
 
   const inventory = await tryPublishInventoryListingFirst(input);
@@ -439,6 +469,18 @@ export async function publishListingToEbay(input: {
 
   const { priceCents, currency } = await resolveEbayPublishPriceCents(input.audit.id);
 
+  let ebayCustomLabel: string | null = null;
+  try {
+    const listingDetails = await fetchEbayTradingItemDetails({
+      environment,
+      accessToken,
+      itemId,
+    });
+    ebayCustomLabel = listingDetails.sku?.trim() || null;
+  } catch {
+    ebayCustomLabel = listingRow?.sku?.trim() || null;
+  }
+
   const inventoryPublishInput = {
     environment,
     accessToken,
@@ -466,7 +508,7 @@ export async function publishListingToEbay(input: {
     });
   } catch (err) {
     if (shouldFallbackToInventoryReviseError(err)) {
-      return tryInventoryPushAfterTradingFailure(inventoryPublishInput, err);
+      return tryInventoryPushAfterTradingFailure(inventoryPublishInput, err, ebayCustomLabel);
     }
     throw err;
   }
@@ -486,7 +528,7 @@ export async function publishListingToEbay(input: {
       });
     } catch (err) {
       if (shouldFallbackToInventoryReviseError(err)) {
-        return tryInventoryPushAfterTradingFailure(inventoryPublishInput, err);
+        return tryInventoryPushAfterTradingFailure(inventoryPublishInput, err, ebayCustomLabel);
       }
       const message = err instanceof Error ? err.message : "Price update failed";
       warnings.push(`Listing content was updated but price could not be changed: ${message}`);
