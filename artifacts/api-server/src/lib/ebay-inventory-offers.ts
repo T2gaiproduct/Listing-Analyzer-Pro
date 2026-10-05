@@ -1,5 +1,5 @@
 import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
-import { isValidEbayInventorySku } from "./ebay-listing-sku.js";
+import { coerceEbayOfferSku, isValidEbayInventorySku } from "./ebay-listing-sku.js";
 import { ebayRestFetch, parseEbayRestError } from "./ebay-rest-fetch.js";
 import { fetchEbayTradingItemDetails } from "./ebay-trading-client.js";
 
@@ -216,6 +216,124 @@ function liveListingIdFromOffer(details: EbayOfferSummary): string | null {
   return null;
 }
 
+function auditInventorySkuPattern(auditId: number): RegExp {
+  return new RegExp(`^SL${auditId}(R[A-Z0-9]*)?$`, "i");
+}
+
+async function isOfferLinkedToReachableListing(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  details: EbayOfferSummary;
+}): Promise<boolean> {
+  const listingId = liveListingIdFromOffer(input.details);
+  if (!listingId) return false;
+  return isEbayListingReachableOnTrading({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    listingId,
+  });
+}
+
+async function listAllInventoryOfferSummaries(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  limit: number;
+  offset: number;
+}): Promise<{ offers: Array<{ offerId: string; sku?: string; status?: string; listingId?: string }>; hasMore: boolean }> {
+  const res = await ebayRestFetch(
+    input.environment,
+    input.accessToken,
+    `/sell/inventory/v1/offer?marketplace_id=${MARKETPLACE_ID}&limit=${input.limit}&offset=${input.offset}`,
+  );
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(parseEbayRestError(text, "Could not load eBay offers."));
+  }
+  const data = JSON.parse(text) as {
+    offers?: Array<{
+      offerId?: string;
+      sku?: string;
+      status?: string;
+      listing?: { listingId?: string };
+    }>;
+    total?: number;
+  };
+  const offers = (data.offers ?? [])
+    .map((row) => ({
+      offerId: row.offerId?.trim() ?? "",
+      sku: coerceEbayOfferSku(row.sku),
+      status: row.status?.trim(),
+      listingId: row.listing?.listingId?.trim(),
+    }))
+    .filter((row) => row.offerId);
+  const total = typeof data.total === "number" ? data.total : null;
+  const hasMore = total != null
+    ? input.offset + offers.length < total
+    : offers.length >= input.limit;
+  return { offers, hasMore };
+}
+
+/** Sandbox: remove ghost offers for SL{auditId}* SKUs (common cause of 25713 on List as new). */
+export async function purgeStaleOffersForAuditInventorySkus(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  auditId: number;
+}): Promise<void> {
+  const skuPattern = auditInventorySkuPattern(input.auditId);
+  let offset = 0;
+  const limit = 100;
+  for (let page = 0; page < 25; page++) {
+    const batch = await listAllInventoryOfferSummaries({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      limit,
+      offset,
+    });
+    for (const row of batch.offers) {
+      const sku = row.sku?.trim() ?? "";
+      if (!sku || !skuPattern.test(sku)) continue;
+      const details: EbayOfferSummary = {
+        offerId: row.offerId,
+        status: row.status,
+        listingId: row.listingId,
+      };
+      const refreshed = await tryFetchOfferDetails({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: row.offerId,
+      });
+      const offerDetails = refreshed ?? details;
+      if (await isOfferLinkedToReachableListing({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        details: offerDetails,
+      })) {
+        continue;
+      }
+      await removeStaleOffer({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: row.offerId,
+        status: offerDetails.status,
+      }).catch(() => undefined);
+      await deleteEbayOffer({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: row.offerId,
+      }).catch(() => undefined);
+      if (isValidEbayInventorySku(sku)) {
+        await deleteEbayInventoryItem({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          sku,
+        }).catch(() => undefined);
+      }
+    }
+    if (!batch.hasMore || batch.offers.length === 0) break;
+    offset += batch.offers.length;
+  }
+}
+
 async function isEbayListingReachableOnTrading(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
@@ -308,7 +426,11 @@ export async function purgeAllOffersForCreateSku(input: {
       accessToken: input.accessToken,
       offerId: row.offerId,
     });
-    if (details && liveListingIdFromOffer(details)) {
+    if (details && await isOfferLinkedToReachableListing({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      details,
+    })) {
       continue;
     }
     await removeStaleOffer({
@@ -351,7 +473,11 @@ export async function purgeBlockingOffersForSku(input: {
       }).catch(() => undefined);
       continue;
     }
-    if (liveListingIdFromOffer(details)) {
+    if (await isOfferLinkedToReachableListing({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      details,
+    })) {
       continue;
     }
     await removeStaleOffer({
@@ -566,13 +692,27 @@ async function resolveOfferIdForPublish(input: {
     }
     const listingId = liveListingIdFromOffer(details);
     if (listingId) {
-      return {
-        offerId: details.offerId,
+      const reachable = await isEbayListingReachableOnTrading({
+        environment: input.environment,
+        accessToken: input.accessToken,
         listingId,
-        alreadyPublished: true,
-        linkExistingWarning:
-          "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
-      };
+      });
+      if (reachable) {
+        return {
+          offerId: details.offerId,
+          listingId,
+          alreadyPublished: true,
+          linkExistingWarning:
+            "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+        };
+      }
+      await removeStaleOffer({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: details.offerId,
+        status: details.status,
+      }).catch(() => undefined);
+      continue;
     }
     if (details.status?.toUpperCase() === "PUBLISHED") {
       await removeStaleOffer({
@@ -761,6 +901,11 @@ async function publishOfferWithStaleRecovery(input: {
       accessToken: input.accessToken,
       sku,
     });
+    await deleteEbayInventoryItem({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      sku,
+    }).catch(() => undefined);
     offerId = await createEbayOfferReady({
       environment: input.environment,
       accessToken: input.accessToken,
