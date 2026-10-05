@@ -176,6 +176,13 @@ async function publishInventoryBasedEbayListing(
     );
   }
 
+  const profileSku = await loadProfileSku(input.auditId);
+  const extraSkuCandidates = buildInventorySkuCandidates({
+    auditId: input.auditId,
+    listingSku: input.listingRow?.sku,
+    profileSku,
+  });
+
   const { listingId, inventorySku, warning: inventoryWarning } = await updateInventoryBasedEbayListing({
     environment: input.environment,
     accessToken: input.accessToken,
@@ -187,6 +194,7 @@ async function publishInventoryBasedEbayListing(
     pictureUrls: input.pictureUrls,
     priceCents: input.priceCents,
     currency: input.currency,
+    extraSkuCandidates,
   });
 
   const listingUrl = input.listingRow?.listingUrl?.trim()
@@ -363,6 +371,17 @@ async function tryInventoryPushAfterTradingFailure(
   const tradingMessage = tradingErr instanceof Error ? tradingErr.message : String(tradingErr);
   const label = ebayCustomLabel?.trim() || "";
   if (label && !isValidEbayInventorySku(label)) {
+    const inventoryEarly = await tryPublishInventoryListingFirst(input, { allowSkuOfferLookup: true });
+    if (inventoryEarly) {
+      const normalized = normalizeToEbayInventorySku(label);
+      const note = normalized
+        ? `Synced via eBay Inventory. Trading custom label "${label}" may still show on eBay; inventory SKU is separate (e.g. ${normalized}).`
+        : `Synced via eBay Inventory. Custom label "${label}" has hyphens — listing content was updated on the inventory offer.`;
+      return {
+        ...inventoryEarly,
+        warning: inventoryEarly.warning ? `${inventoryEarly.warning} ${note}` : note,
+      };
+    }
     const normalized = await tryNormalizeHyphenEbayCustomLabel({
       environment: input.environment,
       accessToken: input.accessToken,
@@ -370,7 +389,7 @@ async function tryInventoryPushAfterTradingFailure(
       ebayCustomLabel: label,
     });
     if (normalized) {
-      const inventory = await tryPublishInventoryListingFirst(input);
+      const inventory = await tryPublishInventoryListingFirst(input, { allowSkuOfferLookup: true });
       if (inventory) {
         const skuNote =
           `eBay custom label was updated from "${label}" to "${normalized}" so SellerLens could sync this inventory-based listing.`;
@@ -383,7 +402,7 @@ async function tryInventoryPushAfterTradingFailure(
     throw new Error(
       `${tradingMessage} This listing's eBay custom label (SKU) is "${label}". `
       + "eBay Inventory only allows letters and digits (no hyphens). "
-      + "In sandbox Seller Hub, change Custom label to something like WALLAMP0880, or redeploy the latest SellerLens API and push again.",
+      + "In sandbox Seller Hub, change Custom label to something like WALLAMP0880, or push again after the latest API deploy.",
     );
   }
 
