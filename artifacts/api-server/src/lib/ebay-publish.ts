@@ -11,6 +11,7 @@ import { resolveEbayHostedPictureUrls } from "./ebay-publish-images.js";
 import { resolveEbayAccessToken } from "./ebay-inventory-client.js";
 import { purgeBlockingOffersForSku } from "./ebay-inventory-offers.js";
 import {
+  fetchEbayTradingItemDetails,
   reviseEbayListingContent,
   reviseEbayListingPrice,
 } from "./ebay-trading-client.js";
@@ -207,6 +208,12 @@ async function publishInventoryBasedEbayListing(
         updatedAt: now,
       })
       .where(eq(productMarketplaceListingsTable.id, input.listingRow.id));
+    await syncEbayMarketplaceSkuFromListing({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      itemId: listingId,
+      listingRowId: input.listingRow.id,
+    });
   }
 
   return {
@@ -274,9 +281,53 @@ async function tryInventoryPushAfterTradingFailure(
   input: Parameters<typeof publishInventoryBasedEbayListing>[0],
   tradingErr: unknown,
 ): Promise<EbayPublishResult> {
+  const tradingMessage = tradingErr instanceof Error ? tradingErr.message : String(tradingErr);
+  try {
+    const details = await fetchEbayTradingItemDetails({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      itemId: input.itemId,
+    });
+    const ebayCustomLabel = details.sku?.trim() || "";
+    if (ebayCustomLabel && !isValidEbayInventorySku(ebayCustomLabel)) {
+      throw new Error(
+        `${tradingMessage} This listing's eBay custom label (SKU) is "${ebayCustomLabel}". `
+        + "SellerLens cannot use the Inventory API for hyphenated SKUs. "
+        + "Deploy the latest API so Push uses Trading first, or change the custom label in eBay sandbox to alphanumeric only (e.g. WALLAMP0880), then push again.",
+      );
+    }
+  } catch (lookupErr) {
+    if (lookupErr instanceof Error && lookupErr.message.includes("custom label")) {
+      throw lookupErr;
+    }
+  }
+
   const inventory = await tryPublishInventoryListingFirst(input);
   if (inventory) return inventory;
   throw tradingErr instanceof Error ? tradingErr : new Error(String(tradingErr));
+}
+
+async function syncEbayMarketplaceSkuFromListing(input: {
+  environment: "sandbox" | "production";
+  accessToken: string;
+  itemId: string;
+  listingRowId: number;
+}): Promise<void> {
+  try {
+    const details = await fetchEbayTradingItemDetails({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      itemId: input.itemId,
+    });
+    const ebaySku = details.sku?.trim();
+    if (!ebaySku) return;
+    await db
+      .update(productMarketplaceListingsTable)
+      .set({ sku: ebaySku, updatedAt: new Date() })
+      .where(eq(productMarketplaceListingsTable.id, input.listingRowId));
+  } catch {
+    // non-fatal
+  }
 }
 
 async function loadProfileSku(auditId: number): Promise<string | null | undefined> {
@@ -463,6 +514,12 @@ export async function publishListingToEbay(input: {
         updatedAt: now,
       })
       .where(eq(productMarketplaceListingsTable.id, listingRow.id));
+    await syncEbayMarketplaceSkuFromListing({
+      environment,
+      accessToken,
+      itemId,
+      listingRowId: listingRow.id,
+    });
   }
 
   return {
