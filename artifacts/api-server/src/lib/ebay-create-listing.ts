@@ -24,7 +24,7 @@ import {
   resolveEbayMerchantLocationKey,
   upsertEbayInventoryItem,
 } from "./ebay-inventory-offers.js";
-import { generatedEbayListingSku } from "./ebay-listing-sku.js";
+import { resolveEbayInventorySku } from "./ebay-listing-sku.js";
 
 export type CreateEbayListingInput = {
   workspaceId: number;
@@ -79,16 +79,6 @@ function assertRequiredAspectsPresent(
       `Missing required eBay item specifics: ${missing.join(", ")}. Fill them in the List on eBay dialog and try again.`,
     );
   }
-}
-
-function resolvePublishSku(opts: {
-  profileSku: string | null | undefined;
-  listingSku: string | null | undefined;
-  auditId: number;
-}): string {
-  return opts.profileSku?.trim()
-    || opts.listingSku?.trim()
-    || `SL-${opts.auditId}`;
 }
 
 async function resolveEbayPublishPriceCents(auditId: number): Promise<{
@@ -169,7 +159,7 @@ export async function createNewEbayListingFromAudit(
     .where(eq(productProfilesTable.auditId, input.audit.id))
     .limit(1);
 
-  const sku = resolvePublishSku({
+  const sku = resolveEbayInventorySku({
     profileSku: profile?.sku,
     listingSku: listingRow?.sku,
     auditId: input.audit.id,
@@ -251,7 +241,6 @@ export async function createNewEbayListingFromAudit(
   });
 
   const listingUrl = ebayListingUrl(environment, listingId);
-  const linkedSku = generatedEbayListingSku(listingId);
   const now = new Date();
 
   if (listingRow) {
@@ -259,7 +248,7 @@ export async function createNewEbayListingFromAudit(
       .update(productMarketplaceListingsTable)
       .set({
         status: "live",
-        sku: linkedSku,
+        sku,
         listingUrl,
         priceCents,
         currency,
@@ -274,7 +263,7 @@ export async function createNewEbayListingFromAudit(
       workspaceId: input.audit.workspaceId,
       marketplace: "eBay",
       status: "live",
-      sku: linkedSku,
+      sku,
       listingUrl,
       priceCents,
       currency,
@@ -286,7 +275,7 @@ export async function createNewEbayListingFromAudit(
   return {
     itemId: listingId,
     listingUrl,
-    sku: linkedSku,
+    sku,
     warning: imageWarning,
   };
 }

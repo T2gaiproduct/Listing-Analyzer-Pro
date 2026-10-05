@@ -22,7 +22,12 @@ import {
   resolveInventoryOfferForListing,
   updateInventoryBasedEbayListing,
 } from "./ebay-inventory-listing-update.js";
-import { generatedEbayListingSku } from "./ebay-listing-sku.js";
+import {
+  generatedEbayListingSku,
+  isValidEbayInventorySku,
+  normalizeToEbayInventorySku,
+  resolveEbayInventorySku,
+} from "./ebay-listing-sku.js";
 
 export type EbayPublishResult = {
   itemId: string;
@@ -152,18 +157,35 @@ async function publishInventoryBasedEbayListing(input: {
     .where(eq(productProfilesTable.auditId, input.auditId))
     .limit(1);
 
-  const skuCandidates = [
-    input.listingRow?.sku,
-    profile?.sku,
-    `SL-${input.auditId}`,
-    generatedEbayListingSku(input.itemId),
-  ].filter((sku): sku is string => Boolean(sku?.trim()));
+  const skuCandidates: string[] = [];
+  const pushCandidate = (raw: string | null | undefined) => {
+    if (isValidEbayInventorySku(raw)) {
+      skuCandidates.push(raw!.trim());
+      return;
+    }
+    const normalized = normalizeToEbayInventorySku(raw);
+    if (normalized && isValidEbayInventorySku(normalized)) {
+      skuCandidates.push(normalized);
+    }
+  };
+  pushCandidate(input.listingRow?.sku);
+  pushCandidate(profile?.sku);
+  try {
+    skuCandidates.push(resolveEbayInventorySku({
+      profileSku: profile?.sku,
+      listingSku: input.listingRow?.sku,
+      auditId: input.auditId,
+    }));
+  } catch {
+    // ignore
+  }
+  const uniqueSkuCandidates = [...new Set(skuCandidates)];
 
   const offerRow = await resolveInventoryOfferForListing({
     environment: input.environment,
     accessToken: input.accessToken,
     listingId: input.itemId,
-    skuCandidates,
+    skuCandidates: uniqueSkuCandidates,
   });
   if (!offerRow) {
     throw new Error(

@@ -1,4 +1,5 @@
 import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
+import { isValidEbayInventorySku } from "./ebay-listing-sku.js";
 import { ebayRestFetch, parseEbayRestError } from "./ebay-rest-fetch.js";
 
 const MARKETPLACE_ID = "EBAY_US";
@@ -140,6 +141,9 @@ async function fetchOffersBySku(input: {
   accessToken: string;
   sku: string;
 }): Promise<EbayOfferSummary[]> {
+  if (!isValidEbayInventorySku(input.sku)) {
+    return [];
+  }
   const sku = encodeURIComponent(input.sku.trim());
   const res = await ebayRestFetch(
     input.environment,

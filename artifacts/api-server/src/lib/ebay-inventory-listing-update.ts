@@ -1,6 +1,7 @@
 import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
 import { ebayRestFetch, parseEbayRestError } from "./ebay-rest-fetch.js";
 import { upsertEbayInventoryItem } from "./ebay-inventory-offers.js";
+import { isValidEbayInventorySku } from "./ebay-listing-sku.js";
 
 const MARKETPLACE_ID = "EBAY_US";
 
@@ -13,7 +14,7 @@ type InventoryOfferRow = {
 
 type EbayOfferFull = {
   offerId: string;
-  sku: string;
+  sku?: string;
   categoryId: string;
   marketplaceId: string;
   format: string;
@@ -80,7 +81,7 @@ async function listInventoryOffersPage(input: {
       listingId: row.listing?.listingId?.trim(),
       status: row.status?.trim(),
     }))
-    .filter((row) => row.offerId && row.sku);
+    .filter((row) => row.offerId);
   const total = typeof data.total === "number" ? data.total : null;
   const hasMore = total != null
     ? input.offset + offers.length < total
@@ -106,11 +107,45 @@ export async function findInventoryOfferByListingId(input: {
       offset,
     });
     const match = batch.offers.find((row) => row.listingId === target);
-    if (match) return match;
+    if (match) {
+      return await hydrateInventoryOfferRow({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        row: match,
+      });
+    }
     if (!batch.hasMore || batch.offers.length === 0) break;
     offset += batch.offers.length;
   }
   return null;
+}
+
+async function hydrateInventoryOfferRow(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  row: InventoryOfferRow;
+}): Promise<InventoryOfferRow> {
+  if (isValidEbayInventorySku(input.row.sku)) {
+    return input.row;
+  }
+  const full = await fetchEbayOfferFull({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    offerId: input.row.offerId,
+  });
+  const listingId = full.listing?.listingId?.trim() ?? input.row.listingId;
+  const sku = full.sku?.trim() ?? "";
+  if (!isValidEbayInventorySku(sku)) {
+    throw new Error(
+      "eBay returned an invalid inventory SKU for this listing. Set an alphanumeric SKU (max 50 characters) on the product profile, then push again.",
+    );
+  }
+  return {
+    offerId: input.row.offerId,
+    sku,
+    listingId,
+    status: input.row.status,
+  };
 }
 
 async function fetchOffersBySku(input: {
@@ -118,6 +153,9 @@ async function fetchOffersBySku(input: {
   accessToken: string;
   sku: string;
 }): Promise<InventoryOfferRow[]> {
+  if (!isValidEbayInventorySku(input.sku)) {
+    return [];
+  }
   const sku = encodeURIComponent(input.sku.trim());
   const res = await ebayRestFetch(
     input.environment,
@@ -143,7 +181,7 @@ async function fetchOffersBySku(input: {
       listingId: row.listing?.listingId?.trim(),
       status: row.status?.trim(),
     }))
-    .filter((row) => row.offerId && row.sku);
+    .filter((row) => row.offerId);
 }
 
 export async function resolveInventoryOfferForListing(input: {
@@ -161,14 +199,20 @@ export async function resolveInventoryOfferForListing(input: {
 
   for (const sku of input.skuCandidates) {
     const trimmed = sku.trim();
-    if (!trimmed) continue;
+    if (!isValidEbayInventorySku(trimmed)) continue;
     const offers = await fetchOffersBySku({
       environment: input.environment,
       accessToken: input.accessToken,
       sku: trimmed,
     });
-    const match = offers.find((row) => row.listingId === input.listingId) ?? offers[0];
-    if (match) return match;
+    const match = offers.find((row) => row.listingId === input.listingId);
+    if (match) {
+      return hydrateInventoryOfferRow({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        row: match,
+      });
+    }
   }
   return null;
 }
@@ -236,7 +280,12 @@ export async function updateInventoryBasedEbayListing(input: {
     offerId: input.offerRow.offerId,
   });
 
-  const inventorySku = input.offerRow.sku.trim();
+  const inventorySku = (offer.sku?.trim() || input.offerRow.sku.trim());
+  if (!isValidEbayInventorySku(inventorySku)) {
+    throw new Error(
+      "This eBay listing uses a SKU that eBay’s inventory API does not accept (letters and numbers only, max 50). Update the product SKU to alphanumeric and push again.",
+    );
+  }
   const existingItem = await fetchEbayInventoryItemFull({
     environment: input.environment,
     accessToken: input.accessToken,
@@ -265,7 +314,7 @@ export async function updateInventoryBasedEbayListing(input: {
   const currency = (input.currency?.trim() || offer.pricingSummary.price.currency || "USD").toUpperCase();
 
   const offerBody = {
-    sku: offer.sku,
+    sku: inventorySku,
     marketplaceId: offer.marketplaceId || MARKETPLACE_ID,
     format: offer.format || "FIXED_PRICE",
     categoryId: offer.categoryId,
