@@ -27,15 +27,29 @@ export async function ebayRestFetch(
   });
 }
 
-export function parseEbayRestError(text: string, fallback: string): string {
+type EbayRestErrorRow = {
+  message?: string;
+  longMessage?: string;
+  errorId?: number;
+};
+
+export function parseEbayRestErrors(text: string): EbayRestErrorRow[] {
   try {
-    const data = JSON.parse(text) as { errors?: Array<{ message?: string; longMessage?: string }> };
-    const messages = (data.errors ?? [])
-      .map((e) => e.longMessage?.trim() || e.message?.trim())
-      .filter(Boolean);
-    if (messages.length > 0) return messages.join(" ");
+    const data = JSON.parse(text) as { errors?: EbayRestErrorRow[] };
+    return data.errors ?? [];
   } catch {
-    // plain text
+    return [];
   }
+}
+
+export function parseEbayRestError(text: string, fallback: string): string {
+  const messages = parseEbayRestErrors(text)
+    .map((e) => {
+      const body = e.longMessage?.trim() || e.message?.trim();
+      if (!body) return "";
+      return e.errorId != null ? `[${e.errorId}] ${body}` : body;
+    })
+    .filter(Boolean);
+  if (messages.length > 0) return messages.join(" ");
   return text.trim() || fallback;
 }
