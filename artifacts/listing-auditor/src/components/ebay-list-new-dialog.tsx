@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/select";
 import {
   createAuditEbayListing,
+  fetchEbayCategoryAspects,
   fetchEbayCategorySuggestions,
   fetchEbayListingOptions,
+  type EbayCategoryAspectField,
   type EbayCategorySuggestion,
 } from "@/lib/ebay-publish";
 
@@ -38,6 +40,7 @@ export function EbayListNewDialog({
   const [fulfillmentPolicyId, setFulfillmentPolicyId] = useState("");
   const [paymentPolicyId, setPaymentPolicyId] = useState("");
   const [returnPolicyId, setReturnPolicyId] = useState("");
+  const [aspectValues, setAspectValues] = useState<Record<string, string>>({});
 
   const optionsQuery = useQuery({
     queryKey: ["ebay-listing-options"],
@@ -66,8 +69,25 @@ export function EbayListNewDialog({
       setCategoryQuery("");
       setCategoryResults([]);
       setSelectedCategory(null);
+      setAspectValues({});
     }
   }, [open]);
+
+  const aspectsQuery = useQuery({
+    queryKey: ["ebay-category-aspects", selectedCategory?.categoryId],
+    queryFn: () => fetchEbayCategoryAspects(selectedCategory!.categoryId),
+    enabled: open && Boolean(selectedCategory?.categoryId),
+    staleTime: 300_000,
+  });
+
+  const requiredAspects = useMemo(
+    () => (aspectsQuery.data ?? []).filter((field) => field.required),
+    [aspectsQuery.data],
+  );
+
+  const requiredAspectsFilled = requiredAspects.every(
+    (field) => Boolean(aspectValues[field.name]?.trim()),
+  );
 
   const createMutation = useMutation({
     mutationFn: () => {
@@ -79,6 +99,7 @@ export function EbayListNewDialog({
         fulfillmentPolicyId,
         paymentPolicyId,
         returnPolicyId,
+        itemAspects: aspectValues,
       });
     },
     onSuccess: (result) => {
@@ -95,7 +116,9 @@ export function EbayListNewDialog({
     && fulfillmentPolicyId
     && paymentPolicyId
     && returnPolicyId
-    && createEnabled,
+    && createEnabled
+    && requiredAspectsFilled
+    && !aspectsQuery.isLoading,
   );
 
   const sandboxNote = useMemo(() => {
@@ -166,7 +189,10 @@ export function EbayListNewDialog({
                     <button
                       type="button"
                       className="w-full text-left px-2 py-2 hover:bg-slate-50"
-                      onClick={() => setSelectedCategory(cat)}
+                      onClick={() => {
+                        setSelectedCategory(cat);
+                        setAspectValues({});
+                      }}
                     >
                       <span className="font-medium text-slate-800">{cat.categoryName}</span>
                       <span className="block text-slate-500 truncate">{cat.categoryPath}</span>
@@ -176,6 +202,39 @@ export function EbayListNewDialog({
               </ul>
             )}
           </div>
+
+          {selectedCategory && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-slate-800">Item specifics (required by eBay)</Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  eBay requires fields like Type or Brand for this category. Fill every required row below.
+                </p>
+              </div>
+              {aspectsQuery.isLoading && (
+                <p className="text-xs text-slate-500 flex items-center gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Loading item specifics…
+                </p>
+              )}
+              {aspectsQuery.isError && (
+                <p className="text-xs text-destructive">
+                  {aspectsQuery.error instanceof Error ? aspectsQuery.error.message : "Could not load item specifics."}
+                </p>
+              )}
+              {requiredAspects.map((field) => (
+                <AspectField
+                  key={field.name}
+                  field={field}
+                  value={aspectValues[field.name] ?? ""}
+                  onChange={(value) => setAspectValues((prev) => ({ ...prev, [field.name]: value }))}
+                />
+              ))}
+              {aspectsQuery.isSuccess && requiredAspects.length === 0 && (
+                <p className="text-xs text-slate-500">No required item specifics for this category.</p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="ebay-qty">Quantity</Label>
@@ -235,6 +294,47 @@ export function EbayListNewDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AspectField({
+  field,
+  value,
+  onChange,
+}: {
+  field: EbayCategoryAspectField;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const label = `${field.name}${field.required ? " *" : ""}`;
+  if (field.values.length > 0) {
+    return (
+      <div className="space-y-1.5">
+        <Label>{label}</Label>
+        <Select value={value} onValueChange={onChange}>
+          <SelectTrigger>
+            <SelectValue placeholder={`Select ${field.name}`} />
+          </SelectTrigger>
+          <SelectContent className="max-h-60">
+            {field.values.map((opt) => (
+              <SelectItem key={opt} value={opt}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={field.name}
+      />
+    </div>
   );
 }
 

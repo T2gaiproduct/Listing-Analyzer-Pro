@@ -21,6 +21,21 @@ export type EbayCategorySuggestion = {
   categoryPath: string;
 };
 
+export type EbayCategoryAspectField = {
+  name: string;
+  required: boolean;
+  values: string[];
+  selectionOnly: boolean;
+};
+
+export async function fetchEbayCategoryAspects(categoryId: string): Promise<EbayCategoryAspectField[]> {
+  const id = encodeURIComponent(categoryId.trim());
+  const data = await fetchJson<{ aspects?: EbayCategoryAspectField[] }>(
+    `${basePath}/api/ebay/categories/${id}/aspects`,
+  );
+  return data.aspects ?? [];
+}
+
 export type EbayListingOptions = {
   marketplaceId: string;
   environment: "sandbox" | "production" | null;
@@ -54,6 +69,7 @@ export async function createAuditEbayListing(opts: {
   fulfillmentPolicyId: string;
   paymentPolicyId: string;
   returnPolicyId: string;
+  itemAspects?: Record<string, string>;
 }): Promise<{
   ok: boolean;
   message: string;
@@ -76,6 +92,7 @@ export async function createAuditEbayListing(opts: {
       fulfillmentPolicyId: opts.fulfillmentPolicyId,
       paymentPolicyId: opts.paymentPolicyId,
       returnPolicyId: opts.returnPolicyId,
+      itemAspects: opts.itemAspects,
     }),
   });
   return {

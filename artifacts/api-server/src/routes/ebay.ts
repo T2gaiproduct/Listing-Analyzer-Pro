@@ -23,7 +23,7 @@ import type { ImageRecord } from "@workspace/db";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
 import { publishListingToEbay } from "../lib/ebay-publish.js";
 import { createNewEbayListingFromAudit } from "../lib/ebay-create-listing.js";
-import { suggestEbayCategories } from "../lib/ebay-taxonomy.js";
+import { fetchEbayCategoryAspects, suggestEbayCategories } from "../lib/ebay-taxonomy.js";
 import {
   fetchEbayListingPolicyOptions,
   pickDefaultPolicyId,
@@ -208,6 +208,33 @@ router.get(
 );
 
 router.get(
+  "/ebay/categories/:categoryId/aspects",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const categoryId = String(req.params.categoryId ?? "").trim();
+    if (!categoryId) {
+      res.status(400).json({ error: "Category id is required." });
+      return;
+    }
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getEbayWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect eBay on Marketplaces first." });
+      return;
+    }
+    try {
+      const { accessToken, environment } = await resolveEbayAccessToken(workspaceId);
+      const aspects = await fetchEbayCategoryAspects({ environment, accessToken, categoryId });
+      res.json({ aspects });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not load item specifics";
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+router.get(
   "/ebay/listing-options",
   requireAuth,
   resolveTeamAndWorkspace,
@@ -276,6 +303,7 @@ router.post(
       fulfillmentPolicyId?: string;
       paymentPolicyId?: string;
       returnPolicyId?: string;
+      itemAspects?: Record<string, string>;
     };
 
     const loaded = await loadAuditForExport(req, auditId);
@@ -301,6 +329,7 @@ router.post(
         fulfillmentPolicyId: body.fulfillmentPolicyId,
         paymentPolicyId: body.paymentPolicyId,
         returnPolicyId: body.returnPolicyId,
+        itemAspects: body.itemAspects,
       });
 
       res.json({

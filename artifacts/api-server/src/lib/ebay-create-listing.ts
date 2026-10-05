@@ -6,7 +6,12 @@ import {
   parseEbayItemIdFromSku,
 } from "./ebay-import-utils.js";
 import { buildEbayListingDescriptionHtml } from "./ebay-listing-description.js";
-import { truncateEbayListingTitle } from "./ebay-item-specific-limits.js";
+import {
+  sanitizeEbayItemSpecificValues,
+  truncateEbayItemSpecificValue,
+  truncateEbayListingTitle,
+} from "./ebay-item-specific-limits.js";
+import { fetchEbayCategoryAspects, type EbayCategoryAspectField } from "./ebay-taxonomy.js";
 import { resolveEbayHostedPictureUrls } from "./ebay-publish-images.js";
 import { resolveEbayAccessToken } from "./ebay-inventory-client.js";
 import { getEbayWorkspaceConnection } from "./ebay-workspace-connection.js";
@@ -33,6 +38,7 @@ export type CreateEbayListingInput = {
   fulfillmentPolicyId?: string;
   paymentPolicyId?: string;
   returnPolicyId?: string;
+  itemAspects?: Record<string, string>;
 };
 
 export type CreateEbayListingResult = {
@@ -41,6 +47,39 @@ export type CreateEbayListingResult = {
   sku: string;
   warning?: string;
 };
+
+function buildAspectsForInventory(
+  fields: EbayCategoryAspectField[],
+  input: Record<string, string> | undefined,
+): Record<string, string[]> {
+  const aspects: Record<string, string[]> = {};
+  for (const field of fields) {
+    const raw = input?.[field.name]?.trim();
+    if (!raw) continue;
+    let value = truncateEbayItemSpecificValue(raw);
+    if (field.selectionOnly && field.values.length > 0) {
+      const match = field.values.find((v) => v.toLowerCase() === value.toLowerCase());
+      value = match ?? field.values[0]!;
+    }
+    const sanitized = sanitizeEbayItemSpecificValues([value]);
+    if (sanitized[0]) aspects[field.name] = sanitized;
+  }
+  return aspects;
+}
+
+function assertRequiredAspectsPresent(
+  fields: EbayCategoryAspectField[],
+  aspects: Record<string, string[]>,
+): void {
+  const missing = fields
+    .filter((field) => field.required && !aspects[field.name]?.[0])
+    .map((field) => field.name);
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required eBay item specifics: ${missing.join(", ")}. Fill them in the List on eBay dialog and try again.`,
+    );
+  }
+}
 
 function resolvePublishSku(opts: {
   profileSku: string | null | undefined;
@@ -176,6 +215,14 @@ export async function createNewEbayListingFromAudit(
   const quantity = input.quantity ?? 1;
   const condition = input.condition ?? "NEW";
 
+  const aspectFields = await fetchEbayCategoryAspects({
+    environment,
+    accessToken,
+    categoryId,
+  });
+  const aspects = buildAspectsForInventory(aspectFields, input.itemAspects);
+  assertRequiredAspectsPresent(aspectFields, aspects);
+
   await upsertEbayInventoryItem({
     environment,
     accessToken,
@@ -185,6 +232,7 @@ export async function createNewEbayListingFromAudit(
     imageUrls: pictureUrls,
     quantity,
     condition,
+    aspects,
   });
 
   const { listingId } = await createAndPublishEbayOffer({

@@ -60,13 +60,18 @@ export async function upsertEbayInventoryItem(input: {
   imageUrls: string[];
   quantity: number;
   condition: "NEW" | "LIKE_NEW" | "USED_EXCELLENT";
+  aspects?: Record<string, string[]>;
 }): Promise<void> {
   const skuEncoded = encodeURIComponent(input.sku.trim());
+  const aspects = input.aspects && Object.keys(input.aspects).length > 0
+    ? input.aspects
+    : undefined;
   const body = {
     product: {
       title: input.title,
       description: input.descriptionHtml,
       imageUrls: input.imageUrls.filter(Boolean).slice(0, 12),
+      ...(aspects ? { aspects } : {}),
     },
     condition: input.condition,
     availability: {
