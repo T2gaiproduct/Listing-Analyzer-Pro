@@ -285,7 +285,7 @@ export async function createNewEbayListingFromAudit(
       workspaceId: input.audit.workspaceId,
       marketplace: "eBay",
       status: "live",
-      sku,
+      sku: inventorySku,
       listingUrl,
       priceCents,
       currency,
