@@ -357,6 +357,23 @@ async function deleteEbayOffer(input: {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitUntilOfferReady(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  offerId: string;
+}): Promise<void> {
+  const delaysMs = [0, 300, 600, 1200, 2000, 3500];
+  for (const delay of delaysMs) {
+    if (delay > 0) await sleep(delay);
+    const details = await tryFetchOfferDetails(input);
+    if (details) return;
+  }
+}
+
 async function createEbayOffer(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
@@ -376,6 +393,57 @@ async function createEbayOffer(input: {
   const offerId = created.offerId?.trim();
   if (!offerId) throw new Error("eBay did not return an offer id.");
   return offerId;
+}
+
+/** Create offer, wait for sandbox read-after-write, and recover from duplicate SKU offers. */
+async function createEbayOfferReady(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  payload: ReturnType<typeof buildOfferPayload>;
+}): Promise<string> {
+  const sku = input.payload.sku.trim();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const offerId = await createEbayOffer(input);
+      await waitUntilOfferReady({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId,
+      });
+      return offerId;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (/already exists/i.test(message) && attempt < 4) {
+        await purgeBlockingOffersForSku({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          sku,
+        });
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("Could not create eBay offer after clearing duplicate sandbox offers.");
+}
+
+export async function deleteEbayInventoryItem(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  sku: string;
+}): Promise<void> {
+  const skuEncoded = encodeURIComponent(input.sku.trim());
+  const res = await ebayRestFetch(
+    input.environment,
+    input.accessToken,
+    `/sell/inventory/v1/inventory_item/${skuEncoded}`,
+    { method: "DELETE" },
+  );
+  if (res.status === 404) return;
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(parseEbayRestError(text, "Could not delete eBay inventory item."));
+  }
 }
 
 async function publishEbayOffer(input: {
@@ -502,7 +570,7 @@ async function resolveOfferIdForPublish(input: {
   });
 
   try {
-    const offerId = await createEbayOffer({
+    const offerId = await createEbayOfferReady({
       environment: input.environment,
       accessToken: input.accessToken,
       payload: input.payload,
@@ -554,7 +622,7 @@ async function resolveOfferIdForPublish(input: {
         throw updateErr;
       }
     }
-    const offerId = await createEbayOffer({
+    const offerId = await createEbayOfferReady({
       environment: input.environment,
       accessToken: input.accessToken,
       payload: input.payload,
@@ -608,7 +676,7 @@ async function publishOfferWithStaleRecovery(input: {
     sku: input.payload.sku.trim(),
   });
 
-  const newOfferId = await createEbayOffer({
+  const newOfferId = await createEbayOfferReady({
     environment: input.environment,
     accessToken: input.accessToken,
     payload: input.payload,
@@ -641,7 +709,7 @@ async function publishOfferWithStaleRecovery(input: {
       accessToken: input.accessToken,
       offerId: newOfferId,
     });
-    const finalOfferId = await createEbayOffer({
+    const finalOfferId = await createEbayOfferReady({
       environment: input.environment,
       accessToken: input.accessToken,
       payload: input.payload,
@@ -697,7 +765,7 @@ export async function createAndPublishEbayOffer(input: {
       accessToken: input.accessToken,
       sku: input.sku.trim(),
     });
-    const offerId = await createEbayOffer({
+    const offerId = await createEbayOfferReady({
       environment: input.environment,
       accessToken: input.accessToken,
       payload: offerPayload,

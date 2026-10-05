@@ -20,6 +20,7 @@ import { materializeAuditImagesForPublish } from "./materialize-audit-images-for
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 import {
   createAndPublishEbayOffer,
+  deleteEbayInventoryItem,
   ebayListingUrl,
   purgeBlockingOffersForSku,
   resolveEbayMerchantLocationKey,
@@ -246,18 +247,41 @@ export async function createNewEbayListingFromAudit(
     });
   };
 
-  let publishResult: Awaited<ReturnType<typeof createAndPublishEbayOffer>>;
-  try {
-    publishResult = await upsertAndPublish(inventorySku, forceFreshOffer);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (!isEbayOfferNotAvailableMessage(message)) {
-      throw err;
+  const inventorySkusToTry = [
+    inventorySku,
+    alternateEbayInventorySkuForAudit(input.audit.id),
+    alternateEbayInventorySkuForAudit(input.audit.id),
+  ];
+
+  let publishResult: Awaited<ReturnType<typeof createAndPublishEbayOffer>> | undefined;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < inventorySkusToTry.length; attempt++) {
+    inventorySku = inventorySkusToTry[attempt]!;
+    if (attempt > 0) {
+      skuRetryWarning =
+        "eBay sandbox still had a broken offer for this product. SellerLens retried with a new inventory SKU.";
+      await deleteEbayInventoryItem({ environment, accessToken, sku: inventorySkusToTry[attempt - 1]! })
+        .catch(() => undefined);
     }
-    inventorySku = alternateEbayInventorySkuForAudit(input.audit.id);
-    skuRetryWarning =
-      "eBay sandbox still had a broken offer for this product. SellerLens retried with a new inventory SKU.";
-    publishResult = await upsertAndPublish(inventorySku, forceFreshOffer);
+    try {
+      publishResult = await upsertAndPublish(inventorySku, forceFreshOffer);
+      lastError = undefined;
+      break;
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      if (!isEbayOfferNotAvailableMessage(message) && attempt === inventorySkusToTry.length - 1) {
+        throw err;
+      }
+      if (!isEbayOfferNotAvailableMessage(message)) {
+        throw err;
+      }
+    }
+  }
+  if (!publishResult) {
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Could not publish to eBay after clearing stale sandbox offers.");
   }
 
   const { listingId, warning: offerWarning } = publishResult;
