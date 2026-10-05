@@ -22,6 +22,13 @@ import { resolvePublicBaseUrl } from "../lib/resolve-public-base-url.js";
 import type { ImageRecord } from "@workspace/db";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
 import { publishListingToEbay } from "../lib/ebay-publish.js";
+import { createNewEbayListingFromAudit } from "../lib/ebay-create-listing.js";
+import { suggestEbayCategories } from "../lib/ebay-taxonomy.js";
+import {
+  fetchEbayListingPolicyOptions,
+  pickDefaultPolicyId,
+} from "../lib/ebay-account-policies.js";
+import { resolveEbayAccessToken } from "../lib/ebay-inventory-client.js";
 import { isEbayTradingApiConfigured } from "../lib/ebay-oauth-config.js";
 import { getEbayWorkspaceConnection } from "../lib/ebay-workspace-connection.js";
 import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url.js";
@@ -176,6 +183,142 @@ router.get("/ebay/oauth/callback", async (req: Request, res: Response): Promise<
     res.status(400).send(message);
   }
 });
+
+router.get(
+  "/ebay/categories/suggest",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const q = typeof req.query.q === "string" ? req.query.q : "";
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getEbayWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect eBay on Marketplaces first." });
+      return;
+    }
+    try {
+      const { accessToken, environment } = await resolveEbayAccessToken(workspaceId);
+      const categories = await suggestEbayCategories({ environment, accessToken, query: q });
+      res.json({ categories });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Category search failed";
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+router.get(
+  "/ebay/listing-options",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getEbayWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect eBay on Marketplaces first." });
+      return;
+    }
+    try {
+      const { accessToken, environment } = await resolveEbayAccessToken(workspaceId);
+      const policies = await fetchEbayListingPolicyOptions({ environment, accessToken });
+      res.json({
+        environment: connection.environment,
+        createListingEnabled: connection.environment === "sandbox",
+        defaults: {
+          fulfillmentPolicyId: pickDefaultPolicyId(policies.fulfillmentPolicies),
+          paymentPolicyId: pickDefaultPolicyId(policies.paymentPolicies),
+          returnPolicyId: pickDefaultPolicyId(policies.returnPolicies),
+        },
+        ...policies,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not load eBay listing options";
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+router.post(
+  "/audits/:id/publish/ebay/create",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["build_brand", "audits"], "edit"),
+  async (req: Request, res: Response): Promise<void> => {
+    const auditId = Number.parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(auditId)) {
+      res.status(400).json({ error: "Invalid audit id" });
+      return;
+    }
+
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getEbayWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your eBay seller account on the Marketplaces page before publishing." });
+      return;
+    }
+    if (connection.environment !== "sandbox") {
+      res.status(400).json({
+        error: "Creating new eBay listings from SellerLens is enabled for sandbox eBay accounts in this release. Reconnect sandbox eBay on Marketplaces, or import an existing listing and use Push.",
+      });
+      return;
+    }
+    if (!isEbayTradingApiConfigured(connection.environment)) {
+      res.status(400).json({
+        error: "eBay publish is not configured on this server (Trading API keys).",
+      });
+      return;
+    }
+
+    const body = req.body as {
+      primaryCategoryId?: string;
+      quantity?: number;
+      condition?: "NEW" | "LIKE_NEW" | "USED_EXCELLENT";
+      fulfillmentPolicyId?: string;
+      paymentPolicyId?: string;
+      returnPolicyId?: string;
+    };
+
+    const loaded = await loadAuditForExport(req, auditId);
+    if (!loaded) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
+    const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+    const graphicsProjectId = loaded.graphicsProject?.id ?? null;
+
+    try {
+      const publicBaseUrl = resolveMarketplacePublishBaseUrl(req);
+      const result = await createNewEbayListingFromAudit({
+        workspaceId,
+        audit: loaded.audit,
+        graphicsImageRecords,
+        graphicsProjectId,
+        publicBaseUrl,
+        primaryCategoryId: body.primaryCategoryId ?? "",
+        quantity: body.quantity,
+        condition: body.condition,
+        fulfillmentPolicyId: body.fulfillmentPolicyId,
+        paymentPolicyId: body.paymentPolicyId,
+        returnPolicyId: body.returnPolicyId,
+      });
+
+      res.json({
+        ok: true,
+        itemId: result.itemId,
+        listingUrl: result.listingUrl,
+        sku: result.sku,
+        warning: result.warning,
+        message: result.warning
+          ? "New eBay listing created with a warning."
+          : "New eBay listing published successfully.",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Create listing failed";
+      res.status(400).json({ error: message });
+    }
+  },
+);
 
 router.post(
   "/audits/:id/publish/ebay",

@@ -17,6 +17,7 @@ import { ShopifyPublishCollectionsDialog } from "@/components/shopify-publish-co
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
 import { fetchEbayStatus, publishAuditToEbay } from "@/lib/ebay-publish";
+import { EbayListNewDialog } from "@/components/ebay-list-new-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -81,6 +82,10 @@ function formatPrice(price: number | null, currency: string): string {
   if (price == null) return "—";
   if (currency === "INR") return `₹${price.toFixed(2)}`;
   return `$${price.toFixed(2)}`;
+}
+
+function ebayListingIsLinked(listing: MarketplaceListing): boolean {
+  return Boolean(listing.listingUrl?.trim()) || listing.status === "live";
 }
 
 function buildPublishPlatformCards(listings: MarketplaceListing[]): MarketplaceListing[] {
@@ -212,6 +217,7 @@ function MarketplaceCard({
   connected,
   connectHint,
   onPublishLive,
+  onListNewEbay,
   detailsExtra,
 }: {
   listing: MarketplaceListing;
@@ -221,6 +227,7 @@ function MarketplaceCard({
   connected: boolean;
   connectHint: string;
   onPublishLive?: () => void;
+  onListNewEbay?: () => void;
   detailsExtra?: React.ReactNode;
 }) {
   const published = listing.publishedAt
@@ -228,8 +235,11 @@ function MarketplaceCard({
     : "—";
   const isAmazon = listing.marketplace === "Amazon";
   const isEbay = listing.marketplace === "eBay";
+  const ebayLinked = isEbay && ebayListingIsLinked(listing);
   const showPublishActions = canPublish && (listing.status !== "live" || isEbay);
   const publishDisabled = isPublishing || !publishReady || !connected;
+  const showEbayListNew = isEbay && !ebayLinked && listing.status === "not_listed";
+  const showEbayPush = isEbay && ebayLinked;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
@@ -269,7 +279,7 @@ function MarketplaceCard({
             <Check className="w-3.5 h-3.5" />
             Live
           </div>
-          {showPublishActions && onPublishLive && (
+          {showPublishActions && showEbayPush && onPublishLive && (
             <Button
               type="button"
               variant="outline"
@@ -286,7 +296,29 @@ function MarketplaceCard({
               ) : (
                 <>
                   <Upload className="w-3.5 h-3.5 mr-1" />
-                  {isEbay ? "Push to eBay listing" : "Update listing"}
+                  Push to eBay listing
+                </>
+              )}
+            </Button>
+          )}
+          {showPublishActions && !isEbay && onPublishLive && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-[11px] rounded-lg border-orange-200 text-orange-600 hover:bg-orange-50"
+              disabled={publishDisabled}
+              onClick={onPublishLive}
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                  Updating…
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5 mr-1" />
+                  Update listing
                 </>
               )}
             </Button>
@@ -334,7 +366,18 @@ function MarketplaceCard({
               </Link>
             </p>
           ) : null}
-          {onPublishLive && (
+          {showEbayListNew && onListNewEbay && (
+            <Button
+              type="button"
+              size="sm"
+              className="w-full h-8 text-[11px] rounded-lg bg-orange-500 hover:bg-orange-600"
+              disabled={publishDisabled}
+              onClick={onListNewEbay}
+            >
+              List as new on eBay
+            </Button>
+          )}
+          {!showEbayListNew && onPublishLive && (
             <Button
               type="button"
               size="sm"
@@ -438,6 +481,7 @@ export function ProductMarketplacesTab({
   const publishAuditId = auditId ?? productId;
   const [shopifyPublishOpen, setShopifyPublishOpen] = useState(false);
   const [shopifyPublishing, setShopifyPublishing] = useState(false);
+  const [ebayListNewOpen, setEbayListNewOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["product-marketplaces", productId, source],
@@ -613,7 +657,7 @@ export function ProductMarketplacesTab({
     eBay: {
       connected: Boolean(ebayStatus?.connected),
       publishReady: Boolean(ebayStatus?.publishReady),
-      connectHint: "Connect eBay on Marketplaces. Import links this product to one listing Item ID; publish updates that listing only.",
+      connectHint: "Connect sandbox eBay on Marketplaces to list new products here, or import an existing listing to push updates.",
       isPublishing: publishEbayMutation.isPending,
       onPublishLive: () => publishEbayMutation.mutate(),
     },
@@ -652,7 +696,8 @@ export function ProductMarketplacesTab({
               publishReady={state.publishReady}
               connected={state.connected}
               connectHint={state.connectHint}
-              onPublishLive={state.onPublishLive}
+              onPublishLive={platform === "eBay" && ebayListingIsLinked(listing) ? state.onPublishLive : platform !== "eBay" ? state.onPublishLive : undefined}
+              onListNewEbay={platform === "eBay" && !ebayListingIsLinked(listing) ? () => setEbayListNewOpen(true) : undefined}
               detailsExtra={
                 platform === "Shopify" && shopifyCollectionsQueryEnabled
                   ? (
@@ -667,6 +712,23 @@ export function ProductMarketplacesTab({
           );
         })}
       </div>
+
+      <EbayListNewDialog
+        auditId={publishAuditId}
+        open={ebayListNewOpen}
+        onOpenChange={setEbayListNewOpen}
+        onPublished={(result) => {
+          invalidateAfterPublish();
+          if (result.warning) {
+            toast({ title: "Listed on eBay with a warning", description: result.warning, variant: "destructive" });
+            return;
+          }
+          toast({
+            title: "Listed on eBay",
+            description: result.listingUrl ? `${result.message} ${result.listingUrl}` : result.message,
+          });
+        }}
+      />
 
       <ShopifyPublishCollectionsDialog
         auditId={publishAuditId}
