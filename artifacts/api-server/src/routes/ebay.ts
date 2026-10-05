@@ -22,6 +22,7 @@ import { resolvePublicBaseUrl } from "../lib/resolve-public-base-url.js";
 import type { ImageRecord } from "@workspace/db";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
 import { publishListingToEbay } from "../lib/ebay-publish.js";
+import { loadedBuildId } from "../lib/api-build-meta.js";
 import { createNewEbayListingFromAudit } from "../lib/ebay-create-listing.js";
 import { fetchEbayCategoryAspects, suggestEbayCategories } from "../lib/ebay-taxonomy.js";
 import {
@@ -344,7 +345,11 @@ router.post(
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Create listing failed";
-      res.status(400).json({ error: message });
+      res.status(400).json({
+        error: message,
+        apiBuildId: loadedBuildId,
+        hint: "List as new uses eBay Inventory (POST …/publish/ebay/create). Error 25713 is usually stale sandbox offers on inventory SKU SL{productId}.",
+      });
     }
   },
 );

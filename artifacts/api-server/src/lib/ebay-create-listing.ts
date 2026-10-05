@@ -22,13 +22,12 @@ import {
   createAndPublishEbayOffer,
   deleteEbayInventoryItem,
   ebayListingUrl,
-  purgeBlockingOffersForSku,
+  purgeAllOffersForCreateSku,
   resolveEbayMerchantLocationKey,
   upsertEbayInventoryItem,
 } from "./ebay-inventory-offers.js";
 import {
-  alternateEbayInventorySkuForAudit,
-  defaultEbayInventorySkuForAudit,
+  inventorySkuCandidatesForNewListing,
   isEbayOfferNotAvailableMessage,
 } from "./ebay-listing-sku.js";
 
@@ -159,8 +158,7 @@ export async function createNewEbayListingFromAudit(
     throw new Error("Set a price on this product before publishing to eBay.");
   }
 
-  // One inventory SKU per SellerLens product — avoids sandbox junk on profile/custom SKUs.
-  let inventorySku = defaultEbayInventorySkuForAudit(input.audit.id);
+  let inventorySku = "";
   let skuRetryWarning: string | undefined;
   // Never reuse sandbox draft offers on List as new — they often trigger eBay 25713.
   const forceFreshOffer = true;
@@ -228,7 +226,8 @@ export async function createNewEbayListingFromAudit(
   };
 
   const upsertAndPublish = async (sku: string, fresh: boolean) => {
-    await purgeBlockingOffersForSku({ environment, accessToken, sku });
+    await purgeAllOffersForCreateSku({ environment, accessToken, sku });
+    await deleteEbayInventoryItem({ environment, accessToken, sku }).catch(() => undefined);
     await upsertEbayInventoryItem({
       environment,
       accessToken,
@@ -247,11 +246,7 @@ export async function createNewEbayListingFromAudit(
     });
   };
 
-  const inventorySkusToTry = [
-    inventorySku,
-    alternateEbayInventorySkuForAudit(input.audit.id),
-    alternateEbayInventorySkuForAudit(input.audit.id),
-  ];
+  const inventorySkusToTry = inventorySkuCandidatesForNewListing(input.audit.id, 5);
 
   let publishResult: Awaited<ReturnType<typeof createAndPublishEbayOffer>> | undefined;
   let lastError: unknown;
@@ -279,9 +274,13 @@ export async function createNewEbayListingFromAudit(
     }
   }
   if (!publishResult) {
-    throw lastError instanceof Error
-      ? lastError
-      : new Error("Could not publish to eBay after clearing stale sandbox offers.");
+    const base = lastError instanceof Error
+      ? lastError.message
+      : "Could not publish to eBay after clearing stale sandbox offers.";
+    throw new Error(
+      `${base} If this persists, open eBay sandbox Seller Hub → Inventory, delete stale offers for SKUs `
+      + `${inventorySkusToTry.slice(0, 3).join(", ")}, then try List as new again.`,
+    );
   }
 
   const { listingId, warning: offerWarning } = publishResult;

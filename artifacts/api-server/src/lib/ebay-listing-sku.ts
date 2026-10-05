@@ -65,13 +65,26 @@ export function defaultEbayInventorySkuForAudit(auditId: number): string {
 }
 
 /** Fallback inventory SKU when sandbox still has a broken offer on the default SKU. */
-export function alternateEbayInventorySkuForAudit(auditId: number): string {
-  const suffix = Date.now().toString(36).slice(-5).replace(/[^a-z0-9]/gi, "").toUpperCase() || "R";
+export function alternateEbayInventorySkuForAudit(auditId: number, attempt = 0): string {
+  const suffix = `${attempt}${Date.now().toString(36)}`
+    .replace(/[^a-z0-9]/gi, "")
+    .toUpperCase()
+    .slice(-8) || "R";
   const sku = `SL${auditId}R${suffix}`.slice(0, 50);
   if (!isValidEbayInventorySku(sku)) {
     return defaultEbayInventorySkuForAudit(auditId);
   }
   return sku;
+}
+
+/** SKUs to try on List as new (default + fresh alternates). */
+export function inventorySkuCandidatesForNewListing(auditId: number, maxAttempts = 5): string[] {
+  const skus: string[] = [];
+  skus.push(defaultEbayInventorySkuForAudit(auditId));
+  for (let attempt = 1; skus.length < maxAttempts; attempt++) {
+    skus.push(alternateEbayInventorySkuForAudit(auditId, attempt));
+  }
+  return [...new Set(skus)];
 }
 
 export function resolveEbayInventorySku(opts: {

@@ -271,6 +271,40 @@ async function findPublishedListingForInventorySku(input: {
   return null;
 }
 
+/** Aggressive purge for List as new — remove every offer on this SKU unless it has a live listing id. */
+export async function purgeAllOffersForCreateSku(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  sku: string;
+}): Promise<void> {
+  const existing = await fetchOffersBySku({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    sku: input.sku,
+  });
+  for (const row of existing) {
+    const details = await tryFetchOfferDetails({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: row.offerId,
+    });
+    if (details && liveListingIdFromOffer(details)) {
+      continue;
+    }
+    await removeStaleOffer({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: row.offerId,
+      status: details?.status ?? row.status,
+    }).catch(() => undefined);
+    await deleteEbayOffer({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: row.offerId,
+    }).catch(() => undefined);
+  }
+}
+
 export async function purgeBlockingOffersForSku(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
@@ -755,26 +789,25 @@ export async function createAndPublishEbayOffer(input: {
 }): Promise<{ offerId: string; listingId: string; warning?: string }> {
   const offerPayload = buildOfferPayload(input);
 
-  const existingLive = await findPublishedListingForInventorySku({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    sku: input.sku.trim(),
-  });
-  if (existingLive) {
-    return {
-      offerId: existingLive.offerId,
-      listingId: existingLive.listingId,
-      warning:
-        "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
-    };
-  }
-
   if (input.forceFreshOffer) {
-    await purgeBlockingOffersForSku({
+    await purgeAllOffersForCreateSku({
       environment: input.environment,
       accessToken: input.accessToken,
       sku: input.sku.trim(),
     });
+    const existingLive = await findPublishedListingForInventorySku({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      sku: input.sku.trim(),
+    });
+    if (existingLive) {
+      return {
+        offerId: existingLive.offerId,
+        listingId: existingLive.listingId,
+        warning:
+          "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+      };
+    }
     const offerId = await createEbayOfferReady({
       environment: input.environment,
       accessToken: input.accessToken,
@@ -790,6 +823,20 @@ export async function createAndPublishEbayOffer(input: {
       offerId: published.offerId,
       listingId: published.listingId,
       warning: published.staleOfferWarning,
+    };
+  }
+
+  const existingLive = await findPublishedListingForInventorySku({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    sku: input.sku.trim(),
+  });
+  if (existingLive) {
+    return {
+      offerId: existingLive.offerId,
+      listingId: existingLive.listingId,
+      warning:
+        "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
     };
   }
 
