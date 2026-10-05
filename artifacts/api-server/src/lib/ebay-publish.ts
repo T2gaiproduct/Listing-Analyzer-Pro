@@ -231,6 +231,7 @@ function shouldFallbackToInventoryReviseError(err: unknown): boolean {
 
 async function tryPublishInventoryListingFirst(
   input: Parameters<typeof publishInventoryBasedEbayListing>[0],
+  opts?: { allowSkuOfferLookup?: boolean },
 ): Promise<EbayPublishResult | null> {
   const skuCandidates = buildInventorySkuCandidates({
     auditId: input.auditId,
@@ -242,7 +243,7 @@ async function tryPublishInventoryListingFirst(
     accessToken: input.accessToken,
     listingId: input.itemId,
     skuCandidates,
-    listingIdOnly: true,
+    listingIdOnly: !opts?.allowSkuOfferLookup,
   });
   if (!offerRow) return null;
   try {
@@ -300,6 +301,60 @@ async function tryNormalizeHyphenEbayCustomLabel(input: {
   return normalized;
 }
 
+async function pushViaInventoryWhenOfferLinked(
+  input: Parameters<typeof publishInventoryBasedEbayListing>[0],
+  ebayCustomLabel: string | null,
+): Promise<EbayPublishResult | null> {
+  const label = ebayCustomLabel?.trim() || "";
+
+  const profileSku = await loadProfileSku(input.auditId);
+  const skuCandidates = buildInventorySkuCandidates({
+    auditId: input.auditId,
+    listingSku: input.listingRow?.sku,
+    profileSku,
+  });
+  let offerRow = await resolveInventoryOfferForListing({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    listingId: input.itemId,
+    skuCandidates,
+    listingIdOnly: true,
+  });
+  if (!offerRow) {
+    offerRow = await resolveInventoryOfferForListing({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      listingId: input.itemId,
+      skuCandidates,
+      listingIdOnly: false,
+    });
+  }
+  if (!offerRow) return null;
+
+  try {
+    const result = await publishInventoryBasedEbayListing(input, offerRow);
+    if (label && !isValidEbayInventorySku(label)) {
+      const normalized = normalizeToEbayInventorySku(label);
+      const skuNote = normalized
+        ? `eBay custom label was normalized to "${normalized}" for inventory sync.`
+        : undefined;
+      if (skuNote) {
+        return {
+          ...result,
+          warning: result.warning ? `${result.warning} ${skuNote}` : skuNote,
+        };
+      }
+    }
+    return result;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (isEbayOfferNotAvailableMessage(message) || isInvalidEbayInventorySkuError(message)) {
+      return null;
+    }
+    throw err;
+  }
+}
+
 async function tryInventoryPushAfterTradingFailure(
   input: Parameters<typeof publishInventoryBasedEbayListing>[0],
   tradingErr: unknown,
@@ -332,9 +387,17 @@ async function tryInventoryPushAfterTradingFailure(
     );
   }
 
-  const inventory = await tryPublishInventoryListingFirst(input);
+  const inventory = await tryPublishInventoryListingFirst(input, { allowSkuOfferLookup: true });
   if (inventory) return inventory;
-  throw tradingErr instanceof Error ? tradingErr : new Error(String(tradingErr));
+
+  const labelNote = label ? ` eBay custom label: "${label}".` : "";
+  throw new Error(
+    "This listing is managed in eBay Inventory (Trading cannot update it). "
+    + "SellerLens could not find or update the inventory offer for this item."
+    + ` Item id ${input.itemId}.${labelNote} `
+    + "In sandbox Seller Hub → Inventory, check offers for this listing, or try List as new again on a product that is not yet linked. "
+    + `eBay said: ${tradingMessage}`,
+  );
 }
 
 async function syncEbayMarketplaceSkuFromListing(input: {
@@ -495,6 +558,14 @@ export async function publishListingToEbay(input: {
     currency,
     imageWarning,
   };
+
+  const inventoryFirst = await pushViaInventoryWhenOfferLinked(
+    inventoryPublishInput,
+    ebayCustomLabel,
+  );
+  if (inventoryFirst) {
+    return inventoryFirst;
+  }
 
   let pictureFallbackWarning: string | undefined;
   try {
