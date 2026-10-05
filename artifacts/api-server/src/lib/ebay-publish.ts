@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Audit, ImageRecord } from "@workspace/db";
-import { db, productMarketplaceListingsTable } from "@workspace/db";
+import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
 import {
   parseEbayItemIdFromListingUrl,
   parseEbayItemIdFromSku,
@@ -17,6 +17,12 @@ import { getEbayWorkspaceConnection } from "./ebay-workspace-connection.js";
 import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
 import { materializeAuditImagesForPublish } from "./materialize-audit-images-for-publish.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
+import {
+  isInventoryBasedListingReviseError,
+  resolveInventoryOfferForListing,
+  updateInventoryBasedEbayListing,
+} from "./ebay-inventory-listing-update.js";
+import { generatedEbayListingSku } from "./ebay-listing-sku.js";
 
 export type EbayPublishResult = {
   itemId: string;
@@ -126,6 +132,90 @@ async function reviseListingContentWithPictureFallback(input: {
   throw lastError ?? new Error("eBay listing update failed.");
 }
 
+async function publishInventoryBasedEbayListing(input: {
+  environment: "sandbox" | "production";
+  accessToken: string;
+  auditId: number;
+  itemId: string;
+  listingRow: typeof productMarketplaceListingsTable.$inferSelect | undefined;
+  listingUrl: string;
+  title: string;
+  descriptionHtml: string;
+  pictureUrls: string[];
+  priceCents: number | null;
+  currency: string;
+  imageWarning?: string;
+}): Promise<EbayPublishResult> {
+  const [profile] = await db
+    .select({ sku: productProfilesTable.sku })
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, input.auditId))
+    .limit(1);
+
+  const skuCandidates = [
+    input.listingRow?.sku,
+    profile?.sku,
+    `SL-${input.auditId}`,
+    generatedEbayListingSku(input.itemId),
+  ].filter((sku): sku is string => Boolean(sku?.trim()));
+
+  const offerRow = await resolveInventoryOfferForListing({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    listingId: input.itemId,
+    skuCandidates,
+  });
+  if (!offerRow) {
+    throw new Error(
+      "This eBay listing was created with inventory management. SellerLens could not find the matching inventory offer — try reconnecting eBay or contact support.",
+    );
+  }
+
+  const { listingId, warning: inventoryWarning } = await updateInventoryBasedEbayListing({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    offerRow,
+    title: input.title,
+    descriptionHtml: input.descriptionHtml,
+    pictureUrls: input.pictureUrls,
+    priceCents: input.priceCents,
+    currency: input.currency,
+  });
+
+  const listingUrl = input.listingRow?.listingUrl?.trim()
+    || productionListingUrl(input.environment, listingId);
+  const warnings: string[] = [];
+  if (input.imageWarning) warnings.push(input.imageWarning);
+  if (inventoryWarning) warnings.push(inventoryWarning);
+
+  const now = new Date();
+  if (input.listingRow) {
+    await db
+      .update(productMarketplaceListingsTable)
+      .set({
+        status: "live",
+        sku: input.listingRow.sku ?? generatedEbayListingSku(listingId),
+        listingUrl,
+        priceCents: input.priceCents ?? input.listingRow.priceCents,
+        currency: input.currency || input.listingRow.currency,
+        publishedAt: input.listingRow.publishedAt ?? now,
+        updatedAt: now,
+      })
+      .where(eq(productMarketplaceListingsTable.id, input.listingRow.id));
+  }
+
+  return {
+    itemId: listingId,
+    listingUrl,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
+  };
+}
+
+function shouldFallbackToInventoryReviseError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return isInventoryBasedListingReviseError(message);
+}
+
 export async function publishListingToEbay(input: {
   workspaceId: number;
   audit: Audit;
@@ -196,14 +286,37 @@ export async function publishListingToEbay(input: {
 
   const { priceCents, currency } = await resolveEbayPublishPriceCents(input.audit.id);
 
-  const pictureFallbackWarning = await reviseListingContentWithPictureFallback({
+  const inventoryPublishInput = {
     environment,
     accessToken,
+    auditId: input.audit.id,
     itemId,
+    listingRow,
+    listingUrl,
     title,
     descriptionHtml,
     pictureUrls,
-  });
+    priceCents,
+    currency,
+    imageWarning,
+  };
+
+  let pictureFallbackWarning: string | undefined;
+  try {
+    pictureFallbackWarning = await reviseListingContentWithPictureFallback({
+      environment,
+      accessToken,
+      itemId,
+      title,
+      descriptionHtml,
+      pictureUrls,
+    });
+  } catch (err) {
+    if (shouldFallbackToInventoryReviseError(err)) {
+      return publishInventoryBasedEbayListing(inventoryPublishInput);
+    }
+    throw err;
+  }
 
   const warnings: string[] = [];
   if (imageWarning) warnings.push(imageWarning);
@@ -219,6 +332,9 @@ export async function publishListingToEbay(input: {
         currency,
       });
     } catch (err) {
+      if (shouldFallbackToInventoryReviseError(err)) {
+        return publishInventoryBasedEbayListing(inventoryPublishInput);
+      }
       const message = err instanceof Error ? err.message : "Price update failed";
       warnings.push(`Listing content was updated but price could not be changed: ${message}`);
     }
