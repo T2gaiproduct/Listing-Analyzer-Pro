@@ -9,6 +9,7 @@ import {
   coerceEbayOfferSku,
   isEbayOfferNotAvailableMessage,
   isValidEbayInventorySku,
+  normalizeToEbayInventorySku,
 } from "./ebay-listing-sku.js";
 
 const MARKETPLACE_ID = "EBAY_US";
@@ -66,7 +67,10 @@ function inventoryRowFromOfferFull(
   full: EbayOfferFull,
   status?: string,
 ): InventoryOfferRow | null {
-  const sku = coerceEbayOfferSku(full.sku);
+  const rawSku = coerceEbayOfferSku(full.sku);
+  const sku = isValidEbayInventorySku(rawSku)
+    ? rawSku.trim()
+    : (normalizeToEbayInventorySku(rawSku) ?? "");
   if (!sku || !isValidEbayInventorySku(sku)) {
     return null;
   }
@@ -351,12 +355,15 @@ async function updateInventoryBasedEbayListingOnce(input: {
     offerId: input.offerRow.offerId,
   });
 
-  const inventorySku = coerceEbayOfferSku(offer.sku).trim();
+  const rawOfferSku = coerceEbayOfferSku(offer.sku).trim() || input.offerRow.sku.trim();
+  const inventorySku = isValidEbayInventorySku(rawOfferSku)
+    ? rawOfferSku
+    : (normalizeToEbayInventorySku(rawOfferSku) ?? "");
   if (!isValidEbayInventorySku(inventorySku)) {
     throw new Error(
       `[25707] This is an invalid value for a SKU. Only alphanumeric characters can be used for SKUs, and their length must not exceed 50 characters. `
-      + `Your eBay listing uses SKU "${coerceEbayOfferSku(offer.sku) || input.offerRow.sku}". `
-      + "SellerLens will update this listing via eBay Trading instead of Inventory.",
+      + `Your eBay listing uses SKU "${rawOfferSku}". `
+      + "Change the custom label in Seller Hub to letters and digits only, then push again.",
     );
   }
 

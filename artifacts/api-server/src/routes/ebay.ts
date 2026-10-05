@@ -44,10 +44,13 @@ import { resolveWorkspaceContext, requireWorkspacePerm as checkPerm } from "../l
 const router: IRouter = Router();
 
 function ebayCustomLabelHint(errorMessage: string): string | undefined {
-  if (!/\[?25707\]?|invalid value for a SKU/i.test(errorMessage)) {
-    return undefined;
+  if (/\[?25707\]?|invalid value for a SKU/i.test(errorMessage)) {
+    return "Push hit eBay Inventory with a hyphenated custom label (e.g. WAL-LAM-0880). Set Custom label in sandbox to letters/digits only (WALLAMP0880), or redeploy for auto-normalize.";
   }
-  return "Push hit eBay Inventory with a hyphenated custom label (e.g. WAL-LAM-0880). Use Push after redeploy, or set Custom label in sandbox to letters/digits only (WALLAMP0880).";
+  if (/inventory-based listing management is not currently supported/i.test(errorMessage)) {
+    return "This listing was created with eBay Inventory. SellerLens should update via Inventory, not Trading — redeploy latest API or check Seller Hub → Inventory for the offer on this item id.";
+  }
+  return undefined;
 }
 
 interface AuthedRequest extends Request {
