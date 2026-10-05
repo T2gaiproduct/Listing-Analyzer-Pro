@@ -157,7 +157,7 @@ export async function publishListingToEbay(input: {
     ?? parseEbayItemIdFromSku(listingRow?.sku);
   if (!itemId) {
     throw new Error(
-      "This product is not linked to an eBay listing. Import it from eBay first so SellerLens knows which Item ID to update.",
+      "This product is not linked to an eBay listing. Use Marketplaces → List as new on eBay (sandbox), or import an existing listing to push updates.",
     );
   }
 
