@@ -225,7 +225,7 @@ export async function createNewEbayListingFromAudit(
     aspects,
   });
 
-  const { listingId } = await createAndPublishEbayOffer({
+  const { listingId, warning: offerWarning } = await createAndPublishEbayOffer({
     environment,
     accessToken,
     sku,
@@ -272,10 +272,11 @@ export async function createNewEbayListingFromAudit(
     });
   }
 
+  const warnings = [imageWarning, offerWarning].filter(Boolean);
   return {
     itemId: listingId,
     listingUrl,
     sku,
-    warning: imageWarning,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
   };
 }

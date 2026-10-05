@@ -100,6 +100,14 @@ type EbayOfferSummary = {
   listingId?: string;
 };
 
+function isEbayOfferNotAvailableError(message: string): boolean {
+  return /25713|offer is not available/i.test(message);
+}
+
+function isEbayOfferMissingError(message: string): boolean {
+  return /25710|didn't find the resource|could not load eBay offer/i.test(message);
+}
+
 function buildOfferPayload(input: {
   sku: string;
   categoryId: string;
@@ -170,19 +178,24 @@ async function fetchOffersBySku(input: {
     .filter((row) => row.offerId);
 }
 
-async function fetchOfferDetails(input: {
+async function tryFetchOfferDetails(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
   offerId: string;
-}): Promise<EbayOfferSummary> {
+}): Promise<EbayOfferSummary | null> {
   const res = await ebayRestFetch(
     input.environment,
     input.accessToken,
     `/sell/inventory/v1/offer/${encodeURIComponent(input.offerId)}`,
   );
   const text = await res.text();
+  if (res.status === 404) return null;
   if (!res.ok) {
-    throw new Error(parseEbayRestError(text, "Could not load eBay offer details."));
+    const message = parseEbayRestError(text, "Could not load eBay offer details.");
+    if (isEbayOfferNotAvailableError(message) || isEbayOfferMissingError(message)) {
+      return null;
+    }
+    throw new Error(message);
   }
   const data = JSON.parse(text) as {
     offerId?: string;
@@ -194,6 +207,12 @@ async function fetchOfferDetails(input: {
     status: data.status?.trim(),
     listingId: data.listing?.listingId?.trim(),
   };
+}
+
+function liveListingIdFromOffer(details: EbayOfferSummary): string | null {
+  const listingId = details.listingId?.trim();
+  if (listingId) return listingId;
+  return null;
 }
 
 async function updateEbayOffer(input: {
@@ -279,35 +298,88 @@ async function resolveOfferIdForPublish(input: {
   accessToken: string;
   sku: string;
   payload: ReturnType<typeof buildOfferPayload>;
-}): Promise<{ offerId: string; listingId?: string; alreadyPublished: boolean }> {
+}): Promise<{
+  offerId: string;
+  listingId?: string;
+  alreadyPublished: boolean;
+  linkExistingWarning?: string;
+}> {
   const existing = await fetchOffersBySku({
     environment: input.environment,
     accessToken: input.accessToken,
     sku: input.sku,
   });
 
-  const published = existing.find((row) => row.status === "PUBLISHED" || row.listingId);
-  if (published?.listingId) {
-    return { offerId: published.offerId, listingId: published.listingId, alreadyPublished: true };
+  const draftCandidates: EbayOfferSummary[] = [];
+
+  for (const row of existing) {
+    const details = await tryFetchOfferDetails({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: row.offerId,
+    });
+    if (!details) {
+      await deleteEbayOffer({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: row.offerId,
+      }).catch(() => undefined);
+      continue;
+    }
+    const listingId = liveListingIdFromOffer(details);
+    if (listingId) {
+      return {
+        offerId: details.offerId,
+        listingId,
+        alreadyPublished: true,
+        linkExistingWarning:
+          "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+      };
+    }
+    if (details.status?.toUpperCase() !== "PUBLISHED") {
+      draftCandidates.push(details);
+    }
   }
 
-  const draft = existing.find((row) => row.status !== "PUBLISHED") ?? existing[0];
+  const draft = draftCandidates[0];
   if (draft) {
-    await updateEbayOffer({
-      environment: input.environment,
-      accessToken: input.accessToken,
-      offerId: draft.offerId,
-      payload: input.payload,
-    });
-    const refreshed = await fetchOfferDetails({
-      environment: input.environment,
-      accessToken: input.accessToken,
-      offerId: draft.offerId,
-    });
-    if (refreshed.listingId) {
-      return { offerId: draft.offerId, listingId: refreshed.listingId, alreadyPublished: true };
+    try {
+      await updateEbayOffer({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: draft.offerId,
+        payload: input.payload,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!isEbayOfferNotAvailableError(message) && !isEbayOfferMissingError(message)) {
+        throw err;
+      }
+      await deleteEbayOffer({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: draft.offerId,
+      }).catch(() => undefined);
     }
-    return { offerId: draft.offerId, alreadyPublished: false };
+
+    const refreshed = await tryFetchOfferDetails({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: draft.offerId,
+    });
+    if (refreshed) {
+      const listingId = liveListingIdFromOffer(refreshed);
+      if (listingId) {
+        return {
+          offerId: refreshed.offerId,
+          listingId,
+          alreadyPublished: true,
+          linkExistingWarning:
+            "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+        };
+      }
+      return { offerId: refreshed.offerId, alreadyPublished: false };
+    }
   }
 
   try {
@@ -325,16 +397,109 @@ async function resolveOfferIdForPublish(input: {
       accessToken: input.accessToken,
       sku: input.sku,
     });
-    const retryDraft = retryExisting[0];
-    if (!retryDraft) throw err;
-    await updateEbayOffer({
+    for (const retryDraft of retryExisting) {
+      const details = await tryFetchOfferDetails({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId: retryDraft.offerId,
+      });
+      if (!details) continue;
+      const listingId = liveListingIdFromOffer(details);
+      if (listingId) {
+        return {
+          offerId: details.offerId,
+          listingId,
+          alreadyPublished: true,
+          linkExistingWarning:
+            "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+        };
+      }
+      try {
+        await updateEbayOffer({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          offerId: details.offerId,
+          payload: input.payload,
+        });
+        return { offerId: details.offerId, alreadyPublished: false };
+      } catch (updateErr) {
+        const updateMessage = updateErr instanceof Error ? updateErr.message : String(updateErr);
+        if (isEbayOfferNotAvailableError(updateMessage) || isEbayOfferMissingError(updateMessage)) {
+          await deleteEbayOffer({
+            environment: input.environment,
+            accessToken: input.accessToken,
+            offerId: details.offerId,
+          }).catch(() => undefined);
+          continue;
+        }
+        throw updateErr;
+      }
+    }
+    const offerId = await createEbayOffer({
       environment: input.environment,
       accessToken: input.accessToken,
-      offerId: retryDraft.offerId,
       payload: input.payload,
     });
-    return { offerId: retryDraft.offerId, alreadyPublished: false };
+    return { offerId, alreadyPublished: false };
   }
+}
+
+async function publishOfferWithStaleRecovery(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  offerId: string;
+  payload: ReturnType<typeof buildOfferPayload>;
+}): Promise<{ offerId: string; listingId: string; staleOfferWarning?: string }> {
+  const beforePublish = await tryFetchOfferDetails({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    offerId: input.offerId,
+  });
+  if (beforePublish) {
+    const existingListingId = liveListingIdFromOffer(beforePublish);
+    if (existingListingId) {
+      return { offerId: beforePublish.offerId, listingId: existingListingId };
+    }
+  }
+
+  try {
+    const listingId = await publishEbayOffer({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: input.offerId,
+    });
+    return { offerId: input.offerId, listingId };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!isEbayOfferNotAvailableError(message)) {
+      throw err;
+    }
+  }
+
+  await deleteEbayOffer({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    offerId: input.offerId,
+  }).catch(() => undefined);
+
+  const newOfferId = await createEbayOffer({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    payload: input.payload,
+  });
+
+  const listingId = await publishEbayOffer({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    offerId: newOfferId,
+  });
+
+  return {
+    offerId: newOfferId,
+    listingId,
+    staleOfferWarning:
+      "eBay had a stale draft offer for this SKU. SellerLens created a fresh offer and published it.",
+  };
 }
 
 export async function createAndPublishEbayOffer(input: {
@@ -350,7 +515,7 @@ export async function createAndPublishEbayOffer(input: {
   returnPolicyId: string;
   merchantLocationKey: string;
   listingDescriptionHtml: string;
-}): Promise<{ offerId: string; listingId: string }> {
+}): Promise<{ offerId: string; listingId: string; warning?: string }> {
   const offerPayload = buildOfferPayload(input);
 
   const resolved = await resolveOfferIdForPublish({
@@ -361,16 +526,26 @@ export async function createAndPublishEbayOffer(input: {
   });
 
   if (resolved.alreadyPublished && resolved.listingId) {
-    return { offerId: resolved.offerId, listingId: resolved.listingId };
+    return {
+      offerId: resolved.offerId,
+      listingId: resolved.listingId,
+      warning: resolved.linkExistingWarning,
+    };
   }
 
-  const listingId = await publishEbayOffer({
+  const published = await publishOfferWithStaleRecovery({
     environment: input.environment,
     accessToken: input.accessToken,
     offerId: resolved.offerId,
+    payload: offerPayload,
   });
 
-  return { offerId: resolved.offerId, listingId };
+  const warnings = [resolved.linkExistingWarning, published.staleOfferWarning].filter(Boolean);
+  return {
+    offerId: published.offerId,
+    listingId: published.listingId,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
+  };
 }
 
 export function ebayListingUrl(environment: EbayOAuthEnvironment, listingId: string): string {
