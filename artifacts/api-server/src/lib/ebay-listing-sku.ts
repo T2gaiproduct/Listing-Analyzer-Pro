@@ -26,10 +26,33 @@ export function normalizeToEbayInventorySku(sku: string | null | undefined): str
 
 /** SKU used for Inventory API create/offer (not the Trading-only `SL-{itemId}` link label). */
 /** Read sku from eBay offer JSON (string or number). */
+export function isEbayOfferNotAvailableMessage(message: string): boolean {
+  return /\[?25713\]?|offer is not available/i.test(message);
+}
+
 export function coerceEbayOfferSku(raw: unknown): string {
   if (typeof raw === "string") return raw.trim();
   if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
   return "";
+}
+
+/** Stable inventory SKU for List-as-new (one eBay inventory item per SellerLens product). */
+export function defaultEbayInventorySkuForAudit(auditId: number): string {
+  const sku = `SL${auditId}`;
+  if (!isValidEbayInventorySku(sku)) {
+    throw new Error("Could not derive a valid eBay inventory SKU for this product.");
+  }
+  return sku;
+}
+
+/** Fallback inventory SKU when sandbox still has a broken offer on the default SKU. */
+export function alternateEbayInventorySkuForAudit(auditId: number): string {
+  const suffix = Date.now().toString(36).slice(-5).replace(/[^a-z0-9]/gi, "").toUpperCase() || "R";
+  const sku = `SL${auditId}R${suffix}`.slice(0, 50);
+  if (!isValidEbayInventorySku(sku)) {
+    return defaultEbayInventorySkuForAudit(auditId);
+  }
+  return sku;
 }
 
 export function resolveEbayInventorySku(opts: {

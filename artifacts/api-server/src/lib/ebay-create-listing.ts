@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Audit, ImageRecord } from "@workspace/db";
-import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
+import { db, productMarketplaceListingsTable } from "@workspace/db";
 import {
   parseEbayItemIdFromListingUrl,
   parseEbayItemIdFromSku,
@@ -21,10 +21,15 @@ import { resolveListingContentForExport } from "./resolve-listing-content.js";
 import {
   createAndPublishEbayOffer,
   ebayListingUrl,
+  purgeBlockingOffersForSku,
   resolveEbayMerchantLocationKey,
   upsertEbayInventoryItem,
 } from "./ebay-inventory-offers.js";
-import { resolveEbayInventorySku } from "./ebay-listing-sku.js";
+import {
+  alternateEbayInventorySkuForAudit,
+  defaultEbayInventorySkuForAudit,
+  isEbayOfferNotAvailableMessage,
+} from "./ebay-listing-sku.js";
 
 export type CreateEbayListingInput = {
   workspaceId: number;
@@ -153,17 +158,10 @@ export async function createNewEbayListingFromAudit(
     throw new Error("Set a price on this product before publishing to eBay.");
   }
 
-  const [profile] = await db
-    .select({ sku: productProfilesTable.sku })
-    .from(productProfilesTable)
-    .where(eq(productProfilesTable.auditId, input.audit.id))
-    .limit(1);
-
-  const sku = resolveEbayInventorySku({
-    profileSku: profile?.sku,
-    listingSku: listingRow?.sku,
-    auditId: input.audit.id,
-  });
+  // One inventory SKU per SellerLens product — avoids sandbox junk on profile/custom SKUs.
+  let inventorySku = defaultEbayInventorySkuForAudit(input.audit.id);
+  let forceFreshOffer = false;
+  let skuRetryWarning: string | undefined;
 
   if (!input.fulfillmentPolicyId?.trim()
     || !input.paymentPolicyId?.trim()
@@ -213,22 +211,9 @@ export async function createNewEbayListingFromAudit(
   const aspects = buildAspectsForInventory(aspectFields, input.itemAspects);
   assertRequiredAspectsPresent(aspectFields, aspects);
 
-  await upsertEbayInventoryItem({
+  const offerInput = {
     environment,
     accessToken,
-    sku,
-    title,
-    descriptionHtml,
-    imageUrls: pictureUrls,
-    quantity,
-    condition,
-    aspects,
-  });
-
-  const { listingId, warning: offerWarning } = await createAndPublishEbayOffer({
-    environment,
-    accessToken,
-    sku,
     categoryId,
     priceCents,
     currency,
@@ -238,7 +223,44 @@ export async function createNewEbayListingFromAudit(
     returnPolicyId: input.returnPolicyId.trim(),
     merchantLocationKey,
     listingDescriptionHtml: descriptionHtml,
-  });
+  };
+
+  const upsertAndPublish = async (sku: string, fresh: boolean) => {
+    await purgeBlockingOffersForSku({ environment, accessToken, sku });
+    await upsertEbayInventoryItem({
+      environment,
+      accessToken,
+      sku,
+      title,
+      descriptionHtml,
+      imageUrls: pictureUrls,
+      quantity,
+      condition,
+      aspects,
+    });
+    return createAndPublishEbayOffer({
+      ...offerInput,
+      sku,
+      forceFreshOffer: fresh,
+    });
+  };
+
+  let publishResult: Awaited<ReturnType<typeof createAndPublishEbayOffer>>;
+  try {
+    publishResult = await upsertAndPublish(inventorySku, forceFreshOffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!isEbayOfferNotAvailableMessage(message)) {
+      throw err;
+    }
+    inventorySku = alternateEbayInventorySkuForAudit(input.audit.id);
+    forceFreshOffer = true;
+    skuRetryWarning =
+      "eBay sandbox still had a broken offer for this product. SellerLens retried with a new inventory SKU.";
+    publishResult = await upsertAndPublish(inventorySku, forceFreshOffer);
+  }
+
+  const { listingId, warning: offerWarning } = publishResult;
 
   const listingUrl = ebayListingUrl(environment, listingId);
   const now = new Date();
@@ -248,7 +270,7 @@ export async function createNewEbayListingFromAudit(
       .update(productMarketplaceListingsTable)
       .set({
         status: "live",
-        sku,
+        sku: inventorySku,
         listingUrl,
         priceCents,
         currency,
@@ -272,11 +294,11 @@ export async function createNewEbayListingFromAudit(
     });
   }
 
-  const warnings = [imageWarning, offerWarning].filter(Boolean);
+  const warnings = [imageWarning, offerWarning, skuRetryWarning].filter(Boolean);
   return {
     itemId: listingId,
     listingUrl,
-    sku,
+    sku: inventorySku,
     warning: warnings.length > 0 ? warnings.join(" ") : undefined,
   };
 }

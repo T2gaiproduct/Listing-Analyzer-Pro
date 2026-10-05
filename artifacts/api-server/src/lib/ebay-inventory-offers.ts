@@ -236,7 +236,7 @@ async function removeStaleOffer(input: {
 }
 
 /** Remove unpublished / ended offers for this SKU so a new offer can be published. */
-async function purgeBlockingOffersForSku(input: {
+export async function purgeBlockingOffersForSku(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
   sku: string;
@@ -648,8 +648,33 @@ export async function createAndPublishEbayOffer(input: {
   returnPolicyId: string;
   merchantLocationKey: string;
   listingDescriptionHtml: string;
+  forceFreshOffer?: boolean;
 }): Promise<{ offerId: string; listingId: string; warning?: string }> {
   const offerPayload = buildOfferPayload(input);
+
+  if (input.forceFreshOffer) {
+    await purgeBlockingOffersForSku({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      sku: input.sku.trim(),
+    });
+    const offerId = await createEbayOffer({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      payload: offerPayload,
+    });
+    const published = await publishOfferWithStaleRecovery({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId,
+      payload: offerPayload,
+    });
+    return {
+      offerId: published.offerId,
+      listingId: published.listingId,
+      warning: published.staleOfferWarning,
+    };
+  }
 
   const resolved = await resolveOfferIdForPublish({
     environment: input.environment,
