@@ -7,9 +7,12 @@ import {
 } from "./ebay-inventory-offers.js";
 import {
   coerceEbayOfferSku,
+  defaultEbayInventorySkuForAudit,
   isEbayOfferNotAvailableMessage,
+  isInvalidEbayInventorySkuError,
   isValidEbayInventorySku,
   normalizeToEbayInventorySku,
+  pickEbayInventorySkuForApi,
 } from "./ebay-listing-sku.js";
 
 const MARKETPLACE_ID = "EBAY_US";
@@ -338,6 +341,56 @@ function mapInventoryCondition(raw: string | undefined): "NEW" | "LIKE_NEW" | "U
   return "NEW";
 }
 
+function collectValidInventorySkuCandidates(
+  ...raws: Array<string | null | undefined>
+): string[] {
+  const out: string[] = [];
+  const push = (raw: string | null | undefined) => {
+    const trimmed = raw?.trim() ?? "";
+    if (!trimmed) return;
+    if (isValidEbayInventorySku(trimmed)) {
+      out.push(trimmed);
+      return;
+    }
+    const normalized = normalizeToEbayInventorySku(trimmed);
+    if (normalized && isValidEbayInventorySku(normalized)) {
+      out.push(normalized);
+    }
+  };
+  for (const raw of raws) push(raw);
+  return [...new Set(out)];
+}
+
+/** Prefer the SKU that already has an inventory item (avoids 25707 when Trading custom label has hyphens). */
+async function resolveInventorySkuForOfferUpdate(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  auditId: number;
+  rawOfferSku: string;
+  offerRowSku: string;
+  extraCandidates?: string[];
+}): Promise<string> {
+  const candidates = collectValidInventorySkuCandidates(
+    input.rawOfferSku,
+    input.offerRowSku,
+    defaultEbayInventorySkuForAudit(input.auditId),
+    ...(input.extraCandidates ?? []),
+  );
+  for (const sku of candidates) {
+    const item = await fetchEbayInventoryItemFull({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      sku,
+    });
+    if (item) return sku;
+  }
+  return pickEbayInventorySkuForApi({
+    offerSku: input.rawOfferSku,
+    rowSku: input.offerRowSku,
+    auditId: input.auditId,
+  });
+}
+
 async function updateInventoryBasedEbayListingOnce(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
@@ -348,6 +401,7 @@ async function updateInventoryBasedEbayListingOnce(input: {
   pictureUrls: string[];
   priceCents: number | null;
   currency: string;
+  extraSkuCandidates?: string[];
 }): Promise<{ listingId: string; inventorySku: string; warning?: string }> {
   const offer = await fetchEbayOfferFull({
     environment: input.environment,
@@ -356,10 +410,21 @@ async function updateInventoryBasedEbayListingOnce(input: {
   });
 
   const rawOfferSku = coerceEbayOfferSku(offer.sku).trim() || input.offerRow.sku.trim();
-  const inventorySku = isValidEbayInventorySku(rawOfferSku)
-    ? rawOfferSku
-    : (normalizeToEbayInventorySku(rawOfferSku) ?? "");
-  if (!isValidEbayInventorySku(inventorySku)) {
+  const skuTryOrder = collectValidInventorySkuCandidates(
+    await resolveInventorySkuForOfferUpdate({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      auditId: input.auditId,
+      rawOfferSku,
+      offerRowSku: input.offerRow.sku,
+      extraCandidates: input.extraSkuCandidates,
+    }),
+    rawOfferSku,
+    input.offerRow.sku,
+    defaultEbayInventorySkuForAudit(input.auditId),
+    ...(input.extraSkuCandidates ?? []),
+  );
+  if (skuTryOrder.length === 0) {
     throw new Error(
       `[25707] This is an invalid value for a SKU. Only alphanumeric characters can be used for SKUs, and their length must not exceed 50 characters. `
       + `Your eBay listing uses SKU "${rawOfferSku}". `
@@ -367,56 +432,82 @@ async function updateInventoryBasedEbayListingOnce(input: {
     );
   }
 
-  const existingItem = await fetchEbayInventoryItemFull({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    sku: inventorySku,
-  });
+  let inventorySku = skuTryOrder[0]!;
+  let lastSkuError: Error | null = null;
 
-  const quantity = existingItem?.availability?.shipToLocationAvailability?.quantity
-    ?? offer.quantity
-    ?? 1;
+  for (const trySku of skuTryOrder) {
+    const existingItem = await fetchEbayInventoryItemFull({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      sku: trySku,
+    });
 
-  await upsertEbayInventoryItem({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    sku: inventorySku,
-    title: input.title,
-    descriptionHtml: input.descriptionHtml,
-    imageUrls: input.pictureUrls,
-    quantity: Math.max(1, quantity),
-    condition: mapInventoryCondition(existingItem?.condition),
-    aspects: existingItem?.product?.aspects,
-  });
+    const quantity = existingItem?.availability?.shipToLocationAvailability?.quantity
+      ?? offer.quantity
+      ?? 1;
 
-  const priceValue = input.priceCents != null && input.priceCents > 0
-    ? (input.priceCents / 100).toFixed(2)
-    : offer.pricingSummary.price.value;
-  const currency = (input.currency?.trim() || offer.pricingSummary.price.currency || "USD").toUpperCase();
+    try {
+      await upsertEbayInventoryItem({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        sku: trySku,
+        title: input.title,
+        descriptionHtml: input.descriptionHtml,
+        imageUrls: input.pictureUrls,
+        quantity: Math.max(1, quantity),
+        condition: mapInventoryCondition(existingItem?.condition),
+        aspects: existingItem?.product?.aspects,
+      });
 
-  const offerBody = {
-    sku: inventorySku,
-    marketplaceId: offer.marketplaceId || MARKETPLACE_ID,
-    format: offer.format || "FIXED_PRICE",
-    categoryId: offer.categoryId,
-    listingDescription: input.descriptionHtml,
-    listingPolicies: offer.listingPolicies,
-    pricingSummary: {
-      price: { value: priceValue, currency },
-    },
-    quantity: Math.max(1, quantity),
-    merchantLocationKey: offer.merchantLocationKey,
-  };
+      const priceValue = input.priceCents != null && input.priceCents > 0
+        ? (input.priceCents / 100).toFixed(2)
+        : offer.pricingSummary.price.value;
+      const currency = (input.currency?.trim() || offer.pricingSummary.price.currency || "USD").toUpperCase();
 
-  const updateRes = await ebayRestFetch(
-    input.environment,
-    input.accessToken,
-    `/sell/inventory/v1/offer/${encodeURIComponent(offer.offerId)}`,
-    { method: "PUT", body: JSON.stringify(offerBody) },
-  );
-  const updateText = await updateRes.text();
-  if (!updateRes.ok) {
-    throw new Error(parseEbayRestError(updateText, "Could not update eBay inventory offer."));
+      const offerBody = {
+        sku: trySku,
+        marketplaceId: offer.marketplaceId || MARKETPLACE_ID,
+        format: offer.format || "FIXED_PRICE",
+        categoryId: offer.categoryId,
+        listingDescription: input.descriptionHtml,
+        listingPolicies: offer.listingPolicies,
+        pricingSummary: {
+          price: { value: priceValue, currency },
+        },
+        quantity: Math.max(1, quantity),
+        merchantLocationKey: offer.merchantLocationKey,
+      };
+
+      const updateRes = await ebayRestFetch(
+        input.environment,
+        input.accessToken,
+        `/sell/inventory/v1/offer/${encodeURIComponent(offer.offerId)}`,
+        { method: "PUT", body: JSON.stringify(offerBody) },
+      );
+      const updateText = await updateRes.text();
+      if (!updateRes.ok) {
+        const message = parseEbayRestError(updateText, "Could not update eBay inventory offer.");
+        if (isInvalidEbayInventorySkuError(message)) {
+          lastSkuError = new Error(message);
+          continue;
+        }
+        throw new Error(message);
+      }
+      inventorySku = trySku;
+      lastSkuError = null;
+      break;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (isInvalidEbayInventorySkuError(message)) {
+        lastSkuError = err instanceof Error ? err : new Error(message);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (lastSkuError) {
+    throw lastSkuError;
   }
 
   const listingId = offer.listing?.listingId?.trim()
@@ -443,6 +534,7 @@ export async function updateInventoryBasedEbayListing(input: {
   pictureUrls: string[];
   priceCents: number | null;
   currency: string;
+  extraSkuCandidates?: string[];
 }): Promise<{ listingId: string; inventorySku: string; warning?: string }> {
   const targetListingId = input.listingId.trim();
   let offerRow = input.offerRow;
@@ -460,6 +552,7 @@ export async function updateInventoryBasedEbayListing(input: {
         pictureUrls: input.pictureUrls,
         priceCents: input.priceCents,
         currency: input.currency,
+        extraSkuCandidates: input.extraSkuCandidates,
       });
       const warnings = [staleRecoveryWarning, result.warning].filter(Boolean);
       return {
