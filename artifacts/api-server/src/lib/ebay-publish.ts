@@ -41,6 +41,93 @@ export type EbayPublishResult = {
   warning?: string;
 };
 
+function resolveDesiredSkuFromUi(
+  profileSku: string | null | undefined,
+  listingSku: string | null | undefined,
+): string | null {
+  const fromProfile = profileSku?.trim();
+  if (fromProfile) return fromProfile;
+  return listingSku?.trim() || null;
+}
+
+function joinEbayPublishWarnings(...parts: Array<string | undefined>): string | undefined {
+  const warnings = parts.filter((part) => Boolean(part?.trim()));
+  return warnings.length > 0 ? warnings.join(" ") : undefined;
+}
+
+/** Apply Product Explorer / overview SKU to eBay custom label (Trading ReviseItem). */
+async function trySyncEbayCustomLabelFromUi(input: {
+  environment: "sandbox" | "production";
+  accessToken: string;
+  itemId: string;
+  desiredSku: string | null;
+  ebayCustomLabel: string | null;
+}): Promise<{ warning?: string; applied: boolean }> {
+  const desired = input.desiredSku?.trim();
+  if (!desired) return { applied: false };
+  const current = input.ebayCustomLabel?.trim() ?? "";
+  if (desired.toLowerCase() === current.toLowerCase()) {
+    return { applied: false };
+  }
+
+  try {
+    await reviseEbayListingSku({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      itemId: input.itemId,
+      sku: desired,
+    });
+    return {
+      applied: true,
+      warning: `eBay custom label (SKU) updated to match Product Explorer: "${desired}".`,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (shouldUseInventoryApiAfterTradingReviseError(message)) {
+      return {
+        applied: false,
+        warning:
+          `Product Explorer SKU "${desired}" is saved in SellerLens. This listing is inventory-managed, so eBay may still show custom label "${current || "—"}".`,
+      };
+    }
+    return {
+      applied: false,
+      warning: `Listing synced; eBay custom label could not be set to "${desired}": ${message}`,
+    };
+  }
+}
+
+async function finalizeEbayPublishWithUiSku(input: {
+  result: EbayPublishResult;
+  environment: "sandbox" | "production";
+  accessToken: string;
+  itemId: string;
+  desiredUiSku: string | null;
+  ebayCustomLabel: string | null;
+  listingRow?: typeof productMarketplaceListingsTable.$inferSelect;
+}): Promise<EbayPublishResult> {
+  const skuSync = await trySyncEbayCustomLabelFromUi({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    itemId: input.itemId,
+    desiredSku: input.desiredUiSku,
+    ebayCustomLabel: input.ebayCustomLabel,
+  });
+  if (skuSync.applied && input.listingRow) {
+    const desired = input.desiredUiSku?.trim();
+    if (desired) {
+      await db
+        .update(productMarketplaceListingsTable)
+        .set({ sku: desired, updatedAt: new Date() })
+        .where(eq(productMarketplaceListingsTable.id, input.listingRow.id));
+    }
+  }
+  return {
+    ...input.result,
+    warning: joinEbayPublishWarnings(input.result.warning, skuSync.warning),
+  };
+}
+
 function productionListingUrl(environment: "sandbox" | "production", itemId: string): string {
   const host = environment === "sandbox" ? "https://www.sandbox.ebay.com" : "https://www.ebay.com";
   return `${host}/itm/${itemId}`;
@@ -517,6 +604,8 @@ export async function publishListingToEbay(input: {
   }
 
   const listingUrl = listingRow?.listingUrl?.trim() || productionListingUrl(connection.environment, itemId);
+  const profileSku = await loadProfileSku(input.audit.id);
+  const desiredUiSku = resolveDesiredSkuFromUi(profileSku, listingRow?.sku);
 
   const content = resolveListingContentForExport(input.audit);
   const title = truncateEbayListingTitle(content.title?.trim() ?? "");
@@ -583,7 +672,15 @@ export async function publishListingToEbay(input: {
     ebayCustomLabel,
   );
   if (inventoryFirst) {
-    return inventoryFirst;
+    return finalizeEbayPublishWithUiSku({
+      result: inventoryFirst,
+      environment,
+      accessToken,
+      itemId,
+      desiredUiSku,
+      ebayCustomLabel,
+      listingRow,
+    });
   }
 
   let pictureFallbackWarning: string | undefined;
@@ -598,7 +695,20 @@ export async function publishListingToEbay(input: {
     });
   } catch (err) {
     if (shouldFallbackToInventoryReviseError(err)) {
-      return tryInventoryPushAfterTradingFailure(inventoryPublishInput, err, ebayCustomLabel);
+      const pushed = await tryInventoryPushAfterTradingFailure(
+        inventoryPublishInput,
+        err,
+        ebayCustomLabel,
+      );
+      return finalizeEbayPublishWithUiSku({
+        result: pushed,
+        environment,
+        accessToken,
+        itemId,
+        desiredUiSku,
+        ebayCustomLabel,
+        listingRow,
+      });
     }
     throw err;
   }
@@ -618,7 +728,20 @@ export async function publishListingToEbay(input: {
       });
     } catch (err) {
       if (shouldFallbackToInventoryReviseError(err)) {
-        return tryInventoryPushAfterTradingFailure(inventoryPublishInput, err, ebayCustomLabel);
+        const pushed = await tryInventoryPushAfterTradingFailure(
+          inventoryPublishInput,
+          err,
+          ebayCustomLabel,
+        );
+        return finalizeEbayPublishWithUiSku({
+          result: pushed,
+          environment,
+          accessToken,
+          itemId,
+          desiredUiSku,
+          ebayCustomLabel,
+          listingRow,
+        });
       }
       const message = err instanceof Error ? err.message : "Price update failed";
       warnings.push(`Listing content was updated but price could not be changed: ${message}`);
@@ -654,9 +777,17 @@ export async function publishListingToEbay(input: {
     });
   }
 
-  return {
+  return finalizeEbayPublishWithUiSku({
+    result: {
+      itemId,
+      listingUrl,
+      warning: warnings.length > 0 ? warnings.join(" ") : undefined,
+    },
+    environment,
+    accessToken,
     itemId,
-    listingUrl,
-    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
-  };
+    desiredUiSku,
+    ebayCustomLabel,
+    listingRow,
+  });
 }

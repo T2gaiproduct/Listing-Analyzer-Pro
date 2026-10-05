@@ -1943,8 +1943,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
       if (syncedPlatforms.length > 0) {
         const syncedDescription = syncedPlatforms.length === 1
-          ? `${syncedPlatforms[0]} listing updated with your latest content, images, and pricing.`
-          : `${syncedPlatforms.join(", ")} listings updated with your latest content, images, and pricing.`;
+          ? `${syncedPlatforms[0]} listing updated with your latest content, images, pricing, and SKU (where supported).`
+          : `${syncedPlatforms.join(", ")} listings updated with your latest content, images, pricing, and SKU (where supported).`;
         if (errors.length > 0) {
           toast({
             title: "Saved with partial marketplace sync",
