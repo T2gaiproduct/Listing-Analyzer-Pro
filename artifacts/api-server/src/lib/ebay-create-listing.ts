@@ -139,7 +139,7 @@ export async function createNewEbayListingFromAudit(
     ?? parseEbayItemIdFromSku(listingRow?.sku);
   if (existingItemId) {
     throw new Error(
-      "This product is already linked to an eBay listing. Use Push to eBay listing to update it.",
+      "This product is already linked to an eBay listing in SellerLens. Use Push to eBay listing to update it — List as new only creates a brand-new listing when no item is linked here.",
     );
   }
 

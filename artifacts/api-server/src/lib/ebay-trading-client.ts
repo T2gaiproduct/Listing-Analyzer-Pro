@@ -103,6 +103,8 @@ export type EbayTradingItemDetails = {
   primaryCategoryId: string | null;
   priceCents: number | null;
   currency: string;
+  /** SellingStatus.ListingStatus from GetItem (e.g. Active, Completed, Ended). */
+  listingStatus: string | null;
 };
 
 export type EbayItemSpecific = {
@@ -483,6 +485,9 @@ function parseGetItemDetailsXml(xml: string, itemId: string): EbayTradingItemDet
     const url = match[1]?.trim();
     if (url) imageUrls.push(url);
   }
+  const listingStatus = xml.match(
+    /<SellingStatus>[\s\S]*?<ListingStatus>([^<]*)<\/ListingStatus>/i,
+  )?.[1]?.trim() || null;
   return {
     itemId,
     sku,
@@ -492,7 +497,13 @@ function parseGetItemDetailsXml(xml: string, itemId: string): EbayTradingItemDet
     primaryCategoryId,
     priceCents: parsePriceCentsFromItemXml(xml),
     currency: parseCurrencyFromItemXml(xml),
+    listingStatus,
   };
+}
+
+export function isEbayTradingListingActive(details: Pick<EbayTradingItemDetails, "listingStatus">): boolean {
+  const status = details.listingStatus?.trim().toLowerCase() ?? "";
+  return status === "active";
 }
 
 /** Full listing payload for sandbox import when inventory migrate is unavailable. */

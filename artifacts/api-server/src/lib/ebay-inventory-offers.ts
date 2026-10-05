@@ -1,7 +1,10 @@
 import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
 import { coerceEbayOfferSku, isValidEbayInventorySku } from "./ebay-listing-sku.js";
 import { ebayRestFetch, parseEbayRestError } from "./ebay-rest-fetch.js";
-import { fetchEbayTradingItemDetails } from "./ebay-trading-client.js";
+import {
+  fetchEbayTradingItemDetails,
+  isEbayTradingListingActive,
+} from "./ebay-trading-client.js";
 
 const MARKETPLACE_ID = "EBAY_US";
 
@@ -290,7 +293,18 @@ export async function purgeStaleOffersForAuditInventorySkus(input: {
       offset,
     });
     for (const row of batch.offers) {
-      const sku = row.sku?.trim() ?? "";
+      let sku = row.sku?.trim() ?? "";
+      if (!sku || !skuPattern.test(sku)) {
+        const fullRes = await ebayRestFetch(
+          input.environment,
+          input.accessToken,
+          `/sell/inventory/v1/offer/${encodeURIComponent(row.offerId)}`,
+        );
+        if (fullRes.ok) {
+          const full = JSON.parse(await fullRes.text()) as { sku?: string };
+          sku = coerceEbayOfferSku(full.sku);
+        }
+      }
       if (!sku || !skuPattern.test(sku)) continue;
       const details: EbayOfferSummary = {
         offerId: row.offerId,
@@ -347,7 +361,7 @@ async function isEbayListingReachableOnTrading(input: {
       accessToken: input.accessToken,
       itemId: listingId,
     });
-    return Boolean(item.itemId?.trim());
+    return Boolean(item.itemId?.trim()) && isEbayTradingListingActive(item);
   } catch {
     return false;
   }
@@ -402,7 +416,13 @@ async function findPublishedListingForInventorySku(input: {
     });
     if (!details) continue;
     const listingId = liveListingIdFromOffer(details);
-    if (listingId) {
+    if (!listingId) continue;
+    const active = await isEbayListingReachableOnTrading({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      listingId,
+    });
+    if (active) {
       return { offerId: details.offerId, listingId };
     }
   }
@@ -846,7 +866,7 @@ async function publishOfferWithStaleRecovery(input: {
   let lastError: Error | null = null;
   let recoveryRounds = 0;
 
-  for (let round = 0; round < 6; round++) {
+  for (let round = 0; round < 10; round++) {
     const beforePublish = await tryFetchOfferDetails({
       environment: input.environment,
       accessToken: input.accessToken,

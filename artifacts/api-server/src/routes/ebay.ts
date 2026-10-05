@@ -358,7 +358,7 @@ router.post(
       res.status(400).json({
         error: message,
         apiBuildId: loadedBuildId,
-        hint: "List as new uses eBay Inventory (POST …/publish/ebay/create). Error 25713 is usually stale sandbox offers on inventory SKU SL{productId}.",
+        hint: "List as new creates a new eBay listing (Inventory API). Error 25713 means sandbox still has broken offers on SKUs like SL{productId} — not fixed by Push. Clear Inventory in sandbox or redeploy; use Push only when this product is already Live/linked.",
       });
     }
   },
