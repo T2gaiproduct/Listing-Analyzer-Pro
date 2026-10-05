@@ -236,6 +236,31 @@ async function removeStaleOffer(input: {
 }
 
 /** Remove unpublished / ended offers for this SKU so a new offer can be published. */
+async function findPublishedListingForInventorySku(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  sku: string;
+}): Promise<{ offerId: string; listingId: string } | null> {
+  const existing = await fetchOffersBySku({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    sku: input.sku,
+  });
+  for (const row of existing) {
+    const details = await tryFetchOfferDetails({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      offerId: row.offerId,
+    });
+    if (!details) continue;
+    const listingId = liveListingIdFromOffer(details);
+    if (listingId) {
+      return { offerId: details.offerId, listingId };
+    }
+  }
+  return null;
+}
+
 export async function purgeBlockingOffersForSku(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
@@ -651,6 +676,20 @@ export async function createAndPublishEbayOffer(input: {
   forceFreshOffer?: boolean;
 }): Promise<{ offerId: string; listingId: string; warning?: string }> {
   const offerPayload = buildOfferPayload(input);
+
+  const existingLive = await findPublishedListingForInventorySku({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    sku: input.sku.trim(),
+  });
+  if (existingLive) {
+    return {
+      offerId: existingLive.offerId,
+      listingId: existingLive.listingId,
+      warning:
+        "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+    };
+  }
 
   if (input.forceFreshOffer) {
     await purgeBlockingOffersForSku({

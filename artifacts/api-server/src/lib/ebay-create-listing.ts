@@ -160,8 +160,9 @@ export async function createNewEbayListingFromAudit(
 
   // One inventory SKU per SellerLens product — avoids sandbox junk on profile/custom SKUs.
   let inventorySku = defaultEbayInventorySkuForAudit(input.audit.id);
-  let forceFreshOffer = false;
   let skuRetryWarning: string | undefined;
+  // Never reuse sandbox draft offers on List as new — they often trigger eBay 25713.
+  const forceFreshOffer = true;
 
   if (!input.fulfillmentPolicyId?.trim()
     || !input.paymentPolicyId?.trim()
@@ -254,7 +255,6 @@ export async function createNewEbayListingFromAudit(
       throw err;
     }
     inventorySku = alternateEbayInventorySkuForAudit(input.audit.id);
-    forceFreshOffer = true;
     skuRetryWarning =
       "eBay sandbox still had a broken offer for this product. SellerLens retried with a new inventory SKU.";
     publishResult = await upsertAndPublish(inventorySku, forceFreshOffer);
