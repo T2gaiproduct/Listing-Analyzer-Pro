@@ -23,6 +23,7 @@ import {
   deleteEbayInventoryItem,
   ebayListingUrl,
   purgeAllOffersForCreateSku,
+  purgeStaleOffersForAuditInventorySkus,
   resolveEbayMerchantLocationKey,
   upsertEbayInventoryItem,
 } from "./ebay-inventory-offers.js";
@@ -225,6 +226,14 @@ export async function createNewEbayListingFromAudit(
     listingDescriptionHtml: descriptionHtml,
   };
 
+  if (environment === "sandbox") {
+    await purgeStaleOffersForAuditInventorySkus({
+      environment,
+      accessToken,
+      auditId: input.audit.id,
+    }).catch(() => undefined);
+  }
+
   const upsertAndPublish = async (sku: string, fresh: boolean) => {
     await purgeAllOffersForCreateSku({ environment, accessToken, sku });
     await deleteEbayInventoryItem({ environment, accessToken, sku }).catch(() => undefined);
@@ -248,7 +257,7 @@ export async function createNewEbayListingFromAudit(
 
   const inventorySkusToTry = inventorySkuCandidatesForNewListing(
     input.audit.id,
-    8,
+    12,
     environment === "sandbox",
   );
 
