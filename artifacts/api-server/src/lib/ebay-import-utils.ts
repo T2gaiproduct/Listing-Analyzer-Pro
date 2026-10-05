@@ -19,10 +19,14 @@ export function ebayAsin(sku: string): string {
   return `${EBAY_IMPORT_ASIN_PREFIX}${encodeURIComponent(sku.trim())}`;
 }
 
-/** Item ID from sandbox/production listing URL (`.../itm/123`). */
+/** Item ID from sandbox/production listing URL (`.../itm/123` or `.../itm/Title-Slug/123`). */
 export function parseEbayItemIdFromListingUrl(url: string | null | undefined): string | null {
-  const match = url?.match(/\/itm\/(\d+)/i);
-  return match?.[1] ?? null;
+  const trimmed = url?.trim();
+  if (!trimmed) return null;
+  const slugThenId = trimmed.match(/\/itm\/(?:[^/?#]+\/)*(\d{6,})(?:[/?#]|$)/i);
+  if (slugThenId?.[1]) return slugThenId[1];
+  const direct = trimmed.match(/\/itm\/(\d{6,})(?:[/?#]|$)/i);
+  return direct?.[1] ?? null;
 }
 
 /** Item ID from SellerLens auto-SKU `SL-{itemId}` or a numeric id. */
