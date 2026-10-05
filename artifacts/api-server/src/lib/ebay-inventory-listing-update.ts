@@ -59,9 +59,7 @@ export function isInventoryBasedListingReviseError(message: string): boolean {
 }
 
 export function shouldUseInventoryApiAfterTradingReviseError(message: string): boolean {
-  return isInventoryBasedListingReviseError(message)
-    || /invalid value for a SKU/i.test(message)
-    || /only alphanumeric characters can be used for SKUs/i.test(message);
+  return isInventoryBasedListingReviseError(message);
 }
 
 function inventoryRowFromOfferFull(
@@ -251,6 +249,8 @@ export async function resolveInventoryOfferForListing(input: {
   accessToken: string;
   listingId: string;
   skuCandidates: string[];
+  /** When true (push), only match offers tied to this listing id — avoids stale SKU offers. */
+  listingIdOnly?: boolean;
 }): Promise<InventoryOfferRow | null> {
   const byListing = await findInventoryOfferByListingId({
     environment: input.environment,
@@ -258,6 +258,10 @@ export async function resolveInventoryOfferForListing(input: {
     listingId: input.listingId,
   });
   if (byListing) return byListing;
+
+  if (input.listingIdOnly) {
+    return null;
+  }
 
   for (const sku of input.skuCandidates) {
     const trimmed = sku.trim();

@@ -224,15 +224,17 @@ function shouldFallbackToInventoryReviseError(err: unknown): boolean {
 async function tryPublishInventoryListingFirst(
   input: Parameters<typeof publishInventoryBasedEbayListing>[0],
 ): Promise<EbayPublishResult | null> {
+  const skuCandidates = buildInventorySkuCandidates({
+    auditId: input.auditId,
+    listingSku: input.listingRow?.sku,
+    profileSku: await loadProfileSku(input.auditId),
+  });
   const offerRow = await resolveInventoryOfferForListing({
     environment: input.environment,
     accessToken: input.accessToken,
     listingId: input.itemId,
-    skuCandidates: buildInventorySkuCandidates({
-      auditId: input.auditId,
-      listingSku: input.listingRow?.sku,
-      profileSku: await loadProfileSku(input.auditId),
-    }),
+    skuCandidates,
+    listingIdOnly: true,
   });
   if (!offerRow) return null;
   try {
@@ -242,11 +244,6 @@ async function tryPublishInventoryListingFirst(
     if (!isEbayOfferNotAvailableMessage(message) && !isInvalidEbayInventorySkuError(message)) {
       throw err;
     }
-    const skuCandidates = buildInventorySkuCandidates({
-      auditId: input.auditId,
-      listingSku: input.listingRow?.sku,
-      profileSku: await loadProfileSku(input.auditId),
-    });
     for (const sku of skuCandidates) {
       if (!isValidEbayInventorySku(sku)) continue;
       await purgeBlockingOffersForSku({
@@ -260,12 +257,26 @@ async function tryPublishInventoryListingFirst(
       accessToken: input.accessToken,
       listingId: input.itemId,
       skuCandidates,
+      listingIdOnly: true,
     });
     if (retryOffer) {
-      return await publishInventoryBasedEbayListing(input, retryOffer);
+      try {
+        return await publishInventoryBasedEbayListing(input, retryOffer);
+      } catch {
+        return null;
+      }
     }
     return null;
   }
+}
+
+async function tryInventoryPushAfterTradingFailure(
+  input: Parameters<typeof publishInventoryBasedEbayListing>[0],
+  tradingErr: unknown,
+): Promise<EbayPublishResult> {
+  const inventory = await tryPublishInventoryListingFirst(input);
+  if (inventory) return inventory;
+  throw tradingErr instanceof Error ? tradingErr : new Error(String(tradingErr));
 }
 
 async function loadProfileSku(auditId: number): Promise<string | null | undefined> {
@@ -392,11 +403,6 @@ export async function publishListingToEbay(input: {
     imageWarning,
   };
 
-  const inventoryFirst = await tryPublishInventoryListingFirst(inventoryPublishInput);
-  if (inventoryFirst) {
-    return inventoryFirst;
-  }
-
   let pictureFallbackWarning: string | undefined;
   try {
     pictureFallbackWarning = await reviseListingContentWithPictureFallback({
@@ -409,7 +415,7 @@ export async function publishListingToEbay(input: {
     });
   } catch (err) {
     if (shouldFallbackToInventoryReviseError(err)) {
-      return publishInventoryBasedEbayListing(inventoryPublishInput);
+      return tryInventoryPushAfterTradingFailure(inventoryPublishInput, err);
     }
     throw err;
   }
@@ -429,7 +435,7 @@ export async function publishListingToEbay(input: {
       });
     } catch (err) {
       if (shouldFallbackToInventoryReviseError(err)) {
-        return publishInventoryBasedEbayListing(inventoryPublishInput);
+        return tryInventoryPushAfterTradingFailure(inventoryPublishInput, err);
       }
       const message = err instanceof Error ? err.message : "Price update failed";
       warnings.push(`Listing content was updated but price could not be changed: ${message}`);
