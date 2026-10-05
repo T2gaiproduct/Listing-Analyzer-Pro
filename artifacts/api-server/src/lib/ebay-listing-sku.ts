@@ -25,6 +25,13 @@ export function normalizeToEbayInventorySku(sku: string | null | undefined): str
 }
 
 /** SKU used for Inventory API create/offer (not the Trading-only `SL-{itemId}` link label). */
+/** Read sku from eBay offer JSON (string or number). */
+export function coerceEbayOfferSku(raw: unknown): string {
+  if (typeof raw === "string") return raw.trim();
+  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+  return "";
+}
+
 export function resolveEbayInventorySku(opts: {
   profileSku: string | null | undefined;
   listingSku: string | null | undefined;

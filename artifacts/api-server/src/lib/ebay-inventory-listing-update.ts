@@ -1,7 +1,10 @@
 import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
 import { ebayRestFetch, parseEbayRestError } from "./ebay-rest-fetch.js";
 import { upsertEbayInventoryItem } from "./ebay-inventory-offers.js";
-import { isValidEbayInventorySku } from "./ebay-listing-sku.js";
+import {
+  coerceEbayOfferSku,
+  isValidEbayInventorySku,
+} from "./ebay-listing-sku.js";
 
 const MARKETPLACE_ID = "EBAY_US";
 
@@ -50,6 +53,28 @@ export function isInventoryBasedListingReviseError(message: string): boolean {
   return /inventory-based listing management is not currently supported/i.test(message);
 }
 
+export function shouldUseInventoryApiAfterTradingReviseError(message: string): boolean {
+  return isInventoryBasedListingReviseError(message)
+    || /invalid value for a SKU/i.test(message)
+    || /only alphanumeric characters can be used for SKUs/i.test(message);
+}
+
+function inventoryRowFromOfferFull(
+  full: EbayOfferFull,
+  status?: string,
+): InventoryOfferRow {
+  const sku = coerceEbayOfferSku(full.sku);
+  if (!sku) {
+    throw new Error("eBay offer is missing a product SKU. Reconnect eBay or contact support.");
+  }
+  return {
+    offerId: full.offerId,
+    sku,
+    listingId: full.listing?.listingId?.trim(),
+    status,
+  };
+}
+
 async function listInventoryOffersPage(input: {
   environment: EbayOAuthEnvironment;
   accessToken: string;
@@ -77,7 +102,7 @@ async function listInventoryOffersPage(input: {
   const offers = (data.offers ?? [])
     .map((row) => ({
       offerId: row.offerId?.trim() ?? "",
-      sku: row.sku?.trim() ?? "",
+      sku: coerceEbayOfferSku(row.sku),
       listingId: row.listing?.listingId?.trim(),
       status: row.status?.trim(),
     }))
@@ -87,6 +112,19 @@ async function listInventoryOffersPage(input: {
     ? input.offset + offers.length < total
     : offers.length >= input.limit;
   return { offers, hasMore };
+}
+
+async function hydrateInventoryOfferRow(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  row: InventoryOfferRow;
+}): Promise<InventoryOfferRow> {
+  const full = await fetchEbayOfferFull({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    offerId: input.row.offerId,
+  });
+  return inventoryRowFromOfferFull(full, input.row.status);
 }
 
 export async function findInventoryOfferByListingId(input: {
@@ -99,53 +137,42 @@ export async function findInventoryOfferByListingId(input: {
 
   let offset = 0;
   const limit = 100;
-  for (let page = 0; page < 10; page += 1) {
+  for (let page = 0; page < 20; page += 1) {
     const batch = await listInventoryOffersPage({
       environment: input.environment,
       accessToken: input.accessToken,
       limit,
       offset,
     });
-    const match = batch.offers.find((row) => row.listingId === target);
-    if (match) {
-      return await hydrateInventoryOfferRow({
+
+    for (const row of batch.offers) {
+      if (row.listingId === target) {
+        return hydrateInventoryOfferRow({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          row,
+        });
+      }
+    }
+
+    // Paged offer summaries often omit listingId — resolve via GET offer.
+    for (const row of batch.offers) {
+      if (row.listingId) continue;
+      const full = await fetchEbayOfferFull({
         environment: input.environment,
         accessToken: input.accessToken,
-        row: match,
+        offerId: row.offerId,
       });
+      const listingId = full.listing?.listingId?.trim();
+      if (listingId === target) {
+        return inventoryRowFromOfferFull(full, row.status);
+      }
     }
+
     if (!batch.hasMore || batch.offers.length === 0) break;
     offset += batch.offers.length;
   }
   return null;
-}
-
-async function hydrateInventoryOfferRow(input: {
-  environment: EbayOAuthEnvironment;
-  accessToken: string;
-  row: InventoryOfferRow;
-}): Promise<InventoryOfferRow> {
-  if (isValidEbayInventorySku(input.row.sku)) {
-    return input.row;
-  }
-  const full = await fetchEbayOfferFull({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    offerId: input.row.offerId,
-  });
-  const listingId = full.listing?.listingId?.trim() ?? input.row.listingId;
-  const sku = full.sku?.trim() ?? "";
-  if (!isValidEbayInventorySku(sku)) {
-    throw new Error(
-      "eBay returned an invalid inventory SKU for this listing. Set an alphanumeric SKU (max 50 characters) on the product profile, then push again.",
-    );
-  }
-  return {
-    offerId: input.row.offerId,
-    sku,
-    listingId,
-    status: input.row.status,
-  };
 }
 
 async function fetchOffersBySku(input: {
@@ -177,7 +204,7 @@ async function fetchOffersBySku(input: {
   return (data.offers ?? [])
     .map((row) => ({
       offerId: row.offerId?.trim() ?? "",
-      sku: row.sku?.trim() ?? "",
+      sku: coerceEbayOfferSku(row.sku),
       listingId: row.listing?.listingId?.trim(),
       status: row.status?.trim(),
     }))
@@ -205,13 +232,24 @@ export async function resolveInventoryOfferForListing(input: {
       accessToken: input.accessToken,
       sku: trimmed,
     });
-    const match = offers.find((row) => row.listingId === input.listingId);
-    if (match) {
-      return hydrateInventoryOfferRow({
-        environment: input.environment,
-        accessToken: input.accessToken,
-        row: match,
-      });
+    for (const row of offers) {
+      if (row.listingId === input.listingId) {
+        return hydrateInventoryOfferRow({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          row,
+        });
+      }
+      if (!row.listingId) {
+        const full = await fetchEbayOfferFull({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          offerId: row.offerId,
+        });
+        if (full.listing?.listingId?.trim() === input.listingId) {
+          return inventoryRowFromOfferFull(full, row.status);
+        }
+      }
     }
   }
   return null;
@@ -244,10 +282,11 @@ async function fetchEbayInventoryItemFull(input: {
   accessToken: string;
   sku: string;
 }): Promise<EbayInventoryItemFull | null> {
+  const skuEncoded = encodeURIComponent(input.sku.trim());
   const res = await ebayRestFetch(
     input.environment,
     input.accessToken,
-    `/sell/inventory/v1/inventory_item/${encodeURIComponent(input.sku.trim())}`,
+    `/sell/inventory/v1/inventory_item/${skuEncoded}`,
   );
   if (res.status === 404) return null;
   const text = await res.text();
@@ -273,19 +312,18 @@ export async function updateInventoryBasedEbayListing(input: {
   pictureUrls: string[];
   priceCents: number | null;
   currency: string;
-}): Promise<{ listingId: string; warning?: string }> {
+}): Promise<{ listingId: string; inventorySku: string; warning?: string }> {
   const offer = await fetchEbayOfferFull({
     environment: input.environment,
     accessToken: input.accessToken,
     offerId: input.offerRow.offerId,
   });
 
-  const inventorySku = (offer.sku?.trim() || input.offerRow.sku.trim());
-  if (!isValidEbayInventorySku(inventorySku)) {
-    throw new Error(
-      "This eBay listing uses a SKU that eBay’s inventory API does not accept (letters and numbers only, max 50). Update the product SKU to alphanumeric and push again.",
-    );
+  const inventorySku = coerceEbayOfferSku(offer.sku) || input.offerRow.sku.trim();
+  if (!inventorySku) {
+    throw new Error("eBay offer is missing a product SKU. Cannot update this inventory listing.");
   }
+
   const existingItem = await fetchEbayInventoryItemFull({
     environment: input.environment,
     accessToken: input.accessToken,
@@ -348,5 +386,5 @@ export async function updateInventoryBasedEbayListing(input: {
     ? "Price was not updated — set a price in Product Explorer and push again."
     : undefined;
 
-  return { listingId, warning };
+  return { listingId, inventorySku, warning };
 }

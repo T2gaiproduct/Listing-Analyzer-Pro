@@ -18,12 +18,11 @@ import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
 import { materializeAuditImagesForPublish } from "./materialize-audit-images-for-publish.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 import {
-  isInventoryBasedListingReviseError,
   resolveInventoryOfferForListing,
+  shouldUseInventoryApiAfterTradingReviseError,
   updateInventoryBasedEbayListing,
 } from "./ebay-inventory-listing-update.js";
 import {
-  generatedEbayListingSku,
   isValidEbayInventorySku,
   normalizeToEbayInventorySku,
   resolveEbayInventorySku,
@@ -137,66 +136,43 @@ async function reviseListingContentWithPictureFallback(input: {
   throw lastError ?? new Error("eBay listing update failed.");
 }
 
-async function publishInventoryBasedEbayListing(input: {
-  environment: "sandbox" | "production";
-  accessToken: string;
-  auditId: number;
-  itemId: string;
-  listingRow: typeof productMarketplaceListingsTable.$inferSelect | undefined;
-  listingUrl: string;
-  title: string;
-  descriptionHtml: string;
-  pictureUrls: string[];
-  priceCents: number | null;
-  currency: string;
-  imageWarning?: string;
-}): Promise<EbayPublishResult> {
-  const [profile] = await db
-    .select({ sku: productProfilesTable.sku })
-    .from(productProfilesTable)
-    .where(eq(productProfilesTable.auditId, input.auditId))
-    .limit(1);
-
-  const skuCandidates: string[] = [];
-  const pushCandidate = (raw: string | null | undefined) => {
-    if (isValidEbayInventorySku(raw)) {
-      skuCandidates.push(raw!.trim());
-      return;
-    }
-    const normalized = normalizeToEbayInventorySku(raw);
-    if (normalized && isValidEbayInventorySku(normalized)) {
-      skuCandidates.push(normalized);
-    }
-  };
-  pushCandidate(input.listingRow?.sku);
-  pushCandidate(profile?.sku);
-  try {
-    skuCandidates.push(resolveEbayInventorySku({
-      profileSku: profile?.sku,
-      listingSku: input.listingRow?.sku,
-      auditId: input.auditId,
-    }));
-  } catch {
-    // ignore
-  }
-  const uniqueSkuCandidates = [...new Set(skuCandidates)];
-
-  const offerRow = await resolveInventoryOfferForListing({
+async function publishInventoryBasedEbayListing(
+  input: {
+    environment: "sandbox" | "production";
+    accessToken: string;
+    auditId: number;
+    itemId: string;
+    listingRow: typeof productMarketplaceListingsTable.$inferSelect | undefined;
+    listingUrl: string;
+    title: string;
+    descriptionHtml: string;
+    pictureUrls: string[];
+    priceCents: number | null;
+    currency: string;
+    imageWarning?: string;
+  },
+  offerRow?: Awaited<ReturnType<typeof resolveInventoryOfferForListing>>,
+): Promise<EbayPublishResult> {
+  const resolvedOffer = offerRow ?? await resolveInventoryOfferForListing({
     environment: input.environment,
     accessToken: input.accessToken,
     listingId: input.itemId,
-    skuCandidates: uniqueSkuCandidates,
+    skuCandidates: buildInventorySkuCandidates({
+      auditId: input.auditId,
+      listingSku: input.listingRow?.sku,
+      profileSku: await loadProfileSku(input.auditId),
+    }),
   });
-  if (!offerRow) {
+  if (!resolvedOffer) {
     throw new Error(
       "This eBay listing was created with inventory management. SellerLens could not find the matching inventory offer — try reconnecting eBay or contact support.",
     );
   }
 
-  const { listingId, warning: inventoryWarning } = await updateInventoryBasedEbayListing({
+  const { listingId, inventorySku, warning: inventoryWarning } = await updateInventoryBasedEbayListing({
     environment: input.environment,
     accessToken: input.accessToken,
-    offerRow,
+    offerRow: resolvedOffer,
     title: input.title,
     descriptionHtml: input.descriptionHtml,
     pictureUrls: input.pictureUrls,
@@ -216,7 +192,7 @@ async function publishInventoryBasedEbayListing(input: {
       .update(productMarketplaceListingsTable)
       .set({
         status: "live",
-        sku: input.listingRow.sku ?? generatedEbayListingSku(listingId),
+        sku: inventorySku,
         listingUrl,
         priceCents: input.priceCents ?? input.listingRow.priceCents,
         currency: input.currency || input.listingRow.currency,
@@ -235,7 +211,63 @@ async function publishInventoryBasedEbayListing(input: {
 
 function shouldFallbackToInventoryReviseError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
-  return isInventoryBasedListingReviseError(message);
+  return shouldUseInventoryApiAfterTradingReviseError(message);
+}
+
+async function tryPublishInventoryListingFirst(
+  input: Parameters<typeof publishInventoryBasedEbayListing>[0],
+): Promise<EbayPublishResult | null> {
+  const offerRow = await resolveInventoryOfferForListing({
+    environment: input.environment,
+    accessToken: input.accessToken,
+    listingId: input.itemId,
+    skuCandidates: buildInventorySkuCandidates({
+      auditId: input.auditId,
+      listingSku: input.listingRow?.sku,
+      profileSku: await loadProfileSku(input.auditId),
+    }),
+  });
+  if (!offerRow) return null;
+  return publishInventoryBasedEbayListing(input, offerRow);
+}
+
+async function loadProfileSku(auditId: number): Promise<string | null | undefined> {
+  const [profile] = await db
+    .select({ sku: productProfilesTable.sku })
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, auditId))
+    .limit(1);
+  return profile?.sku;
+}
+
+function buildInventorySkuCandidates(input: {
+  auditId: number;
+  listingSku: string | null | undefined;
+  profileSku: string | null | undefined;
+}): string[] {
+  const skuCandidates: string[] = [];
+  const pushCandidate = (raw: string | null | undefined) => {
+    if (isValidEbayInventorySku(raw)) {
+      skuCandidates.push(raw!.trim());
+      return;
+    }
+    const normalized = normalizeToEbayInventorySku(raw);
+    if (normalized && isValidEbayInventorySku(normalized)) {
+      skuCandidates.push(normalized);
+    }
+  };
+  pushCandidate(input.listingSku);
+  pushCandidate(input.profileSku);
+  try {
+    skuCandidates.push(resolveEbayInventorySku({
+      profileSku: input.profileSku,
+      listingSku: input.listingSku,
+      auditId: input.auditId,
+    }));
+  } catch {
+    // ignore
+  }
+  return [...new Set(skuCandidates)];
 }
 
 export async function publishListingToEbay(input: {
@@ -322,6 +354,11 @@ export async function publishListingToEbay(input: {
     currency,
     imageWarning,
   };
+
+  const inventoryFirst = await tryPublishInventoryListingFirst(inventoryPublishInput);
+  if (inventoryFirst) {
+    return inventoryFirst;
+  }
 
   let pictureFallbackWarning: string | undefined;
   try {
