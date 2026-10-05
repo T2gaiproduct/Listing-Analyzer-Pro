@@ -169,12 +169,24 @@ export async function readApiJson<T>(res: Response): Promise<T> {
   }
 
   try {
-    const data = JSON.parse(text) as T & { error?: string; message?: string; code?: string };
+    const data = JSON.parse(text) as T & {
+      error?: string;
+      message?: string;
+      code?: string;
+      hint?: string;
+      apiBuildId?: string;
+    };
     if (!res.ok) {
       const raw = data.error ?? data.message ?? `Server error (${res.status})`;
-      const message = res.status === 401 && (!raw || raw === "Unauthorized")
+      let message = res.status === 401 && (!raw || raw === "Unauthorized")
         ? "Your session could not be verified. Sign out and sign in again on this site."
         : raw;
+      if (data.apiBuildId) {
+        message = `${message} (API build ${data.apiBuildId})`;
+      }
+      if (data.hint?.trim()) {
+        message = `${message} ${data.hint.trim()}`;
+      }
       throw new ApiFetchError(message, res.status, data.code);
     }
     const usage = (data as { creditUsage?: CreditUsagePayload }).creditUsage;

@@ -78,11 +78,22 @@ export function alternateEbayInventorySkuForAudit(auditId: number, attempt = 0):
 }
 
 /** SKUs to try on List as new (default + fresh alternates). */
-export function inventorySkuCandidatesForNewListing(auditId: number, maxAttempts = 5): string[] {
+export function inventorySkuCandidatesForNewListing(
+  auditId: number,
+  maxAttempts = 8,
+  sandboxPreferFreshSkus = false,
+): string[] {
   const skus: string[] = [];
-  skus.push(defaultEbayInventorySkuForAudit(auditId));
-  for (let attempt = 1; skus.length < maxAttempts; attempt++) {
-    skus.push(alternateEbayInventorySkuForAudit(auditId, attempt));
+  if (sandboxPreferFreshSkus) {
+    for (let attempt = 0; skus.length < maxAttempts - 1; attempt++) {
+      skus.push(alternateEbayInventorySkuForAudit(auditId, attempt + 1));
+    }
+    skus.push(defaultEbayInventorySkuForAudit(auditId));
+  } else {
+    skus.push(defaultEbayInventorySkuForAudit(auditId));
+    for (let attempt = 1; skus.length < maxAttempts; attempt++) {
+      skus.push(alternateEbayInventorySkuForAudit(auditId, attempt));
+    }
   }
   return [...new Set(skus)];
 }

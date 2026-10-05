@@ -246,7 +246,11 @@ export async function createNewEbayListingFromAudit(
     });
   };
 
-  const inventorySkusToTry = inventorySkuCandidatesForNewListing(input.audit.id, 5);
+  const inventorySkusToTry = inventorySkuCandidatesForNewListing(
+    input.audit.id,
+    8,
+    environment === "sandbox",
+  );
 
   let publishResult: Awaited<ReturnType<typeof createAndPublishEbayOffer>> | undefined;
   let lastError: unknown;

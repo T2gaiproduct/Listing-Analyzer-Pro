@@ -1,6 +1,7 @@
 import type { EbayOAuthEnvironment } from "./ebay-oauth-config.js";
 import { isValidEbayInventorySku } from "./ebay-listing-sku.js";
 import { ebayRestFetch, parseEbayRestError } from "./ebay-rest-fetch.js";
+import { fetchEbayTradingItemDetails } from "./ebay-trading-client.js";
 
 const MARKETPLACE_ID = "EBAY_US";
 
@@ -213,6 +214,25 @@ function liveListingIdFromOffer(details: EbayOfferSummary): string | null {
   const listingId = details.listingId?.trim();
   if (listingId) return listingId;
   return null;
+}
+
+async function isEbayListingReachableOnTrading(input: {
+  environment: EbayOAuthEnvironment;
+  accessToken: string;
+  listingId: string;
+}): Promise<boolean> {
+  const listingId = input.listingId.trim();
+  if (!listingId) return false;
+  try {
+    const item = await fetchEbayTradingItemDetails({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      itemId: listingId,
+    });
+    return Boolean(item.itemId?.trim());
+  } catch {
+    return false;
+  }
 }
 
 /** Withdraw/delete a single offer (e.g. after sandbox 25713 on push). */
@@ -681,95 +701,74 @@ async function publishOfferWithStaleRecovery(input: {
   offerId: string;
   payload: ReturnType<typeof buildOfferPayload>;
 }): Promise<{ offerId: string; listingId: string; staleOfferWarning?: string }> {
-  const beforePublish = await tryFetchOfferDetails({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    offerId: input.offerId,
-  });
-  if (beforePublish) {
-    const existingListingId = liveListingIdFromOffer(beforePublish);
-    if (existingListingId) {
-      return { offerId: beforePublish.offerId, listingId: existingListingId };
-    }
-  }
+  const sku = input.payload.sku.trim();
+  let offerId = input.offerId;
+  let lastError: Error | null = null;
+  let recoveryRounds = 0;
 
-  try {
-    const listingId = await publishEbayOffer({
+  for (let round = 0; round < 6; round++) {
+    const beforePublish = await tryFetchOfferDetails({
       environment: input.environment,
       accessToken: input.accessToken,
-      offerId: input.offerId,
+      offerId,
     });
-    return { offerId: input.offerId, listingId };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (!isEbayOfferNotAvailableError(message)) {
-      throw err;
+    if (beforePublish) {
+      const existingListingId = liveListingIdFromOffer(beforePublish);
+      if (existingListingId) {
+        const reachable = await isEbayListingReachableOnTrading({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          listingId: existingListingId,
+        });
+        if (reachable) {
+          return { offerId: beforePublish.offerId, listingId: existingListingId };
+        }
+        await removeStaleOffer({
+          environment: input.environment,
+          accessToken: input.accessToken,
+          offerId: beforePublish.offerId,
+          status: beforePublish.status,
+        }).catch(() => undefined);
+      }
     }
-  }
 
-  await removeStaleOffer({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    offerId: input.offerId,
-    status: beforePublish?.status,
-  });
-
-  await purgeBlockingOffersForSku({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    sku: input.payload.sku.trim(),
-  });
-
-  const newOfferId = await createEbayOfferReady({
-    environment: input.environment,
-    accessToken: input.accessToken,
-    payload: input.payload,
-  });
-
-  try {
-    const listingId = await publishEbayOffer({
-      environment: input.environment,
-      accessToken: input.accessToken,
-      offerId: newOfferId,
-    });
-    return {
-      offerId: newOfferId,
-      listingId,
-      staleOfferWarning:
-        "eBay had a stale offer for this SKU. SellerLens cleared it, created a fresh offer, and published it.",
-    };
-  } catch (retryErr) {
-    const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
-    if (!isEbayOfferNotAvailableError(retryMessage)) {
-      throw retryErr;
+    try {
+      const listingId = await publishEbayOffer({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        offerId,
+      });
+      const staleOfferWarning = recoveryRounds > 0
+        ? "eBay sandbox had stale offers for this SKU. SellerLens cleared them and published a new listing."
+        : undefined;
+      return { offerId, listingId, staleOfferWarning };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (!isEbayOfferNotAvailableError(lastError.message)) {
+        throw lastError;
+      }
     }
-    await purgeBlockingOffersForSku({
-      environment: input.environment,
-      accessToken: input.accessToken,
-      sku: input.payload.sku.trim(),
-    });
+
+    recoveryRounds += 1;
     await removeStaleOffer({
       environment: input.environment,
       accessToken: input.accessToken,
-      offerId: newOfferId,
+      offerId,
+      status: beforePublish?.status,
+    }).catch(() => undefined);
+    await purgeAllOffersForCreateSku({
+      environment: input.environment,
+      accessToken: input.accessToken,
+      sku,
     });
-    const finalOfferId = await createEbayOfferReady({
+    offerId = await createEbayOfferReady({
       environment: input.environment,
       accessToken: input.accessToken,
       payload: input.payload,
     });
-    const listingId = await publishEbayOffer({
-      environment: input.environment,
-      accessToken: input.accessToken,
-      offerId: finalOfferId,
-    });
-    return {
-      offerId: finalOfferId,
-      listingId,
-      staleOfferWarning:
-        "eBay had multiple stale offers for this SKU. SellerLens cleared them and published a new listing.",
-    };
   }
+
+  throw lastError ?? new Error("[25713] This Offer is not available.");
 }
 
 export async function createAndPublishEbayOffer(input: {
@@ -801,12 +800,24 @@ export async function createAndPublishEbayOffer(input: {
       sku: input.sku.trim(),
     });
     if (existingLive) {
-      return {
-        offerId: existingLive.offerId,
+      const reachable = await isEbayListingReachableOnTrading({
+        environment: input.environment,
+        accessToken: input.accessToken,
         listingId: existingLive.listingId,
-        warning:
-          "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
-      };
+      });
+      if (reachable) {
+        return {
+          offerId: existingLive.offerId,
+          listingId: existingLive.listingId,
+          warning:
+            "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+        };
+      }
+      await purgeAllOffersForCreateSku({
+        environment: input.environment,
+        accessToken: input.accessToken,
+        sku: input.sku.trim(),
+      });
     }
     const offerId = await createEbayOfferReady({
       environment: input.environment,
