@@ -121,6 +121,13 @@ EBAY_PRODUCTION_CLIENT_SECRET=
 EBAY_PRODUCTION_RUNAME=
 EBAY_PRODUCTION_DEV_ID=
 EBAY_PRODUCTION_CERT_ID=
+# eBay Marketplace Account Deletion notification (public GET/POST — no Clerk auth)
+# Register https://<your-domain>/api/ebay/marketplace-account-deletion in eBay Developer Portal.
+# GET challenge hash uses: challenge_code + token + endpoint URL (must match the registered URL).
+EBAY_MARKETPLACE_DELETION_VERIFICATION_TOKEN=
+# Optional; defaults to https://test.sellerlens.io/api/ebay/marketplace-account-deletion
+# Set on production to e.g. https://sellerlens.io/api/ebay/marketplace-account-deletion
+EBAY_MARKETPLACE_DELETION_ENDPOINT=
 ```
 
 ---

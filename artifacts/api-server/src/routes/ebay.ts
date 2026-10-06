@@ -40,8 +40,78 @@ import {
   requireWorkspaceActionAny,
 } from "../lib/workspace-route-helpers.js";
 import { resolveWorkspaceContext, requireWorkspacePerm as checkPerm } from "../lib/workspace-context.js";
+import {
+  computeMarketplaceDeletionChallengeResponse,
+  processEbayMarketplaceAccountDeletionNotification,
+  resolveEbayMarketplaceDeletionEndpoint,
+  resolveEbayMarketplaceDeletionVerificationToken,
+} from "../lib/ebay-marketplace-account-deletion.js";
 
 const router: IRouter = Router();
+
+function marketplaceDeletionLog(req: Request): {
+  info: (obj: Record<string, unknown>, msg: string) => void;
+  error: (obj: Record<string, unknown>, msg: string) => void;
+} {
+  return {
+    info: (obj, msg) => {
+      req.log?.info?.(obj, msg);
+    },
+    error: (obj, msg) => {
+      req.log?.error?.(obj, msg);
+    },
+  };
+}
+
+router.get("/ebay/marketplace-account-deletion", (req: Request, res: Response): void => {
+  const challengeCode = typeof req.query.challenge_code === "string"
+    ? req.query.challenge_code.trim()
+    : "";
+  if (!challengeCode) {
+    res.status(400).json({ error: "Missing challenge_code query parameter" });
+    return;
+  }
+
+  const verificationToken = resolveEbayMarketplaceDeletionVerificationToken();
+  if (!verificationToken) {
+    marketplaceDeletionLog(req).error(
+      {},
+      "eBay marketplace account deletion: EBAY_MARKETPLACE_DELETION_VERIFICATION_TOKEN is not configured",
+    );
+    res.status(500).json({ error: "Marketplace account deletion endpoint is not configured" });
+    return;
+  }
+
+  const endpoint = resolveEbayMarketplaceDeletionEndpoint();
+  marketplaceDeletionLog(req).info(
+    { endpoint },
+    "eBay marketplace account deletion challenge received",
+  );
+
+  const challengeResponse = computeMarketplaceDeletionChallengeResponse(
+    challengeCode,
+    verificationToken,
+    endpoint,
+  );
+
+  res.status(200).type("application/json").json({ challengeResponse });
+});
+
+router.post("/ebay/marketplace-account-deletion", (req: Request, res: Response): void => {
+  // TODO(account-deletion): Verify X-EBAY-SIGNATURE before trusting body in production.
+
+  const result = processEbayMarketplaceAccountDeletionNotification(
+    req.body,
+    marketplaceDeletionLog(req),
+  );
+
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+
+  res.status(200).end();
+});
 
 function ebayCustomLabelHint(errorMessage: string): string | undefined {
   if (/\[?25707\]?|invalid value for a SKU/i.test(errorMessage)) {
