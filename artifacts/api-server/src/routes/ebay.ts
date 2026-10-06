@@ -6,7 +6,7 @@ import {
   isEbayOAuthConnectReady,
   resolveActiveEbayOAuthEnvironment,
 } from "../lib/ebay-oauth-config.js";
-import { EBAY_OAUTH_SCOPES } from "../lib/ebay-oauth-scopes.js";
+import { resolveEbayOAuthScopes } from "../lib/ebay-oauth-scopes.js";
 import { createEbayOAuthState, parseEbayOAuthState } from "../lib/ebay-oauth-state.js";
 import {
   buildEbayAuthorizeUrl,
@@ -142,7 +142,7 @@ router.get("/ebay/oauth/config", requireAuth, resolveTeamAndWorkspace, async (re
   res.json({
     connectReady: isEbayOAuthConnectReady(),
     unavailableMessage: isEbayOAuthConnectReady() ? null : ebayConnectUnavailableMessageForSellers(),
-    scopes: [...EBAY_OAUTH_SCOPES],
+    scopes: resolveEbayOAuthScopes(),
     callbackUrl: buildEbayOAuthCallbackUrl(req),
   });
 });
