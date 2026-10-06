@@ -10,7 +10,8 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "purge-archive": "tsx src/run-purge-expired-archive.ts",
-    "test:ebay-marketplace-deletion": "tsx src/lib/ebay-marketplace-account-deletion.test.ts"
+    "test:ebay-marketplace-deletion": "tsx src/lib/ebay-marketplace-account-deletion.test.ts",
+    "test:ebay-oauth-scopes": "tsx src/lib/ebay-oauth-scopes.test.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.7",

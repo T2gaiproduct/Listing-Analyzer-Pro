@@ -121,6 +121,9 @@ EBAY_PRODUCTION_CLIENT_SECRET=
 EBAY_PRODUCTION_RUNAME=
 EBAY_PRODUCTION_DEV_ID=
 EBAY_PRODUCTION_CERT_ID=
+# Optional: space-separated extra OAuth scope URLs (only if enabled on your eBay production keyset).
+# Example after eBay approves finances: EBAY_OAUTH_EXTRA_SCOPES=https://api.ebay.com/oauth/api_scope/sell.finances
+# EBAY_OAUTH_EXTRA_SCOPES=
 # eBay Marketplace Account Deletion notification (public GET/POST — no Clerk auth)
 # Register https://<your-domain>/api/ebay/marketplace-account-deletion in eBay Developer Portal.
 # GET challenge hash uses: challenge_code + token + endpoint URL (must match the registered URL).
