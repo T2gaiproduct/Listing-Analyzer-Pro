@@ -29,7 +29,6 @@ import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-he
 import { applyWorkspaceCreated } from "@/lib/on-workspace-created";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format } from "date-fns";
-import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { WorkspacesPlanUpgradeBanner } from "@/components/workspaces-plan-upgrade";
@@ -54,6 +53,7 @@ interface WorkspaceMemberListItem {
   allocatedCredits?: CreditBuckets;
   allocatedCreditsTotal?: number;
   remainingCredits?: CreditBuckets;
+  remainingTotal?: number;
   creditsUsedInPeriod?: number;
 }
 
@@ -71,9 +71,11 @@ interface WorkspaceOverviewRow {
   poolCreditsTotal?: number;
   memberAllocatedCredits?: CreditBuckets;
   toMembersTotal?: number;
+  unassignedPoolCredits?: CreditBuckets;
   poolAvailableForMembers?: CreditBuckets;
   creditsUsedInPeriod?: number;
   fundedTotal?: number;
+  remainingCreditsTotal?: number;
   poolRemaining?: number;
 }
 
@@ -92,6 +94,7 @@ interface WorkspaceOverview {
   accountUnallocatedTotal?: number;
   accountBalancePlusUsed?: number;
   inWorkspacePoolsTotal?: number;
+  fundedInWorkspacesTotal?: number;
   inWorkspacePools?: CreditBuckets;
   ownerCredits?: CreditBuckets;
   availableToFundWorkspaces?: CreditBuckets;
@@ -99,30 +102,8 @@ interface WorkspaceOverview {
   workspacesEnabled?: boolean;
 }
 
-function sumCredits(c?: CreditBuckets | null): number {
-  if (!c) return 0;
-  return c.aiCredits + c.imageCredits + c.auditCredits;
-}
-
 function formatCreditBuckets(c: CreditBuckets): string {
   return `${c.auditCredits} audit · ${c.aiCredits} text · ${c.imageCredits} img`;
-}
-
-function workspacePoolTotal(ws: WorkspaceOverviewRow): number {
-  if (ws.poolCreditsTotal != null) return ws.poolCreditsTotal;
-  return sumCredits(ws.poolCredits);
-}
-
-function memberCreditsTotal(ws: WorkspaceOverviewRow): number {
-  if (ws.toMembersTotal != null) return ws.toMembersTotal;
-  const poolTotal = sumCredits(ws.poolCredits);
-  if (poolTotal <= 0) return 0;
-  return sumCredits(ws.memberAllocatedCredits);
-}
-
-function poolUnassignedTotal(ws: WorkspaceOverviewRow): number {
-  if (ws.poolRemaining != null) return ws.poolRemaining;
-  return sumCredits(ws.poolAvailableForMembers);
 }
 
 export default function WorkspacesPage() {
@@ -152,51 +133,9 @@ export default function WorkspacesPage() {
     refetchOnMount: "always",
   });
 
-  const { data: sub } = useQuery<{
-    planName: string | null;
-    planAiCredits: number;
-    planImageCredits: number;
-    planAuditCredits: number;
-    creditAllocations?: Record<string, number> | null;
-    currentPeriodStart: string | null;
-    currentPeriodEnd: string | null;
-  } | null>({
-    queryKey: ["user-subscription"],
-    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
-    enabled: isAccountOwner,
-    staleTime: 30_000,
-  });
-
-  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
-    queryKey: ["credit-rules"],
-    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
-    enabled: isAccountOwner,
-    staleTime: 60_000,
-  });
-
-  const planCreditsTotal = useMemo(() => {
-    if (overview?.planCreditsTotal != null) return overview.planCreditsTotal;
-    if (overview?.planCredits) {
-      const fromOverview = sumCredits(overview.planCredits);
-      if (fromOverview > 0) return fromOverview;
-    }
-    if (sub) {
-      const computed = computePlanCreditsFromAllocations(sub.creditAllocations, creditRules);
-      if (computed.totalCredits > 0) return computed.totalCredits;
-      return sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits;
-    }
-    return 0;
-  }, [overview, sub, creditRules]);
-
-  const accountUnallocatedTotal = useMemo(() => {
-    if (overview?.accountUnallocatedTotal != null) return overview.accountUnallocatedTotal;
-    return sumCredits(overview?.availableToFundWorkspaces ?? overview?.ownerCredits);
-  }, [overview]);
-
-  const fundedInWorkspacesTotal = useMemo(() => {
-    if (!overview?.workspaces?.length) return 0;
-    return overview.workspaces.reduce((sum, ws) => sum + workspacePoolTotal(ws), 0);
-  }, [overview]);
+  const planCreditsTotal = overview?.planCreditsTotal ?? 0;
+  const accountUnallocatedTotal = overview?.accountUnallocatedTotal ?? 0;
+  const fundedInWorkspacesTotal = overview?.fundedInWorkspacesTotal ?? 0;
 
   const fundingPoolTotal = useMemo(() => {
     return (
@@ -206,12 +145,8 @@ export default function WorkspacesPage() {
     );
   }, [poolForm]);
 
-  const planDisplayName = overview?.planName ?? sub?.planName ?? "Your plan";
-  const billingPeriod = overview?.billingPeriod ?? (
-    sub?.currentPeriodStart && sub?.currentPeriodEnd
-      ? { start: sub.currentPeriodStart, end: sub.currentPeriodEnd }
-      : null
-  );
+  const planDisplayName = overview?.planName ?? "Your plan";
+  const billingPeriod = overview?.billingPeriod ?? null;
 
   const toggleExpanded = (id: number) => {
     setExpandedWorkspaceIds((prev) => {
@@ -365,10 +300,11 @@ export default function WorkspacesPage() {
 
   const openFundPool = (ws: WorkspaceOverviewRow) => {
     setFundingWorkspace(ws);
+    const unassigned = ws.unassignedPoolCredits ?? ws.poolAvailableForMembers;
     setPoolForm({
-      aiCredits: String(ws.poolCredits?.aiCredits ?? 0),
-      imageCredits: String(ws.poolCredits?.imageCredits ?? 0),
-      auditCredits: String(ws.poolCredits?.auditCredits ?? 0),
+      aiCredits: String(unassigned?.aiCredits ?? 0),
+      imageCredits: String(unassigned?.imageCredits ?? 0),
+      auditCredits: String(unassigned?.auditCredits ?? 0),
     });
   };
 
@@ -514,7 +450,6 @@ export default function WorkspacesPage() {
                     <tbody>
                       {displayWorkspaces.map((ws) => {
                         const expanded = expandedWorkspaceIds.has(ws.id);
-                        const memberAlloc = memberCreditsTotal(ws);
                         return (
                           <Fragment key={ws.id}>
                             <tr className="border-b border-slate-100 hover:bg-slate-50/80">
@@ -547,14 +482,14 @@ export default function WorkspacesPage() {
                                 </div>
                               </td>
                               <td className="py-3 pr-4 font-medium text-slate-800">
-                                {workspacePoolTotal(ws).toLocaleString()}
+                                {(ws.fundedTotal ?? 0).toLocaleString()}
                               </td>
-                              <td className="py-3 pr-4 text-slate-600">{memberAlloc.toLocaleString()}</td>
+                              <td className="py-3 pr-4 text-slate-600">{(ws.toMembersTotal ?? 0).toLocaleString()}</td>
                               <td className="py-3 pr-4 text-slate-600">
                                 {(ws.creditsUsedInPeriod ?? 0).toLocaleString()}
                               </td>
                               <td className="py-3 pr-4 font-medium text-slate-800">
-                                {poolUnassignedTotal(ws).toLocaleString()}
+                                {(ws.poolRemaining ?? 0).toLocaleString()}
                               </td>
                               <td className="py-3 text-right">
                                 <div className="flex items-center justify-end gap-1 flex-wrap">
@@ -622,13 +557,13 @@ export default function WorkspacesPage() {
                                             <td className="py-2 pr-3 text-slate-600">{m.roleName ?? "—"}</td>
                                             <td className="py-2 pr-3 capitalize text-slate-600">{m.status}</td>
                                             <td className="py-2 pr-3 text-right text-slate-800">
-                                              {(m.allocatedCreditsTotal ?? sumCredits(m.remainingCredits)).toLocaleString()}
+                                              {(m.allocatedCreditsTotal ?? 0).toLocaleString()}
                                             </td>
                                             <td className="py-2 pr-3 text-right text-slate-600">
                                               {(m.creditsUsedInPeriod ?? 0).toLocaleString()}
                                             </td>
                                             <td className="py-2 text-right font-medium text-slate-800">
-                                              {sumCredits(m.remainingCredits ?? m.allocatedCredits).toLocaleString()}
+                                              {(m.remainingTotal ?? 0).toLocaleString()}
                                             </td>
                                           </tr>
                                         ))}
@@ -638,7 +573,7 @@ export default function WorkspacesPage() {
                                   {ws.poolCredits && (
                                     <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
                                       <Zap className="w-3 h-3" />
-                                      Pool detail: {formatCreditBuckets(ws.poolCredits)}
+                                      Remaining: {formatCreditBuckets(ws.poolCredits)}
                                     </p>
                                   )}
                                 </td>

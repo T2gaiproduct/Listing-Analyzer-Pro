@@ -91,7 +91,10 @@ interface WorkspaceMemberBillingStat {
 interface WorkspaceUsageRow {
   workspaceId: number;
   workspaceName: string;
+  isDefault?: boolean;
   creditsUsed: number;
+  fundedTotal?: number;
+  remainingTotal?: number;
 }
 
 interface WorkspaceMemberStatRow {
@@ -105,6 +108,7 @@ interface TeamData {
   ownerUsedInPeriod?: number;
   ownerPersonalUsedInPeriod?: number;
   ownerUsedInScopedWorkspace?: number;
+  usageInPeriod?: number;
   workspaceUsageInPeriod?: WorkspaceUsageRow[];
   workspaceMemberStats?: WorkspaceMemberStatRow[];
   workspaceMembers?: {
@@ -382,23 +386,7 @@ export function BillingOverview({
 
   const transactions = creditUsage?.transactions ?? [];
 
-  const workspaceTeamUsedInPeriod = useMemo(() => {
-    if (accountOverviewUsage || billingWorkspaceId == null) return null;
-    const ownerUsed = teamData?.ownerUsedInScopedWorkspace ?? 0;
-    const memberUsed = (teamData?.workspaceMemberStats ?? []).reduce(
-      (sum, row) => sum + (row.creditsUsed ?? 0),
-      0,
-    );
-    return ownerUsed + memberUsed;
-  }, [accountOverviewUsage, billingWorkspaceId, teamData]);
-
-  const usedInPeriod = useMemo(() => {
-    const fromTransactions = totalSpentInRange(transactions, periodStart, periodEnd);
-    if (workspaceTeamUsedInPeriod != null && workspaceTeamUsedInPeriod > fromTransactions) {
-      return workspaceTeamUsedInPeriod;
-    }
-    return fromTransactions;
-  }, [transactions, periodStart, periodEnd, workspaceTeamUsedInPeriod]);
+  const usedInPeriod = teamData?.usageInPeriod ?? 0;
 
   const totalCreditsPool = Math.max(planTotalCredits, currentBalance + usedInPeriod);
 
@@ -482,7 +470,7 @@ export function BillingOverview({
     return rows;
   }, [teamData, displayName, accountOverviewUsage, billingWorkspaceId]);
 
-  const teamTotalUsed = teamRows.reduce((sum, r) => sum + r.used, 0);
+  const teamTotalUsed = teamData?.usageInPeriod ?? 0;
   const teamUsage = planUsageMetrics(teamTotalUsed, totalCreditsPool);
 
   const planFeatures = currentPlan?.features?.length
@@ -636,6 +624,50 @@ export function BillingOverview({
             </Link>
           </div>
 
+          {accountOverviewUsage ? (
+            <div className="overflow-x-auto mb-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">
+                    <th className="py-2 pr-3">Workspace</th>
+                    <th className="py-2 pr-3 text-right">Funded</th>
+                    <th className="py-2 pr-3 text-right">Used</th>
+                    <th className="py-2 text-right">Remaining</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(teamData?.workspaceUsageInPeriod ?? []).map((ws) => (
+                    <tr key={ws.workspaceId} className="border-b border-slate-100">
+                      <td className="py-2.5 pr-3 font-medium text-slate-900">
+                        {ws.workspaceName}
+                        {ws.isDefault ? (
+                          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Default</span>
+                        ) : null}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right text-slate-800">{(ws.fundedTotal ?? 0).toLocaleString()}</td>
+                      <td className="py-2.5 pr-3 text-right text-slate-800">{(ws.creditsUsed ?? 0).toLocaleString()}</td>
+                      <td className="py-2.5 text-right text-slate-800">{(ws.remainingTotal ?? 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {(teamData?.ownerPersonalUsedInPeriod ?? 0) > 0 && (
+                    <tr className="border-b border-slate-100">
+                      <td className="py-2.5 pr-3 font-medium text-slate-900">Account (not assigned to a workspace)</td>
+                      <td className="py-2.5 pr-3 text-right text-slate-400">—</td>
+                      <td className="py-2.5 pr-3 text-right text-slate-800">
+                        {(teamData?.ownerPersonalUsedInPeriod ?? 0).toLocaleString()}
+                      </td>
+                      <td className="py-2.5 text-right text-slate-400">—</td>
+                    </tr>
+                  )}
+                  {(teamData?.workspaceUsageInPeriod ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-sm text-slate-500">No workspace usage this period.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {teamRows.map((member) => {
               const memberShare = shareMetrics(member.used, teamTotalUsed);
@@ -658,6 +690,7 @@ export function BillingOverview({
               );
             })}
           </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between text-sm mb-2">
