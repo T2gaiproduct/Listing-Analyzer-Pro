@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { db, creditTransactionsTable, workspacesTable } from "@workspace/db";
 import {
   creditUsageDebitFilters,
@@ -43,26 +43,25 @@ export async function sumCreditsUsedInPeriod(
   return Number(row?.total ?? 0);
 }
 
-/** Credits consumed by a user in a specific workspace during a billing period. */
+/** Credits consumed by a user in a specific workspace. Omit dates for all-time. */
 export async function sumCreditsUsedInWorkspaceForUser(
   userId: string,
   workspaceId: number,
-  periodStart: Date,
-  periodEnd: Date,
+  periodStart?: Date,
+  periodEnd?: Date,
 ): Promise<number> {
+  const conditions = [
+    transactionAttributedToWorkspaceUser(workspaceId, userId),
+    ...creditUsageDebitFilters(),
+  ];
+  if (periodStart) conditions.push(gte(creditTransactionsTable.createdAt, periodStart));
+  if (periodEnd) conditions.push(lte(creditTransactionsTable.createdAt, periodEnd));
   const [row] = await db
     .select({
       total: sql<number>`coalesce(sum(abs(${creditTransactionsTable.amount})), 0)`,
     })
     .from(creditTransactionsTable)
-    .where(
-      and(
-        transactionAttributedToWorkspaceUser(workspaceId, userId),
-        ...creditUsageDebitFilters(),
-        gte(creditTransactionsTable.createdAt, periodStart),
-        lte(creditTransactionsTable.createdAt, periodEnd),
-      ),
-    );
+    .where(and(...conditions));
   return Number(row?.total ?? 0);
 }
 
@@ -138,25 +137,24 @@ export async function sumOwnerPersonalCreditsUsedInPeriod(
   return Number(personalRow?.total ?? 0);
 }
 
-/** Credits consumed from a workspace pool in a billing period (all members + owner). */
+/** Credits consumed from a workspace pool (all members + owner). Omit dates for all-time. */
 export async function sumCreditsUsedForWorkspace(
   workspaceId: number,
-  periodStart: Date,
-  periodEnd: Date,
+  periodStart?: Date,
+  periodEnd?: Date,
 ): Promise<number> {
+  const conditions = [
+    transactionAttributedToWorkspace(workspaceId),
+    ...creditUsageDebitFilters(),
+  ];
+  if (periodStart) conditions.push(gte(creditTransactionsTable.createdAt, periodStart));
+  if (periodEnd) conditions.push(lte(creditTransactionsTable.createdAt, periodEnd));
   const [row] = await db
     .select({
       total: sql<number>`coalesce(sum(abs(${creditTransactionsTable.amount})), 0)`,
     })
     .from(creditTransactionsTable)
-    .where(
-      and(
-        transactionAttributedToWorkspace(workspaceId),
-        ...creditUsageDebitFilters(),
-        gte(creditTransactionsTable.createdAt, periodStart),
-        lte(creditTransactionsTable.createdAt, periodEnd),
-      ),
-    );
+    .where(and(...conditions));
   return Number(row?.total ?? 0);
 }
 
@@ -194,11 +192,11 @@ export async function sumAllocatedCreditsForOwner(ownerUserId: string, _excludeM
   return sumWorkspaceCreditsHeldForOwner(ownerUserId);
 }
 
-/** Sum of per-workspace funded totals (matches Workspaces hub “Assigned credits in workspaces”). */
+/** Sum of per-workspace funded totals (matches Workspaces hub Funded: remaining + all-time used). */
 export async function sumWorkspaceCreditsFundedForOwner(
   accountOwnerId: string,
-  periodStart: Date,
-  periodEnd: Date,
+  _periodStart: Date,
+  _periodEnd: Date,
 ): Promise<number> {
   const workspaces = await db
     .select({ id: workspacesTable.id })
@@ -208,8 +206,8 @@ export async function sumWorkspaceCreditsFundedForOwner(
   for (const w of workspaces) {
     const pool = await getWorkspaceCredits(w.id);
     const memberRemaining = await sumAllocatedMemberCreditsForWorkspace(w.id);
-    const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
-    total += workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedInPeriod);
+    const creditsUsedTotal = await sumCreditsUsedForWorkspace(w.id);
+    total += workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedTotal);
   }
   return total;
 }

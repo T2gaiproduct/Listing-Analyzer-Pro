@@ -499,14 +499,14 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     creditScope = "workspace_pool";
     const unassignedPool = await getWorkspaceCredits(workspaceId);
     const memberRemaining = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
-    const workspaceUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
+    const workspaceUsedTotal = await sumCreditsUsedForWorkspace(workspaceId);
     displayCredits = {
       aiCredits: unassignedPool.aiCredits + memberRemaining.aiCredits,
       imageCredits: unassignedPool.imageCredits + memberRemaining.imageCredits,
       auditCredits: unassignedPool.auditCredits + memberRemaining.auditCredits,
     };
-    // Match Workspaces hub "Funded" — pool + member remaining + used this period.
-    creditsAllowance = workspaceFundedPoolTotal(unassignedPool, memberRemaining, workspaceUsedInPeriod);
+    // Match Workspaces hub "Funded" — pool + member remaining + all-time usage.
+    creditsAllowance = workspaceFundedPoolTotal(unassignedPool, memberRemaining, workspaceUsedTotal);
   } else if (!wsCtx.isAccountOwner && wsCtx.workspaceMemberId) {
     creditScope = "member";
     const memberCredits = await getWorkspaceMemberCredits(wsCtx.workspaceMemberId);

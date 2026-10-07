@@ -31,8 +31,8 @@ export interface WorkspaceMemberBillingStat extends WorkspaceMemberStat {
 export async function buildWorkspaceMemberStats(
   ownerUserId: string,
   workspaceMembers: WorkspaceMemberListItem[],
-  periodStart: Date,
-  periodEnd: Date,
+  periodStart: Date | undefined,
+  periodEnd: Date | undefined,
   workspaceId: number,
 ): Promise<WorkspaceMemberStat[]> {
   const teamRows = await db

@@ -42,9 +42,9 @@ export function workspacePoolFundedTotals(pool: CreditTotals, memberAllocated: C
   };
 }
 
-/** Total credits funded to this workspace = remaining pool balance + used this period. */
-export function workspaceFundedCreditTotal(pool: CreditTotals, usedInPeriod: number): number {
-  return sumCreditBalance(pool) + usedInPeriod;
+/** Total credits funded to this workspace = remaining pool balance + counted usage. */
+export function workspaceFundedCreditTotal(pool: CreditTotals, creditsUsed: number): number {
+  return sumCreditBalance(pool) + creditsUsed;
 }
 
 /** Credits assigned to members (allocation), stable as members spend: remaining + used by members. */
@@ -57,14 +57,14 @@ export function workspaceMembersAllocationTotal(
 
 /**
  * Total credits in a workspace pool (funded amount), stable as credits are consumed:
- * unassigned pool + member remaining + all workspace usage this period.
+ * unassigned pool + member remaining + counted workspace usage (all-time on owner surfaces).
  */
 export function workspaceFundedPoolTotal(
   unassignedPool: CreditTotals,
   memberRemaining: CreditTotals,
-  creditsUsedInPeriod: number,
+  creditsUsed: number,
 ): number {
-  return sumCreditBalance(unassignedPool) + sumCreditBalance(memberRemaining) + creditsUsedInPeriod;
+  return sumCreditBalance(unassignedPool) + sumCreditBalance(memberRemaining) + creditsUsed;
 }
 
 /** Member balances assigned from a workspace pool (net model: valid even when unassigned pool is 0). */

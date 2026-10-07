@@ -54,7 +54,9 @@ interface WorkspaceMemberListItem {
   allocatedCredits?: CreditBuckets;
   allocatedCreditsTotal?: number;
   remainingCredits?: CreditBuckets;
+  remainingTotal?: number;
   creditsUsedInPeriod?: number;
+  creditsUsedTotal?: number;
 }
 
 interface WorkspaceOverviewRow {
@@ -73,6 +75,7 @@ interface WorkspaceOverviewRow {
   toMembersTotal?: number;
   poolAvailableForMembers?: CreditBuckets;
   creditsUsedInPeriod?: number;
+  creditsUsedTotal?: number;
   fundedTotal?: number;
   poolRemaining?: number;
 }
@@ -123,6 +126,14 @@ function memberCreditsTotal(ws: WorkspaceOverviewRow): number {
 function poolUnassignedTotal(ws: WorkspaceOverviewRow): number {
   if (ws.poolRemaining != null) return ws.poolRemaining;
   return sumCredits(ws.poolAvailableForMembers);
+}
+
+function workspaceUsedTotal(ws: WorkspaceOverviewRow): number {
+  return ws.creditsUsedTotal ?? ws.creditsUsedInPeriod ?? 0;
+}
+
+function memberUsedTotal(m: WorkspaceMemberListItem): number {
+  return m.creditsUsedTotal ?? m.creditsUsedInPeriod ?? 0;
 }
 
 export default function WorkspacesPage() {
@@ -551,7 +562,7 @@ export default function WorkspacesPage() {
                               </td>
                               <td className="py-3 pr-4 text-slate-600">{memberAlloc.toLocaleString()}</td>
                               <td className="py-3 pr-4 text-slate-600">
-                                {(ws.creditsUsedInPeriod ?? 0).toLocaleString()}
+                                {workspaceUsedTotal(ws).toLocaleString()}
                               </td>
                               <td className="py-3 pr-4 font-medium text-slate-800">
                                 {poolUnassignedTotal(ws).toLocaleString()}
@@ -625,7 +636,7 @@ export default function WorkspacesPage() {
                                               {(m.allocatedCreditsTotal ?? sumCredits(m.remainingCredits)).toLocaleString()}
                                             </td>
                                             <td className="py-2 pr-3 text-right text-slate-600">
-                                              {(m.creditsUsedInPeriod ?? 0).toLocaleString()}
+                                              {memberUsedTotal(m).toLocaleString()}
                                             </td>
                                             <td className="py-2 text-right font-medium text-slate-800">
                                               {sumCredits(m.remainingCredits ?? m.allocatedCredits).toLocaleString()}

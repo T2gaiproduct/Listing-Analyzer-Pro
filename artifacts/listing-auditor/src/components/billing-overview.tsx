@@ -92,6 +92,7 @@ interface WorkspaceUsageRow {
   workspaceId: number;
   workspaceName: string;
   creditsUsed: number;
+  creditsUsedInPeriod?: number;
 }
 
 interface WorkspaceMemberStatRow {
@@ -394,8 +395,8 @@ export function BillingOverview({
 
   const usedInPeriod = useMemo(() => {
     const fromTransactions = totalSpentInRange(transactions, periodStart, periodEnd);
-    if (workspaceTeamUsedInPeriod != null && workspaceTeamUsedInPeriod > fromTransactions) {
-      return workspaceTeamUsedInPeriod;
+    if (workspaceTeamUsedInPeriod != null) {
+      return Math.max(workspaceTeamUsedInPeriod, fromTransactions);
     }
     return fromTransactions;
   }, [transactions, periodStart, periodEnd, workspaceTeamUsedInPeriod]);
@@ -513,7 +514,9 @@ export function BillingOverview({
                 : billingWorkspaceName
                   ? `${billingWorkspaceName} · `
                   : ""}
-              {format(periodStart, "MMM d, yyyy")} – {format(periodEnd, "MMM d, yyyy")}
+              {billingWorkspaceId != null && !accountOverviewUsage
+                ? "all-time usage"
+                : `${format(periodStart, "MMM d, yyyy")} – ${format(periodEnd, "MMM d, yyyy")}`}
             </p>
             <p className="text-3xl font-bold text-slate-900 mt-4">
               {usedInPeriod.toLocaleString()}{" "}
@@ -528,7 +531,10 @@ export function BillingOverview({
               />
             </div>
             {usedInPeriod > 0 && (
-              <p className="text-xs text-slate-500 mt-2">{totalUsage.pctLabel} of total credits used this period</p>
+              <p className="text-xs text-slate-500 mt-2">
+                {totalUsage.pctLabel} of total credits used
+                {billingWorkspaceId != null && !accountOverviewUsage ? "" : " this period"}
+              </p>
             )}
             {sub.currentPeriodEnd && (
               <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
@@ -625,8 +631,8 @@ export function BillingOverview({
               </h3>
               <p className="text-sm text-slate-500 mt-0.5">
                 {accountOverviewUsage
-                  ? "Credits consumed this billing period in each workspace under your account."
-                  : `Credits used this billing period in ${billingWorkspaceName ?? "this workspace"}.`}
+                  ? "All-time credits consumed in each workspace under your account."
+                  : `All-time credits used in ${billingWorkspaceName ?? "this workspace"}.`}
               </p>
             </div>
             <Link href="/team">
