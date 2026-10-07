@@ -74,9 +74,10 @@ import { upsertUserProfile } from "../lib/user-profile.js";
 import { resolvePlanCreditPools, computePlanCreditsFromAllocations } from "../lib/plan-credits.js";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits.js";
 import {
+  sumCreditsUsedInPeriod,
   sumCreditsUsedForAccountOwner,
   sumCreditsUsedForWorkspace,
-  sumCreditsUsedForWorkspaceMember,
+  sumCreditsUsedInWorkspaceForUser,
   sumCreditTotals,
 } from "../lib/team-stats.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
@@ -259,14 +260,11 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     const pool = await getWorkspaceCredits(w.id);
     const memberRemaining = await sumAllocatedMemberCreditsForWorkspace(w.id);
     const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
-    const creditsUsedAllTime = await sumCreditsUsedForWorkspace(w.id);
     const memberRemainingInPool = memberCreditsInWorkspace(pool, memberRemaining);
     const fundedPool = workspacePoolFundedTotals(pool, memberRemainingInPool);
     const poolAvailable = poolAvailableForMembers(pool);
     const poolUnassigned = sumCreditBalance(poolAvailable);
-    const remainingCreditsTotal = poolUnassigned + sumCreditBalance(memberRemaining);
-    const poolHasCredits = workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedAllTime) > 0
-      || remainingCreditsTotal > 0
+    const poolHasCredits = workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedInPeriod) > 0
       || sumCreditBalance(fundedPool) > 0;
 
     const membersWithCredits = await Promise.all(w.members.map(async (m) => {
@@ -277,28 +275,23 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
           ? { aiCredits: row.aiCredits, imageCredits: row.imageCredits, auditCredits: row.auditCredits }
           : { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
       const remainingTotal = sumCreditTotals(remainingCredits);
-      const creditsUsedInPeriodMember = await sumCreditsUsedForWorkspaceMember(
-        m.id,
-        periodStart,
-        periodEnd,
-      );
-      const creditsUsedAllTimeMember = await sumCreditsUsedForWorkspaceMember(m.id);
+      const creditsUsedInPeriodMember = m.userId
+        ? await sumCreditsUsedInWorkspaceForUser(m.userId, w.id, periodStart, periodEnd)
+        : 0;
       return {
         ...m,
         remainingCredits,
-        remainingTotal,
-        allocatedCreditsTotal: remainingTotal + creditsUsedAllTimeMember,
+        allocatedCreditsTotal: remainingTotal + creditsUsedInPeriodMember,
         creditsUsedInPeriod: creditsUsedInPeriodMember,
-        creditsUsedAllTime: creditsUsedAllTimeMember,
       };
     }));
 
-    const creditsUsedByMembersAllTime = membersWithCredits.reduce(
-      (sum, m) => sum + (m.creditsUsedAllTime ?? 0),
+    const creditsUsedByMembers = membersWithCredits.reduce(
+      (sum, m) => sum + (m.creditsUsedInPeriod ?? 0),
       0,
     );
-    const toMembersTotal = workspaceMembersAllocationTotal(memberRemaining, creditsUsedByMembersAllTime);
-    const fundedTotal = workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedAllTime);
+    const toMembersTotal = workspaceMembersAllocationTotal(memberRemaining, creditsUsedByMembers);
+    const fundedTotal = workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedInPeriod);
 
     return {
       id: w.id,
@@ -317,7 +310,6 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       toMembersTotal,
       creditsUsedInPeriod,
       fundedTotal,
-      remainingCreditsTotal,
       poolRemaining: poolUnassigned,
       poolAvailableForMembers: poolAvailable,
     };
@@ -346,7 +338,6 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     accountUnallocatedTotal,
     accountBalancePlusUsed,
     inWorkspacePoolsTotal: inPoolsTotal,
-    fundedInWorkspacesTotal: workspacesWithPools.reduce((sum, ws) => sum + (ws.fundedTotal ?? 0), 0),
     ownerCredits: {
       aiCredits: ownerCredits.aiCredits,
       imageCredits: ownerCredits.imageCredits,

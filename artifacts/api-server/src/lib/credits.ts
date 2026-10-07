@@ -193,16 +193,12 @@ export async function deductCredits(
     return { success: false, remaining: check.currentBalance };
   }
 
-  const workspaceIdFromMeta = typeof metadata?.workspaceId === "number" && Number.isFinite(metadata.workspaceId)
-    ? metadata.workspaceId
-    : undefined;
   await db.insert(creditTransactionsTable).values({
     userId,
     creditType: type,
     amount: -amount,
     reason,
     featureType,
-    workspaceId: workspaceIdFromMeta,
     metadata: metadata ?? null,
     createdAt: now,
   });
@@ -385,10 +381,10 @@ export async function deductCreditsTeamAware(
   metadata?: Record<string, unknown>,
 ): Promise<DeductResult> {
   const wmId = await resolveWorkspaceMemberId(ctx);
-  if (wmId != null) {
+  if (wmId != null && ctx.workspaceId != null) {
     return deductWorkspaceMemberCredits(
       wmId,
-      ctx.workspaceId ?? 0,
+      ctx.workspaceId,
       ctx.userId,
       type,
       amount,
@@ -413,10 +409,7 @@ export async function deductCreditsTeamAware(
   if (ctx.isTeamMember && ctx.memberId != null) {
     return deductMemberCredits(ctx.memberId, type, amount, reason, featureType, metadata, ctx.workspaceId);
   }
-  return deductCredits(ctx.userId, type, amount, reason, featureType, {
-    ...(metadata ?? {}),
-    ...(ctx.workspaceId != null ? { workspaceId: ctx.workspaceId } : {}),
-  });
+  return deductCredits(ctx.userId, type, amount, reason, featureType, metadata);
 }
 
 /**

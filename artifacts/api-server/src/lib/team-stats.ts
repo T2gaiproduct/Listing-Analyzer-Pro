@@ -3,7 +3,6 @@ import { db, creditTransactionsTable, workspacesTable } from "@workspace/db";
 import {
   creditUsageDebitFilters,
   transactionAttributedToWorkspace,
-  transactionAttributedToWorkspaceMember,
   transactionAttributedToWorkspaceUser,
 } from "./workspace-credit-usage.js";
 import {
@@ -48,42 +47,22 @@ export async function sumCreditsUsedInPeriod(
 export async function sumCreditsUsedInWorkspaceForUser(
   userId: string,
   workspaceId: number,
-  periodStart?: Date,
-  periodEnd?: Date,
+  periodStart: Date,
+  periodEnd: Date,
 ): Promise<number> {
-  const conditions = [
-    transactionAttributedToWorkspaceUser(workspaceId, userId),
-    ...creditUsageDebitFilters(),
-  ];
-  if (periodStart) conditions.push(gte(creditTransactionsTable.createdAt, periodStart));
-  if (periodEnd) conditions.push(lte(creditTransactionsTable.createdAt, periodEnd));
   const [row] = await db
     .select({
       total: sql<number>`coalesce(sum(abs(${creditTransactionsTable.amount})), 0)`,
     })
     .from(creditTransactionsTable)
-    .where(and(...conditions));
-  return Number(row?.total ?? 0);
-}
-
-/** Credits consumed from one member's assigned workspace pool. */
-export async function sumCreditsUsedForWorkspaceMember(
-  workspaceMemberId: number,
-  periodStart?: Date,
-  periodEnd?: Date,
-): Promise<number> {
-  const conditions = [
-    transactionAttributedToWorkspaceMember(workspaceMemberId),
-    ...creditUsageDebitFilters(),
-  ];
-  if (periodStart) conditions.push(gte(creditTransactionsTable.createdAt, periodStart));
-  if (periodEnd) conditions.push(lte(creditTransactionsTable.createdAt, periodEnd));
-  const [row] = await db
-    .select({
-      total: sql<number>`coalesce(sum(abs(${creditTransactionsTable.amount})), 0)`,
-    })
-    .from(creditTransactionsTable)
-    .where(and(...conditions));
+    .where(
+      and(
+        transactionAttributedToWorkspaceUser(workspaceId, userId),
+        ...creditUsageDebitFilters(),
+        gte(creditTransactionsTable.createdAt, periodStart),
+        lte(creditTransactionsTable.createdAt, periodEnd),
+      ),
+    );
   return Number(row?.total ?? 0);
 }
 
@@ -159,24 +138,25 @@ export async function sumOwnerPersonalCreditsUsedInPeriod(
   return Number(personalRow?.total ?? 0);
 }
 
-/** Credits consumed from a workspace pool (all members + owner). Omit dates for all-time. */
+/** Credits consumed from a workspace pool in a billing period (all members + owner). */
 export async function sumCreditsUsedForWorkspace(
   workspaceId: number,
-  periodStart?: Date,
-  periodEnd?: Date,
+  periodStart: Date,
+  periodEnd: Date,
 ): Promise<number> {
-  const conditions = [
-    transactionAttributedToWorkspace(workspaceId),
-    ...creditUsageDebitFilters(),
-  ];
-  if (periodStart) conditions.push(gte(creditTransactionsTable.createdAt, periodStart));
-  if (periodEnd) conditions.push(lte(creditTransactionsTable.createdAt, periodEnd));
   const [row] = await db
     .select({
       total: sql<number>`coalesce(sum(abs(${creditTransactionsTable.amount})), 0)`,
     })
     .from(creditTransactionsTable)
-    .where(and(...conditions));
+    .where(
+      and(
+        transactionAttributedToWorkspace(workspaceId),
+        ...creditUsageDebitFilters(),
+        gte(creditTransactionsTable.createdAt, periodStart),
+        lte(creditTransactionsTable.createdAt, periodEnd),
+      ),
+    );
   return Number(row?.total ?? 0);
 }
 

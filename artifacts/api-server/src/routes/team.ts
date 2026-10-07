@@ -18,19 +18,14 @@ import {
 import { getMemberCredits } from "../lib/credits.js";
 import {
   computeAccountCreditSummary,
-  getWorkspaceCredits,
   resolveWorkspaceMemberCreditsForUser,
-  sumAllocatedMemberCreditsForWorkspace,
-  sumCreditBalance,
   sumWorkspaceCreditsHeldForOwner,
-  workspaceFundedPoolTotal,
 } from "../lib/workspace-credits.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import {
   countAuditActivity,
   getLastActivityAt,
   sumCreditsUsedInPeriod,
-  sumCreditsUsedForAccountOwner,
   sumCreditsUsedForWorkspace,
   sumCreditsUsedInWorkspaceForUser,
   sumOwnerPersonalCreditsUsedInPeriod,
@@ -184,26 +179,13 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
 
   const workspaceUsageInPeriod = scopedWorkspaceId == null
     ? await Promise.all(
-      workspaceMembers.workspaces.map(async (ws) => {
-        const pool = await getWorkspaceCredits(ws.id);
-        const memberRemaining = await sumAllocatedMemberCreditsForWorkspace(ws.id);
-        const creditsUsed = await sumCreditsUsedForWorkspace(ws.id, periodStart, periodEnd);
-        const creditsUsedAllTime = await sumCreditsUsedForWorkspace(ws.id);
-        return {
-          workspaceId: ws.id,
-          workspaceName: ws.name,
-          isDefault: ws.isDefault,
-          creditsUsed,
-          fundedTotal: workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedAllTime),
-          remainingTotal: sumCreditBalance(pool) + sumCreditBalance(memberRemaining),
-        };
-      }),
+      workspaceMembers.workspaces.map(async (ws) => ({
+        workspaceId: ws.id,
+        workspaceName: ws.name,
+        creditsUsed: await sumCreditsUsedForWorkspace(ws.id, periodStart, periodEnd),
+      })),
     )
     : [];
-
-  const usageInPeriod = scopedWorkspaceId != null
-    ? await sumCreditsUsedForWorkspace(scopedWorkspaceId, periodStart, periodEnd)
-    : await sumCreditsUsedForAccountOwner(userId, periodStart, periodEnd);
 
   const ownerPersonalUsedInPeriod = scopedWorkspaceId == null
     ? await sumOwnerPersonalCreditsUsedInPeriod(userId, periodStart, periodEnd)
@@ -227,7 +209,6 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     ownerUsedInPeriod,
     ownerPersonalUsedInPeriod,
     ownerUsedInScopedWorkspace,
-    usageInPeriod,
     workspaceUsageInPeriod,
     members: [...members, ...pending],
     memberStats,

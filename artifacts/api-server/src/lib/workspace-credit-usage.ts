@@ -10,52 +10,27 @@ export function creditUsageDebitFilters(): SQL[] {
   ];
 }
 
-const NUMERIC_WORKSPACE_MEMBER_ID = sql`(
-  ${creditTransactionsTable.metadata}->>'workspaceMemberId'
-) ~ '^[0-9]+$'`;
-
-function metadataWorkspaceMemberId(): SQL {
-  return sql`(${creditTransactionsTable.metadata}->>'workspaceMemberId')::int`;
-}
-
-function workspaceMemberIdsInWorkspace(workspaceId: number): SQL {
-  return sql`(
+/**
+ * Usage rows attributed to a workspace: explicit workspace_id, or legacy rows that only
+ * stored workspaceMemberId in metadata when members spent assigned pool credits.
+ */
+export function transactionAttributedToWorkspace(workspaceId: number): SQL {
+  const memberIdInWorkspace = sql`(
     select ${workspaceMembersTable.id}
     from ${workspaceMembersTable}
     where ${workspaceMembersTable.workspaceId} = ${workspaceId}
+      and ${workspaceMembersTable.isDeleted} = 0
   )`;
-}
 
-function chargedViaWorkspaceMember(workspaceId: number): SQL {
-  return and(
-    NUMERIC_WORKSPACE_MEMBER_ID,
-    sql`${metadataWorkspaceMemberId()} in ${workspaceMemberIdsInWorkspace(workspaceId)}`,
-  )!;
-}
-
-/**
- * Attribute usage to the workspace whose member/pool was actually charged.
- * Member-pool debits (metadata.workspaceMemberId) win over a mismatched workspace_id
- * so spend is not counted on the header workspace instead of the funded pool.
- */
-export function transactionAttributedToWorkspace(workspaceId: number): SQL {
-  const viaMember = chargedViaWorkspaceMember(workspaceId);
-  const viaWorkspaceId = and(
-    eq(creditTransactionsTable.workspaceId, workspaceId),
-    or(
-      sql`not (${NUMERIC_WORKSPACE_MEMBER_ID})`,
-      sql`${metadataWorkspaceMemberId()} in ${workspaceMemberIdsInWorkspace(workspaceId)}`,
-    ),
+  const legacyByWorkspaceMember = and(
+    isNull(creditTransactionsTable.workspaceId),
+    sql`(${creditTransactionsTable.metadata}->>'workspaceMemberId') ~ '^[0-9]+$'`,
+    sql`(${creditTransactionsTable.metadata}->>'workspaceMemberId')::int in ${memberIdInWorkspace}`,
   );
 
-  return or(viaMember, viaWorkspaceId)!;
-}
-
-/** Usage charged to one workspace_members row (assigned member pool). */
-export function transactionAttributedToWorkspaceMember(workspaceMemberId: number): SQL {
-  return and(
-    NUMERIC_WORKSPACE_MEMBER_ID,
-    sql`${metadataWorkspaceMemberId()} = ${workspaceMemberId}`,
+  return or(
+    eq(creditTransactionsTable.workspaceId, workspaceId),
+    legacyByWorkspaceMember,
   )!;
 }
 
@@ -63,42 +38,51 @@ export function transactionAttributedToWorkspaceMember(workspaceMemberId: number
 export function transactionAttributedToWorkspaceUser(workspaceId: number, userId: string): SQL {
   return and(
     eq(creditTransactionsTable.userId, userId),
-    transactionAttributedToWorkspace(workspaceId),
+    or(
+      eq(creditTransactionsTable.workspaceId, workspaceId),
+      and(
+        isNull(creditTransactionsTable.workspaceId),
+        sql`exists (
+          select 1 from ${workspaceMembersTable} wm
+          where wm.workspace_id = ${workspaceId}
+            and wm.user_id = ${userId}
+            and wm.is_deleted = 0
+            and wm.id = (${creditTransactionsTable.metadata}->>'workspaceMemberId')::int
+        )`,
+      ),
+    ),
   )!;
 }
 
-/** Billing credit-usage list for one workspace (includes member-pool attribution). */
+/** Billing credit-usage list for one workspace (includes legacy attribution). */
 export function workspaceCreditUsageScopeWhere(workspaceId: number): SQL {
   return transactionAttributedToWorkspace(workspaceId);
 }
 
-/** Account-level billing: owned workspaces (exclusive member attribution) + owner personal. */
+/** Account-level billing: all owned workspaces + owner personal account debits. */
 export function accountCreditUsageScopeWhere(
   accountOwnerId: string,
   ownedWorkspaceIds: number[],
 ): SQL {
-  const memberInOwned = ownedWorkspaceIds.length > 0
-    ? sql`${metadataWorkspaceMemberId()} in (
-        select ${workspaceMembersTable.id}
-        from ${workspaceMembersTable}
-        where ${inArray(workspaceMembersTable.workspaceId, ownedWorkspaceIds)}
-      )`
-    : sql`false`;
-
-  const chargedViaMember = and(NUMERIC_WORKSPACE_MEMBER_ID, memberInOwned);
-
-  const chargedViaWorkspaceId = ownedWorkspaceIds.length > 0
+  const legacyInOwnedWorkspaces = ownedWorkspaceIds.length > 0
     ? and(
-        inArray(creditTransactionsTable.workspaceId, ownedWorkspaceIds),
-        or(sql`not (${NUMERIC_WORKSPACE_MEMBER_ID})`, memberInOwned),
+        isNull(creditTransactionsTable.workspaceId),
+        sql`(${creditTransactionsTable.metadata}->>'workspaceMemberId') ~ '^[0-9]+$'`,
+        sql`(${creditTransactionsTable.metadata}->>'workspaceMemberId')::int in (
+          select ${workspaceMembersTable.id}
+          from ${workspaceMembersTable}
+          where ${inArray(workspaceMembersTable.workspaceId, ownedWorkspaceIds)}
+            and ${workspaceMembersTable.isDeleted} = 0
+        )`,
       )
     : sql`false`;
 
-  const ownerPersonal = and(
-    eq(creditTransactionsTable.userId, accountOwnerId),
-    isNull(creditTransactionsTable.workspaceId),
-    sql`not (${NUMERIC_WORKSPACE_MEMBER_ID})`,
-  );
+  const workspaceClause = ownedWorkspaceIds.length > 0
+    ? or(inArray(creditTransactionsTable.workspaceId, ownedWorkspaceIds), legacyInOwnedWorkspaces)
+    : sql`false`;
 
-  return or(chargedViaMember, chargedViaWorkspaceId, ownerPersonal)!;
+  return or(
+    workspaceClause,
+    and(eq(creditTransactionsTable.userId, accountOwnerId), isNull(creditTransactionsTable.workspaceId)),
+  )!;
 }

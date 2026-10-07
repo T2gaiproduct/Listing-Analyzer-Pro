@@ -768,20 +768,14 @@ export async function deductWorkspaceMemberCredits(
     return { success: false, remaining: memberBal };
   }
 
-  const chargedWorkspaceId = memberRow?.workspaceId || workspaceId;
   await db.insert(creditTransactionsTable).values({
     userId,
     creditType: type,
     amount: -amount,
     reason,
     featureType,
-    workspaceId: chargedWorkspaceId,
-    metadata: {
-      ...(metadata ?? {}),
-      chargedFrom: "workspace_member_pool",
-      workspaceMemberId,
-      workspaceId: chargedWorkspaceId,
-    },
+    workspaceId,
+    metadata: { ...(metadata ?? {}), chargedFrom: "workspace_member_pool", workspaceMemberId },
     createdAt: now,
   });
 

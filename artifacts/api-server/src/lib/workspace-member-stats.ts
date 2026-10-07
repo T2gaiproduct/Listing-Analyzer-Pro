@@ -5,7 +5,7 @@ import type { WorkspaceMemberSummary } from "./workspace-member-summary.js";
 import {
   countAuditActivity,
   getLastActivityAt,
-  sumCreditsUsedForWorkspaceMember,
+  sumCreditsUsedInWorkspaceForUser,
 } from "./team-stats.js";
 
 export interface WorkspaceMemberStat {
@@ -70,8 +70,9 @@ export async function buildWorkspaceMemberStats(
       };
     }
 
-    const creditsUsed = await sumCreditsUsedForWorkspaceMember(
-      wm.id,
+    const creditsUsed = await sumCreditsUsedInWorkspaceForUser(
+      wm.userId,
+      workspaceId,
       periodStart,
       periodEnd,
     );
