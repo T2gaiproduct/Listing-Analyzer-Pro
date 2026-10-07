@@ -62,6 +62,7 @@ interface CreditUsage {
   }[];
   breakdown: Record<string, { spent: number; earned: number; count: number }>;
   totalSpent?: number;
+  spentByFeatureType?: Record<string, number>;
 }
 
 interface TeamMember {
@@ -123,7 +124,7 @@ const SERVICE_CONFIG = [
     id: "audit",
     label: "Audit Listing",
     icon: FileSearch,
-    featureTypes: ["audit"],
+    featureTypes: ["audit", "competitors"],
     iconBg: "bg-emerald-50",
     iconColor: "text-emerald-600",
     barColor: "bg-emerald-500",
@@ -135,7 +136,7 @@ const SERVICE_CONFIG = [
     id: "graphics",
     label: "Create Graphics",
     icon: Palette,
-    featureTypes: ["images", "image_regenerate", "image_edit", "graphics", "graphics_edit"],
+    featureTypes: ["images", "image_regenerate", "image_edit", "graphics", "graphics_edit", "img"],
     iconBg: "bg-violet-50",
     iconColor: "text-violet-600",
     barColor: "bg-violet-500",
@@ -147,7 +148,7 @@ const SERVICE_CONFIG = [
     id: "brand",
     label: "Build Your Brand",
     icon: FilePlus2,
-    featureTypes: ["ebc", "content"],
+    featureTypes: ["ebc", "content", "reference_research", "ai"],
     iconBg: "bg-blue-50",
     iconColor: "text-blue-600",
     barColor: "bg-blue-500",
@@ -279,6 +280,13 @@ function auditListingCreditsUsed(
   return listingsAudited.size * costPerAudit + orphanSpend;
 }
 
+function spentForFeatureTypes(
+  spentByFeatureType: Record<string, number>,
+  featureTypes: readonly string[],
+): number {
+  return featureTypes.reduce((sum, ft) => sum + (spentByFeatureType[ft] ?? 0), 0);
+}
+
 function totalSpentInRange(
   transactions: CreditUsage["transactions"],
   start: Date,
@@ -394,12 +402,15 @@ export function BillingOverview({
   }, [accountOverviewUsage, billingWorkspaceId, teamData]);
 
   const usedInPeriod = useMemo(() => {
+    if (typeof creditUsage?.totalSpent === "number") {
+      return creditUsage.totalSpent;
+    }
     const fromTransactions = totalSpentInRange(transactions, periodStart, periodEnd);
     if (workspaceTeamUsedInPeriod != null) {
       return Math.max(workspaceTeamUsedInPeriod, fromTransactions);
     }
     return fromTransactions;
-  }, [transactions, periodStart, periodEnd, workspaceTeamUsedInPeriod]);
+  }, [creditUsage?.totalSpent, transactions, periodStart, periodEnd, workspaceTeamUsedInPeriod]);
 
   const totalCreditsPool = Math.max(planTotalCredits, currentBalance + usedInPeriod);
 
@@ -409,15 +420,63 @@ export function BillingOverview({
     creditRules.find((r) => r.featureType === featureType)?.creditsRequired ?? fallback;
 
   const serviceUsage = useMemo(() => {
-    return SERVICE_CONFIG.map((svc) => {
+    const spentByFeature = creditUsage?.spentByFeatureType;
+    const rows: {
+      id: string;
+      label: string;
+      icon: (typeof SERVICE_CONFIG)[number]["icon"];
+      iconBg: string;
+      iconColor: string;
+      barColor: string;
+      unit: string;
+      spent: number;
+      pctLabel: string;
+      barWidth: number;
+      cost: number;
+    }[] = SERVICE_CONFIG.map((svc) => {
       const cost = serviceDisplayCost(svc, ruleCost);
-      const spent = svc.id === "audit"
-        ? auditListingCreditsUsed(transactions, periodStart, periodEnd, cost)
-        : spentInRange(transactions, periodStart, periodEnd, svc.featureTypes);
+      const spent = spentByFeature
+        ? spentForFeatureTypes(spentByFeature, svc.featureTypes)
+        : svc.id === "audit"
+          ? auditListingCreditsUsed(transactions, periodStart, periodEnd, cost)
+          : spentInRange(transactions, periodStart, periodEnd, svc.featureTypes);
       const metrics = planUsageMetrics(spent, totalCreditsPool);
-      return { ...svc, spent, ...metrics, cost };
+      return {
+        id: svc.id,
+        label: svc.label,
+        icon: svc.icon,
+        iconBg: svc.iconBg,
+        iconColor: svc.iconColor,
+        barColor: svc.barColor,
+        unit: svc.unit,
+        spent,
+        ...metrics,
+        cost,
+      };
     });
-  }, [transactions, periodStart, periodEnd, creditRules, totalCreditsPool]);
+    if (spentByFeature) {
+      const mappedTypes = new Set(SERVICE_CONFIG.flatMap((svc) => svc.featureTypes as readonly string[]));
+      const leftover = Object.entries(spentByFeature)
+        .filter(([ft]) => !mappedTypes.has(ft))
+        .reduce((sum, [, n]) => sum + n, 0);
+      if (leftover > 0) {
+        const metrics = planUsageMetrics(leftover, totalCreditsPool);
+        rows.push({
+          id: "other",
+          label: "Other",
+          icon: FilePlus2,
+          iconBg: "bg-slate-50",
+          iconColor: "text-slate-600",
+          barColor: "bg-slate-400",
+          unit: "Action",
+          spent: leftover,
+          ...metrics,
+          cost: 0,
+        });
+      }
+    }
+    return rows;
+  }, [creditUsage?.spentByFeatureType, transactions, periodStart, periodEnd, creditRules, totalCreditsPool]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
 
@@ -510,13 +569,10 @@ export function BillingOverview({
             <h2 className="text-lg font-bold text-slate-900">Total credit usage</h2>
             <p className="text-sm text-slate-500 mt-0.5">
               {accountOverviewUsage
-                ? "All workspaces · "
+                ? "All workspaces · all-time usage"
                 : billingWorkspaceName
-                  ? `${billingWorkspaceName} · `
-                  : ""}
-              {billingWorkspaceId != null && !accountOverviewUsage
-                ? "all-time usage"
-                : `${format(periodStart, "MMM d, yyyy")} – ${format(periodEnd, "MMM d, yyyy")}`}
+                  ? `${billingWorkspaceName} · all-time usage`
+                  : "all-time usage"}
             </p>
             <p className="text-3xl font-bold text-slate-900 mt-4">
               {usedInPeriod.toLocaleString()}{" "}
@@ -531,10 +587,7 @@ export function BillingOverview({
               />
             </div>
             {usedInPeriod > 0 && (
-              <p className="text-xs text-slate-500 mt-2">
-                {totalUsage.pctLabel} of total credits used
-                {billingWorkspaceId != null && !accountOverviewUsage ? "" : " this period"}
-              </p>
+              <p className="text-xs text-slate-500 mt-2">{totalUsage.pctLabel} of total credits used</p>
             )}
             {sub.currentPeriodEnd && (
               <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
@@ -583,7 +636,7 @@ export function BillingOverview({
         <div className="mb-5">
           <h3 className="text-base font-bold text-slate-900">Credit usage breakdown</h3>
           <p className="text-sm text-slate-500 mt-0.5">
-            See how your credits are being used across different services this billing period. Percentages are of your total available credits ({totalCreditsPool.toLocaleString()} credits).
+            See how your credits are being used across different services. Percentages are of your total available credits ({totalCreditsPool.toLocaleString()} credits). These rows add up to Total credit usage.
           </p>
         </div>
 

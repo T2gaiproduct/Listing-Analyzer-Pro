@@ -11,7 +11,7 @@ import {
   adminInvitesTable, adminRolesTable, seoSettings,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
-import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
+import { aggregateUsage, isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits, serializePlanForPublic } from "../lib/plan-credits";
 import { resolveAccountOwnerId } from "../lib/workspace-context.js";
@@ -1356,37 +1356,36 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  let transactions;
+  let allTransactions;
   if (scope === "account") {
     const { loadCreditUsageTransactions } = await import("../lib/credit-usage-scope.js");
-    transactions = await loadCreditUsageTransactions(accountOwnerId, "account", null, 500);
+    allTransactions = await loadCreditUsageTransactions(accountOwnerId, "account", null);
   } else if (scope === "workspace" && scopedWorkspaceId != null) {
     const { loadCreditUsageTransactions } = await import("../lib/credit-usage-scope.js");
-    transactions = await loadCreditUsageTransactions(accountOwnerId, "workspace", scopedWorkspaceId, 500);
+    allTransactions = await loadCreditUsageTransactions(accountOwnerId, "workspace", scopedWorkspaceId);
   } else {
     const userIds = await workspaceUserIds(userId);
-    transactions = await db
+    allTransactions = await db
       .select()
       .from(creditTransactionsTable)
       .where(inArray(creditTransactionsTable.userId, userIds))
-      .orderBy(desc(creditTransactionsTable.createdAt))
-      .limit(500);
+      .orderBy(desc(creditTransactionsTable.createdAt));
   }
 
-  const breakdown: Record<string, { spent: number; earned: number; count: number }> = {};
-  let totalSpent = 0;
-  let totalEarned = 0;
-  const refunded = refundedDebitIds(transactions as CreditUsageTx[]);
+  const transactions = allTransactions.slice(0, 500);
+  const usage = aggregateUsage(allTransactions as CreditUsageTx[]);
 
-  for (const tx of transactions) {
+  const breakdown: Record<string, { spent: number; earned: number; count: number }> = {};
+  let totalEarned = 0;
+  const refunded = refundedDebitIds(allTransactions as CreditUsageTx[]);
+
+  for (const tx of allTransactions) {
     const ft = tx.featureType ?? "other";
     if (!breakdown[ft]) breakdown[ft] = { spent: 0, earned: 0, count: 0 };
     breakdown[ft].count++;
     if (tx.amount < 0) {
       if (isRefundedDebit(tx as CreditUsageTx, refunded)) continue;
-      const spent = Math.abs(tx.amount);
-      breakdown[ft].spent += spent;
-      if (ft !== "subscription" && ft !== "workspace_pool_transfer") totalSpent += spent;
+      breakdown[ft].spent += Math.abs(tx.amount);
     } else {
       breakdown[ft].earned += tx.amount;
       totalEarned += tx.amount;
@@ -1396,8 +1395,9 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
   res.json({
     transactions,
     breakdown,
-    totalSpent,
+    totalSpent: usage.totalSpent,
     totalEarned,
+    spentByFeatureType: usage.spentByFeatureType,
     scope,
     workspaceId: scopedWorkspaceId,
   });

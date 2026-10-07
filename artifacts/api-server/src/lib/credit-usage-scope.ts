@@ -46,13 +46,13 @@ export async function loadCreditUsageTransactions(
   accountOwnerId: string,
   scope: "account" | "workspace",
   workspaceId: number | null,
-  limit: number,
+  limit?: number,
 ) {
   const where = await creditTransactionsScopeWhere(accountOwnerId, scope, workspaceId);
-  return db
+  const query = db
     .select()
     .from(creditTransactionsTable)
     .where(where)
-    .orderBy(desc(creditTransactionsTable.createdAt))
-    .limit(limit);
+    .orderBy(desc(creditTransactionsTable.createdAt));
+  return limit != null ? query.limit(limit) : query;
 }
