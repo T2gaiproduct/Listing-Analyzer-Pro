@@ -76,6 +76,7 @@ import {
 import { createNotification, type NotificationType } from "../lib/notifications.js";
 import { wsSend } from "../lib/ws.js";
 import { sendSupportTicketReplyEmail } from "../lib/support-ticket-email.js";
+import { appendSupportTicketReply, parseSupportTicketData } from "../lib/support-ticket-data.js";
 
 const router: IRouter = Router();
 
@@ -2272,12 +2273,9 @@ async function processSupportTicketReply(id: number, message: string): Promise<S
     return { ok: false, status: 400, error: "This ticket has no customer email" };
   }
 
-  const data = (ticket.data ?? {}) as {
-    subject?: string;
-    message?: string;
-    replies?: Array<{ message: string; sentAt: string }>;
-  };
-  const originalSubject = data.subject?.trim() || "Support ticket";
+  const data = (ticket.data ?? {}) as Record<string, unknown>;
+  const parsed = parseSupportTicketData(data);
+  const originalSubject = parsed.subject.trim() || "Support ticket";
 
   const emailResult = await sendSupportTicketReplyEmail({
     toEmail: ticket.email.trim(),
@@ -2294,12 +2292,16 @@ async function processSupportTicketReply(id: number, message: string): Promise<S
     };
   }
 
-  const replies = [...(data.replies ?? []), { message: trimmed, sentAt: new Date().toISOString() }];
+  const nextData = appendSupportTicketReply(data, {
+    from: "admin",
+    message: trimmed,
+    sentAt: new Date().toISOString(),
+  });
   const [updated] = await db
     .update(formSubmissions)
     .set({
       isRead: true,
-      data: { ...data, replies },
+      data: nextData,
     })
     .where(eq(formSubmissions.id, id))
     .returning();

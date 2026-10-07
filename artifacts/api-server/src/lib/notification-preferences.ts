@@ -60,6 +60,7 @@ const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> 
   audits: ["audit_completed", "competitor_added"],
   admin: [
     "support_ticket_new",
+    "support_ticket_reply",
     "admin_role_invite",
     "admin_role_assigned",
     "admin_role_updated",

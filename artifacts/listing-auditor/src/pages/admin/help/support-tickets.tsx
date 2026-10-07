@@ -15,6 +15,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 interface TicketReply {
   message: string;
   sentAt: string;
+  from?: "admin" | "customer";
 }
 
 interface SupportTicket {
@@ -25,6 +26,16 @@ interface SupportTicket {
   data: { subject?: string; message?: string; replies?: TicketReply[] } | null;
   isRead: boolean;
   createdAt: string;
+}
+
+function replyFrom(reply: TicketReply): "admin" | "customer" {
+  return reply.from === "customer" ? "customer" : "admin";
+}
+
+function lastReplyFromTicket(ticket: SupportTicket): "admin" | "customer" | null {
+  const replies = ticket.data?.replies ?? [];
+  const last = replies[replies.length - 1];
+  return last ? replyFrom(last) : null;
 }
 
 function isSupportTicket(value: unknown): value is SupportTicket {
@@ -157,6 +168,7 @@ export default function AdminSupportTickets() {
 
   const unread = tickets.filter((t) => !t.isRead).length;
   const replies = selected?.data?.replies ?? [];
+  const lastFrom = replies.length ? replyFrom(replies[replies.length - 1]!) : null;
 
   return (
     <div className="space-y-6">
@@ -199,6 +211,9 @@ export default function AdminSupportTickets() {
                     <div className="flex items-center gap-2">
                       {!t.isRead && <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />}
                       <p className="text-sm font-medium text-slate-800 truncate">{t.data?.subject || "No subject"}</p>
+                      {lastReplyFromTicket(t) === "customer" && (
+                        <Badge className="bg-blue-100 text-blue-700 hover:opacity-90">Customer replied</Badge>
+                      )}
                     </div>
                     <p className="text-xs text-slate-400 truncate mt-0.5">{t.email ?? "No email"}</p>
                   </div>
@@ -252,17 +267,30 @@ export default function AdminSupportTickets() {
 
                 {replies.length > 0 && (
                   <div className="mt-6 border-t border-slate-100 pt-5">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Replies sent</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Conversation</p>
                     <div className="space-y-3">
-                      {replies.map((reply, i) => (
-                        <div key={i} className="rounded-lg bg-slate-50 border border-slate-100 p-3">
-                          <p className="text-xs text-slate-400 mb-1.5">
-                            {format(new Date(reply.sentAt), "MMM d, yyyy HH:mm")}
-                          </p>
-                          <p className="text-sm text-slate-800 whitespace-pre-wrap">{reply.message}</p>
-                        </div>
-                      ))}
+                      {replies.map((reply, i) => {
+                        const from = replyFrom(reply);
+                        const isCustomer = from === "customer";
+                        return (
+                          <div
+                            key={i}
+                            className={`rounded-lg border p-3 ${isCustomer ? "bg-blue-50 border-blue-100" : "bg-slate-50 border-slate-100"}`}
+                          >
+                            <p className="text-xs text-slate-400 mb-1.5">
+                              <span className={`font-medium ${isCustomer ? "text-blue-700" : "text-slate-600"}`}>
+                                {isCustomer ? (selected.name || selected.email || "Customer") : "Support"}
+                              </span>
+                              {reply.sentAt ? ` · ${format(new Date(reply.sentAt), "MMM d, yyyy HH:mm")}` : ""}
+                            </p>
+                            <p className="text-sm text-slate-800 whitespace-pre-wrap">{reply.message}</p>
+                          </div>
+                        );
+                      })}
                     </div>
+                    {lastFrom === "customer" && (
+                      <p className="text-xs text-blue-700 mt-3">Customer is waiting for a reply.</p>
+                    )}
                   </div>
                 )}
 

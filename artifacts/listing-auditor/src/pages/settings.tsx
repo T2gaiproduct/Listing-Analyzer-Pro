@@ -8,6 +8,7 @@ import { SettingsAccountCard } from "@/components/settings-account-card";
 import { SettingsSecurityCard } from "@/components/settings-security-card";
 import { SettingsIntegrationsCard } from "@/components/settings-integrations-card";
 import { SupportTicketForm } from "@/components/support-ticket-form";
+import { SupportTicketInbox } from "@/components/support-ticket-inbox";
 
 export default function SettingsPage() {
   const [location] = useLocation();
@@ -49,9 +50,10 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="support" className="mt-6 space-y-4">
           <p className="text-sm text-muted-foreground">
-            Submit a ticket to our support team. We reply to the email on your SellerLens account.
+            Submit a ticket, view replies from our team, and follow up here. We also email your SellerLens account.
           </p>
           <SupportTicketForm compact />
+          <SupportTicketInbox />
         </TabsContent>
       </Tabs>
     </div>

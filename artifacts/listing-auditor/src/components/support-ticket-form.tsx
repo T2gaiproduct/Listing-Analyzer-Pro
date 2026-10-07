@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LifeBuoy, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
+import { MY_SUPPORT_TICKETS_QUERY_KEY } from "@/lib/support-tickets";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export function SupportTicketForm({ compact = false }: { compact?: boolean }) {
   const { user, isLoaded, isSignedIn } = useUser();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const accountEmail = user?.primaryEmailAddress?.emailAddress ?? "";
 
   const { data: profileData } = useQuery({
@@ -67,10 +69,11 @@ export function SupportTicketForm({ compact = false }: { compact?: boolean }) {
       });
       toast({
         title: "Ticket submitted",
-        description: `We will reply to ${accountEmail} within one business day.`,
+        description: `We will reply here and at ${accountEmail} within one business day.`,
       });
       setSubject("");
       setConcern("");
+      void queryClient.invalidateQueries({ queryKey: MY_SUPPORT_TICKETS_QUERY_KEY });
     } catch (err) {
       toast({
         title: "Could not submit ticket",

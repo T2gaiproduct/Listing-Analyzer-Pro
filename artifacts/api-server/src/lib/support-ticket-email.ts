@@ -144,3 +144,60 @@ export async function sendSupportTicketReplyEmail(params: {
     html: replyHtml({ customerName: params.customerName, replyMessage: params.replyMessage }),
   });
 }
+
+function customerFollowUpHtml(params: {
+  ticketId: number;
+  customerEmail: string;
+  customerName?: string | null;
+  subject: string;
+  message: string;
+  adminTicketsUrl: string;
+}): string {
+  const who = escapeHtml(params.customerName?.trim() || params.customerEmail);
+  return `<!DOCTYPE html>
+<html lang="en"><body style="font-family:Segoe UI,sans-serif;background:#f8fafc;margin:0;padding:24px;">
+<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
+<h2 style="color:#0f172a;margin:0 0 8px;">Customer reply on ticket #${params.ticketId}</h2>
+<p style="color:#64748b;font-size:14px;margin:0 0 20px;">From <strong>${who}</strong> (${escapeHtml(params.customerEmail)})</p>
+<p style="color:#0f172a;font-weight:600;margin:0 0 8px;">${escapeHtml(params.subject)}</p>
+<div style="background:#f8fafc;border-radius:8px;padding:16px;color:#475569;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.message)}</div>
+<p style="margin:24px 0 0;text-align:center;">
+<a href="${params.adminTicketsUrl}" style="display:inline-block;background:#f97316;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;">View in admin</a>
+</p>
+</div></body></html>`;
+}
+
+/** Notify the support inbox that the customer replied in-app (does not email the customer). */
+export async function sendSupportTicketCustomerFollowUpEmail(params: {
+  ticketId: number;
+  customerEmail: string;
+  customerName?: string | null;
+  subject: string;
+  message: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const inbox = await resolveSupportInboxEmail();
+  if (!inbox) {
+    return {
+      success: false,
+      error: "No support inbox email configured (Admin → Settings → Platform → Support Email)",
+    };
+  }
+
+  const adminTicketsUrl = `${getAppBaseUrl()}/admin/help/support-tickets`;
+  const subject = params.subject.trim().toLowerCase().startsWith("re:")
+    ? params.subject.trim()
+    : `Re: ${params.subject.trim()}`;
+
+  return sendEmail({
+    to: inbox,
+    subject: `[Support #${params.ticketId}] ${subject}`,
+    html: customerFollowUpHtml({
+      ticketId: params.ticketId,
+      customerEmail: params.customerEmail,
+      customerName: params.customerName,
+      subject: params.subject,
+      message: params.message,
+      adminTicketsUrl,
+    }),
+  });
+}

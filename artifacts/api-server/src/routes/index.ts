@@ -27,6 +27,7 @@ import contentGenerationMarketplacesRouter from "./content-generation-marketplac
 import adminContentMarketplacesRouter from "./admin-content-marketplaces";
 import imagePromptTemplatesRouter from "./image-prompt-templates";
 import adminImagePromptTemplatesRouter from "./admin-image-prompt-templates";
+import supportTicketsRouter from "./support-tickets";
 
 const router: IRouter = Router();
 
@@ -38,6 +39,7 @@ router.use(adminImagePromptTemplatesRouter);
 router.use(contentGenerationMarketplacesRouter);
 router.use(imagePromptTemplatesRouter);
 router.use(publicRouter);
+router.use(supportTicketsRouter);
 router.use(teamRouter);
 router.use(accountRolesRouter);
 router.use(marketplacesRouter);

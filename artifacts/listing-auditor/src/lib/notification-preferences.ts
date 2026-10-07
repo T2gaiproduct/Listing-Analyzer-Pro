@@ -148,6 +148,7 @@ export const ADMIN_NOTIFICATION_TYPES_BY_CATEGORY: Record<string, string[]> = {
   audits: ["audit_completed", "competitor_added"],
   admin: [
     "support_ticket_new",
+    "support_ticket_reply",
     "admin_role_invite",
     "admin_role_assigned",
     "admin_role_updated",

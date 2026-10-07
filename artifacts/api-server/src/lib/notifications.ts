@@ -31,6 +31,7 @@ export type NotificationType =
   | "team_invite_accepted"
   | "workspace_created"
   | "support_ticket_new"
+  | "support_ticket_reply"
   | "admin_role_invite"
   | "admin_role_assigned"
   | "admin_role_updated"
