@@ -14,7 +14,9 @@
     "test:ebay-oauth-scopes": "tsx src/lib/ebay-oauth-scopes.test.ts",
     "test:support-tickets": "tsx src/lib/support-ticket-data.test.ts",
     "test:workspace-credits": "tsx src/lib/workspace-credit-usage.test.ts",
-    "test:workspace-usage-all-time": "tsx src/lib/workspace-usage-all-time.integration.ts"
+    "test:workspace-usage-all-time": "tsx src/lib/workspace-usage-all-time.integration.ts",
+    "test:credit-usage-net": "tsx src/lib/credit-usage-net.test.ts",
+    "test:billing-period-usage": "tsx src/lib/billing-period-usage.integration.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.7",

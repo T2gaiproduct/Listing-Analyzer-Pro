@@ -11,7 +11,7 @@ import {
   adminInvitesTable, adminRolesTable, seoSettings,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
-import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
+import { aggregatePeriodUsage, isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits, serializePlanForPublic } from "../lib/plan-credits";
 import { resolveAccountOwnerId } from "../lib/workspace-context.js";
@@ -1356,13 +1356,36 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
+  const now = new Date();
+  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const [subPeriod] = await db
+    .select({
+      currentPeriodStart: subscriptionsTable.currentPeriodStart,
+      currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+    })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.userId, accountOwnerId))
+    .orderBy(desc(subscriptionsTable.id))
+    .limit(1);
+  const periodStart = subPeriod?.currentPeriodStart
+    ? new Date(subPeriod.currentPeriodStart)
+    : defaultStart;
+  const periodEnd = subPeriod?.currentPeriodEnd ? new Date(subPeriod.currentPeriodEnd) : now;
+
   let transactions;
+  let periodTransactions;
   if (scope === "account") {
-    const { loadCreditUsageTransactions } = await import("../lib/credit-usage-scope.js");
-    transactions = await loadCreditUsageTransactions(accountOwnerId, "account", null, 500);
+    const { loadCreditUsageTransactions, loadCreditUsageTransactionsInPeriod } = await import("../lib/credit-usage-scope.js");
+    [transactions, periodTransactions] = await Promise.all([
+      loadCreditUsageTransactions(accountOwnerId, "account", null, 500),
+      loadCreditUsageTransactionsInPeriod(accountOwnerId, "account", null, periodStart, periodEnd),
+    ]);
   } else if (scope === "workspace" && scopedWorkspaceId != null) {
-    const { loadCreditUsageTransactions } = await import("../lib/credit-usage-scope.js");
-    transactions = await loadCreditUsageTransactions(accountOwnerId, "workspace", scopedWorkspaceId, 500);
+    const { loadCreditUsageTransactions, loadCreditUsageTransactionsInPeriod } = await import("../lib/credit-usage-scope.js");
+    [transactions, periodTransactions] = await Promise.all([
+      loadCreditUsageTransactions(accountOwnerId, "workspace", scopedWorkspaceId, 500),
+      loadCreditUsageTransactionsInPeriod(accountOwnerId, "workspace", scopedWorkspaceId, periodStart, periodEnd),
+    ]);
   } else {
     const userIds = await workspaceUserIds(userId);
     transactions = await db
@@ -1371,6 +1394,10 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
       .where(inArray(creditTransactionsTable.userId, userIds))
       .orderBy(desc(creditTransactionsTable.createdAt))
       .limit(500);
+    periodTransactions = transactions.filter((tx) => {
+      const at = new Date(tx.createdAt);
+      return at >= periodStart && at <= periodEnd;
+    });
   }
 
   const breakdown: Record<string, { spent: number; earned: number; count: number }> = {};
@@ -1393,11 +1420,17 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
+  const periodUsage = aggregatePeriodUsage(periodTransactions as CreditUsageTx[]);
+
   res.json({
     transactions,
     breakdown,
     totalSpent,
     totalEarned,
+    periodStart: periodStart.toISOString(),
+    periodEnd: periodEnd.toISOString(),
+    totalSpentInPeriod: periodUsage.totalSpent,
+    spentByFeatureType: periodUsage.spentByFeatureType,
     scope,
     workspaceId: scopedWorkspaceId,
   });

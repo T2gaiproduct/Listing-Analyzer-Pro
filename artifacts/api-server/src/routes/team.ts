@@ -171,7 +171,7 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     ? workspaceMembers.workspaces[0]?.members ?? []
     : [];
   const workspaceMemberStats = scopedWorkspaceId != null && scopedMembers.length > 0
-    ? await buildWorkspaceMemberStats(userId, scopedMembers, undefined, undefined, scopedWorkspaceId)
+    ? await buildWorkspaceMemberStats(userId, scopedMembers, periodStart, periodEnd, scopedWorkspaceId)
     : [];
   const allWorkspaceMemberStats = scopedWorkspaceId == null
     ? await buildAllWorkspaceMemberBillingStats(userId, workspaceMembers, periodStart, periodEnd)
@@ -182,7 +182,7 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
       workspaceMembers.workspaces.map(async (ws) => ({
         workspaceId: ws.id,
         workspaceName: ws.name,
-        creditsUsed: await sumCreditsUsedForWorkspace(ws.id),
+        creditsUsed: await sumCreditsUsedForWorkspace(ws.id, periodStart, periodEnd),
         creditsUsedInPeriod: await sumCreditsUsedForWorkspace(ws.id, periodStart, periodEnd),
       })),
     )
@@ -193,7 +193,7 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     : 0;
 
   const ownerUsedInScopedWorkspace = scopedWorkspaceId != null
-    ? await sumCreditsUsedInWorkspaceForUser(userId, scopedWorkspaceId)
+    ? await sumCreditsUsedInWorkspaceForUser(userId, scopedWorkspaceId, periodStart, periodEnd)
     : undefined;
 
   res.json({

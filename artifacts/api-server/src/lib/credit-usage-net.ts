@@ -21,6 +21,37 @@ export function isRefundedDebit(tx: CreditUsageTx, refundedIds: Set<number>): bo
   return tx.amount < 0 && typeof tx.id === "number" && refundedIds.has(tx.id);
 }
 
+/** Feature types that are funding/transfers, not consumption. */
+export const BILLING_USAGE_EXCLUDED_FEATURES = ["subscription", "workspace_pool_transfer"] as const;
+
+/** Period consumption by feature, matching team/workspace Used filters. */
+export function aggregatePeriodUsage(transactions: CreditUsageTx[]): {
+  totalSpent: number;
+  spentByFeatureType: Record<string, number>;
+} {
+  const exclude = new Set<string>(BILLING_USAGE_EXCLUDED_FEATURES);
+  const refunded = refundedDebitIds(transactions);
+  const spentByFeatureType: Record<string, number> = {};
+  let totalSpent = 0;
+  for (const tx of transactions) {
+    if (tx.amount >= 0) continue;
+    const ft = tx.featureType ?? "other";
+    if (exclude.has(ft)) continue;
+    if (isRefundedDebit(tx, refunded)) continue;
+    const spent = Math.abs(tx.amount);
+    spentByFeatureType[ft] = (spentByFeatureType[ft] ?? 0) + spent;
+    totalSpent += spent;
+  }
+  return { totalSpent, spentByFeatureType };
+}
+
+export function spentForFeatureTypes(
+  spentByFeatureType: Record<string, number>,
+  featureTypes: readonly string[],
+): number {
+  return featureTypes.reduce((sum, ft) => sum + (spentByFeatureType[ft] ?? 0), 0);
+}
+
 export function netSpentAmount(
   transactions: CreditUsageTx[],
   options?: { excludeFeatureTypes?: string[]; start?: Date; end?: Date },

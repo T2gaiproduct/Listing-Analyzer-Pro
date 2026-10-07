@@ -62,6 +62,10 @@ interface CreditUsage {
   }[];
   breakdown: Record<string, { spent: number; earned: number; count: number }>;
   totalSpent?: number;
+  periodStart?: string;
+  periodEnd?: string;
+  totalSpentInPeriod?: number;
+  spentByFeatureType?: Record<string, number>;
 }
 
 interface TeamMember {
@@ -123,7 +127,7 @@ const SERVICE_CONFIG = [
     id: "audit",
     label: "Audit Listing",
     icon: FileSearch,
-    featureTypes: ["audit"],
+    featureTypes: ["audit", "competitors"],
     iconBg: "bg-emerald-50",
     iconColor: "text-emerald-600",
     barColor: "bg-emerald-500",
@@ -135,7 +139,7 @@ const SERVICE_CONFIG = [
     id: "graphics",
     label: "Create Graphics",
     icon: Palette,
-    featureTypes: ["images", "image_regenerate", "image_edit", "graphics", "graphics_edit"],
+    featureTypes: ["images", "image_regenerate", "image_edit", "graphics", "graphics_edit", "img"],
     iconBg: "bg-violet-50",
     iconColor: "text-violet-600",
     barColor: "bg-violet-500",
@@ -147,7 +151,7 @@ const SERVICE_CONFIG = [
     id: "brand",
     label: "Build Your Brand",
     icon: FilePlus2,
-    featureTypes: ["ebc", "content"],
+    featureTypes: ["ebc", "content", "reference_research"],
     iconBg: "bg-blue-50",
     iconColor: "text-blue-600",
     barColor: "bg-blue-500",
@@ -279,6 +283,13 @@ function auditListingCreditsUsed(
   return listingsAudited.size * costPerAudit + orphanSpend;
 }
 
+function spentForFeatureTypes(
+  spentByFeatureType: Record<string, number>,
+  featureTypes: readonly string[],
+): number {
+  return featureTypes.reduce((sum, ft) => sum + (spentByFeatureType[ft] ?? 0), 0);
+}
+
 function totalSpentInRange(
   transactions: CreditUsage["transactions"],
   start: Date,
@@ -378,28 +389,21 @@ export function BillingOverview({
   const planTotalCredits = planCredits.totalCredits;
   const currentBalance = sumCredits(credits);
 
-  const periodStart = sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
-  const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : endOfMonth(new Date());
+  const periodStart = creditUsage?.periodStart
+    ? new Date(creditUsage.periodStart)
+    : sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
+  const periodEnd = creditUsage?.periodEnd
+    ? new Date(creditUsage.periodEnd)
+    : sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : endOfMonth(new Date());
 
   const transactions = creditUsage?.transactions ?? [];
 
-  const workspaceTeamUsedInPeriod = useMemo(() => {
-    if (accountOverviewUsage || billingWorkspaceId == null) return null;
-    const ownerUsed = teamData?.ownerUsedInScopedWorkspace ?? 0;
-    const memberUsed = (teamData?.workspaceMemberStats ?? []).reduce(
-      (sum, row) => sum + (row.creditsUsed ?? 0),
-      0,
-    );
-    return ownerUsed + memberUsed;
-  }, [accountOverviewUsage, billingWorkspaceId, teamData]);
-
   const usedInPeriod = useMemo(() => {
-    const fromTransactions = totalSpentInRange(transactions, periodStart, periodEnd);
-    if (workspaceTeamUsedInPeriod != null) {
-      return Math.max(workspaceTeamUsedInPeriod, fromTransactions);
+    if (typeof creditUsage?.totalSpentInPeriod === "number") {
+      return creditUsage.totalSpentInPeriod;
     }
-    return fromTransactions;
-  }, [transactions, periodStart, periodEnd, workspaceTeamUsedInPeriod]);
+    return totalSpentInRange(transactions, periodStart, periodEnd);
+  }, [creditUsage?.totalSpentInPeriod, transactions, periodStart, periodEnd]);
 
   const totalCreditsPool = Math.max(planTotalCredits, currentBalance + usedInPeriod);
 
@@ -409,15 +413,18 @@ export function BillingOverview({
     creditRules.find((r) => r.featureType === featureType)?.creditsRequired ?? fallback;
 
   const serviceUsage = useMemo(() => {
+    const spentByFeature = creditUsage?.spentByFeatureType;
     return SERVICE_CONFIG.map((svc) => {
       const cost = serviceDisplayCost(svc, ruleCost);
-      const spent = svc.id === "audit"
-        ? auditListingCreditsUsed(transactions, periodStart, periodEnd, cost)
-        : spentInRange(transactions, periodStart, periodEnd, svc.featureTypes);
+      const spent = spentByFeature
+        ? spentForFeatureTypes(spentByFeature, svc.featureTypes)
+        : svc.id === "audit"
+          ? auditListingCreditsUsed(transactions, periodStart, periodEnd, cost)
+          : spentInRange(transactions, periodStart, periodEnd, svc.featureTypes);
       const metrics = planUsageMetrics(spent, totalCreditsPool);
       return { ...svc, spent, ...metrics, cost };
     });
-  }, [transactions, periodStart, periodEnd, creditRules, totalCreditsPool]);
+  }, [creditUsage?.spentByFeatureType, transactions, periodStart, periodEnd, creditRules, totalCreditsPool]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
 
@@ -514,9 +521,7 @@ export function BillingOverview({
                 : billingWorkspaceName
                   ? `${billingWorkspaceName} · `
                   : ""}
-              {billingWorkspaceId != null && !accountOverviewUsage
-                ? "all-time usage"
-                : `${format(periodStart, "MMM d, yyyy")} – ${format(periodEnd, "MMM d, yyyy")}`}
+              {format(periodStart, "MMM d, yyyy")} – {format(periodEnd, "MMM d, yyyy")}
             </p>
             <p className="text-3xl font-bold text-slate-900 mt-4">
               {usedInPeriod.toLocaleString()}{" "}
@@ -531,10 +536,7 @@ export function BillingOverview({
               />
             </div>
             {usedInPeriod > 0 && (
-              <p className="text-xs text-slate-500 mt-2">
-                {totalUsage.pctLabel} of total credits used
-                {billingWorkspaceId != null && !accountOverviewUsage ? "" : " this period"}
-              </p>
+              <p className="text-xs text-slate-500 mt-2">{totalUsage.pctLabel} of total credits used this period</p>
             )}
             {sub.currentPeriodEnd && (
               <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
@@ -631,8 +633,8 @@ export function BillingOverview({
               </h3>
               <p className="text-sm text-slate-500 mt-0.5">
                 {accountOverviewUsage
-                  ? "All-time credits consumed in each workspace under your account."
-                  : `All-time credits used in ${billingWorkspaceName ?? "this workspace"}.`}
+                  ? "Credits consumed this billing period in each workspace under your account."
+                  : `Credits used this billing period in ${billingWorkspaceName ?? "this workspace"}.`}
               </p>
             </div>
             <Link href="/team">

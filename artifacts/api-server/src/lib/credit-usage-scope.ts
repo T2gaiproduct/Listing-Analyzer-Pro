@@ -1,4 +1,4 @@
-import { and, desc, eq, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, lte, type SQL } from "drizzle-orm";
 import { db, creditTransactionsTable, workspacesTable } from "@workspace/db";
 import {
   accountCreditUsageScopeWhere,
@@ -55,4 +55,26 @@ export async function loadCreditUsageTransactions(
     .where(where)
     .orderBy(desc(creditTransactionsTable.createdAt))
     .limit(limit);
+}
+
+/** All scoped txs in the billing period (no row cap — billing totals must match SQL Used). */
+export async function loadCreditUsageTransactionsInPeriod(
+  accountOwnerId: string,
+  scope: "account" | "workspace",
+  workspaceId: number | null,
+  periodStart: Date,
+  periodEnd: Date,
+) {
+  const where = await creditTransactionsScopeWhere(accountOwnerId, scope, workspaceId);
+  return db
+    .select()
+    .from(creditTransactionsTable)
+    .where(
+      and(
+        where,
+        gte(creditTransactionsTable.createdAt, periodStart),
+        lte(creditTransactionsTable.createdAt, periodEnd),
+      ),
+    )
+    .orderBy(desc(creditTransactionsTable.createdAt));
 }

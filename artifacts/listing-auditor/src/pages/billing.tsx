@@ -88,6 +88,10 @@ interface CreditPack {
 interface CreditUsage {
   transactions: { creditType: string; amount: number; reason: string | null; featureType: string | null; createdAt: string }[];
   breakdown: Record<string, { spent: number; earned: number; count: number }>;
+  periodStart?: string;
+  periodEnd?: string;
+  totalSpentInPeriod?: number;
+  spentByFeatureType?: Record<string, number>;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -716,6 +720,10 @@ export default function Billing() {
       return {
         transactions: data.transactions ?? [],
         breakdown: data.breakdown ?? {},
+        periodStart: data.periodStart,
+        periodEnd: data.periodEnd,
+        totalSpentInPeriod: data.totalSpentInPeriod,
+        spentByFeatureType: data.spentByFeatureType,
       };
     },
     enabled: creditUsageEnabled,
