@@ -198,14 +198,6 @@ export default function WorkspacesPage() {
     return overview.workspaces.reduce((sum, ws) => sum + workspacePoolTotal(ws), 0);
   }, [overview]);
 
-  const fundedInWorkspacesBreakdown = useMemo(() => {
-    if (!overview?.workspaces?.length) return "";
-    const parts = overview.workspaces
-      .filter((ws) => workspacePoolTotal(ws) > 0)
-      .map((ws) => `${ws.name} ${workspacePoolTotal(ws).toLocaleString()}`);
-    return parts.join(" + ");
-  }, [overview]);
-
   const fundingPoolTotal = useMemo(() => {
     return (
       Math.max(0, parseInt(poolForm.auditCredits, 10) || 0) +
@@ -450,12 +442,6 @@ export default function WorkspacesPage() {
                       {format(new Date(billingPeriod.end), "MMM d")}
                     </>
                   )}
-                  {!overviewLoading && planCreditsTotal > 0 && (
-                    <>
-                      <br />
-                      Plan allocation for this billing period (not your current balance).
-                    </>
-                  )}
                 </p>
               </CardContent>
             </Card>
@@ -467,13 +453,11 @@ export default function WorkspacesPage() {
                 <p className="text-2xl font-bold text-orange-600">
                   {overviewLoading ? "—" : accountUnallocatedTotal.toLocaleString()}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {overview?.availableToFundWorkspaces
-                    ? formatCreditBuckets(overview.availableToFundWorkspaces)
-                    : "Available to fund workspaces"}
-                  {" · "}
-                  same as top bar unallocated balance
-                </p>
+                {overview?.availableToFundWorkspaces && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    {formatCreditBuckets(overview.availableToFundWorkspaces)}
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -486,20 +470,6 @@ export default function WorkspacesPage() {
               <CardContent>
                 <p className="text-2xl font-bold text-slate-900">
                   {overviewLoading ? "—" : fundedInWorkspacesTotal.toLocaleString()}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Total funded to each workspace (matches Funded column below)
-                  {fundedInWorkspacesBreakdown ? (
-                    <>
-                      <br />
-                      {fundedInWorkspacesBreakdown} = {fundedInWorkspacesTotal.toLocaleString()}
-                    </>
-                  ) : (
-                    <>
-                      <br />
-                      {overview?.totalWorkspaces ?? 0} workspace{overview?.totalWorkspaces === 1 ? "" : "s"}
-                    </>
-                  )}
                 </p>
               </CardContent>
             </Card>
