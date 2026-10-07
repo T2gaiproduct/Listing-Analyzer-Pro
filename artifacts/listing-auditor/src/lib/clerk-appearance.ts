@@ -30,6 +30,12 @@ export const clerkAppearance = {
     headerTitle: "text-slate-900 font-bold",
     headerSubtitle: "text-slate-500",
     socialButtonsBlockButtonText: "text-slate-700 font-medium",
+    alternativeMethods: "gap-3",
+    alternativeMethodsBlockButton:
+      "border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 shadow-none opacity-100 justify-start min-h-11",
+    alternativeMethodsBlockButtonText:
+      "text-slate-700 font-medium text-left whitespace-normal break-words",
+    alternativeMethodsBlockButtonArrow: "text-slate-400",
     formFieldLabel: "text-slate-700 font-medium",
     footerActionLink: "text-orange-500 hover:text-orange-600 font-semibold",
     footerActionText: "text-slate-500",
