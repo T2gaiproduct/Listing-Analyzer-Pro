@@ -13,7 +13,8 @@
     "test:ebay-marketplace-deletion": "tsx src/lib/ebay-marketplace-account-deletion.test.ts",
     "test:ebay-oauth-scopes": "tsx src/lib/ebay-oauth-scopes.test.ts",
     "test:support-tickets": "tsx src/lib/support-ticket-data.test.ts",
-    "test:workspace-credits": "tsx src/lib/workspace-credit-usage.test.ts"
+    "test:workspace-credits": "tsx src/lib/workspace-credit-usage.test.ts",
+    "test:workspace-usage-all-time": "tsx src/lib/workspace-usage-all-time.integration.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.7",
