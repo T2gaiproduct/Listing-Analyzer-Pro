@@ -3,7 +3,7 @@ import {
   type MarketplaceListingRow,
 } from "./product-marketplaces.js";
 
-const MARKETPLACE_ORDER = ["Amazon", "Flipkart", "Shopsy", "Shopify", "WooCommerce", "Meesho"] as const;
+const MARKETPLACE_ORDER = ["Amazon", "Flipkart", "Shopsy", "Shopify", "WooCommerce", "eBay", "Walmart", "Meesho"] as const;
 
 export interface WorkspaceProductMarketplaceRow {
   id: number;

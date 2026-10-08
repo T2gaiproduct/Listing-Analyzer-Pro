@@ -32,10 +32,12 @@ import {
   getEbayWorkspaceConnectionPublic,
 } from "../lib/ebay-workspace-connection.js";
 import { syncEbayProducts } from "../lib/ebay-product-sync.js";
+import { syncWalmartProducts } from "../lib/walmart-product-sync.js";
 import { maybeSyncEbayOrdersForWorkspace } from "../lib/ebay-order-sync.js";
 import { isEbayOAuthConnectReady, isEbayTradingApiConfigured } from "../lib/ebay-oauth-config.js";
 import {
   disconnectWalmartWorkspaceConnection,
+  getWalmartWorkspaceConnection,
   getWalmartWorkspaceConnectionPublic,
   saveWalmartWorkspaceConnection,
 } from "../lib/walmart-workspace-connection.js";
@@ -67,6 +69,7 @@ import {
   previewAmazonCatalog,
   previewEbayCatalog,
   previewShopifyCatalog,
+  previewWalmartCatalog,
   previewWooCommerceCatalog,
 } from "../lib/marketplace-catalog-preview.js";
 
@@ -245,6 +248,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
     },
     walmart: {
       connected: walmart.connected,
+      importReady: walmart.connected,
       partnerId: walmart.partnerId,
       clientId: walmart.clientId,
       environment: walmart.environment,
@@ -684,6 +688,37 @@ router.get(
 );
 
 router.get(
+  "/marketplaces/walmart/catalog-preview",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceView("amazon"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getWalmartWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your Walmart seller account on the Marketplaces page first." });
+      return;
+    }
+    const { page, pageSize, search, cursor } = parseCatalogPreviewQuery(req.query as Record<string, unknown>);
+
+    try {
+      const preview = await previewWalmartCatalog({
+        workspaceId,
+        page,
+        pageSize,
+        search,
+        cursor,
+      });
+      res.json(preview);
+    } catch (err) {
+      req.log?.error?.({ err }, "Walmart catalog preview failed");
+      const message = err instanceof Error ? err.message : "Failed to load Walmart catalog";
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
+router.get(
   "/marketplaces/amazon/catalog-preview",
   requireAuth,
   resolveTeamAndWorkspace,
@@ -764,6 +799,44 @@ router.post(
     } catch (err) {
       req.log?.error?.({ err }, "eBay product sync failed");
       const message = err instanceof Error ? err.message : "Failed to import eBay products";
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
+router.post(
+  "/marketplaces/walmart/sync",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceAction("amazon", "edit"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getWalmartWorkspaceConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your Walmart seller account on the Marketplaces page first." });
+      return;
+    }
+
+    const importBody = parseMarketplaceImportBody(req.body);
+
+    try {
+      const result = await syncWalmartProducts({
+        workspaceId,
+        ownerId: getEffectiveUserId(req),
+        createdByUserId: auditCreatedByUserId(req),
+        productIds: importBody.productIds,
+        limit: importBody.limit,
+      });
+
+      res.status(201).json({
+        ...result,
+        auditsCompleted: 0,
+        auditsFailed: 0,
+        auditsRemaining: 0,
+      });
+    } catch (err) {
+      req.log?.error?.({ err }, "Walmart product sync failed");
+      const message = err instanceof Error ? err.message : "Failed to import Walmart products";
       res.status(500).json({ error: message });
     }
   },

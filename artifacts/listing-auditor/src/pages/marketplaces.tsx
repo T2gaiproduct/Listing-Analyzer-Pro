@@ -38,6 +38,7 @@ import {
   syncWooCommerceProducts,
   syncAmazonProducts,
   syncEbayProducts,
+  syncWalmartProducts,
   startEbayConnect,
   disconnectEbay,
   connectWalmart,
@@ -431,10 +432,29 @@ export default function MarketplacesPage() {
     }
   }
 
+  function handleWalmartImportSuccess(result: ShopifySyncResult) {
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+    const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+    const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Walmart.` : "";
+    toast({
+      title: "Walmart catalog imported",
+      description: `Imported ${result.imported} of ${result.total} items.${updatedNote}${skippedNote}`,
+    });
+    if (result.errors.length > 0) {
+      toast({
+        title: "Some items could not be imported",
+        description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
+        variant: "destructive",
+      });
+    }
+  }
+
   const shopifySyncMutation = useMutation({ mutationFn: syncShopifyProducts });
   const amazonSyncMutation = useMutation({ mutationFn: syncAmazonProducts });
   const woocommerceSyncMutation = useMutation({ mutationFn: syncWooCommerceProducts });
   const ebaySyncMutation = useMutation({ mutationFn: syncEbayProducts });
+  const walmartSyncMutation = useMutation({ mutationFn: syncWalmartProducts });
 
   function handleAmazonConnect() {
     if (!data?.amazon.workspaceCredentialsSaved) {
@@ -673,6 +693,7 @@ export default function MarketplacesPage() {
     if (platform === "shopify") handleShopifyImportSuccess(result);
     else if (platform === "woocommerce") handleWooCommerceImportSuccess(result);
     else if (platform === "ebay") handleEbayImportSuccess(result);
+    else if (platform === "walmart") handleWalmartImportSuccess(result);
     else handleAmazonImportSuccess(result);
     setImportWizardPlatform(null);
   }
@@ -976,8 +997,14 @@ export default function MarketplacesPage() {
               : null
           }
           loading={pendingAction === "walmart" || connectWalmartMutation.isPending}
+          importLoading={walmartSyncMutation.isPending}
           onConnect={() => setWalmartDialogOpen(true)}
           onDisconnect={() => void handleWalmartDisconnect()}
+          onImport={
+            walmartConnected && data?.walmart?.importReady !== false
+              ? () => setImportWizardPlatform("walmart")
+              : undefined
+          }
         />
       </div>
 
@@ -1444,7 +1471,9 @@ export default function MarketplacesPage() {
                 ? "WooCommerce"
                 : importWizardPlatform === "ebay"
                   ? "eBay"
-                  : "Amazon"
+                  : importWizardPlatform === "walmart"
+                    ? "Walmart"
+                    : "Amazon"
           }
           marketplace={importWizardPlatform === "amazon" ? (data?.amazon.defaultMarketplace ?? "US") : undefined}
           onImport={async (input) => {
@@ -1454,6 +1483,7 @@ export default function MarketplacesPage() {
               if (platform === "shopify") return await shopifySyncMutation.mutateAsync(input);
               if (platform === "woocommerce") return await woocommerceSyncMutation.mutateAsync(input);
               if (platform === "ebay") return await ebaySyncMutation.mutateAsync(input);
+              if (platform === "walmart") return await walmartSyncMutation.mutateAsync(input);
               return await amazonSyncMutation.mutateAsync(input);
             } catch (error) {
               handleImportWizardError(platform, error);

@@ -16,6 +16,21 @@ export function walmartTokenUrl(environment: WalmartEnvironment): string {
   return `${walmartApiBaseUrl(environment)}/v3/token`;
 }
 
+export function walmartMarketplaceHeaders(input: {
+  accessToken: string;
+  partnerId: string;
+  clientId: string;
+}): Record<string, string> {
+  return {
+    Authorization: `Bearer ${input.accessToken}`,
+    Accept: "application/json",
+    "WM_SVC.NAME": "Walmart Marketplace",
+    "WM_QOS.CORRELATION_ID": randomUUID(),
+    "WM_PARTNER.ID": input.partnerId.trim(),
+    "WM_CONSUMER.ID": input.clientId.trim(),
+  };
+}
+
 export class WalmartOAuthError extends Error {
   constructor(
     message: string,
@@ -26,7 +41,7 @@ export class WalmartOAuthError extends Error {
   }
 }
 
-function parseWalmartErrorBody(text: string): string | null {
+export function parseWalmartErrorBody(text: string): string | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
   try {

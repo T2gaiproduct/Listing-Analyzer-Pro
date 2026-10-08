@@ -28,6 +28,10 @@ import {
 } from "./ebay-listing-migrate.js";
 import type { EbayActiveListing } from "./ebay-trading-client.js";
 import { getEbayWorkspaceConnectionPublic } from "./ebay-workspace-connection.js";
+import {
+  fetchWalmartItemsPage,
+  resolveWalmartAccessToken,
+} from "./walmart-items-client.js";
 import { loadedBuildId } from "./api-build-meta.js";
 import { isEbayTradingApiConfigured } from "./ebay-oauth-config.js";
 import type { EbayImportDiagnostics } from "./marketplace-catalog-types.js";
@@ -513,4 +517,82 @@ export async function previewEbayCatalog(input: {
     });
   }
   return withEbayDiagnostics(response, ebayDiag);
+}
+
+export async function previewWalmartCatalog(input: {
+  workspaceId: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  cursor: string | null;
+}): Promise<CatalogPreviewResponse> {
+  const { connection, accessToken } = await resolveWalmartAccessToken(input.workspaceId);
+  const nextCursor = input.page === 1 ? null : input.cursor;
+
+  if (input.search.trim()) {
+    const collected: CatalogPreviewItem[] = [];
+    let scanCursor: string | null = nextCursor;
+    let hasMore = false;
+    const maxPages = 20;
+
+    for (let i = 0; i < maxPages && collected.length < input.pageSize; i++) {
+      const scanned = await fetchWalmartItemsPage({
+        connection,
+        accessToken,
+        limit: 50,
+        nextCursor: scanCursor,
+      });
+      if (scanned.items.length === 0) break;
+
+      for (const item of scanned.items) {
+        const preview: CatalogPreviewItem = {
+          id: item.sku,
+          title: item.productName || item.sku,
+          sku: item.sku,
+          imageUrl: item.imageUrls[0] ?? null,
+          status: item.publishedStatus,
+          subtitle: item.wpid ? `WPID ${item.wpid}` : item.sku,
+        };
+        if (!matchesCatalogSearch(input.search, [preview.title, preview.sku, preview.subtitle, item.upc])) continue;
+        collected.push(preview);
+        if (collected.length >= input.pageSize) break;
+      }
+
+      hasMore = scanned.hasMore;
+      scanCursor = scanned.nextCursor;
+      if (!hasMore || !scanCursor) break;
+    }
+
+    return {
+      items: collected,
+      page: input.page,
+      pageSize: input.pageSize,
+      hasMore: collected.length >= input.pageSize || hasMore,
+      totalHint: null,
+      nextCursor: scanCursor,
+    };
+  }
+
+  const batch = await fetchWalmartItemsPage({
+    connection,
+    accessToken,
+    limit: input.pageSize,
+    nextCursor,
+  });
+
+  return {
+    items: batch.items.map((item) => ({
+      id: item.sku,
+      title: item.productName || item.sku,
+      sku: item.sku,
+      imageUrl: item.imageUrls[0] ?? null,
+      status: item.publishedStatus,
+      subtitle: item.wpid ? `WPID ${item.wpid}` : item.sku,
+    })),
+    page: input.page,
+    pageSize: input.pageSize,
+    hasMore: batch.hasMore,
+    totalHint: batch.totalItems,
+    nextCursor: batch.nextCursor,
+  };
 }

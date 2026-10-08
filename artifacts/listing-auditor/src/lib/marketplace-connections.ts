@@ -46,6 +46,7 @@ export type MarketplaceConnectionsResponse = {
   };
   walmart: {
     connected: boolean;
+    importReady: boolean;
     partnerId: string | null;
     clientId: string | null;
     environment: "sandbox" | "production" | null;
@@ -251,6 +252,14 @@ export async function syncAmazonProducts(input?: MarketplaceImportInput): Promis
 
 export async function syncEbayProducts(input?: MarketplaceImportInput): Promise<ShopifySyncResult> {
   return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/ebay/sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input ?? {}),
+  });
+}
+
+export async function syncWalmartProducts(input?: MarketplaceImportInput): Promise<ShopifySyncResult> {
+  return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/walmart/sync`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input ?? {}),

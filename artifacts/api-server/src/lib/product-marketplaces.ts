@@ -35,7 +35,7 @@ export interface MarketplaceListingRow {
   listingUrl: string | null;
 }
 
-const MARKETPLACE_ORDER = ["Amazon", "Flipkart", "Shopsy", "Shopify", "WooCommerce", "eBay", "Meesho"] as const;
+const MARKETPLACE_ORDER = ["Amazon", "Flipkart", "Shopsy", "Shopify", "WooCommerce", "eBay", "Walmart", "Meesho"] as const;
 
 const STATUS_LABELS: Record<MarketplaceListingStatus, string> = {
   live: "Live",
@@ -124,7 +124,7 @@ function normalizeListingRow(
   return mapListingRow({ ...row, status: effectiveStatus });
 }
 
-const LISTING_PRICE_PRIORITY = ["eBay", "Shopify", "WooCommerce", "Amazon", "Flipkart", "Shopsy", "Meesho"] as const;
+const LISTING_PRICE_PRIORITY = ["eBay", "Walmart", "Shopify", "WooCommerce", "Amazon", "Flipkart", "Shopsy", "Meesho"] as const;
 
 export async function resolveAuditListingPriceCents(auditId: number): Promise<{
   priceCents: number | null;

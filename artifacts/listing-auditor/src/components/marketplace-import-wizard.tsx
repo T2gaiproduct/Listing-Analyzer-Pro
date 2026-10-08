@@ -218,7 +218,7 @@ export function MarketplaceImportWizard({
               </div>
             ) : items.length === 0 ? (
               <div className="px-4 py-10 text-sm text-muted-foreground text-center space-y-3">
-                <p>{search ? "No products match your search." : "No products found in your eBay inventory yet."}</p>
+                <p>{search ? "No products match your search." : `No products found in your ${platformLabel} inventory yet.`}</p>
                 {platform === "ebay" && ebayDiagnostics ? (
                   <EbayImportDiagnosticsPanel diagnostics={ebayDiagnostics} />
                 ) : null}

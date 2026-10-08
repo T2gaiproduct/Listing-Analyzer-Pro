@@ -9,6 +9,7 @@ export const TARGET_MARKETPLACES = [
   "Shopify",
   "WooCommerce",
   "eBay",
+  "Walmart",
   "Meesho",
 ] as const;
 
