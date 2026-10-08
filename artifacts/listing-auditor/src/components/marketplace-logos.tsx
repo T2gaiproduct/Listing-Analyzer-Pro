@@ -7,6 +7,7 @@ const LOGO_FILES: Record<string, string> = {
   Amazon: "amazon.svg",
   Shopify: "shopify.svg",
   eBay: "ebay.svg",
+  Walmart: "walmart.svg",
   Flipkart: "flipkart.svg",
   WooCommerce: "woocommerce.svg",
   Meesho: "meesho.svg",
@@ -19,6 +20,7 @@ function normalizeMarketplaceName(marketplace: string): string {
     amazon: "Amazon",
     shopify: "Shopify",
     ebay: "eBay",
+    walmart: "Walmart",
     woocommerce: "WooCommerce",
     flipkart: "Flipkart",
     meesho: "Meesho",
@@ -52,6 +54,7 @@ const logoBoxClass = "flex items-center justify-center w-full h-4 sm:h-7 overflo
 
 const LOGO_CARD_CLASS: Partial<Record<string, string>> = {
   WooCommerce: "sm:w-36",
+  Walmart: "sm:w-32",
 };
 
 const LOGO_IMAGE_CLASS: Partial<Record<string, string>> = {

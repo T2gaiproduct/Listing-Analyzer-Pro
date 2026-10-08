@@ -16,7 +16,8 @@
     "test:workspace-credits": "tsx src/lib/workspace-credit-usage.test.ts",
     "test:workspace-usage-all-time": "tsx src/lib/workspace-usage-all-time.integration.ts",
     "test:credit-usage-net": "tsx src/lib/credit-usage-net.test.ts",
-    "test:billing-breakdown-match": "tsx src/lib/billing-breakdown-match.integration.ts"
+    "test:billing-breakdown-match": "tsx src/lib/billing-breakdown-match.integration.ts",
+    "test:walmart-oauth": "tsx src/lib/walmart-oauth.test.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.7",

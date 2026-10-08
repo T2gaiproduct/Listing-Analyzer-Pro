@@ -8,7 +8,7 @@ import {
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export type StoreMarketplace = "shopify" | "woocommerce";
-export type MarketplacePlatform = StoreMarketplace | "amazon" | "ebay";
+export type MarketplacePlatform = StoreMarketplace | "amazon" | "ebay" | "walmart";
 
 export type MarketplaceAmazonStatus = AmazonConnectionStatus & {
   applicationId?: string | null;
@@ -42,6 +42,13 @@ export type MarketplaceConnectionsResponse = {
     publishReady: boolean;
     username: string | null;
     ebayUserId: string | null;
+    connectedAt: string | null;
+  };
+  walmart: {
+    connected: boolean;
+    partnerId: string | null;
+    clientId: string | null;
+    environment: "sandbox" | "production" | null;
     connectedAt: string | null;
   };
 };
@@ -266,6 +273,33 @@ export async function startEbayConnect(): Promise<{ url: string }> {
 
 export async function disconnectEbay(): Promise<void> {
   await fetchJson(`${basePath}/api/marketplaces/connections/ebay`, {
+    method: "DELETE",
+  });
+}
+
+export async function connectWalmart(input: {
+  partnerId: string;
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+  sandbox?: boolean;
+}): Promise<{
+  connected: boolean;
+  partnerId: string;
+  clientId: string;
+  environment: string;
+  connectedAt: string;
+  message?: string;
+}> {
+  return fetchJson(`${basePath}/api/marketplaces/connections/walmart`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disconnectWalmart(): Promise<void> {
+  await fetchJson(`${basePath}/api/marketplaces/connections/walmart`, {
     method: "DELETE",
   });
 }
