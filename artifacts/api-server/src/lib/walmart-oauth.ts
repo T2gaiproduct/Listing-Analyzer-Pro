@@ -114,7 +114,11 @@ export function walmartConsumerIdForConnection(connection: WalmartTokenConnectio
 }
 
 function randomOAuthNonce(): string {
-  return randomBytes(8).toString("hex");
+  return randomBytes(8).toString("hex").toUpperCase();
+}
+
+function walmartOAuthAuthorizeScope(): string {
+  return process.env.WALMART_OAUTH_SCOPE?.trim() || "openId";
 }
 
 export function buildWalmartAuthorizeUrl(input: {
@@ -137,6 +141,7 @@ export function buildWalmartAuthorizeUrl(input: {
     responseType: "code",
     clientId: creds.clientId,
     redirectUri: input.redirectUri,
+    scope: walmartOAuthAuthorizeScope(),
     nonce: randomOAuthNonce(),
     state: input.state,
     clientType: input.clientType?.trim() || "seller",

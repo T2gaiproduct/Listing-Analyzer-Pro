@@ -102,6 +102,7 @@ function testBuildAuthorizeUrlIncludesParams(): void {
     assert.equal(parsed.searchParams.get("redirectUri"), "https://sellerlens.io/api/walmart/oauth/callback");
     assert.equal(parsed.searchParams.get("state"), "state-abc");
     assert.equal(parsed.searchParams.get("clientType"), "seller");
+    assert.equal(parsed.searchParams.get("scope"), "openId");
     assert.ok(parsed.searchParams.get("nonce"));
   } finally {
     if (prevId === undefined) delete process.env.WALMART_PRODUCTION_CLIENT_ID;
