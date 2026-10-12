@@ -59,10 +59,49 @@ export function isWalmartOAuthAppConfigured(environment: WalmartEnvironment): bo
   return getWalmartAppCredentials(environment) != null;
 }
 
+const WALMART_PRODUCTION_AUTHORIZE = "https://login.account.wal-mart.com/authorize";
+const WALMART_SANDBOX_AUTHORIZE_DOC = "https://login.sandbox.account.wal-mart.com/authorize";
+
+/** Walmart docs sandbox host; public DNS often does not resolve — use overrides below. */
 export function walmartOAuthAuthorizeUrl(environment: WalmartEnvironment): string {
-  return environment === "sandbox"
-    ? "https://login.sandbox.account.wal-mart.com/authorize"
-    : "https://login.account.wal-mart.com/authorize";
+  if (environment === "production") {
+    return WALMART_PRODUCTION_AUTHORIZE;
+  }
+
+  const override = process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL?.trim();
+  if (override) {
+    return override.replace(/\/$/, "");
+  }
+
+  const useProductionLogin = process.env.WALMART_SANDBOX_USE_PRODUCTION_LOGIN?.trim().toLowerCase();
+  if (useProductionLogin === "1" || useProductionLogin === "true" || useProductionLogin === "yes") {
+    return WALMART_PRODUCTION_AUTHORIZE;
+  }
+
+  return WALMART_SANDBOX_AUTHORIZE_DOC;
+}
+
+/** Allowlisted Walmart OAuth authorize bases (full URL including /authorize). */
+export function normalizeWalmartAuthorizeEndpoint(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:") return null;
+    const host = url.hostname.toLowerCase();
+    const allowed =
+      host === "login.account.wal-mart.com"
+      || host === "login.sandbox.account.wal-mart.com"
+      || host.endsWith(".wal-mart.com")
+      || host.endsWith(".walmart.com");
+    if (!allowed) return null;
+    if (!url.pathname.endsWith("/authorize")) {
+      url.pathname = `${url.pathname.replace(/\/$/, "")}/authorize`;
+    }
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
 }
 
 /** Registered Auth Callback URL in the Walmart Developer Portal. */

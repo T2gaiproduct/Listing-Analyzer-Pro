@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -490,6 +490,34 @@ export default function MarketplacesPage() {
 
   const ebayConnectReady = Boolean(data?.ebay.connectReady);
   const walmartConnectReady = Boolean(data?.walmart.connectReady);
+  const walmartAppLoginStarted = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const walmartCallbackUri = params.get("walmartCallbackUri");
+    if (!walmartCallbackUri || walmartAppLoginStarted.current || isLoading) return;
+    if (!walmartConnectReady) return;
+
+    walmartAppLoginStarted.current = true;
+    const clientType = params.get("clientType") ?? "seller";
+    window.history.replaceState({}, "", window.location.pathname);
+
+    void (async () => {
+      setPendingAction("walmart");
+      try {
+        const { url } = await startWalmartConnect({ walmartCallbackUri, clientType });
+        window.location.assign(url);
+      } catch (error) {
+        walmartAppLoginStarted.current = false;
+        toast({
+          title: "Could not start Walmart sign-in",
+          description: error instanceof Error ? error.message : "Try again or contact support.",
+          variant: "destructive",
+        });
+        setPendingAction(null);
+      }
+    })();
+  }, [isLoading, toast, walmartConnectReady]);
 
   async function handleEbayConnect() {
     if (!ebayConnectReady) {

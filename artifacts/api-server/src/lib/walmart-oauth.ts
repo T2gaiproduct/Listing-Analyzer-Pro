@@ -1,5 +1,9 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { getWalmartAppCredentials, walmartOAuthAuthorizeUrl } from "./walmart-oauth-config.js";
+import {
+  getWalmartAppCredentials,
+  normalizeWalmartAuthorizeEndpoint,
+  walmartOAuthAuthorizeUrl,
+} from "./walmart-oauth-config.js";
 
 export type WalmartEnvironment = "sandbox" | "production";
 
@@ -118,11 +122,17 @@ export function buildWalmartAuthorizeUrl(input: {
   redirectUri: string;
   state: string;
   clientType?: string;
+  /** From Walmart App Login URL query `walmartCallbackUri` when seller starts in Seller Center. */
+  authorizeEndpoint?: string;
 }): string {
   const creds = getWalmartAppCredentials(input.environment);
   if (!creds) {
     throw new WalmartOAuthError(`Walmart ${input.environment} OAuth is not configured on the server.`);
   }
+  const authorizeBase =
+    (input.authorizeEndpoint ? normalizeWalmartAuthorizeEndpoint(input.authorizeEndpoint) : null)
+    ?? walmartOAuthAuthorizeUrl(input.environment);
+
   const params = new URLSearchParams({
     responseType: "code",
     clientId: creds.clientId,
@@ -131,7 +141,7 @@ export function buildWalmartAuthorizeUrl(input: {
     state: input.state,
     clientType: input.clientType?.trim() || "seller",
   });
-  return `${walmartOAuthAuthorizeUrl(input.environment)}?${params.toString()}`;
+  return `${authorizeBase}?${params.toString()}`;
 }
 
 async function postWalmartToken(input: {

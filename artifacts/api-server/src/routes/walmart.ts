@@ -59,10 +59,16 @@ router.get(
 
     const redirectUri = buildWalmartOAuthCallbackUrl(req);
     const state = createWalmartOAuthState({ userId, workspaceId, environment });
+    const authorizeEndpoint = typeof req.query.walmartCallbackUri === "string"
+      ? req.query.walmartCallbackUri
+      : undefined;
+    const clientType = typeof req.query.clientType === "string" ? req.query.clientType : undefined;
     const url = buildWalmartAuthorizeUrl({
       environment,
       redirectUri,
       state,
+      clientType,
+      authorizeEndpoint,
     });
     res.json({ url, environment, redirectUri });
   },

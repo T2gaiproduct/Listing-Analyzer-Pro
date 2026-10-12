@@ -299,8 +299,21 @@ export async function fetchWalmartOAuthConfig(): Promise<WalmartOAuthConfigRespo
   return fetchJson<WalmartOAuthConfigResponse>(`${basePath}/api/walmart/oauth/config`);
 }
 
-export async function startWalmartConnect(): Promise<{ url: string }> {
-  return fetchJson<{ url: string }>(`${basePath}/api/walmart/oauth/authorize`);
+export async function startWalmartConnect(input?: {
+  walmartCallbackUri?: string;
+  clientType?: string;
+}): Promise<{ url: string }> {
+  const params = new URLSearchParams();
+  if (input?.walmartCallbackUri?.trim()) {
+    params.set("walmartCallbackUri", input.walmartCallbackUri.trim());
+  }
+  if (input?.clientType?.trim()) {
+    params.set("clientType", input.clientType.trim());
+  }
+  const qs = params.toString();
+  return fetchJson<{ url: string }>(
+    `${basePath}/api/walmart/oauth/authorize${qs ? `?${qs}` : ""}`,
+  );
 }
 
 export async function disconnectWalmart(): Promise<void> {

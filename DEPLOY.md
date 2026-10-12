@@ -140,6 +140,12 @@ WALMART_SANDBOX_CLIENT_ID=
 WALMART_SANDBOX_CLIENT_SECRET=
 WALMART_PRODUCTION_CLIENT_ID=
 WALMART_PRODUCTION_CLIENT_SECRET=
+# Sandbox OAuth: Walmart docs use login.sandbox.account.wal-mart.com — that host often has no public DNS (browser NXDOMAIN).
+# Option A — use production login host with sandbox client ID (if Walmart allows for your app):
+# WALMART_SANDBOX_USE_PRODUCTION_LOGIN=true
+# Option B — override authorize URL explicitly:
+# WALMART_SANDBOX_OAUTH_AUTHORIZE_URL=https://login.account.wal-mart.com/authorize
+# Register App Login URL in Walmart portal: https://<your-domain>/marketplaces (handles ?walmartCallbackUri=… from Simulate app connect).
 ```
 
 Walmart (and eBay) OAuth vars must be in the **same env PM2 uses** (ecosystem file or shell that starts `listing-auditor-api`). Exporting them only in an SSH session does not update a running PM2 process. After changing env: `pm2 restart listing-auditor-api --update-env` (if your ecosystem injects env) or restart from the script that loads `.env`. Verify: `curl -s https://<your-domain>/api/healthz` → `walmartOAuth.connectReady` should be `true`.

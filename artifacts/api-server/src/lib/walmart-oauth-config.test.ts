@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import {
   activeWalmartOAuthCredentialPrefix,
+  normalizeWalmartAuthorizeEndpoint,
   parseWalmartOAuthDefaultEnvironment,
   resolveActiveWalmartOAuthEnvironment,
+  walmartOAuthAuthorizeUrl,
   walmartOAuthDefaultEnvironment,
 } from "./walmart-oauth-config.js";
 
@@ -52,7 +54,34 @@ function testResolveActiveUsesDefaultEnvCredentials(): void {
   else process.env.WALMART_PRODUCTION_CLIENT_ID = prevProdId;
 }
 
+function testAuthorizeUrlOverrides(): void {
+  const prevOverride = process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL;
+  const prevProdLogin = process.env.WALMART_SANDBOX_USE_PRODUCTION_LOGIN;
+  process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL = "https://login.account.wal-mart.com/authorize";
+  delete process.env.WALMART_SANDBOX_USE_PRODUCTION_LOGIN;
+  assert.equal(
+    walmartOAuthAuthorizeUrl("sandbox"),
+    "https://login.account.wal-mart.com/authorize",
+  );
+  delete process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL;
+  process.env.WALMART_SANDBOX_USE_PRODUCTION_LOGIN = "true";
+  assert.equal(
+    walmartOAuthAuthorizeUrl("sandbox"),
+    "https://login.account.wal-mart.com/authorize",
+  );
+  assert.equal(
+    normalizeWalmartAuthorizeEndpoint("https://login.account.wal-mart.com/authorize"),
+    "https://login.account.wal-mart.com/authorize",
+  );
+  assert.equal(normalizeWalmartAuthorizeEndpoint("https://evil.example/authorize"), null);
+  if (prevOverride === undefined) delete process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL;
+  else process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL = prevOverride;
+  if (prevProdLogin === undefined) delete process.env.WALMART_SANDBOX_USE_PRODUCTION_LOGIN;
+  else process.env.WALMART_SANDBOX_USE_PRODUCTION_LOGIN = prevProdLogin;
+}
+
 testParseDefaultEnvironment();
 testActiveCredentialPrefix();
 testResolveActiveUsesDefaultEnvCredentials();
+testAuthorizeUrlOverrides();
 console.log("walmart-oauth-config: ok");
