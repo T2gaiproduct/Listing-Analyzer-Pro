@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
@@ -46,6 +46,7 @@ import {
 } from "@/lib/sellermate-ai";
 import { UploadMemoryFileDialog } from "@/components/upload-memory-file-dialog";
 import { SellermateChatAttachMenu } from "@/components/sellermate-chat-attach-menu";
+import { SellermateChatVoiceButton } from "@/components/sellermate-chat-voice-button";
 import {
   SellermateChatAttachmentPreview,
   type ChatAttachmentPreviewItem,
@@ -323,6 +324,16 @@ export default function SellerMateAiPage() {
     : uploadMemoryMutation.isPending
       ? "Upload in progress…"
       : undefined;
+
+  const voiceDisabledReason = !selectedAgentId
+    ? "Select an agent first."
+    : chatMutation.isPending
+      ? "Wait for the current reply…"
+      : undefined;
+
+  const appendVoiceTranscript = useCallback((text: string) => {
+    setDraft((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text));
+  }, []);
 
   function resetAgentForm() {
     setNewAgentName("");
@@ -647,6 +658,14 @@ export default function SellerMateAiPage() {
                     disabled={!canUploadMemory || uploadMemoryMutation.isPending}
                     disabledReason={attachDisabledReason}
                     onFileSelected={(file) => void handleChatMemoryFile(file)}
+                  />
+                  <SellermateChatVoiceButton
+                    disabled={!selectedAgentId || chatMutation.isPending}
+                    disabledReason={voiceDisabledReason}
+                    onTranscript={appendVoiceTranscript}
+                    onError={(message) =>
+                      toast({ title: "Voice input", description: message, variant: "destructive" })
+                    }
                   />
                 </div>
                 <Button
