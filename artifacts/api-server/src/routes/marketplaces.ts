@@ -35,13 +35,12 @@ import { syncEbayProducts } from "../lib/ebay-product-sync.js";
 import { syncWalmartProducts } from "../lib/walmart-product-sync.js";
 import { maybeSyncEbayOrdersForWorkspace } from "../lib/ebay-order-sync.js";
 import { isEbayOAuthConnectReady, isEbayTradingApiConfigured } from "../lib/ebay-oauth-config.js";
+import { isWalmartOAuthConnectReady } from "../lib/walmart-oauth-config.js";
 import {
   disconnectWalmartWorkspaceConnection,
   getWalmartWorkspaceConnection,
   getWalmartWorkspaceConnectionPublic,
-  saveWalmartWorkspaceConnection,
 } from "../lib/walmart-workspace-connection.js";
-import { parseWalmartEnvironment, refreshWalmartAccessToken, WalmartOAuthError } from "../lib/walmart-oauth.js";
 import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
   buildAmazonOAuthRedirectUri,
@@ -200,7 +199,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
     getShopifyConnectionPublic(workspaceId),
     getWooCommerceConnectionPublic(workspaceId),
     getEbayWorkspaceConnectionPublic(workspaceId),
-    getWalmartWorkspaceConnectionPublic(workspaceId),
+    getWalmartWorkspaceConnectionPublic(workspaceId, isWalmartOAuthConnectReady()),
   ]);
 
   const shopifyWithSecret = await getShopifyConnection(workspaceId);
@@ -248,11 +247,13 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, re
     },
     walmart: {
       connected: walmart.connected,
+      connectReady: walmart.connectReady,
       importReady: walmart.connected,
       partnerId: walmart.partnerId,
       clientId: walmart.clientId,
       environment: walmart.environment,
       connectedAt: walmart.connectedAt,
+      authMode: walmart.authMode,
     },
   });
 });
@@ -346,58 +347,9 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
   }
 
   if (platform === "walmart") {
-    const body = req.body as {
-      partnerId?: string;
-      clientId?: string;
-      clientSecret?: string;
-      refreshToken?: string;
-      sandbox?: boolean;
-      environment?: string;
-    };
-    const partnerId = String(body.partnerId ?? "").trim();
-    const clientId = String(body.clientId ?? "").trim();
-    const clientSecret = String(body.clientSecret ?? "").trim();
-    const refreshToken = String(body.refreshToken ?? "").trim();
-    const environment = parseWalmartEnvironment(
-      body.sandbox === true ? "sandbox" : body.environment,
-    );
-    if (!partnerId || !clientId || !clientSecret || !refreshToken) {
-      res.status(400).json({
-        error: "Walmart Partner ID, Client ID, Client secret, and Refresh token are required.",
-      });
-      return;
-    }
-    try {
-      await refreshWalmartAccessToken({
-        partnerId,
-        clientId,
-        clientSecret,
-        refreshToken,
-        environment,
-      });
-      const record = await saveWalmartWorkspaceConnection(workspaceId, {
-        partnerId,
-        clientId,
-        clientSecret,
-        refreshToken,
-        environment,
-      });
-      res.status(201).json({
-        connected: true,
-        partnerId: record.partnerId,
-        clientId: record.clientId,
-        environment: record.environment,
-        connectedAt: record.connectedAt,
-        message: "Walmart seller account linked to this workspace.",
-      });
-    } catch (err) {
-      const message = err instanceof WalmartOAuthError
-        ? err.message
-        : err instanceof Error
-          ? err.message
-          : "Failed to connect Walmart";
-      res.status(400).json({ error: message });
-    }
+    res.status(400).json({
+      error: "Connect Walmart with Connect with Walmart (OAuth), not this form.",
+    });
     return;
   }
 

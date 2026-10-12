@@ -1,8 +1,9 @@
 import { getWalmartWorkspaceConnection, type WalmartWorkspaceConnection } from "./walmart-workspace-connection.js";
 import {
   parseWalmartErrorBody,
-  refreshWalmartAccessToken,
+  refreshWalmartAccessTokenForConnection,
   walmartApiBaseUrl,
+  walmartConsumerIdForConnection,
   walmartMarketplaceHeaders,
   WalmartOAuthError,
   type WalmartEnvironment,
@@ -141,7 +142,7 @@ async function walmartGetJson(input: {
     headers: walmartMarketplaceHeaders({
       accessToken: input.accessToken,
       partnerId: input.connection.partnerId,
-      clientId: input.connection.clientId,
+      clientId: walmartConsumerIdForConnection(input.connection),
     }),
   });
   const text = await res.text();
@@ -171,7 +172,7 @@ export async function resolveWalmartAccessToken(workspaceId: number): Promise<{
   if (!connection) {
     throw new WalmartOAuthError("Connect your Walmart seller account on the Marketplaces page first.");
   }
-  const { accessToken } = await refreshWalmartAccessToken(connection);
+  const { accessToken } = await refreshWalmartAccessTokenForConnection(connection);
   return { connection, accessToken, environment: connection.environment };
 }
 

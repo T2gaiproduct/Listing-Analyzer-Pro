@@ -41,7 +41,7 @@ import {
   syncWalmartProducts,
   startEbayConnect,
   disconnectEbay,
-  connectWalmart,
+  startWalmartConnect,
   disconnectWalmart,
   type MarketplacePlatform,
   type ShopifySyncResult,
@@ -267,12 +267,6 @@ export default function MarketplacesPage() {
   const [consumerKey, setConsumerKey] = useState("");
   const [consumerSecret, setConsumerSecret] = useState("");
   const [pendingAction, setPendingAction] = useState<DialogTarget | "amazon" | "ebay" | "walmart" | null>(null);
-  const [walmartDialogOpen, setWalmartDialogOpen] = useState(false);
-  const [walmartPartnerId, setWalmartPartnerId] = useState("");
-  const [walmartClientId, setWalmartClientId] = useState("");
-  const [walmartClientSecret, setWalmartClientSecret] = useState("");
-  const [walmartRefreshToken, setWalmartRefreshToken] = useState("");
-  const [walmartSandbox, setWalmartSandbox] = useState(false);
   const [amazonSelfAuthOpen, setAmazonSelfAuthOpen] = useState(false);
   const [amazonCredentialsOpen, setAmazonCredentialsOpen] = useState(false);
   const [amazonSellerId, setAmazonSellerId] = useState("");
@@ -483,7 +477,19 @@ export default function MarketplacesPage() {
     window.history.replaceState({}, "", window.location.pathname);
   }, [queryClient, toast]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("walmart") !== "connected") return;
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+    toast({
+      title: "Walmart connected",
+      description: "Your seller account is linked to this workspace.",
+    });
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [queryClient, toast]);
+
   const ebayConnectReady = Boolean(data?.ebay.connectReady);
+  const walmartConnectReady = Boolean(data?.walmart.connectReady);
 
   async function handleEbayConnect() {
     if (!ebayConnectReady) {
@@ -508,36 +514,28 @@ export default function MarketplacesPage() {
     }
   }
 
-  const connectWalmartMutation = useMutation({
-    mutationFn: () => connectWalmart({
-      partnerId: walmartPartnerId,
-      clientId: walmartClientId,
-      clientSecret: walmartClientSecret,
-      refreshToken: walmartRefreshToken,
-      sandbox: walmartSandbox,
-    }),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
-      setWalmartDialogOpen(false);
-      setWalmartPartnerId("");
-      setWalmartClientId("");
-      setWalmartClientSecret("");
-      setWalmartRefreshToken("");
-      setWalmartSandbox(false);
+  async function handleWalmartConnect() {
+    if (!walmartConnectReady) {
       toast({
-        title: "Walmart connected",
-        description: result.message ?? "Your Walmart seller account is linked to this workspace.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Walmart connection failed",
-        description: error instanceof Error ? error.message : "Could not connect Walmart.",
+        title: "Walmart not available",
+        description: "Walmart connect is not enabled on this site yet. Please try again later or contact support.",
         variant: "destructive",
       });
-    },
-    onSettled: () => setPendingAction(null),
-  });
+      return;
+    }
+    setPendingAction("walmart");
+    try {
+      const { url } = await startWalmartConnect();
+      window.location.assign(url);
+    } catch (error) {
+      toast({
+        title: "Could not start Walmart sign-in",
+        description: error instanceof Error ? error.message : "Try again or contact support.",
+        variant: "destructive",
+      });
+      setPendingAction(null);
+    }
+  }
 
   async function handleWalmartDisconnect() {
     setPendingAction("walmart");
@@ -985,20 +983,23 @@ export default function MarketplacesPage() {
         />
         <ConnectCard
           marketplace="Walmart"
-          description="Link your Walmart Marketplace seller account with Partner ID and API credentials to connect this workspace."
+          description="Link your Walmart Marketplace seller account with OAuth (same flow as eBay) to import and manage listings in this workspace."
           connected={walmartConnected}
           connectLabel="Connect with Walmart"
+          connectDisabled={!walmartConnectReady}
+          setupRequired={!walmartConnected && !walmartConnectReady}
+          setupMessage="Walmart connect is not available on this site yet. Please try again later or contact support."
           detail={
             walmartConnected
               ? [
-                  data?.walmart?.partnerId ? `Partner ${data.walmart.partnerId}` : "Seller account linked",
+                  data?.walmart?.partnerId ? `Seller ${data.walmart.partnerId}` : "Seller account linked",
                   data?.walmart?.environment === "sandbox" ? "Sandbox" : null,
                 ].filter(Boolean).join(" · ")
               : null
           }
-          loading={pendingAction === "walmart" || connectWalmartMutation.isPending}
+          loading={pendingAction === "walmart"}
           importLoading={walmartSyncMutation.isPending}
-          onConnect={() => setWalmartDialogOpen(true)}
+          onConnect={() => void handleWalmartConnect()}
           onDisconnect={() => void handleWalmartDisconnect()}
           onImport={
             walmartConnected && data?.walmart?.importReady !== false
@@ -1123,122 +1124,6 @@ export default function MarketplacesPage() {
                 </>
               ) : (
                 "Connect store"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={walmartDialogOpen}
-        onOpenChange={(open) => {
-          if (connectWalmartMutation.isPending) return;
-          setWalmartDialogOpen(open);
-        }}
-      >
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Connect with Walmart</DialogTitle>
-            <DialogDescription>
-              Enter your Walmart Marketplace Partner ID and API credentials from Seller Center / Developer Portal. SellerLens stores them for this workspace only.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="walmart-partner-id" className="text-xs text-muted-foreground">
-                WM Partner ID
-              </Label>
-              <Input
-                id="walmart-partner-id"
-                value={walmartPartnerId}
-                onChange={(e) => setWalmartPartnerId(e.target.value)}
-                placeholder="Partner ID from Seller Center"
-                className="h-9 text-xs font-mono"
-                autoComplete="off"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="walmart-client-id" className="text-xs text-muted-foreground">
-                Client ID
-              </Label>
-              <Input
-                id="walmart-client-id"
-                value={walmartClientId}
-                onChange={(e) => setWalmartClientId(e.target.value)}
-                placeholder="OAuth Client ID"
-                className="h-9 text-xs font-mono"
-                autoComplete="off"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="walmart-client-secret" className="text-xs text-muted-foreground">
-                Client secret
-              </Label>
-              <Input
-                id="walmart-client-secret"
-                type="password"
-                value={walmartClientSecret}
-                onChange={(e) => setWalmartClientSecret(e.target.value)}
-                placeholder="OAuth Client secret"
-                className="h-9 text-xs font-mono"
-                autoComplete="off"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="walmart-refresh-token" className="text-xs text-muted-foreground">
-                Refresh token
-              </Label>
-              <Input
-                id="walmart-refresh-token"
-                type="password"
-                value={walmartRefreshToken}
-                onChange={(e) => setWalmartRefreshToken(e.target.value)}
-                placeholder="Seller refresh token"
-                className="h-9 text-xs font-mono"
-                autoComplete="off"
-              />
-            </div>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={walmartSandbox}
-                onChange={(e) => setWalmartSandbox(e.target.checked)}
-              />
-              Use Walmart sandbox
-            </label>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9 text-xs"
-              onClick={() => setWalmartDialogOpen(false)}
-              disabled={connectWalmartMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="h-9 text-xs bg-foreground hover:bg-foreground/90 text-background"
-              onClick={() => {
-                setPendingAction("walmart");
-                connectWalmartMutation.mutate();
-              }}
-              disabled={
-                connectWalmartMutation.isPending
-                || !walmartPartnerId.trim()
-                || !walmartClientId.trim()
-                || !walmartClientSecret.trim()
-                || !walmartRefreshToken.trim()
-              }
-            >
-              {connectWalmartMutation.isPending ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  Connecting…
-                </>
-              ) : (
-                "Connect Walmart"
               )}
             </Button>
           </DialogFooter>

@@ -46,12 +46,21 @@ export type MarketplaceConnectionsResponse = {
   };
   walmart: {
     connected: boolean;
+    connectReady: boolean;
     importReady: boolean;
     partnerId: string | null;
     clientId: string | null;
     environment: "sandbox" | "production" | null;
     connectedAt: string | null;
+    authMode: "oauth" | "legacy" | null;
   };
+};
+
+export type WalmartOAuthConfigResponse = {
+  connectReady: boolean;
+  unavailableMessage: string | null;
+  callbackUrl: string;
+  environment: "sandbox" | "production" | null;
 };
 
 export type EbayOAuthConfigResponse = {
@@ -286,25 +295,12 @@ export async function disconnectEbay(): Promise<void> {
   });
 }
 
-export async function connectWalmart(input: {
-  partnerId: string;
-  clientId: string;
-  clientSecret: string;
-  refreshToken: string;
-  sandbox?: boolean;
-}): Promise<{
-  connected: boolean;
-  partnerId: string;
-  clientId: string;
-  environment: string;
-  connectedAt: string;
-  message?: string;
-}> {
-  return fetchJson(`${basePath}/api/marketplaces/connections/walmart`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+export async function fetchWalmartOAuthConfig(): Promise<WalmartOAuthConfigResponse> {
+  return fetchJson<WalmartOAuthConfigResponse>(`${basePath}/api/walmart/oauth/config`);
+}
+
+export async function startWalmartConnect(): Promise<{ url: string }> {
+  return fetchJson<{ url: string }>(`${basePath}/api/walmart/oauth/authorize`);
 }
 
 export async function disconnectWalmart(): Promise<void> {

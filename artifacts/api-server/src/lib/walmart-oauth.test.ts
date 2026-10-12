@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import {
+  buildWalmartAuthorizeUrl,
+  exchangeWalmartAuthorizationCode,
   parseWalmartEnvironment,
   refreshWalmartAccessToken,
   walmartApiBaseUrl,
@@ -82,8 +84,77 @@ async function testRefreshTokenSurfacesWalmartError(): Promise<void> {
   }
 }
 
+function testBuildAuthorizeUrlIncludesParams(): void {
+  const prevId = process.env.WALMART_PRODUCTION_CLIENT_ID;
+  const prevSecret = process.env.WALMART_PRODUCTION_CLIENT_SECRET;
+  process.env.WALMART_PRODUCTION_CLIENT_ID = "app-client-id";
+  process.env.WALMART_PRODUCTION_CLIENT_SECRET = "app-client-secret";
+  try {
+    const url = buildWalmartAuthorizeUrl({
+      environment: "production",
+      redirectUri: "https://sellerlens.io/api/walmart/oauth/callback",
+      state: "state-abc",
+    });
+    assert.match(url, /^https:\/\/login\.account\.wal-mart\.com\/authorize\?/);
+    const parsed = new URL(url);
+    assert.equal(parsed.searchParams.get("responseType"), "code");
+    assert.equal(parsed.searchParams.get("clientId"), "app-client-id");
+    assert.equal(parsed.searchParams.get("redirectUri"), "https://sellerlens.io/api/walmart/oauth/callback");
+    assert.equal(parsed.searchParams.get("state"), "state-abc");
+    assert.equal(parsed.searchParams.get("clientType"), "seller");
+    assert.ok(parsed.searchParams.get("nonce"));
+  } finally {
+    if (prevId === undefined) delete process.env.WALMART_PRODUCTION_CLIENT_ID;
+    else process.env.WALMART_PRODUCTION_CLIENT_ID = prevId;
+    if (prevSecret === undefined) delete process.env.WALMART_PRODUCTION_CLIENT_SECRET;
+    else process.env.WALMART_PRODUCTION_CLIENT_SECRET = prevSecret;
+  }
+}
+
+async function testExchangeAuthorizationCode(): Promise<void> {
+  const prevId = process.env.WALMART_PRODUCTION_CLIENT_ID;
+  const prevSecret = process.env.WALMART_PRODUCTION_CLIENT_SECRET;
+  process.env.WALMART_PRODUCTION_CLIENT_ID = "app-client-id";
+  process.env.WALMART_PRODUCTION_CLIENT_SECRET = "app-client-secret";
+  const originalFetch = globalThis.fetch;
+  let capturedBody = "";
+  globalThis.fetch = (async (_input, init) => {
+    capturedBody = String(init?.body ?? "");
+    return new Response(JSON.stringify({
+      access_token: "access-1",
+      refresh_token: "refresh-1",
+      expires_in: 900,
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await exchangeWalmartAuthorizationCode({
+      environment: "production",
+      code: "auth-code-1",
+      redirectUri: "https://sellerlens.io/api/walmart/oauth/callback",
+      sellerId: "seller-99",
+    });
+    assert.equal(result.accessToken, "access-1");
+    assert.equal(result.refreshToken, "refresh-1");
+    assert.match(capturedBody, /grant_type=authorization_code/);
+    assert.match(capturedBody, /code=auth-code-1/);
+    assert.match(capturedBody, /redirect_uri=/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevId === undefined) delete process.env.WALMART_PRODUCTION_CLIENT_ID;
+    else process.env.WALMART_PRODUCTION_CLIENT_ID = prevId;
+    if (prevSecret === undefined) delete process.env.WALMART_PRODUCTION_CLIENT_SECRET;
+    else process.env.WALMART_PRODUCTION_CLIENT_SECRET = prevSecret;
+  }
+}
+
 testProductionIsDefault();
 testTokenUrls();
+testBuildAuthorizeUrlIncludesParams();
 await testRefreshTokenPostsBasicAuthAndGrant();
 await testRefreshTokenSurfacesWalmartError();
+await testExchangeAuthorizationCode();
 console.log("walmart-oauth: ok");
