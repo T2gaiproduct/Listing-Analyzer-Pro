@@ -142,6 +142,8 @@ WALMART_PRODUCTION_CLIENT_ID=
 WALMART_PRODUCTION_CLIENT_SECRET=
 ```
 
+Walmart (and eBay) OAuth vars must be in the **same env PM2 uses** (ecosystem file or shell that starts `listing-auditor-api`). Exporting them only in an SSH session does not update a running PM2 process. After changing env: `pm2 restart listing-auditor-api --update-env` (if your ecosystem injects env) or restart from the script that loads `.env`. Verify: `curl -s https://<your-domain>/api/healthz` → `walmartOAuth.connectReady` should be `true`.
+
 ---
 
 ## Step 5 — Run DB Migrations

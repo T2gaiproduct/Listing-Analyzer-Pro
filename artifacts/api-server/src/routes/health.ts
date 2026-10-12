@@ -4,6 +4,11 @@ import {
   checkClerkPublishableSecretPair,
   clerkFrontendHostFromPublishableKey,
 } from "../lib/clerk-key-pair.js";
+import {
+  isWalmartOAuthConnectReady,
+  resolveActiveWalmartOAuthEnvironment,
+  walmartOAuthDefaultEnvironment,
+} from "../lib/walmart-oauth-config.js";
 
 function clerkPublishableFromEnv(): string {
   return (
@@ -40,8 +45,14 @@ router.get("/healthz", async (_req, res) => {
     latestBuildId: readDiskBuildMeta()?.buildId ?? null,
   };
 
+  const walmartOAuth = {
+    connectReady: isWalmartOAuthConnectReady(),
+    activeEnvironment: resolveActiveWalmartOAuthEnvironment(),
+    defaultEnvironment: walmartOAuthDefaultEnvironment(),
+  };
+
   if (process.env.NODE_ENV === "production") {
-    res.json({ status: "ok", ...build });
+    res.json({ status: "ok", walmartOAuth, ...build });
     return;
   }
 
@@ -59,6 +70,7 @@ router.get("/healthz", async (_req, res) => {
     clerkSecretLooksLikePlaceholder: clerkSecretKey
       ? clerkSecretLooksLikeDocsPlaceholder(clerkSecretKey)
       : false,
+    walmartOAuth,
     ...build,
   });
 });
