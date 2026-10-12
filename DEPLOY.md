@@ -131,6 +131,15 @@ EBAY_MARKETPLACE_DELETION_VERIFICATION_TOKEN=
 # Optional; defaults to https://test.sellerlens.io/api/ebay/marketplace-account-deletion
 # Set on production to e.g. https://sellerlens.io/api/ebay/marketplace-account-deletion
 EBAY_MARKETPLACE_DELETION_ENDPOINT=
+
+# Walmart OAuth (Marketplaces → Connect with Walmart). Register Auth Callback URL in Walmart Developer Portal:
+# https://<your-domain>/api/walmart/oauth/callback
+# WALMART_OAUTH_DEFAULT_ENV selects sandbox vs production credentials (default: production if unset).
+WALMART_OAUTH_DEFAULT_ENV=sandbox
+WALMART_SANDBOX_CLIENT_ID=
+WALMART_SANDBOX_CLIENT_SECRET=
+WALMART_PRODUCTION_CLIENT_ID=
+WALMART_PRODUCTION_CLIENT_SECRET=
 ```
 
 ---
