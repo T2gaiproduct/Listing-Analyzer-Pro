@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { requireAuth } from "../lib/require-auth.js";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
+import { getRequestSessionEmail } from "../lib/request-auth.js";
 import { db, formSubmissions } from "@workspace/db";
 import { resolveSessionEmail } from "../lib/admin-auth.js";
 import { notifyAdminUsers } from "../lib/notify-admins.js";
@@ -21,20 +22,9 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 async function sessionEmailForRequest(req: Request, userId: string): Promise<string | null> {
-  const auth = getAuth(req);
-  return resolveSessionEmail(userId, (auth?.sessionClaims ?? null) as Record<string, unknown> | null);
+  return getRequestSessionEmail(req) ?? resolveSessionEmail(userId, null);
 }
 
 router.get("/support/tickets", requireAuth, async (req: Request, res: Response): Promise<void> => {

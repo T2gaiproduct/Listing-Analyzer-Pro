@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { requireAuth } from "../lib/require-auth.js";
 import { eq, and, desc, count, inArray, sql } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
+import { getRequestSessionEmail } from "../lib/request-auth.js";
 import { randomBytes } from "crypto";
 import {
   db,
@@ -90,13 +91,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 async function requireWorkspaceAccess(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = (req as AuthedRequest).userId;
@@ -1165,11 +1159,8 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
   try {
     const userId = (req as AuthedRequest).userId;
     const token = String(req.params.token ?? "");
-    const auth = getAuth(req);
-    const sessionEmail = await resolveSessionEmail(
-      userId,
-      auth?.sessionClaims as Record<string, unknown> | null,
-    );
+    const sessionEmail =
+      getRequestSessionEmail(req) ?? (await resolveSessionEmail(userId, null));
 
     const [row] = await db.select({
       member: workspaceMembersTable,
@@ -1292,11 +1283,8 @@ router.post("/workspace-invite/:token/decline", requireAuth, async (req, res): P
   try {
     const userId = (req as AuthedRequest).userId;
     const token = String(req.params.token ?? "");
-    const auth = getAuth(req);
-    const sessionEmail = await resolveSessionEmail(
-      userId,
-      auth?.sessionClaims as Record<string, unknown> | null,
-    );
+    const sessionEmail =
+      getRequestSessionEmail(req) ?? (await resolveSessionEmail(userId, null));
 
     const [row] = await db.select({
       member: workspaceMembersTable,

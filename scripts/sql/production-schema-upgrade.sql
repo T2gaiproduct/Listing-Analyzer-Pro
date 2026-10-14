@@ -432,6 +432,46 @@ CREATE TABLE IF NOT EXISTS image_prompt_templates (
   UNIQUE (slug, category)
 );
 
+-- ─── Native auth (Clerk migration; dual-mode until cutover) ─────────────────
+CREATE TABLE IF NOT EXISTS auth_credentials (
+  user_id text PRIMARY KEY,
+  email varchar(255) NOT NULL,
+  email_verified integer NOT NULL DEFAULT 0,
+  password_hash text,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS auth_credentials_email_idx ON auth_credentials (lower(email));
+
+CREATE TABLE IF NOT EXISTS auth_oauth_identities (
+  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id text NOT NULL,
+  provider varchar(32) NOT NULL,
+  provider_account_id text NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now(),
+  UNIQUE (provider, provider_account_id)
+);
+
+CREATE INDEX IF NOT EXISTS auth_oauth_identities_user_id_idx ON auth_oauth_identities (user_id);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  id text PRIMARY KEY,
+  user_id text NOT NULL,
+  expires_at timestamp NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS auth_sessions_user_id_idx ON auth_sessions (user_id);
+CREATE INDEX IF NOT EXISTS auth_sessions_expires_at_idx ON auth_sessions (expires_at);
+
+CREATE TABLE IF NOT EXISTS auth_password_reset_tokens (
+  token_hash text PRIMARY KEY,
+  user_id text NOT NULL,
+  expires_at timestamp NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

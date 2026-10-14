@@ -1,7 +1,7 @@
 import crypto from "crypto";
+import { requireAuth, type AuthedRequest } from "../lib/require-auth.js";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import { db, settingsTable } from "@workspace/db";
 
 import {
@@ -18,11 +18,6 @@ export { getGatewaySettings, getPayPalAccessToken };
 
 const router: IRouter = Router();
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  if (!auth?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  next();
-}
 
 async function getSetting(key: string): Promise<string> {
   const [row] = await db
@@ -75,8 +70,7 @@ export async function razorpayFetch<T>(path: string, method: string, body?: unkn
 }
 
 router.post("/razorpay/create-order", requireAuth, async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth!.userId!;
+  const userId = (req as AuthedRequest).userId;
 
   let resolved;
   try {
@@ -118,8 +112,7 @@ router.post("/razorpay/create-order", requireAuth, async (req, res): Promise<voi
 });
 
 router.post("/razorpay/verify-payment", requireAuth, async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth!.userId!;
+  const userId = (req as AuthedRequest).userId;
   const {
     razorpay_order_id, razorpay_payment_id, razorpay_signature,
   } = req.body as {
@@ -168,8 +161,7 @@ router.post("/razorpay/verify-payment", requireAuth, async (req, res): Promise<v
 // ─── PayPal ───────────────────────────────────────────────────────────────────
 
 router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth!.userId!;
+  const userId = (req as AuthedRequest).userId;
   const { origin, returnUrl, cancelUrl } = req.body as {
     origin?: string;
     returnUrl?: string;
@@ -242,8 +234,7 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
 });
 
 router.post("/paypal/capture-order", requireAuth, async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth!.userId!;
+  const userId = (req as AuthedRequest).userId;
   const { orderId } = req.body as { orderId: string };
   if (!orderId) { res.status(400).json({ error: "orderId is required" }); return; }
 
@@ -266,8 +257,7 @@ router.post("/paypal/capture-order", requireAuth, async (req, res): Promise<void
 });
 
 router.post("/paypal/reconcile-pending", requireAuth, async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth!.userId!;
+  const userId = (req as AuthedRequest).userId;
   try {
     await reconcileUserPendingPayPalPayments(userId);
     res.json({ success: true });

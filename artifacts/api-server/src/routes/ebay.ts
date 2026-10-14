@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { getAuth } from "@clerk/express";
+import { getRequestUserId } from "../lib/request-auth.js";
+import { requireAuth } from "../lib/require-auth.js";
 import {
   buildEbayOAuthCallbackUrl,
   ebayConnectUnavailableMessageForSellers,
@@ -127,16 +128,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 router.get("/ebay/oauth/config", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   res.json({
@@ -187,8 +178,7 @@ router.get(
 );
 
 router.get("/ebay/oauth/callback", async (req: Request, res: Response): Promise<void> => {
-  const auth = getAuth(req);
-  const sessionUserId = auth?.userId;
+  const sessionUserId = getRequestUserId(req);
 
   const ebayError = typeof req.query.error === "string" ? req.query.error : "";
   if (ebayError) {

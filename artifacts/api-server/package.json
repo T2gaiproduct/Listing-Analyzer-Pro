@@ -19,7 +19,8 @@
     "test:billing-breakdown-match": "tsx src/lib/billing-breakdown-match.integration.ts",
     "test:walmart-oauth": "tsx src/lib/walmart-oauth.test.ts",
     "test:walmart-oauth-config": "tsx src/lib/walmart-oauth-config.test.ts",
-    "test:walmart-items": "tsx src/lib/walmart-items-client.test.ts"
+    "test:walmart-items": "tsx src/lib/walmart-items-client.test.ts",
+    "test:native-auth-password": "tsx src/lib/native-auth/password.test.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.7",

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { requireAuth } from "../lib/require-auth.js";
 import { eq, and } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import { db, auditsTable, competitorsTable } from "@workspace/db";
 import {
   AddCompetitorBody,
@@ -29,13 +29,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 function getCreditCtx(req: Request): TeamAwareContext {
   return buildTeamAwareCreditCtx(req);

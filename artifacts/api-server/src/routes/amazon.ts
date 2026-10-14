@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { getAuth } from "@clerk/express";
+import { getRequestUserId } from "../lib/request-auth.js";
+import { requireAuth } from "../lib/require-auth.js";
 import { eq, and } from "drizzle-orm";
 import { db, amazonSellerConnectionsTable, amazonPublishJobsTable } from "@workspace/db";
 import type { ImageRecord } from "@workspace/db";
@@ -45,16 +46,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 router.get("/amazon/status", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
@@ -86,8 +77,7 @@ router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, requ
 });
 
 router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const sessionUserId = auth?.userId;
+  const sessionUserId = getRequestUserId(req);
   const amazonError = typeof req.query.error === "string" ? req.query.error : "";
   if (amazonError) {
     const detail = typeof req.query.error_description === "string"

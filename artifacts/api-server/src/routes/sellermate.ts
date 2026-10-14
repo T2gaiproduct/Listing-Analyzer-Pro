@@ -1,8 +1,8 @@
 import fs from "node:fs";
+import { requireAuth } from "../lib/require-auth.js";
 import path from "node:path";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { resolveSellermateImagePath } from "../lib/sellermate-image-variants.js";
-import { getAuth } from "@clerk/express";
 import {
   AGENT_TOOL_CATALOG,
   SUPPORTED_AGENT_MODELS,
@@ -39,16 +39,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 async function mapAgent(
   agent: Awaited<ReturnType<typeof listSellermateAgents>>[number],

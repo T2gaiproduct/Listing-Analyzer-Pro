@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
+import { getRequestUserId } from "./request-auth.js";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import { db, auditsTable, graphicsProjectsTable } from "@workspace/db";
 import { resolveAuditImagePath, resolveGraphicsImagePath } from "./image-storage";
 import { getDefaultWorkspaceId } from "./ensure-workspaces.js";
@@ -42,7 +42,7 @@ export async function requireAuditImageAccess(
     return;
   }
 
-  const userId = getAuth(req)?.userId;
+  const userId = getRequestUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
@@ -81,7 +81,7 @@ export async function requireGraphicsImageAccess(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const userId = getAuth(req)?.userId;
+  const userId = getRequestUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;

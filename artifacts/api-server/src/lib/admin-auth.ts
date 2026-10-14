@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
-import { getAuth } from "@clerk/express";
+import { getRequestUserId, getRequestSessionEmail as getRequestSessionEmailFromReq } from "./request-auth.js";
 import { eq } from "drizzle-orm";
-import { db, adminRolesTable, adminUsersTable, userProfilesTable } from "@workspace/db";
+import { db, adminRolesTable, adminUsersTable, userProfilesTable, authCredentialsTable } from "@workspace/db";
 import { acceptAdminInviteForUser } from "./admin-invites.js";
 import { syncUserLoginEmail } from "./user-profile.js";
 import {
@@ -33,20 +33,9 @@ export function getEnvSuperAdminUserIds(): string[] {
   return [...ADMIN_USER_IDS];
 }
 
-export function sessionEmailFromClaims(sessionClaims: Record<string, unknown> | null | undefined): string | null {
-  if (!sessionClaims) return null;
-  const candidates = [
-    sessionClaims.email,
-    sessionClaims.primary_email_address,
-    sessionClaims.primary_email,
-  ];
-  for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim().toLowerCase();
-    }
-  }
-  return null;
-}
+import { sessionEmailFromClaims } from "./session-email.js";
+
+export { sessionEmailFromClaims };
 
 /** Clerk documented test inboxes: *+clerk_test@example.com */
 export function isClerkDevTestEmail(email: string | null | undefined): boolean {
@@ -124,6 +113,18 @@ export async function resolveSessionEmail(
   }
 
   try {
+    const [cred] = await db
+      .select({ email: authCredentialsTable.email })
+      .from(authCredentialsTable)
+      .where(eq(authCredentialsTable.userId, userId))
+      .limit(1);
+    const credEmail = cred?.email?.trim().toLowerCase();
+    if (credEmail) return credEmail;
+  } catch {
+    /* ignore */
+  }
+
+  try {
     const [profile] = await db
       .select({ loginEmail: userProfilesTable.loginEmail })
       .from(userProfilesTable)
@@ -182,9 +183,8 @@ export async function isAdminUser(userId: string, email?: string | null): Promis
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  const email = auth?.sessionClaims?.email as string | undefined;
+  const userId = getRequestUserId(req);
+  const email = getRequestSessionEmailFromReq(req) ?? undefined;
   if (!userId) { res.status(403).json({ error: "Forbidden" }); return; }
 
   loadAdminContext(userId, email).then((ctx) => {

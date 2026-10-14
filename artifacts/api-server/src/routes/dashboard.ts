@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { requireAuth } from "../lib/require-auth.js";
 import { eq, and, count, sql, desc, gte, lte, inArray } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import {
   db,
   auditsTable,
@@ -97,16 +97,6 @@ const NON_AI_FEATURE_TYPES = new Set([
   "purchase",
 ]);
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 function parseDate(value: string | undefined, fallback: Date): Date {
   if (!value) return fallback;

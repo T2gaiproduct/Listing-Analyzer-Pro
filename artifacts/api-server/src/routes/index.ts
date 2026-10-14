@@ -29,10 +29,12 @@ import adminContentMarketplacesRouter from "./admin-content-marketplaces";
 import imagePromptTemplatesRouter from "./image-prompt-templates";
 import adminImagePromptTemplatesRouter from "./admin-image-prompt-templates";
 import supportTicketsRouter from "./support-tickets";
+import nativeAuthRouter from "./native-auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(nativeAuthRouter);
 router.use(fetchListingRouter);
 router.use(adminRouter);
 router.use(adminContentMarketplacesRouter);

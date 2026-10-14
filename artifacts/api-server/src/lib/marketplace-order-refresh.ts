@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import { getAuth } from "@clerk/express";
+import { getRequestUserId } from "./request-auth.js";
 import { getActiveWorkspaceId } from "./workspace-route-helpers.js";
 import {
   getShopifyConnection,
@@ -23,7 +23,7 @@ export async function maybeRefreshMarketplaceOrders(
 ): Promise<MarketplaceOrderRefreshResult> {
   const warnings: string[] = [];
   const workspaceId = getActiveWorkspaceId(req);
-  const userId = getAuth(req)?.userId;
+  const userId = getRequestUserId(req);
   if (!workspaceId) return { warnings };
 
   const shopifyConnection = await getShopifyConnectionPublic(workspaceId);

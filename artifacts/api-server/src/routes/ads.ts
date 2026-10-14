@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { requireAuth } from "../lib/require-auth.js";
 import { and, desc, eq } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import {
   db,
   adsProjectsTable,
@@ -66,15 +66,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const userId = getAuth(req)?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 function serializeProject(row: typeof adsProjectsTable.$inferSelect) {
   return {

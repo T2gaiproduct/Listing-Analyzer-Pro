@@ -1,9 +1,10 @@
 import crypto from "crypto";
+import { getRequestUserId, getRequestSessionEmail } from "../lib/request-auth.js";
+import { requireAuth, type AuthedRequest } from "../lib/require-auth.js";
 import fs from "node:fs";
 import path from "node:path";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, desc, inArray, isNull } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
@@ -56,18 +57,6 @@ import {
 } from "../lib/coupon-validation.js";
 
 const router: IRouter = Router();
-
-interface AuthedRequest extends Request {
-  userId: string;
-}
-
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 function generatePassword(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
@@ -282,8 +271,7 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
   const teamSize = trimOptionalString(payload.teamSize);
 
   if (formType === "support") {
-    const auth = getAuth(req);
-    const userId = auth?.userId;
+    const userId = getRequestUserId(req);
     if (!userId) {
       res.status(401).json({ error: "Sign in to submit a support ticket" });
       return;
@@ -293,10 +281,8 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
       return;
     }
 
-    const sessionEmail = await resolveSessionEmail(
-      userId,
-      (auth.sessionClaims ?? null) as Record<string, unknown> | null,
-    );
+    const sessionEmail =
+      getRequestSessionEmail(req) ?? (await resolveSessionEmail(userId, null));
     if (!sessionEmail) {
       res.status(400).json({
         error: "Could not determine your account email. Sign in with an email address or update your profile, then try again.",
@@ -450,11 +436,8 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const hasActiveSubscription = sub != null && ["active", "trial"].includes(sub.status);
   let onboardingCompleted = profile?.onboardingCompleted ?? false;
 
-  const auth = getAuth(req);
-  const sessionEmail = await resolveSessionEmail(
-    userId,
-    auth?.sessionClaims as Record<string, unknown> | null,
-  );
+  const sessionEmail =
+    getRequestSessionEmail(req) ?? (await resolveSessionEmail(userId, null));
   const isAdmin = await isAdminUser(userId, sessionEmail);
   const accountRole = await resolveUserAccountRole(userId);
 
@@ -493,8 +476,7 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const auth = getAuth(req);
-  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  const sessionEmail = getRequestSessionEmail(req);
   if (sessionEmail) {
     void syncUserLoginEmail(userId, sessionEmail);
   }
@@ -571,8 +553,7 @@ router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void>
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
   try {
     const userId = (req as AuthedRequest).userId;
-    const auth = getAuth(req);
-    const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+    const sessionEmail = getRequestSessionEmail(req);
     const body = req.body as Record<string, string | number | Partial<NotificationPreferences>>;
     const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize, notificationPreferences } = body;
 
@@ -1436,8 +1417,7 @@ router.get("/profile/notification-preferences", requireAuth, async (req, res): P
 router.patch("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
   try {
     const userId = (req as AuthedRequest).userId;
-    const auth = getAuth(req);
-    const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+    const sessionEmail = getRequestSessionEmail(req);
     const body = req.body as Partial<NotificationPreferences>;
     const patch = buildNotificationPreferencesPatch(body);
 
@@ -1508,11 +1488,8 @@ router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
 router.post("/admin-role-invite/:token/accept", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const token = String(req.params.token ?? "");
-  const auth = getAuth(req);
-  const sessionEmail = await resolveSessionEmail(
-    userId,
-    auth?.sessionClaims as Record<string, unknown> | null,
-  );
+  const sessionEmail =
+    getRequestSessionEmail(req) ?? (await resolveSessionEmail(userId, null));
 
   try {
     const result = await acceptAdminInviteByToken(userId, token, { verifyEmail: sessionEmail });

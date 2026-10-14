@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { getAuth } from "@clerk/express";
+import { requireAuth } from "../lib/require-auth.js";
 import type { ImageRecord } from "@workspace/db";
 import {
   getActiveWorkspaceId,
@@ -21,16 +21,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 function parsePublishMode(raw: unknown): WooCommercePublishMode {
   return raw === "live" ? "live" : "draft";

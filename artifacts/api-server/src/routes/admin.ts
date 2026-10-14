@@ -1,7 +1,7 @@
 import crypto from "crypto";
+import { getRequestUserId, getRequestSessionEmail } from "../lib/request-auth.js";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, count, avg, sql, desc, and, inArray, gte, isNull, notInArray } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable,
   paymentsTable, invoicesTable, refundsTable, couponsTable,
@@ -171,12 +171,9 @@ function generatePassword(): string {
 
 // Public (auth-only) endpoint to check admin status — used by frontend AdminRoute
 router.get("/admin/is-admin", async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
+  const userId = getRequestUserId(req);
   if (!userId) { res.json({ isAdmin: false }); return; }
-  const email =
-    sessionEmailFromClaims(auth?.sessionClaims as Record<string, unknown> | undefined)
-    ?? (auth?.sessionClaims?.email as string | undefined);
+  const email = getRequestSessionEmail(req) ?? undefined;
   const ok = await isAdminUser(userId, email);
   res.json({ isAdmin: ok });
 });
@@ -1185,8 +1182,7 @@ router.get("/admin/downloads", requireAdmin, async (req, res): Promise<void> => 
 
 router.post("/admin/audit-logs", requireAdmin, async (req, res): Promise<void> => {
   const { action, entity, entityId, metadata, ipAddress } = req.body;
-  const auth = getAuth(req);
-  const adminUserId = auth?.userId ?? "unknown";
+  const adminUserId = getRequestUserId(req) ?? "unknown";
   const [log] = await db.insert(auditLogsTable).values({ adminUserId, action, entity, entityId, metadata, ipAddress }).returning();
   res.status(201).json(log);
 });
@@ -1562,12 +1558,12 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
   const category = (req.query.category as string | undefined) ?? "";
 
   if (category === "sellermate_default_agents") {
-    const auth = getAuth(req);
-    if (!auth?.userId) {
+    const authUserId = getRequestUserId(req);
+    if (!authUserId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const allowed = await isAdminUser(auth.userId);
+    const allowed = await isAdminUser(authUserId);
     if (!allowed) {
       res.status(403).json({ error: "Forbidden" });
       return;
@@ -1590,12 +1586,12 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
   }
 
   if (category === "sellermate_default_agent_memory") {
-    const auth = getAuth(req);
-    if (!auth?.userId) {
+    const authUserId = getRequestUserId(req);
+    if (!authUserId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const allowed = await isAdminUser(auth.userId);
+    const allowed = await isAdminUser(authUserId);
     if (!allowed) {
       res.status(403).json({ error: "Forbidden" });
       return;
@@ -1640,12 +1636,12 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
   const category = body.category?.trim() ?? "";
 
   if (category === "sellermate_default_agent_memory") {
-    const auth = getAuth(req);
-    if (!auth?.userId) {
+    const authUserId = getRequestUserId(req);
+    if (!authUserId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const allowed = await isAdminUser(auth.userId);
+    const allowed = await isAdminUser(authUserId);
     if (!allowed) {
       res.status(403).json({ error: "Forbidden" });
       return;
@@ -1702,12 +1698,12 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
   }
 
   if (category === "sellermate_default_agents") {
-    const auth = getAuth(req);
-    if (!auth?.userId) {
+    const authUserId = getRequestUserId(req);
+    if (!authUserId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const allowed = await isAdminUser(auth.userId);
+    const allowed = await isAdminUser(authUserId);
     if (!allowed) {
       res.status(403).json({ error: "Forbidden" });
       return;

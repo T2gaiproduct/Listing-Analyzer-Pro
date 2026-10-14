@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { requireAuth } from "../lib/require-auth.js";
 import { eq, and, desc, or, sql, type SQL } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, graphicsProjectsTable, teamMembersTable,
   videosProjectsTable, adsProjectsTable, workspacesTable,
@@ -23,13 +23,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 async function resolveTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = (req as AuthedRequest).userId;

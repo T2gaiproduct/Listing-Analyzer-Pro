@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Request } from "express";
-import { getAuth } from "@clerk/express";
+import { getRequestUserId } from "./request-auth.js";
 import type { Audit, ImageRecord } from "@workspace/db";
 import { db, productMarketplaceListingsTable } from "@workspace/db";
 import { loadAuditForExport } from "./audit-export-loader.js";
@@ -44,8 +44,7 @@ interface AuthedRequest extends Request {
 }
 
 function resolveUserId(req: Request): string {
-  const auth = getAuth(req);
-  return auth?.userId ?? (req as AuthedRequest).userId;
+  return getRequestUserId(req) ?? (req as AuthedRequest).userId;
 }
 
 function isRealAmazonAsin(asin: string | null | undefined): boolean {

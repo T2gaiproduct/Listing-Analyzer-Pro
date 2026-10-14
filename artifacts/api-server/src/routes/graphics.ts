@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { requireAuth } from "../lib/require-auth.js";
 import { eq, and, desc, or, inArray } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import { db, graphicsProjectsTable, adminUsersTable, auditsTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
@@ -43,13 +43,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 function getCreditCtx(req: Request): TeamAwareContext {
   return buildTeamAwareCreditCtx(req);

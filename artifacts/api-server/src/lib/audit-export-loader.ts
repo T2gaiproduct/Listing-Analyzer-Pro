@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Request } from "express";
-import { getAuth } from "@clerk/express";
+import { getRequestUserId } from "./request-auth.js";
 import { db, auditsTable, graphicsProjectsTable } from "@workspace/db";
 import type { TeamAuthedRequest } from "../middlewares/team-auth.js";
 import {
@@ -25,8 +25,7 @@ function isAdmin(userId: string): boolean {
 function getEffectiveUserId(req: Request): string {
   if ((req as { workspace?: unknown }).workspace) return getAccountOwnerId(req);
   const team = (req as TeamAuthedRequest).team;
-  const auth = getAuth(req);
-  return team?.ownerUserId ?? auth?.userId ?? (req as AuthedRequest).userId;
+  return team?.ownerUserId ?? getRequestUserId(req) ?? (req as AuthedRequest).userId;
 }
 
 async function auditScopeWhere(
@@ -51,8 +50,7 @@ export async function loadAuditForExport(
   auditId: number,
   opts?: { workspaceId?: number },
 ) {
-  const auth = getAuth(req);
-  const userId = auth?.userId ?? (req as AuthedRequest).userId;
+  const userId = getRequestUserId(req) ?? (req as AuthedRequest).userId;
   const workspaceOverride = opts?.workspaceId;
   const whereClause = isAdmin(userId)
     ? and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0))

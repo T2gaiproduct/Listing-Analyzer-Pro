@@ -87,9 +87,16 @@ Create `/opt/listingauditor/.env` (never commit this file):
 # Database
 DATABASE_URL=postgresql://lauser:yourpassword@localhost:5432/listingauditor
 
-# Clerk Auth — get from dashboard.clerk.com
+# Clerk Auth — get from dashboard.clerk.com (required until native auth cutover)
 CLERK_SECRET_KEY=sk_live_XXXXXXXXXXXXXXXX
 CLERK_PUBLISHABLE_KEY=pk_live_XXXXXXXXXXXXXXXX
+
+# Native auth (optional — dual-mode with Clerk; see docs/AUTH-MIGRATION.md)
+# NATIVE_AUTH_ENABLED=true
+# AUTH_SESSION_SECRET=random_64_char_string
+# GOOGLE_OAUTH_CLIENT_ID=
+# GOOGLE_OAUTH_CLIENT_SECRET=
+# GOOGLE_OAUTH_REDIRECT_URI=https://yourdomain.com/api/auth/google/callback
 
 # Clerk Proxy (for production white-label)
 CLERK_PROXY_URL=https://yourdomain.com/clerk

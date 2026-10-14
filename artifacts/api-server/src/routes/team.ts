@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { requireAuth } from "../lib/require-auth.js";
 import { eq, and, desc } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
+import { getRequestSessionEmail } from "../lib/request-auth.js";
 import { randomBytes } from "crypto";
 import {
   db, teamMembersTable, subscriptionsTable, plansTable,
@@ -69,13 +70,6 @@ interface AuthedRequest extends Request {
   userId: string;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  (req as AuthedRequest).userId = userId;
-  next();
-}
 
 // ─── List my team members (as workspace owner) ───────────────────────────────
 router.get("/team", requireAuth, async (req, res): Promise<void> => {
@@ -426,11 +420,8 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   await ensureTeamMembersRoleId();
   const userId = (req as AuthedRequest).userId;
   const token = String(req.params.token ?? "");
-  const auth = getAuth(req);
-  const sessionEmail = await resolveSessionEmail(
-    userId,
-    auth?.sessionClaims as Record<string, unknown> | null,
-  );
+  const sessionEmail =
+    getRequestSessionEmail(req) ?? (await resolveSessionEmail(userId, null));
 
   const [invite] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.inviteToken, token));
   if (!invite) { res.status(404).json({ error: "Invite not found" }); return; }
@@ -574,8 +565,7 @@ router.get("/team/account-permissions", requireAuth, async (req, res): Promise<v
 router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void> => {
   await ensureWorkspaceCreditsMigrated();
   const userId = (req as AuthedRequest).userId;
-  const auth = getAuth(req);
-  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  const sessionEmail = getRequestSessionEmail(req) ?? undefined;
   const workspaceIdParam = req.query.workspaceId;
   const workspaceId = workspaceIdParam != null ? Number(workspaceIdParam) : null;
   const [membership] = await db.select({
@@ -692,8 +682,7 @@ router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void
 router.get("/team/membership/credits", requireAuth, async (req, res): Promise<void> => {
   await ensureWorkspaceCreditsMigrated();
   const userId = (req as AuthedRequest).userId;
-  const auth = getAuth(req);
-  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  const sessionEmail = getRequestSessionEmail(req) ?? undefined;
   const workspaceIdParam = req.query.workspaceId;
   const workspaceId = workspaceIdParam != null ? Number(workspaceIdParam) : null;
 
