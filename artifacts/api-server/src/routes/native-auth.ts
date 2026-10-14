@@ -26,10 +26,16 @@ import {
   verifyEmailVerificationCode,
   clearEmailVerificationCode,
 } from "../lib/native-auth/email-code.js";
+import { authPasswordResetTemplate } from "../lib/email-templates.js";
+import { sendEmail } from "../lib/email.js";
 
 const router: IRouter = Router();
 
 const APP_DISPLAY_NAME = process.env.APP_DISPLAY_NAME ?? "Seller Lens";
+
+function appPublicBaseUrl(): string {
+  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
+}
 
 async function startEmailVerificationFlow(
   res: Response,
@@ -280,10 +286,25 @@ router.post("/auth/forgot-password", async (req, res) => {
       userId: cred.userId,
       expiresAt,
     });
+    const resetUrl = `${appPublicBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+    const html = authPasswordResetTemplate({
+      platformName: APP_DISPLAY_NAME,
+      resetUrl,
+      expiresMinutes: 60,
+    });
+    const emailResult = await sendEmail({
+      to: email,
+      subject: `Reset your ${APP_DISPLAY_NAME} password`,
+      html,
+    });
+    const payload: Record<string, unknown> = { ok: true };
     if (process.env.NODE_ENV !== "production") {
-      res.json({ ok: true, devResetToken: token });
-      return;
+      payload.devResetToken = token;
+      payload.resetUrl = resetUrl;
+      if (!emailResult.success) payload.emailError = emailResult.error;
     }
+    res.json(payload);
+    return;
   }
   res.json({ ok: true });
 });

@@ -14,6 +14,14 @@ export function buildClerkLocalization(platformName: string) {
         formTitle: "Verification code",
         resendButton: "Didn't receive a code? Resend",
       },
+      forgotPassword: {
+        requestTitle: "Reset your password",
+        requestSubtitle: `Enter your email and we'll send you a reset link for ${app}`,
+        sentSubtitle: "If an account exists for that email, we sent a reset link.",
+        resetTitle: "Choose a new password",
+        resetSubtitle: "Enter the code from your email and a new password",
+        forgotLink: "Forgot password?",
+      },
     },
     signUp: {
       start: {
@@ -25,6 +33,14 @@ export function buildClerkLocalization(platformName: string) {
         subtitle: `Enter the verification code sent to your email to continue to ${app}`,
         formTitle: "Verification code",
         resendButton: "Didn't receive a code? Resend",
+      },
+      forgotPassword: {
+        requestTitle: "Reset your password",
+        requestSubtitle: `Enter your email and we'll send you a reset link for ${app}`,
+        sentSubtitle: "If an account exists for that email, we sent a reset link.",
+        resetTitle: "Choose a new password",
+        resetSubtitle: "Enter the code from your email and a new password",
+        forgotLink: "Forgot password?",
       },
     },
   };

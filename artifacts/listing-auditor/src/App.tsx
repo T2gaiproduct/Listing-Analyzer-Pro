@@ -42,6 +42,7 @@ import {
   Landing,
   NotFound,
   SignUpPage,
+  ResetPasswordPage,
   Features,
   Pricing,
   Contact,
@@ -372,8 +373,15 @@ function SignInPage() {
     ? `${basePath}/sign-up?redirect_url=${encodeURIComponent(redirectParam)}${email ? `&email=${encodeURIComponent(email)}` : ""}`
     : `${basePath}/sign-up`;
 
+  const resetSuccess = params.get("reset") === "success";
+
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-10">
+      {resetSuccess && (
+        <p className="mb-4 w-full max-w-[440px] rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center text-sm text-green-800">
+          Password updated. Sign in with your new password.
+        </p>
+      )}
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
@@ -631,6 +639,15 @@ function Router() {
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
+      <Route path="/reset-password">
+        {isNativeAuthProvider ? (
+          <Suspense fallback={<AuthLoading />}>
+            <ResetPasswordPage />
+          </Suspense>
+        ) : (
+          <Redirect to="/sign-in" />
+        )}
+      </Route>
       <Route path="/sso-callback">
         <div className="flex min-h-[100dvh] items-center justify-center">
           <AuthenticateWithRedirectCallback />

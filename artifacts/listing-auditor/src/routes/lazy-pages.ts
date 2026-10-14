@@ -15,6 +15,7 @@ export const LiveChatWidget = lazyWithRetry(() =>
 export const Landing = lazyWithRetry(() => import("@/pages/landing"));
 export const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
 export const SignUpPage = lazyWithRetry(() => import("@/pages/sign-up"));
+export const ResetPasswordPage = lazyWithRetry(() => import("@/pages/reset-password"));
 
 export const Features = lazyWithRetry(() => import("@/pages/features"));
 export const Pricing = lazyWithRetry(() => import("@/pages/pricing"));

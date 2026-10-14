@@ -246,7 +246,7 @@ function AuthOrDivider() {
   );
 }
 
-type AuthStep = "credentials" | "email-code";
+type AuthStep = "credentials" | "email-code" | "forgot-request" | "forgot-sent" | "forgot-reset";
 
 function AuthFormShell({
   mode,
@@ -254,32 +254,46 @@ function AuthFormShell({
   signUpUrl,
   redirectUrl,
   initialEmail,
+  initialResetToken,
+  initialStep,
 }: {
   mode: "sign-in" | "sign-up";
   signInUrl: string;
   signUpUrl: string;
   redirectUrl: string;
   initialEmail?: string;
+  initialResetToken?: string;
+  initialStep?: AuthStep;
 }) {
   const [, setLocation] = useLocation();
   const { setSession } = useNativeAuth();
   const { platformName } = useBranding();
   const copy = buildClerkLocalization(platformName);
-  const [step, setStep] = useState<AuthStep>("credentials");
+  const forgotCopy = copy.signIn.forgotPassword;
+  const [step, setStep] = useState<AuthStep>(initialStep ?? (initialResetToken ? "forgot-reset" : "credentials"));
   const emailCodeCopy = mode === "sign-up" ? copy.signUp.emailCode : copy.signIn.emailCode;
-  const heading =
-    step === "email-code"
-      ? emailCodeCopy.title
-      : mode === "sign-up"
-        ? copy.signUp.start.title
-        : copy.signIn.start.title;
-  const subheading =
-    step === "email-code" ? emailCodeCopy.subtitle : mode === "sign-up" ? copy.signUp.start.subtitle : copy.signIn.start.subtitle;
+  const heading = (() => {
+    if (step === "email-code") return emailCodeCopy.title;
+    if (step === "forgot-request") return forgotCopy.requestTitle;
+    if (step === "forgot-sent") return forgotCopy.requestTitle;
+    if (step === "forgot-reset") return forgotCopy.resetTitle;
+    return mode === "sign-up" ? copy.signUp.start.title : copy.signIn.start.title;
+  })();
+  const subheading = (() => {
+    if (step === "email-code") return emailCodeCopy.subtitle;
+    if (step === "forgot-request") return forgotCopy.requestSubtitle;
+    if (step === "forgot-sent") return forgotCopy.sentSubtitle;
+    if (step === "forgot-reset") return forgotCopy.resetSubtitle;
+    return mode === "sign-up" ? copy.signUp.start.subtitle : copy.signIn.start.subtitle;
+  })();
   const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
+  const [resetToken, setResetToken] = useState(initialResetToken ?? "");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState("");
   const [devCodeHint, setDevCodeHint] = useState<string | null>(null);
+  const [devResetHint, setDevResetHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -356,6 +370,66 @@ function AuthFormShell({
     }
   }
 
+  async function onForgotRequest(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`${basePath}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email }),
+      });
+      const data = (await res.json()) as { error?: string; devResetToken?: string; resetUrl?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Request failed");
+        return;
+      }
+      if (data.devResetToken) {
+        setDevResetHint(data.devResetToken);
+        setResetToken(data.devResetToken);
+      }
+      setStep("forgot-sent");
+    } catch {
+      setError("Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`${basePath}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ token: resetToken.trim(), password }),
+      });
+      const data = (await res.json()) as { error?: string; ok?: boolean };
+      if (!res.ok) {
+        setError(data.error ?? "Could not reset password");
+        return;
+      }
+      setLocation(`${signInUrl.replace(basePath, "")}?reset=success`);
+    } catch {
+      setError("Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onResendCode() {
     setError(null);
     setBusy(true);
@@ -393,7 +467,122 @@ function AuthFormShell({
         <h1 className="text-center text-2xl font-bold tracking-tight text-slate-900">{heading}</h1>
         <p className="mt-2 text-center text-sm text-slate-500">{subheading}</p>
 
-        {step === "email-code" ? (
+        {step === "forgot-request" ? (
+          <form className="mt-6 space-y-4" method="post" action="#" onSubmit={(e) => void onForgotRequest(e)}>
+            <div className="space-y-2">
+              <Label htmlFor="forgot-email" className="text-sm font-medium text-slate-700">
+                Email address
+              </Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                className="h-11 border-slate-200 bg-slate-50 text-slate-900"
+              />
+            </div>
+            {error && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            )}
+            <Button type="submit" disabled={busy} className="h-11 w-full bg-orange-500 text-white hover:bg-orange-600">
+              {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Send reset link"}
+            </Button>
+            <button
+              type="button"
+              className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
+              onClick={() => {
+                setStep("credentials");
+                setError(null);
+              }}
+            >
+              Back to sign in
+            </button>
+          </form>
+        ) : step === "forgot-sent" ? (
+          <div className="mt-6 space-y-4">
+            <p className="text-center text-sm text-slate-600">
+              Check your inbox for <span className="font-medium text-slate-800">{email}</span>.
+            </p>
+            {devResetHint && import.meta.env.DEV && (
+              <p className="text-center text-xs text-amber-700">Dev reset token: {devResetHint}</p>
+            )}
+            <Button
+              type="button"
+              className="h-11 w-full bg-orange-500 text-white hover:bg-orange-600"
+              onClick={() => setStep("forgot-reset")}
+            >
+              Enter reset code
+            </Button>
+            <button
+              type="button"
+              className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
+              onClick={() => setStep("credentials")}
+            >
+              Back to sign in
+            </button>
+          </div>
+        ) : step === "forgot-reset" ? (
+          <form className="mt-6 space-y-4" method="post" action="#" onSubmit={(e) => void onResetPassword(e)}>
+            <div className="space-y-2">
+              <Label htmlFor="reset-token" className="text-sm font-medium text-slate-700">
+                Reset code
+              </Label>
+              <Input
+                id="reset-token"
+                required
+                value={resetToken}
+                onChange={(e) => setResetToken(e.target.value)}
+                placeholder="Paste the code from your email"
+                className="h-11 border-slate-200 bg-slate-50 font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password" className="text-sm font-medium text-slate-700">
+                New password
+              </Label>
+              <Input
+                id="new-password"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                className="h-11 border-slate-200 bg-slate-50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password" className="text-sm font-medium text-slate-700">
+                Confirm password
+              </Label>
+              <Input
+                id="confirm-password"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                className="h-11 border-slate-200 bg-slate-50"
+              />
+            </div>
+            {error && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            )}
+            <Button type="submit" disabled={busy} className="h-11 w-full bg-orange-500 text-white hover:bg-orange-600">
+              {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Update password"}
+            </Button>
+            <button
+              type="button"
+              className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
+              onClick={() => setStep("forgot-request")}
+            >
+              Request a new link
+            </button>
+          </form>
+        ) : step === "email-code" ? (
           <form className="mt-6 space-y-4" onSubmit={(e) => void onVerifyCode(e)}>
             <div className="space-y-2">
               <Label className="text-sm font-medium text-slate-700">{emailCodeCopy.formTitle}</Label>
@@ -510,6 +699,18 @@ function AuthFormShell({
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="text-sm font-medium text-orange-500 hover:text-orange-600"
+                onClick={() => {
+                  setStep("forgot-request");
+                  setError(null);
+                }}
+              >
+                {forgotCopy.forgotLink}
+              </button>
+            </div>
           </div>
           {error && (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
@@ -565,6 +766,7 @@ export function SignIn(props: {
 }) {
   const redirectUrl = props.forceRedirectUrl ?? props.fallbackRedirectUrl ?? `${basePath}/dashboard`;
   const signUpUrl = props.signUpUrl ?? `${basePath}/sign-up`;
+  const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   return (
     <AuthFormShell
       mode="sign-in"
@@ -572,7 +774,26 @@ export function SignIn(props: {
       signUpUrl={signUpUrl}
       redirectUrl={redirectUrl}
       initialEmail={props.initialValues?.emailAddress}
+      initialStep={search?.get("forgot") === "1" ? "forgot-request" : undefined}
     />
+  );
+}
+
+/** Standalone reset page (email link: /reset-password?token=...) */
+export function NativeResetPasswordPage() {
+  const token =
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token")?.trim() ?? "" : "";
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
+      <AuthFormShell
+        mode="sign-in"
+        signInUrl={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+        redirectUrl={`${basePath}/dashboard`}
+        initialResetToken={token}
+        initialStep={token ? "forgot-reset" : "forgot-request"}
+      />
+    </div>
   );
 }
 

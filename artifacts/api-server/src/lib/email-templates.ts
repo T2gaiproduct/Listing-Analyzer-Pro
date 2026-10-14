@@ -378,6 +378,48 @@ export function notificationEmailTemplate({
 </html>`;
 }
 
+export function authPasswordResetTemplate({
+  platformName,
+  resetUrl,
+  expiresMinutes,
+}: {
+  platformName: string;
+  resetUrl: string;
+  expiresMinutes: number;
+}): string {
+  const app = platformName.trim() || "Seller Lens";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset your password</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
+    .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: #f97316; padding: 28px 24px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; }
+    .content { padding: 32px 24px; text-align: center; }
+    .content p { color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .btn { display: inline-block; background: #f97316; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: 600; font-size: 15px; margin: 16px 0; }
+    .footer { background: #f8fafc; padding: 20px 24px; text-align: center; }
+    .footer p { color: #94a3b8; font-size: 12px; margin: 0; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>Reset your password</h1></div>
+    <div class="content">
+      <p>We received a request to reset your password for <strong>${app}</strong>.</p>
+      <a href="${resetUrl}" class="btn">Reset password</a>
+      <p style="font-size: 13px; color: #94a3b8;">This link expires in ${expiresMinutes} minutes. If you did not request this, you can ignore this email.</p>
+    </div>
+    <div class="footer"><p>${resetUrl}</p></div>
+  </div>
+</body>
+</html>`;
+}
+
 export function authEmailCodeTemplate({
   platformName,
   code,
