@@ -192,11 +192,13 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
     apiHealth?.clerkProxySecret === "invalid" || apiHealth?.clerkProxySecret === "missing";
   const clerkPlaceholderSecret = apiHealth?.clerkSecretLooksLikePlaceholder === true;
   const clerkSecretOk = apiHealth?.clerkProxySecret === "ok";
-  const clerkMisconfigured =
-    clerkKeyMismatch
-    || clerkSecretInvalid
-    || clerkPlaceholderSecret
-    || (healthFetched && apiHealth != null && !clerkSecretOk && apiHealth.clerkProxySecret !== "skipped");
+  const clerkMisconfigured = !isNativeAuthProvider
+    && (
+      clerkKeyMismatch
+      || clerkSecretInvalid
+      || clerkPlaceholderSecret
+      || (healthFetched && apiHealth != null && !clerkSecretOk && apiHealth.clerkProxySecret !== "skipped")
+    );
   const clerkInstanceHost =
     (apiHealth?.clerkPublishableHost as string | undefined) || viteClerkHost || undefined;
   const apiStale = apiHealth?.staleProcess === true;
@@ -305,7 +307,8 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
+const isNativeAuthProvider = import.meta.env.VITE_AUTH_PROVIDER === "native";
+const clerkPubKey = (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined) ?? "";
 const clerkProxyUrlFromEnv = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -344,7 +347,7 @@ function stripBase(path: string): string {
     : path;
 }
 
-if (!clerkPubKey) {
+if (!isNativeAuthProvider && !clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
 }
 

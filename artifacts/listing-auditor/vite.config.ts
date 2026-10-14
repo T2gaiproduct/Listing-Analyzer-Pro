@@ -59,6 +59,8 @@ const apiProxyTarget =
 const disableHmr =
   process.env.VITE_DISABLE_HMR === "true" || Boolean(process.env.VITE_CLERK_PROXY_URL);
 
+const useNativeAuthProvider = process.env.VITE_AUTH_PROVIDER === "native";
+
 export default defineConfig({
   base: basePath,
   define: {
@@ -88,6 +90,11 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      ...(useNativeAuthProvider
+        ? {
+            "@clerk/react": path.resolve(import.meta.dirname, "src/lib/native-clerk-shim.tsx"),
+          }
+        : {}),
     },
     dedupe: ["react", "react-dom"],
   },

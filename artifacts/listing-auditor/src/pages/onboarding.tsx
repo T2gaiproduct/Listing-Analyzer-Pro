@@ -55,6 +55,7 @@ function syncClerkFullName(
 ): void {
   const trimmed = fullName.trim();
   if (!trimmed) return;
+  if (typeof user.update !== "function") return;
   const parts = trimmed.split(/\s+/);
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ");
