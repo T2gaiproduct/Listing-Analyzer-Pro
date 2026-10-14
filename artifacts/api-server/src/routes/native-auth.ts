@@ -141,6 +141,12 @@ router.post("/auth/login", async (req, res) => {
   res.json({ userId: cred.userId, email: cred.email, token: sessionId });
 });
 
+router.get("/auth/register", (_req, res) => {
+  res.status(405).json({
+    error: "Use POST /api/auth/register with JSON body { email, password }.",
+  });
+});
+
 router.post("/auth/register", async (req, res) => {
   if (nativeDisabled(req, res)) return;
   const body = req.body as { email?: string; password?: string; fullName?: string };

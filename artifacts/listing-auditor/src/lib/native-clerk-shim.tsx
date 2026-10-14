@@ -469,7 +469,7 @@ function AuthFormShell({
 
         <AuthOrDivider />
 
-        <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
+        <form className="space-y-4" method="post" action="#" onSubmit={(e) => void onSubmit(e)}>
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium text-slate-700">
               Email address
