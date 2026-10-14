@@ -33,8 +33,11 @@ const router: IRouter = Router();
 
 const APP_DISPLAY_NAME = process.env.APP_DISPLAY_NAME ?? "Seller Lens";
 
+/** Public browser URL for links in email (must match where users open the app). */
 function appPublicBaseUrl(): string {
-  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
+  const publicUrl = process.env.PUBLIC_APP_URL?.trim();
+  if (publicUrl) return publicUrl.replace(/\/$/, "");
+  return (process.env.APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
 }
 
 async function startEmailVerificationFlow(
@@ -290,6 +293,7 @@ router.post("/auth/forgot-password", async (req, res) => {
     const html = authPasswordResetTemplate({
       platformName: APP_DISPLAY_NAME,
       resetUrl,
+      resetCode: token,
       expiresMinutes: 60,
     });
     const emailResult = await sendEmail({

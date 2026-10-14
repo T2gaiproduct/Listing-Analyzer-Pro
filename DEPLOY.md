@@ -94,6 +94,8 @@ CLERK_PUBLISHABLE_KEY=pk_live_XXXXXXXXXXXXXXXX
 # Native auth (optional — dual-mode with Clerk; see docs/AUTH-MIGRATION.md)
 # NATIVE_AUTH_ENABLED=true
 # AUTH_SESSION_SECRET=random_64_char_string
+# PUBLIC_APP_URL=https://test.sellerlens.io
+# ^ Use the URL users open in the browser for reset/verify emails. If only APP_URL is set to http://IP:7000, emails will contain that IP link.
 # GOOGLE_OAUTH_CLIENT_ID=
 # GOOGLE_OAUTH_CLIENT_SECRET=
 # GOOGLE_OAUTH_REDIRECT_URI=https://yourdomain.com/api/auth/google/callback

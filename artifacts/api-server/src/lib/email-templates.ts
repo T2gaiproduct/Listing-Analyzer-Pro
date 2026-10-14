@@ -381,10 +381,12 @@ export function notificationEmailTemplate({
 export function authPasswordResetTemplate({
   platformName,
   resetUrl,
+  resetCode,
   expiresMinutes,
 }: {
   platformName: string;
   resetUrl: string;
+  resetCode: string;
   expiresMinutes: number;
 }): string {
   const app = platformName.trim() || "Seller Lens";
@@ -401,6 +403,7 @@ export function authPasswordResetTemplate({
     .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; }
     .content { padding: 32px 24px; text-align: center; }
     .content p { color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .code { font-size: 14px; font-weight: 600; color: #0f172a; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin: 20px 0; word-break: break-all; font-family: ui-monospace, monospace; }
     .btn { display: inline-block; background: #f97316; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: 600; font-size: 15px; margin: 16px 0; }
     .footer { background: #f8fafc; padding: 20px 24px; text-align: center; }
     .footer p { color: #94a3b8; font-size: 12px; margin: 0; word-break: break-all; }
@@ -412,7 +415,9 @@ export function authPasswordResetTemplate({
     <div class="content">
       <p>We received a request to reset your password for <strong>${app}</strong>.</p>
       <a href="${resetUrl}" class="btn">Reset password</a>
-      <p style="font-size: 13px; color: #94a3b8;">This link expires in ${expiresMinutes} minutes. If you did not request this, you can ignore this email.</p>
+      <p style="font-size: 14px; color: #475569;">Or open <strong>Sign in → Forgot password → Enter reset code</strong> and paste:</p>
+      <div class="code">${resetCode}</div>
+      <p style="font-size: 13px; color: #94a3b8;">This code expires in ${expiresMinutes} minutes. If you did not request this, you can ignore this email.</p>
     </div>
     <div class="footer"><p>${resetUrl}</p></div>
   </div>
