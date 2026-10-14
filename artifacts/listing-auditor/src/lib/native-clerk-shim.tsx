@@ -22,6 +22,7 @@ import { useBranding } from "@/hooks/use-branding";
 import { buildClerkLocalization } from "@/lib/clerk-localization";
 import { cn } from "@/lib/utils";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { fetchNativeAuthJson, loadNativeAuthConfig, nativeAuthApiUrl } from "@/lib/native-auth-api";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -80,7 +81,7 @@ async function fetchSession(): Promise<{
   email?: string | null;
   token?: string;
 }> {
-  const res = await fetch(`${basePath}/api/auth/session`, { credentials: "include" });
+  const res = await fetch(nativeAuthApiUrl("/api/auth/session"), { credentials: "include" });
   if (!res.ok) return { signedIn: false };
   return (await res.json()) as {
     signedIn: boolean;
@@ -177,7 +178,7 @@ export function useClerk() {
 
   const signOut = useCallback(
     async (opts?: { redirectUrl?: string }) => {
-      await fetch(`${basePath}/api/auth/logout`, { method: "POST", credentials: "include" });
+      await fetch(nativeAuthApiUrl("/api/auth/logout"), { method: "POST", credentials: "include" });
       clearSession();
       window.location.href = opts?.redirectUrl ?? `${basePath}/sign-in`;
     },
@@ -295,11 +296,49 @@ function AuthFormShell({
   const [devCodeHint, setDevCodeHint] = useState<string | null>(null);
   const [devResetHint, setDevResetHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [backendWarning, setBackendWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const googleHref = `${basePath}/api/auth/google/start?returnTo=${encodeURIComponent(
+  useEffect(() => {
+    void loadNativeAuthConfig().then((cfg) => {
+      if (!cfg) {
+        setBackendWarning("Could not reach /api/auth/config. Check that /api is proxied to the API server.");
+        return;
+      }
+      if (!cfg.enabled) {
+        setBackendWarning(
+          "Native auth is disabled on the API (NATIVE_AUTH_ENABLED). Set it to true in server .env and run: pm2 restart listing-auditor-api --update-env",
+        );
+      }
+    });
+  }, []);
+
+  const googleHref = `${nativeAuthApiUrl("/api/auth/google/start")}?returnTo=${encodeURIComponent(
     redirectUrl.replace(basePath, "") || "/dashboard",
   )}`;
+
+  async function postAuth<T extends { error?: string }>(
+    path: string,
+    body: unknown,
+  ): Promise<{ ok: true; data: T } | { ok: false }> {
+    const { res, data, parseError } = await fetchNativeAuthJson<T>(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (parseError) {
+      setError(parseError);
+      return { ok: false };
+    }
+    if (!data) {
+      setError(`Request failed (${res.status})`);
+      return { ok: false };
+    }
+    if (!res.ok) {
+      setError(data.error ?? `Request failed (${res.status})`);
+      return { ok: false };
+    }
+    return { ok: true, data };
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -307,25 +346,15 @@ function AuthFormShell({
     setBusy(true);
     try {
       const path = mode === "sign-in" ? "/api/auth/login" : "/api/auth/register";
-      const body = mode === "sign-in" ? { email, password } : { email, password };
-      const res = await fetch(`${basePath}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      const data = (await res.json()) as {
-        error?: string;
+      const result = await postAuth<{
         userId?: string;
         email?: string;
         token?: string;
         needsEmailVerification?: boolean;
         devEmailCode?: string;
-      };
-      if (!res.ok) {
-        setError(data.error ?? "Request failed");
-        return;
-      }
+      }>(path, { email, password });
+      if (!result.ok) return;
+      const data = result.data;
       if (data.needsEmailVerification) {
         setStep("email-code");
         setOtp("");
@@ -348,17 +377,12 @@ function AuthFormShell({
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch(`${basePath}/api/auth/verify-email-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, code: otp }),
-      });
-      const data = (await res.json()) as { error?: string; userId?: string; email?: string; token?: string };
-      if (!res.ok) {
-        setError(data.error ?? "Verification failed");
-        return;
-      }
+      const result = await postAuth<{ userId?: string; email?: string; token?: string }>(
+        "/api/auth/verify-email-code",
+        { email, code: otp },
+      );
+      if (!result.ok) return;
+      const data = result.data;
       if (data.userId && data.email && data.token) {
         setSession({ userId: data.userId, email: data.email, token: data.token });
       }
@@ -375,17 +399,12 @@ function AuthFormShell({
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch(`${basePath}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email }),
-      });
-      const data = (await res.json()) as { error?: string; devResetToken?: string; resetUrl?: string };
-      if (!res.ok) {
-        setError(data.error ?? "Request failed");
-        return;
-      }
+      const result = await postAuth<{ devResetToken?: string; resetUrl?: string; ok?: boolean }>(
+        "/api/auth/forgot-password",
+        { email },
+      );
+      if (!result.ok) return;
+      const data = result.data;
       if (data.devResetToken) {
         setDevResetHint(data.devResetToken);
         setResetToken(data.devResetToken);
@@ -411,17 +430,11 @@ function AuthFormShell({
     }
     setBusy(true);
     try {
-      const res = await fetch(`${basePath}/api/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ token: resetToken.trim(), password }),
+      const result = await postAuth<{ ok?: boolean }>("/api/auth/reset-password", {
+        token: resetToken.trim(),
+        password,
       });
-      const data = (await res.json()) as { error?: string; ok?: boolean };
-      if (!res.ok) {
-        setError(data.error ?? "Could not reset password");
-        return;
-      }
+      if (!result.ok) return;
       setLocation(`${signInUrl.replace(basePath, "")}?reset=success`);
     } catch {
       setError("Network error");
@@ -434,21 +447,12 @@ function AuthFormShell({
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch(`${basePath}/api/auth/resend-email-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        devEmailCode?: string;
-        needsEmailVerification?: boolean;
-      };
-      if (!res.ok) {
-        setError(data.error ?? "Could not resend code");
-        return;
-      }
+      const result = await postAuth<{ devEmailCode?: string; needsEmailVerification?: boolean }>(
+        "/api/auth/resend-email-code",
+        { email },
+      );
+      if (!result.ok) return;
+      const data = result.data;
       if (data.devEmailCode) setDevCodeHint(data.devEmailCode);
     } catch {
       setError("Network error");
@@ -466,6 +470,12 @@ function AuthFormShell({
 
         <h1 className="text-center text-2xl font-bold tracking-tight text-slate-900">{heading}</h1>
         <p className="mt-2 text-center text-sm text-slate-500">{subheading}</p>
+
+        {backendWarning && (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {backendWarning}
+          </p>
+        )}
 
         {step === "forgot-request" ? (
           <form className="mt-6 space-y-4" method="post" action="#" onSubmit={(e) => void onForgotRequest(e)}>

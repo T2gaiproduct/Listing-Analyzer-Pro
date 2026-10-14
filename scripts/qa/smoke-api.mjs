@@ -56,6 +56,24 @@ async function main() {
     });
   }
 
+  // Native auth config (always reachable when routes are deployed)
+  try {
+    const { status, bodySnippet } = await fetchStatus(`${API_BASE}/api/auth/config`);
+    const pass = status === 200 && bodySnippet.includes("enabled");
+    record("API GET /api/auth/config", "200 + enabled flag", `${status}`, pass, {
+      httpStatus: status,
+      evidence: bodySnippet,
+    });
+    if (process.env.NATIVE_AUTH_REQUIRED === "1") {
+      const enabled = bodySnippet.includes('"enabled":true') || bodySnippet.includes('"enabled": true');
+      record("API native auth enabled", "true", enabled ? "true" : "false", enabled, {
+        blocker: !enabled,
+      });
+    }
+  } catch (e) {
+    record("API GET /api/auth/config", "200", "error", false, { error: String(e) });
+  }
+
   // Public plans (DB-backed)
   try {
     const { status, bodySnippet } = await fetchStatus(`${API_BASE}/api/plans`);
