@@ -7,6 +7,8 @@ import {
   authPasswordResetTokensTable,
 } from "@workspace/db";
 import { parseEmailForApi } from "@workspace/email-validation";
+import { findAuthCredentialByEmail } from "../lib/native-auth/credential-email.js";
+import { normalizeSixDigitCode } from "../lib/native-auth/auth-code.js";
 import { isNativeAuthEnabled, googleOAuthConfig } from "../lib/native-auth/config.js";
 import { hashPassword, verifyPassword, hashResetTokenStable } from "../lib/native-auth/password.js";
 import {
@@ -130,11 +132,7 @@ router.post("/auth/login", async (req, res) => {
     return;
   }
 
-  const [cred] = await db
-    .select()
-    .from(authCredentialsTable)
-    .where(eq(authCredentialsTable.email, email))
-    .limit(1);
+  const cred = await findAuthCredentialByEmail(email);
   if (!cred?.passwordHash) {
     res.status(401).json({ error: "Invalid email or password" });
     return;
@@ -176,11 +174,7 @@ router.post("/auth/register", async (req, res) => {
     return;
   }
 
-  const [existing] = await db
-    .select({ userId: authCredentialsTable.userId, emailVerified: authCredentialsTable.emailVerified })
-    .from(authCredentialsTable)
-    .where(eq(authCredentialsTable.email, email))
-    .limit(1);
+  const existing = await findAuthCredentialByEmail(email);
   if (existing?.emailVerified === 1) {
     res.status(409).json({ error: "An account with this email already exists" });
     return;
@@ -279,11 +273,7 @@ router.post("/auth/forgot-password", async (req, res) => {
       return;
     }
     const email = parsed.email;
-    const [cred] = await db
-      .select({ userId: authCredentialsTable.userId })
-      .from(authCredentialsTable)
-      .where(eq(authCredentialsTable.email, email))
-      .limit(1);
+    const cred = await findAuthCredentialByEmail(email);
 
     // Always respond OK to avoid email enumeration when the account is unknown.
     if (cred) {
@@ -334,13 +324,13 @@ router.post("/auth/reset-password", async (req, res) => {
   }
 
   const rawToken = typeof body.token === "string" ? body.token.trim() : "";
-  const rawCode = typeof body.code === "string" ? body.code.trim() : rawToken;
+  const codeDigits = normalizeSixDigitCode(body.code ?? (rawToken.length <= 20 ? rawToken : ""));
   const parsedEmail = parseEmailForApi(body.email ?? "");
 
   let userId: string | null = null;
 
-  if (!("error" in parsedEmail) && rawCode.replace(/\D/g, "").length === 6) {
-    const verified = await verifyPasswordResetCode(parsedEmail.email, rawCode);
+  if (!("error" in parsedEmail) && codeDigits.length === 6) {
+    const verified = await verifyPasswordResetCode(parsedEmail.email, codeDigits);
     if (!verified.ok) {
       res.status(400).json({ error: verified.error });
       return;

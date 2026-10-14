@@ -451,7 +451,7 @@ function AuthFormShell({
         "/api/auth/reset-password",
         hasLegacyResetToken
           ? { token: resetToken.trim(), password }
-          : { email, code: codeDigits, password },
+          : { email: email.trim().toLowerCase(), code: codeDigits, password },
       );
       if (!result.ok) return;
       setLocation(`${signInUrl.replace(basePath, "")}?reset=success`);

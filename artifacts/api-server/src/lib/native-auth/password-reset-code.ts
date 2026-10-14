@@ -1,13 +1,15 @@
 import { randomInt, createHash, timingSafeEqual } from "node:crypto";
 import { eq, and, gt } from "drizzle-orm";
-import { db, authCredentialsTable, authPasswordResetCodesTable } from "@workspace/db";
+import { db, authPasswordResetCodesTable } from "@workspace/db";
 import { authEmailCodeTemplate } from "../email-templates.js";
 import { sendEmail } from "../email.js";
 import { isClerkDevTestEmail } from "../admin-auth.js";
 import { CLERK_DEV_TEST_EMAIL_CODE } from "./email-code.js";
 import { ensureNativeAuthSchemaMigrated } from "../ensure-native-auth-schema.js";
+import { findAuthCredentialByEmail, normalizeAuthEmail } from "./credential-email.js";
+import { normalizeSixDigitCode } from "./auth-code.js";
 
-const CODE_TTL_MS = 15 * 60 * 1000;
+const CODE_TTL_MS = 60 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
 export function generatePasswordResetCode(): string {
@@ -65,7 +67,7 @@ export async function issueAndSendPasswordResetCode(params: {
   const html = authEmailCodeTemplate({
     platformName: appName,
     code: plainCode,
-    expiresMinutes: 15,
+    expiresMinutes: 60,
     headline: "Password reset code",
     intro: `Use this code to reset your password for <strong>${appName}</strong>.`,
     ctaUrl: resetUrl,
@@ -101,21 +103,20 @@ export async function issueAndSendPasswordResetCode(params: {
 
 export async function verifyPasswordResetCode(
   email: string,
-  code: string,
+  code: unknown,
 ): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
-  const normalizedEmail = email.trim().toLowerCase();
-  const trimmedCode = code.replace(/\D/g, "").trim();
+  const normalizedEmail = normalizeAuthEmail(email);
+  const trimmedCode = normalizeSixDigitCode(code);
   if (trimmedCode.length !== 6) {
     return { ok: false, error: "Enter the 6-digit reset code" };
   }
 
+  const cred = await findAuthCredentialByEmail(normalizedEmail);
+  if (!cred) {
+    return { ok: false, error: "Invalid or expired reset code" };
+  }
+
   if (isAcceptedDevResetCode(normalizedEmail, trimmedCode)) {
-    const [cred] = await db
-      .select({ userId: authCredentialsTable.userId })
-      .from(authCredentialsTable)
-      .where(eq(authCredentialsTable.email, normalizedEmail))
-      .limit(1);
-    if (!cred) return { ok: false, error: "Invalid reset code" };
     return { ok: true, userId: cred.userId };
   }
 
@@ -123,7 +124,9 @@ export async function verifyPasswordResetCode(
   const [row] = await db
     .select()
     .from(authPasswordResetCodesTable)
-    .where(and(eq(authPasswordResetCodesTable.email, normalizedEmail), gt(authPasswordResetCodesTable.expiresAt, now)))
+    .where(
+      and(eq(authPasswordResetCodesTable.userId, cred.userId), gt(authPasswordResetCodesTable.expiresAt, now)),
+    )
     .limit(1);
   if (!row || !codesEqual(row.codeHash, trimmedCode)) {
     return { ok: false, error: "Invalid or expired reset code" };
