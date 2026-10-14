@@ -16,6 +16,20 @@ DEPLOY_GIT_IGNORE_PREFIXES=(
 
 cd "$APP_DIR"
 
+deploy_load_env() {
+  if [[ -f "$APP_DIR/.env" ]]; then
+    echo "==> Loading $APP_DIR/.env for this deploy (build + PM2 --update-env)"
+    set -a
+    # shellcheck disable=SC1091
+    source "$APP_DIR/.env"
+    set +a
+  else
+    echo "WARN: No $APP_DIR/.env — using existing shell/PM2 environment only"
+  fi
+}
+
+deploy_load_env
+
 echo "=========================================="
 echo " SellerLens Deployment"
 echo " Branch: $BRANCH"
@@ -107,6 +121,8 @@ if [[ -z "${VITE_CLERK_PUBLISHABLE_KEY:-}" ]]; then
   exit 1
 fi
 echo "Clerk publishable key: configured"
+echo "    VITE_AUTH_PROVIDER=${VITE_AUTH_PROVIDER:-<unset> (Clerk UI)}"
+echo "    NATIVE_AUTH_ENABLED=${NATIVE_AUTH_ENABLED:-<unset>}"
 
 echo
 echo "==> Building application..."
@@ -120,11 +136,18 @@ if [[ ! -f "$DIST_DIR/index.html" ]]; then
   exit 1
 fi
 
-if ! grep -R -qE 'pk_(test|live)_[A-Za-z0-9_-]{20,}' \
-  "$DIST_DIR/assets" \
-  --exclude='*.map'; then
-  echo "ERROR: Clerk publishable key was not found in frontend build."
-  exit 1
+if [[ "${VITE_AUTH_PROVIDER:-}" == "native" ]]; then
+  if ! grep -R -q 'VITE_AUTH_PROVIDER' "$DIST_DIR/assets" --exclude='*.map' 2>/dev/null \
+    && ! grep -R -q 'native-clerk-shim' "$DIST_DIR/assets" --exclude='*.map' 2>/dev/null; then
+    echo "WARN: Native auth build — could not confirm shim in assets (continuing)."
+  fi
+else
+  if ! grep -R -qE 'pk_(test|live)_[A-Za-z0-9_-]{20,}' \
+    "$DIST_DIR/assets" \
+    --exclude='*.map'; then
+    echo "ERROR: Clerk publishable key was not found in frontend build."
+    exit 1
+  fi
 fi
 echo "Frontend build verified."
 
@@ -140,8 +163,9 @@ sudo cp -a "$DIST_DIR"/. "$FRONTEND_DIR"/
 sudo chown -R www-data:www-data "$FRONTEND_DIR"
 
 echo
-echo "==> Restarting backend..."
-pm2 restart "$API_PM2_NAME"
+echo "==> Restarting backend (PM2 --update-env from loaded .env)..."
+deploy_load_env
+pm2 restart "$API_PM2_NAME" --update-env
 
 echo
 echo "==> Reloading Nginx..."
@@ -160,6 +184,17 @@ echo
 echo "==> Checking API..."
 API_CODE="$(curl -s -o /dev/null -w '%{http_code}' https://test.sellerlens.io/api/healthz || true)"
 echo "API HTTP status: $API_CODE"
+
+AUTH_CONFIG="$(curl -s https://test.sellerlens.io/api/auth/config || true)"
+echo "Auth config: $AUTH_CONFIG"
+if [[ "${NATIVE_AUTH_ENABLED:-}" == "true" ]]; then
+  if [[ "$AUTH_CONFIG" != *'"enabled":true'* && "$AUTH_CONFIG" != *'"enabled": true'* ]]; then
+    echo "ERROR: NATIVE_AUTH_ENABLED=true in .env but /api/auth/config reports enabled:false."
+    echo "       PM2 may not have received env vars. Run: pm2 show $API_PM2_NAME"
+    echo "       Or recreate process: set -a && source .env && set +a && pm2 restart $API_PM2_NAME --update-env"
+    exit 1
+  fi
+fi
 
 echo
 echo "=========================================="
