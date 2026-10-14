@@ -31,6 +31,8 @@ import {
   verifyPasswordResetCode,
   clearPasswordResetCode,
 } from "../lib/native-auth/password-reset-code.js";
+import { ensureNativeAuthSchemaMigrated } from "../lib/ensure-native-auth-schema.js";
+import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -268,41 +270,58 @@ router.post("/auth/resend-email-code", async (req, res) => {
 
 router.post("/auth/forgot-password", async (req, res) => {
   if (nativeDisabled(req, res)) return;
-  const body = req.body as { email?: string };
-  const parsed = parseEmailForApi(body.email ?? "");
-  if ("error" in parsed) {
-    res.status(400).json({ error: parsed.error });
-    return;
-  }
-  const email = parsed.email;
-  const [cred] = await db
-    .select({ userId: authCredentialsTable.userId })
-    .from(authCredentialsTable)
-    .where(eq(authCredentialsTable.email, email))
-    .limit(1);
-
-  // Always respond OK to avoid email enumeration.
-  if (cred) {
-    const send = await issueAndSendPasswordResetCode({
-      userId: cred.userId,
-      email,
-      platformName: APP_DISPLAY_NAME,
-      appPublicBaseUrl: appPublicBaseUrl(),
-    });
-    if (send.rateLimited) {
-      res.status(429).json({ error: "Please wait before requesting another code" });
+  try {
+    await ensureNativeAuthSchemaMigrated();
+    const body = req.body as { email?: string };
+    const parsed = parseEmailForApi(body.email ?? "");
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
       return;
     }
-    const payload: Record<string, unknown> = { ok: true };
-    if (send.resetUrl) payload.resetUrl = send.resetUrl;
-    if (process.env.NODE_ENV !== "production") {
-      if (send.devResetCode) payload.devResetCode = send.devResetCode;
-      if (send.error) payload.emailError = send.error;
+    const email = parsed.email;
+    const [cred] = await db
+      .select({ userId: authCredentialsTable.userId })
+      .from(authCredentialsTable)
+      .where(eq(authCredentialsTable.email, email))
+      .limit(1);
+
+    // Always respond OK to avoid email enumeration when the account is unknown.
+    if (cred) {
+      const send = await issueAndSendPasswordResetCode({
+        userId: cred.userId,
+        email,
+        platformName: APP_DISPLAY_NAME,
+        appPublicBaseUrl: appPublicBaseUrl(),
+      });
+      if (send.rateLimited) {
+        res.status(429).json({ error: "Please wait before requesting another code" });
+        return;
+      }
+      if (!send.sent && send.error && process.env.NODE_ENV === "production") {
+        logger.error({ email, err: send.error }, "Password reset email failed");
+        res.status(503).json({ error: "Could not send reset email. Try again later or contact support." });
+        return;
+      }
+      const payload: Record<string, unknown> = { ok: true };
+      if (send.resetUrl) payload.resetUrl = send.resetUrl;
+      if (process.env.NODE_ENV !== "production") {
+        if (send.devResetCode) payload.devResetCode = send.devResetCode;
+        if (send.error) payload.emailError = send.error;
+      }
+      res.json(payload);
+      return;
     }
-    res.json(payload);
-    return;
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "forgot-password failed");
+    const message =
+      process.env.NODE_ENV === "production"
+        ? "Unable to send reset code. Please try again."
+        : err instanceof Error
+          ? err.message
+          : "Unable to send reset code";
+    res.status(500).json({ error: message });
   }
-  res.json({ ok: true });
 });
 
 router.post("/auth/reset-password", async (req, res) => {

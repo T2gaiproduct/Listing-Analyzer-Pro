@@ -5,6 +5,7 @@ import { authEmailCodeTemplate } from "../email-templates.js";
 import { sendEmail } from "../email.js";
 import { isClerkDevTestEmail } from "../admin-auth.js";
 import { CLERK_DEV_TEST_EMAIL_CODE } from "./email-code.js";
+import { ensureNativeAuthSchemaMigrated } from "../ensure-native-auth-schema.js";
 
 const CODE_TTL_MS = 15 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -36,6 +37,7 @@ export async function issueAndSendPasswordResetCode(params: {
   platformName?: string;
   appPublicBaseUrl: string;
 }): Promise<{ sent: boolean; devResetCode?: string; resetUrl?: string; error?: string; rateLimited?: boolean }> {
+  await ensureNativeAuthSchemaMigrated();
   const email = params.email.trim().toLowerCase();
   const [existing] = await db
     .select({ createdAt: authPasswordResetCodesTable.createdAt })

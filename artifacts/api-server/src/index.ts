@@ -21,6 +21,8 @@ import {
   ensureImagePromptTemplatesSchemaMigrated,
   ensureDefaultImagePromptTemplatesSeeded,
 } from "./lib/ensure-image-prompt-templates.js";
+import { ensureNativeAuthSchemaMigrated } from "./lib/ensure-native-auth-schema.js";
+import { isNativeAuthEnabled } from "./lib/native-auth/config.js";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -128,6 +130,12 @@ ensureImagePromptTemplatesSchemaMigrated()
   .then(() => ensureDefaultImagePromptTemplatesSeeded())
   .then(() => logger.info("Image prompt templates schema and seed ready"))
   .catch((err) => logger.error({ err }, "Image prompt templates migration failed"));
+
+if (isNativeAuthEnabled()) {
+  ensureNativeAuthSchemaMigrated()
+    .then(() => logger.info("Native auth schema ready"))
+    .catch((err) => logger.error({ err }, "Native auth schema migration failed"));
+}
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);
