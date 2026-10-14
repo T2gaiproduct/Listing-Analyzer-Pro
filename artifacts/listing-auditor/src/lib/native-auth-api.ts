@@ -11,7 +11,7 @@ export function nativeAuthApiUrl(path: string): string {
 }
 
 /** Parse JSON from /api/auth/* responses; surface HTML/404 proxy errors clearly. */
-export async function fetchNativeAuthJson<T extends { error?: string }>(
+export async function fetchNativeAuthJson<T extends Record<string, unknown> = Record<string, unknown>>(
   path: string,
   init?: RequestInit,
 ): Promise<{ res: Response; data: T | null; parseError: string | null }> {

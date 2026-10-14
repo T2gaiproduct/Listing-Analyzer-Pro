@@ -14,14 +14,6 @@ export function buildClerkLocalization(platformName: string) {
         formTitle: "Verification code",
         resendButton: "Didn't receive a code? Resend",
       },
-      forgotPassword: {
-        requestTitle: "Reset your password",
-        requestSubtitle: `Enter your email and we'll send you a reset link for ${app}`,
-        sentSubtitle: "If an account exists for that email, we sent a reset link.",
-        resetTitle: "Choose a new password",
-        resetSubtitle: "Enter the code from your email and a new password",
-        forgotLink: "Forgot password?",
-      },
     },
     signUp: {
       start: {
@@ -34,14 +26,19 @@ export function buildClerkLocalization(platformName: string) {
         formTitle: "Verification code",
         resendButton: "Didn't receive a code? Resend",
       },
-      forgotPassword: {
-        requestTitle: "Reset your password",
-        requestSubtitle: `Enter your email and we'll send you a reset link for ${app}`,
-        sentSubtitle: "If an account exists for that email, we sent a reset link.",
-        resetTitle: "Choose a new password",
-        resetSubtitle: "Enter the code from your email and a new password",
-        forgotLink: "Forgot password?",
-      },
     },
+  };
+}
+
+/** Native auth UI only (not passed to ClerkProvider localization). */
+export function buildNativeForgotPasswordCopy(platformName: string) {
+  const app = platformName.trim() || "Seller Lens";
+  return {
+    requestTitle: "Reset your password",
+    requestSubtitle: `Enter your email and we'll send you a reset link for ${app}`,
+    sentSubtitle: "If an account exists for that email, we sent a reset link.",
+    resetTitle: "Choose a new password",
+    resetSubtitle: "Enter the code from your email and a new password",
+    forgotLink: "Forgot password?",
   };
 }

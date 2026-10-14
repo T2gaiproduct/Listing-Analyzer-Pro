@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteLogo } from "@/components/site-logo";
 import { useBranding } from "@/hooks/use-branding";
-import { buildClerkLocalization } from "@/lib/clerk-localization";
+import { buildClerkLocalization, buildNativeForgotPasswordCopy } from "@/lib/clerk-localization";
 import { cn } from "@/lib/utils";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { fetchNativeAuthJson, loadNativeAuthConfig, nativeAuthApiUrl } from "@/lib/native-auth-api";
@@ -270,7 +270,7 @@ function AuthFormShell({
   const { setSession } = useNativeAuth();
   const { platformName } = useBranding();
   const copy = buildClerkLocalization(platformName);
-  const forgotCopy = copy.signIn.forgotPassword;
+  const forgotCopy = buildNativeForgotPasswordCopy(platformName);
   const [step, setStep] = useState<AuthStep>(initialStep ?? (initialResetToken ? "forgot-reset" : "credentials"));
   const emailCodeCopy = mode === "sign-up" ? copy.signUp.emailCode : copy.signIn.emailCode;
   const heading = (() => {
@@ -317,7 +317,7 @@ function AuthFormShell({
     redirectUrl.replace(basePath, "") || "/dashboard",
   )}`;
 
-  async function postAuth<T extends { error?: string }>(
+  async function postAuth<T extends Record<string, unknown>>(
     path: string,
     body: unknown,
   ): Promise<{ ok: true; data: T } | { ok: false }> {
@@ -334,7 +334,8 @@ function AuthFormShell({
       return { ok: false };
     }
     if (!res.ok) {
-      setError(data.error ?? `Request failed (${res.status})`);
+      const msg = typeof data.error === "string" ? data.error : `Request failed (${res.status})`;
+      setError(msg);
       return { ok: false };
     }
     return { ok: true, data };
