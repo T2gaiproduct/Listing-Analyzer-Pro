@@ -15,7 +15,7 @@ This document describes the approved migration while **preserving existing behav
 |-------|--------|-------------------|
 | **1 (this PR)** | DB tables, `/api/auth/*`, session cookies + Bearer, shared `requireAuth`, Clerk user import script | Clerk unchanged |
 | **2** | Staging: `VITE_AUTH_PROVIDER=native` sign-in/up UI, `NativeAuthBridge` for API tokens | Test on staging only |
-| **3** | Email templates, forced password reset campaign, Google OAuth client on your domain | Staging QA |
+| **3** | Email verification codes (SMTP), password-reset emails, Google OAuth on your domain | Staging QA |
 | **4** | Cutover: disable Clerk keys, remove Clerk packages, proxy cleanup | After approval |
 
 ## Data model
@@ -24,6 +24,7 @@ This document describes the approved migration while **preserving existing behav
 - `auth_oauth_identities` — Google `sub` → `user_id`.
 - `auth_sessions` — server-side sessions (cookie + optional Bearer token).
 - `auth_password_reset_tokens` — one-time reset links.
+- `auth_email_verification_codes` — 6-digit email verification (sign-up / unverified sign-in), sent via app SMTP.
 
 Passwords: **scrypt** (Node `crypto`), never stored in plaintext.
 

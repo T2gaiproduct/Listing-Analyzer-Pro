@@ -21,6 +21,7 @@ import { SiteLogo } from "@/components/site-logo";
 import { useBranding } from "@/hooks/use-branding";
 import { buildClerkLocalization } from "@/lib/clerk-localization";
 import { cn } from "@/lib/utils";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -245,6 +246,8 @@ function AuthOrDivider() {
   );
 }
 
+type AuthStep = "credentials" | "email-code";
+
 function AuthFormShell({
   mode,
   signInUrl,
@@ -262,13 +265,21 @@ function AuthFormShell({
   const { setSession } = useNativeAuth();
   const { platformName } = useBranding();
   const copy = buildClerkLocalization(platformName);
+  const [step, setStep] = useState<AuthStep>("credentials");
+  const emailCodeCopy = mode === "sign-up" ? copy.signUp.emailCode : copy.signIn.emailCode;
   const heading =
-    mode === "sign-up" ? copy.signUp.start.title : copy.signIn.start.title;
+    step === "email-code"
+      ? emailCodeCopy.title
+      : mode === "sign-up"
+        ? copy.signUp.start.title
+        : copy.signIn.start.title;
   const subheading =
-    mode === "sign-up" ? copy.signUp.start.subtitle : copy.signIn.start.subtitle;
+    step === "email-code" ? emailCodeCopy.subtitle : mode === "sign-up" ? copy.signUp.start.subtitle : copy.signIn.start.subtitle;
   const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [devCodeHint, setDevCodeHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -289,15 +300,82 @@ function AuthFormShell({
         credentials: "include",
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as { error?: string; userId?: string; email?: string; token?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        userId?: string;
+        email?: string;
+        token?: string;
+        needsEmailVerification?: boolean;
+        devEmailCode?: string;
+      };
       if (!res.ok) {
         setError(data.error ?? "Request failed");
+        return;
+      }
+      if (data.needsEmailVerification) {
+        setStep("email-code");
+        setOtp("");
+        setDevCodeHint(data.devEmailCode ?? null);
         return;
       }
       if (data.userId && data.email && data.token) {
         setSession({ userId: data.userId, email: data.email, token: data.token });
       }
       setLocation(redirectUrl.replace(basePath, "") || "/dashboard");
+    } catch {
+      setError("Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`${basePath}/api/auth/verify-email-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, code: otp }),
+      });
+      const data = (await res.json()) as { error?: string; userId?: string; email?: string; token?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Verification failed");
+        return;
+      }
+      if (data.userId && data.email && data.token) {
+        setSession({ userId: data.userId, email: data.email, token: data.token });
+      }
+      setLocation(redirectUrl.replace(basePath, "") || "/dashboard");
+    } catch {
+      setError("Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onResendCode() {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`${basePath}/api/auth/resend-email-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        devEmailCode?: string;
+        needsEmailVerification?: boolean;
+      };
+      if (!res.ok) {
+        setError(data.error ?? "Could not resend code");
+        return;
+      }
+      if (data.devEmailCode) setDevCodeHint(data.devEmailCode);
     } catch {
       setError("Network error");
     } finally {
@@ -315,6 +393,69 @@ function AuthFormShell({
         <h1 className="text-center text-2xl font-bold tracking-tight text-slate-900">{heading}</h1>
         <p className="mt-2 text-center text-sm text-slate-500">{subheading}</p>
 
+        {step === "email-code" ? (
+          <form className="mt-6 space-y-4" onSubmit={(e) => void onVerifyCode(e)}>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">{emailCodeCopy.formTitle}</Label>
+              <p className="text-xs text-slate-500">
+                Sent to <span className="font-medium text-slate-700">{email}</span>
+              </p>
+              <div className="flex justify-center pt-2">
+                <InputOTP maxLength={6} value={otp} onChange={setOtp} disabled={busy}>
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <InputOTPSlot
+                        key={i}
+                        index={i}
+                        className="h-11 w-11 border-slate-200 bg-slate-50 text-base text-slate-900 first:rounded-lg last:rounded-lg"
+                      />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+              {devCodeHint && import.meta.env.DEV && (
+                <p className="text-center text-xs text-amber-700">Dev code: {devCodeHint}</p>
+              )}
+            </div>
+            {error && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            )}
+            <Button
+              type="submit"
+              disabled={busy || otp.length < 6}
+              className="h-11 w-full bg-orange-500 text-base font-semibold text-white hover:bg-orange-600"
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Please wait…
+                </>
+              ) : (
+                "Continue"
+              )}
+            </Button>
+            <button
+              type="button"
+              disabled={busy}
+              className="w-full text-center text-sm font-medium text-orange-500 hover:text-orange-600 disabled:opacity-50"
+              onClick={() => void onResendCode()}
+            >
+              {emailCodeCopy.resendButton}
+            </button>
+            <button
+              type="button"
+              className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
+              onClick={() => {
+                setStep("credentials");
+                setOtp("");
+                setError(null);
+              }}
+            >
+              Use a different email
+            </button>
+          </form>
+        ) : (
+          <>
         <a
           href={googleHref}
           className={cn(
@@ -409,6 +550,8 @@ function AuthFormShell({
             </>
           )}
         </div>
+          </>
+        )}
       </div>
     </div>
   );

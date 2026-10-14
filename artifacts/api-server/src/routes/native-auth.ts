@@ -21,7 +21,40 @@ import {
 } from "../lib/native-auth/session.js";
 import { getRequestUserId } from "../lib/request-auth.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
+import {
+  issueAndSendEmailVerificationCode,
+  verifyEmailVerificationCode,
+  clearEmailVerificationCode,
+} from "../lib/native-auth/email-code.js";
+
 const router: IRouter = Router();
+
+const APP_DISPLAY_NAME = process.env.APP_DISPLAY_NAME ?? "Seller Lens";
+
+async function startEmailVerificationFlow(
+  res: Response,
+  params: { userId: string; email: string; status?: number },
+): Promise<void> {
+  const send = await issueAndSendEmailVerificationCode({
+    userId: params.userId,
+    email: params.email,
+    platformName: APP_DISPLAY_NAME,
+  });
+  if (send.rateLimited) {
+    res.status(429).json({ error: "Please wait before requesting another code" });
+    return;
+  }
+  if (!send.sent && send.error && process.env.NODE_ENV === "production") {
+    res.status(503).json({ error: send.error });
+    return;
+  }
+  const payload: Record<string, unknown> = {
+    needsEmailVerification: true,
+    email: params.email,
+  };
+  if (send.devEmailCode) payload.devEmailCode = send.devEmailCode;
+  res.status(params.status ?? 200).json(payload);
+}
 
 function nativeDisabled(_req: Request, res: Response): boolean {
   if (!isNativeAuthEnabled()) {
@@ -98,6 +131,11 @@ router.post("/auth/login", async (req, res) => {
     return;
   }
 
+  if (cred.emailVerified !== 1) {
+    await startEmailVerificationFlow(res, { userId: cred.userId, email: cred.email });
+    return;
+  }
+
   const { sessionId, expiresAt } = await createSession(cred.userId);
   setSessionCookie(res, sessionId, expiresAt);
   res.json({ userId: cred.userId, email: cred.email, token: sessionId });
@@ -119,31 +157,95 @@ router.post("/auth/register", async (req, res) => {
   }
 
   const [existing] = await db
-    .select({ userId: authCredentialsTable.userId })
+    .select({ userId: authCredentialsTable.userId, emailVerified: authCredentialsTable.emailVerified })
     .from(authCredentialsTable)
     .where(eq(authCredentialsTable.email, email))
     .limit(1);
-  if (existing) {
+  if (existing?.emailVerified === 1) {
     res.status(409).json({ error: "An account with this email already exists" });
     return;
   }
 
-  const userId = newUserId();
   const passwordHash = await hashPassword(password);
-  await db.insert(authCredentialsTable).values({
-    userId,
-    email,
-    emailVerified: 0,
-    passwordHash,
-  });
-  await upsertUserProfile(userId, {
-    fullName: typeof body.fullName === "string" ? body.fullName.trim() || undefined : undefined,
-    loginEmail: email,
-  });
+  let userId = existing?.userId;
+  if (userId) {
+    await db
+      .update(authCredentialsTable)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(authCredentialsTable.userId, userId));
+  } else {
+    userId = newUserId();
+    await db.insert(authCredentialsTable).values({
+      userId,
+      email,
+      emailVerified: 0,
+      passwordHash,
+    });
+    await upsertUserProfile(userId, {
+      fullName: typeof body.fullName === "string" ? body.fullName.trim() || undefined : undefined,
+      loginEmail: email,
+    });
+  }
 
-  const { sessionId, expiresAt } = await createSession(userId);
+  await startEmailVerificationFlow(res, { userId, email, status: 201 });
+});
+
+router.post("/auth/verify-email-code", async (req, res) => {
+  if (nativeDisabled(req, res)) return;
+  const body = req.body as { email?: string; code?: string };
+  const parsed = parseEmailForApi(body.email ?? "");
+  if ("error" in parsed) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const code = typeof body.code === "string" ? body.code : "";
+  const verified = await verifyEmailVerificationCode(parsed.email, code);
+  if (!verified.ok) {
+    res.status(400).json({ error: verified.error });
+    return;
+  }
+
+  const [cred] = await db
+    .select({ email: authCredentialsTable.email, emailVerified: authCredentialsTable.emailVerified })
+    .from(authCredentialsTable)
+    .where(eq(authCredentialsTable.userId, verified.userId))
+    .limit(1);
+  if (!cred) {
+    res.status(400).json({ error: "Invalid verification code" });
+    return;
+  }
+
+  if (cred.emailVerified !== 1) {
+    await db
+      .update(authCredentialsTable)
+      .set({ emailVerified: 1, updatedAt: new Date() })
+      .where(eq(authCredentialsTable.userId, verified.userId));
+  }
+  await clearEmailVerificationCode(verified.userId);
+
+  const { sessionId, expiresAt } = await createSession(verified.userId);
   setSessionCookie(res, sessionId, expiresAt);
-  res.status(201).json({ userId, email, token: sessionId });
+  res.json({ userId: verified.userId, email: cred.email, token: sessionId });
+});
+
+router.post("/auth/resend-email-code", async (req, res) => {
+  if (nativeDisabled(req, res)) return;
+  const body = req.body as { email?: string };
+  const parsed = parseEmailForApi(body.email ?? "");
+  if ("error" in parsed) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const [cred] = await db
+    .select({ userId: authCredentialsTable.userId, emailVerified: authCredentialsTable.emailVerified })
+    .from(authCredentialsTable)
+    .where(eq(authCredentialsTable.email, parsed.email))
+    .limit(1);
+  if (!cred || cred.emailVerified === 1) {
+    res.json({ ok: true });
+    return;
+  }
+  await startEmailVerificationFlow(res, { userId: cred.userId, email: parsed.email });
 });
 
 router.post("/auth/forgot-password", async (req, res) => {
@@ -321,6 +423,11 @@ router.get("/auth/google/callback", async (req, res) => {
         passwordHash: null,
       });
       await upsertUserProfile(userId, { loginEmail: email });
+    } else {
+      await db
+        .update(authCredentialsTable)
+        .set({ emailVerified: 1, updatedAt: new Date() })
+        .where(eq(authCredentialsTable.userId, userId));
     }
     const [existingOauth] = await db
       .select({ id: authOauthIdentitiesTable.id })

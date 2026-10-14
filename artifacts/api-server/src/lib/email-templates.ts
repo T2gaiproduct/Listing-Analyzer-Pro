@@ -377,3 +377,45 @@ export function notificationEmailTemplate({
 </body>
 </html>`;
 }
+
+export function authEmailCodeTemplate({
+  platformName,
+  code,
+  expiresMinutes,
+}: {
+  platformName: string;
+  code: string;
+  expiresMinutes: number;
+}): string {
+  const app = platformName.trim() || "Seller Lens";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verification code</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
+    .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: #f97316; padding: 28px 24px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; }
+    .content { padding: 32px 24px; text-align: center; }
+    .content p { color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .code { font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #0f172a; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 24px 0; }
+    .footer { background: #f8fafc; padding: 20px 24px; text-align: center; }
+    .footer p { color: #94a3b8; font-size: 12px; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>Verify your email</h1></div>
+    <div class="content">
+      <p>Enter this verification code to continue to <strong>${app}</strong>:</p>
+      <div class="code">${code}</div>
+      <p style="font-size: 13px; color: #94a3b8;">This code expires in ${expiresMinutes} minutes. If you did not request this, you can ignore this email.</p>
+    </div>
+    <div class="footer"><p>SellerLens — AI-powered listing optimization</p></div>
+  </div>
+</body>
+</html>`;
+}
