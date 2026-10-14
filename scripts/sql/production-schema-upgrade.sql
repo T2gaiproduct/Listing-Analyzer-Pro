@@ -482,6 +482,16 @@ CREATE TABLE IF NOT EXISTS auth_email_verification_codes (
 
 CREATE INDEX IF NOT EXISTS auth_email_verification_codes_email_idx ON auth_email_verification_codes (lower(email));
 
+CREATE TABLE IF NOT EXISTS auth_password_reset_codes (
+  user_id text PRIMARY KEY,
+  email varchar(255) NOT NULL,
+  code_hash text NOT NULL,
+  expires_at timestamp NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS auth_password_reset_codes_email_idx ON auth_password_reset_codes (lower(email));
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

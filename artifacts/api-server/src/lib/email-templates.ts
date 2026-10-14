@@ -429,18 +429,33 @@ export function authEmailCodeTemplate({
   platformName,
   code,
   expiresMinutes,
+  headline = "Verify your email",
+  intro,
+  ctaUrl,
+  ctaLabel,
 }: {
   platformName: string;
   code: string;
   expiresMinutes: number;
+  headline?: string;
+  intro?: string;
+  ctaUrl?: string;
+  ctaLabel?: string;
 }): string {
   const app = platformName.trim() || "Seller Lens";
+  const introHtml =
+    intro ??
+    `Enter this verification code to continue to <strong>${app}</strong>:`;
+  const ctaHtml =
+    ctaUrl && ctaLabel
+      ? `<a href="${ctaUrl}" style="display:inline-block;background:#f97316;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;margin:8px 0 16px;">${ctaLabel}</a>`
+      : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verification code</title>
+  <title>${headline}</title>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
     .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
@@ -455,10 +470,11 @@ export function authEmailCodeTemplate({
 </head>
 <body>
   <div class="container">
-    <div class="header"><h1>Verify your email</h1></div>
+    <div class="header"><h1>${headline}</h1></div>
     <div class="content">
-      <p>Enter this verification code to continue to <strong>${app}</strong>:</p>
+      <p>${introHtml}</p>
       <div class="code">${code}</div>
+      ${ctaHtml}
       <p style="font-size: 13px; color: #94a3b8;">This code expires in ${expiresMinutes} minutes. If you did not request this, you can ignore this email.</p>
     </div>
     <div class="footer"><p>SellerLens — AI-powered listing optimization</p></div>

@@ -35,10 +35,10 @@ export function buildNativeForgotPasswordCopy(platformName: string) {
   const app = platformName.trim() || "Seller Lens";
   return {
     requestTitle: "Reset your password",
-    requestSubtitle: `Enter your email and we'll send you a reset link for ${app}`,
-    sentSubtitle: "If an account exists for that email, we sent a reset link.",
+    requestSubtitle: `Enter your email and we'll send a 6-digit reset code for ${app}`,
+    sentSubtitle: "If an account exists for that email, we sent a 6-digit reset code.",
     resetTitle: "Choose a new password",
-    resetSubtitle: "Enter the code from your email and a new password",
+    resetSubtitle: "Enter your email, the 6-digit code from your email, and a new password",
     forgotLink: "Forgot password?",
   };
 }

@@ -8,7 +8,7 @@ import {
 } from "@workspace/db";
 import { parseEmailForApi } from "@workspace/email-validation";
 import { isNativeAuthEnabled, googleOAuthConfig } from "../lib/native-auth/config.js";
-import { hashPassword, verifyPassword, generateResetToken, hashResetTokenStable } from "../lib/native-auth/password.js";
+import { hashPassword, verifyPassword, hashResetTokenStable } from "../lib/native-auth/password.js";
 import {
   createSession,
   deleteSession,
@@ -26,8 +26,11 @@ import {
   verifyEmailVerificationCode,
   clearEmailVerificationCode,
 } from "../lib/native-auth/email-code.js";
-import { authPasswordResetTemplate } from "../lib/email-templates.js";
-import { sendEmail } from "../lib/email.js";
+import {
+  issueAndSendPasswordResetCode,
+  verifyPasswordResetCode,
+  clearPasswordResetCode,
+} from "../lib/native-auth/password-reset-code.js";
 
 const router: IRouter = Router();
 
@@ -280,32 +283,21 @@ router.post("/auth/forgot-password", async (req, res) => {
 
   // Always respond OK to avoid email enumeration.
   if (cred) {
-    const token = generateResetToken();
-    const tokenHash = hashResetTokenStable(token);
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-    await db.delete(authPasswordResetTokensTable).where(eq(authPasswordResetTokensTable.userId, cred.userId));
-    await db.insert(authPasswordResetTokensTable).values({
-      tokenHash,
+    const send = await issueAndSendPasswordResetCode({
       userId: cred.userId,
-      expiresAt,
-    });
-    const resetUrl = `${appPublicBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
-    const html = authPasswordResetTemplate({
+      email,
       platformName: APP_DISPLAY_NAME,
-      resetUrl,
-      resetCode: token,
-      expiresMinutes: 60,
+      appPublicBaseUrl: appPublicBaseUrl(),
     });
-    const emailResult = await sendEmail({
-      to: email,
-      subject: `Reset your ${APP_DISPLAY_NAME} password`,
-      html,
-    });
+    if (send.rateLimited) {
+      res.status(429).json({ error: "Please wait before requesting another code" });
+      return;
+    }
     const payload: Record<string, unknown> = { ok: true };
+    if (send.resetUrl) payload.resetUrl = send.resetUrl;
     if (process.env.NODE_ENV !== "production") {
-      payload.devResetToken = token;
-      payload.resetUrl = resetUrl;
-      if (!emailResult.success) payload.emailError = emailResult.error;
+      if (send.devResetCode) payload.devResetCode = send.devResetCode;
+      if (send.error) payload.emailError = send.error;
     }
     res.json(payload);
     return;
@@ -315,30 +307,51 @@ router.post("/auth/forgot-password", async (req, res) => {
 
 router.post("/auth/reset-password", async (req, res) => {
   if (nativeDisabled(req, res)) return;
-  const body = req.body as { token?: string; password?: string };
-  const token = typeof body.token === "string" ? body.token.trim() : "";
+  const body = req.body as { email?: string; code?: string; token?: string; password?: string };
   const password = typeof body.password === "string" ? body.password : "";
-  if (!token || password.length < 8) {
-    res.status(400).json({ error: "Invalid reset request" });
+  if (password.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
     return;
   }
-  const tokenHash = hashResetTokenStable(token);
-  const now = new Date();
-  const [row] = await db
-    .select()
-    .from(authPasswordResetTokensTable)
-    .where(and(eq(authPasswordResetTokensTable.tokenHash, tokenHash), gt(authPasswordResetTokensTable.expiresAt, now)))
-    .limit(1);
-  if (!row) {
-    res.status(400).json({ error: "Reset link expired or invalid" });
+
+  const rawToken = typeof body.token === "string" ? body.token.trim() : "";
+  const rawCode = typeof body.code === "string" ? body.code.trim() : rawToken;
+  const parsedEmail = parseEmailForApi(body.email ?? "");
+
+  let userId: string | null = null;
+
+  if (!("error" in parsedEmail) && rawCode.replace(/\D/g, "").length === 6) {
+    const verified = await verifyPasswordResetCode(parsedEmail.email, rawCode);
+    if (!verified.ok) {
+      res.status(400).json({ error: verified.error });
+      return;
+    }
+    userId = verified.userId;
+  } else if (rawToken.length > 20) {
+    const tokenHash = hashResetTokenStable(rawToken);
+    const now = new Date();
+    const [row] = await db
+      .select()
+      .from(authPasswordResetTokensTable)
+      .where(and(eq(authPasswordResetTokensTable.tokenHash, tokenHash), gt(authPasswordResetTokensTable.expiresAt, now)))
+      .limit(1);
+    if (!row) {
+      res.status(400).json({ error: "Reset link expired or invalid" });
+      return;
+    }
+    userId = row.userId;
+    await db.delete(authPasswordResetTokensTable).where(eq(authPasswordResetTokensTable.tokenHash, tokenHash));
+  } else {
+    res.status(400).json({ error: "Enter your email and the 6-digit reset code" });
     return;
   }
+
   const passwordHash = await hashPassword(password);
   await db
     .update(authCredentialsTable)
     .set({ passwordHash, updatedAt: new Date() })
-    .where(eq(authCredentialsTable.userId, row.userId));
-  await db.delete(authPasswordResetTokensTable).where(eq(authPasswordResetTokensTable.tokenHash, tokenHash));
+    .where(eq(authCredentialsTable.userId, userId));
+  await clearPasswordResetCode(userId);
   res.json({ ok: true });
 });
 

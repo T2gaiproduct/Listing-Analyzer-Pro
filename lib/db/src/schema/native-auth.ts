@@ -32,6 +32,15 @@ export const authPasswordResetTokensTable = pgTable("auth_password_reset_tokens"
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+/** Short-lived 6-digit password reset codes (one row per user). */
+export const authPasswordResetCodesTable = pgTable("auth_password_reset_codes", {
+  userId: text("user_id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 /** Short-lived 6-digit email verification codes (sign-up / unverified sign-in). */
 export const authEmailVerificationCodesTable = pgTable("auth_email_verification_codes", {
   userId: text("user_id").primaryKey(),

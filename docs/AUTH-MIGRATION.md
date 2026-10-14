@@ -23,7 +23,8 @@ This document describes the approved migration while **preserving existing behav
 - `auth_credentials` — one row per user (`user_id` text PK, same as Clerk id for imports).
 - `auth_oauth_identities` — Google `sub` → `user_id`.
 - `auth_sessions` — server-side sessions (cookie + optional Bearer token).
-- `auth_password_reset_tokens` — one-time reset links.
+- `auth_password_reset_codes` — 6-digit password reset codes (15 min TTL, same UX as email verification).
+- `auth_password_reset_tokens` — legacy one-time link tokens (deprecated; old emails only).
 - `auth_email_verification_codes` — 6-digit email verification (sign-up / unverified sign-in), sent via app SMTP.
 
 Passwords: **scrypt** (Node `crypto`), never stored in plaintext.

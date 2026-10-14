@@ -256,6 +256,7 @@ function AuthFormShell({
   redirectUrl,
   initialEmail,
   initialResetToken,
+  initialResetCode,
   initialStep,
 }: {
   mode: "sign-in" | "sign-up";
@@ -263,7 +264,9 @@ function AuthFormShell({
   signUpUrl: string;
   redirectUrl: string;
   initialEmail?: string;
+  /** Legacy long token from old reset emails */
   initialResetToken?: string;
+  initialResetCode?: string;
   initialStep?: AuthStep;
 }) {
   const [, setLocation] = useLocation();
@@ -271,7 +274,10 @@ function AuthFormShell({
   const { platformName } = useBranding();
   const copy = buildClerkLocalization(platformName);
   const forgotCopy = buildNativeForgotPasswordCopy(platformName);
-  const [step, setStep] = useState<AuthStep>(initialStep ?? (initialResetToken ? "forgot-reset" : "credentials"));
+  const hasLegacyResetToken = Boolean(initialResetToken && initialResetToken.length > 20);
+  const [step, setStep] = useState<AuthStep>(
+    initialStep ?? (hasLegacyResetToken || initialResetCode ? "forgot-reset" : "credentials"),
+  );
   const emailCodeCopy = mode === "sign-up" ? copy.signUp.emailCode : copy.signIn.emailCode;
   const heading = (() => {
     if (step === "email-code") return emailCodeCopy.title;
@@ -289,7 +295,8 @@ function AuthFormShell({
   })();
   const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
-  const [resetToken, setResetToken] = useState(initialResetToken ?? "");
+  const [resetToken, setResetToken] = useState(hasLegacyResetToken ? initialResetToken ?? "" : "");
+  const [resetOtp, setResetOtp] = useState(initialResetCode ?? "");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState("");
@@ -400,15 +407,15 @@ function AuthFormShell({
     setError(null);
     setBusy(true);
     try {
-      const result = await postAuth<{ devResetToken?: string; resetUrl?: string; ok?: boolean }>(
+      const result = await postAuth<{ devResetCode?: string; resetUrl?: string; ok?: boolean }>(
         "/api/auth/forgot-password",
         { email },
       );
       if (!result.ok) return;
       const data = result.data;
-      if (data.devResetToken) {
-        setDevResetHint(data.devResetToken);
-        setResetToken(data.devResetToken);
+      if (data.devResetCode) {
+        setDevResetHint(data.devResetCode);
+        setResetOtp(data.devResetCode);
       }
       setStep("forgot-sent");
     } catch {
@@ -429,12 +436,23 @@ function AuthFormShell({
       setError("Passwords do not match");
       return;
     }
+    if (!hasLegacyResetToken && !email.trim()) {
+      setError("Enter the email address for your account");
+      return;
+    }
+    const codeDigits = resetOtp.replace(/\D/g, "");
+    if (!hasLegacyResetToken && codeDigits.length !== 6) {
+      setError("Enter the 6-digit reset code from your email");
+      return;
+    }
     setBusy(true);
     try {
-      const result = await postAuth<{ ok?: boolean }>("/api/auth/reset-password", {
-        token: resetToken.trim(),
-        password,
-      });
+      const result = await postAuth<{ ok?: boolean }>(
+        "/api/auth/reset-password",
+        hasLegacyResetToken
+          ? { token: resetToken.trim(), password }
+          : { email, code: codeDigits, password },
+      );
       if (!result.ok) return;
       setLocation(`${signInUrl.replace(basePath, "")}?reset=success`);
     } catch {
@@ -498,7 +516,7 @@ function AuthFormShell({
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
             )}
             <Button type="submit" disabled={busy} className="h-11 w-full bg-orange-500 text-white hover:bg-orange-600">
-              {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Send reset link"}
+              {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Send reset code"}
             </Button>
             <button
               type="button"
@@ -517,7 +535,7 @@ function AuthFormShell({
               Check your inbox for <span className="font-medium text-slate-800">{email}</span>.
             </p>
             {devResetHint && import.meta.env.DEV && (
-              <p className="text-center text-xs text-amber-700">Dev reset token: {devResetHint}</p>
+              <p className="text-center text-xs text-amber-700">Dev reset code: {devResetHint}</p>
             )}
             <Button
               type="button"
@@ -536,19 +554,56 @@ function AuthFormShell({
           </div>
         ) : step === "forgot-reset" ? (
           <form className="mt-6 space-y-4" method="post" action="#" onSubmit={(e) => void onResetPassword(e)}>
-            <div className="space-y-2">
-              <Label htmlFor="reset-token" className="text-sm font-medium text-slate-700">
-                Reset code
-              </Label>
-              <Input
-                id="reset-token"
-                required
-                value={resetToken}
-                onChange={(e) => setResetToken(e.target.value)}
-                placeholder="Paste the code from your email"
-                className="h-11 border-slate-200 bg-slate-50 font-mono text-sm"
-              />
-            </div>
+            {!hasLegacyResetToken ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email" className="text-sm font-medium text-slate-700">
+                    Email address
+                  </Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    className="h-11 border-slate-200 bg-slate-50 text-slate-900"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Reset code</Label>
+                  <div className="flex justify-center pt-1">
+                    <InputOTP maxLength={6} value={resetOtp} onChange={setResetOtp} disabled={busy}>
+                      <InputOTPGroup>
+                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                          <InputOTPSlot
+                            key={i}
+                            index={i}
+                            className="h-11 w-11 border-slate-200 bg-slate-50 text-base text-slate-900 first:rounded-lg last:rounded-lg"
+                          />
+                        ))}
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  {devResetHint && import.meta.env.DEV && (
+                    <p className="text-center text-xs text-amber-700">Dev code: {devResetHint}</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="reset-token" className="text-sm font-medium text-slate-700">
+                  Reset link token
+                </Label>
+                <Input
+                  id="reset-token"
+                  required
+                  value={resetToken}
+                  onChange={(e) => setResetToken(e.target.value)}
+                  className="h-11 border-slate-200 bg-slate-50 font-mono text-sm"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="new-password" className="text-sm font-medium text-slate-700">
                 New password
@@ -590,7 +645,7 @@ function AuthFormShell({
               className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
               onClick={() => setStep("forgot-request")}
             >
-              Request a new link
+              Request a new code
             </button>
           </form>
         ) : step === "email-code" ? (
@@ -790,10 +845,13 @@ export function SignIn(props: {
   );
 }
 
-/** Standalone reset page (email link: /reset-password?token=...) */
+/** Standalone reset page (email link: /reset-password?email=...&code=...) */
 export function NativeResetPasswordPage() {
-  const token =
-    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token")?.trim() ?? "" : "";
+  const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const token = search?.get("token")?.trim() ?? "";
+  const code = search?.get("code")?.trim() ?? "";
+  const email = search?.get("email")?.trim() ?? "";
+  const openReset = Boolean((token && token.length > 20) || code);
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
       <AuthFormShell
@@ -801,8 +859,10 @@ export function NativeResetPasswordPage() {
         signInUrl={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
         redirectUrl={`${basePath}/dashboard`}
-        initialResetToken={token}
-        initialStep={token ? "forgot-reset" : "forgot-request"}
+        initialEmail={email || undefined}
+        initialResetToken={token.length > 20 ? token : undefined}
+        initialResetCode={code || undefined}
+        initialStep={openReset ? "forgot-reset" : "forgot-request"}
       />
     </div>
   );
