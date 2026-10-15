@@ -74,6 +74,12 @@ function testAuthorizeUrlOverrides(): void {
     "https://login.account.wal-mart.com/authorize",
   );
   assert.equal(normalizeWalmartAuthorizeEndpoint("https://evil.example/authorize"), null);
+  assert.equal(
+    normalizeWalmartAuthorizeEndpoint(
+      "https://login.sandbox.account.wal-mart.com/authorize&clientType=seller",
+    ),
+    "https://login.sandbox.account.wal-mart.com/authorize?clientType=seller",
+  );
   if (prevOverride === undefined) delete process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL;
   else process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL = prevOverride;
   if (prevProdLogin === undefined) delete process.env.WALMART_SANDBOX_USE_PRODUCTION_LOGIN;

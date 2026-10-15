@@ -84,6 +84,31 @@ async function testRefreshTokenSurfacesWalmartError(): Promise<void> {
   }
 }
 
+function testBuildAuthorizeUrlMergesAppLoginEndpoint(): void {
+  const prevId = process.env.WALMART_SANDBOX_CLIENT_ID;
+  const prevSecret = process.env.WALMART_SANDBOX_CLIENT_SECRET;
+  process.env.WALMART_SANDBOX_CLIENT_ID = "app-client-id";
+  process.env.WALMART_SANDBOX_CLIENT_SECRET = "app-client-secret";
+  try {
+    const url = buildWalmartAuthorizeUrl({
+      environment: "sandbox",
+      redirectUri: "https://test.sellerlens.io/api/walmart/oauth/callback",
+      state: "state-abc",
+      authorizeEndpoint: "https://login.account.wal-mart.com/authorize&clientType=seller",
+    });
+    const parsed = new URL(url);
+    assert.equal(parsed.hostname, "login.account.wal-mart.com");
+    assert.equal(parsed.searchParams.get("clientType"), "seller");
+    assert.equal(parsed.searchParams.get("clientId"), "app-client-id");
+    assert.equal(parsed.searchParams.get("scope"), "openId");
+  } finally {
+    if (prevId === undefined) delete process.env.WALMART_SANDBOX_CLIENT_ID;
+    else process.env.WALMART_SANDBOX_CLIENT_ID = prevId;
+    if (prevSecret === undefined) delete process.env.WALMART_SANDBOX_CLIENT_SECRET;
+    else process.env.WALMART_SANDBOX_CLIENT_SECRET = prevSecret;
+  }
+}
+
 function testBuildAuthorizeUrlIncludesParams(): void {
   const prevId = process.env.WALMART_PRODUCTION_CLIENT_ID;
   const prevSecret = process.env.WALMART_PRODUCTION_CLIENT_SECRET;
@@ -154,6 +179,7 @@ async function testExchangeAuthorizationCode(): Promise<void> {
 
 testProductionIsDefault();
 testTokenUrls();
+testBuildAuthorizeUrlMergesAppLoginEndpoint();
 testBuildAuthorizeUrlIncludesParams();
 await testRefreshTokenPostsBasicAuthAndGrant();
 await testRefreshTokenSurfacesWalmartError();

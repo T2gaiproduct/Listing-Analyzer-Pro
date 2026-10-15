@@ -83,8 +83,13 @@ export function walmartOAuthAuthorizeUrl(environment: WalmartEnvironment): strin
 
 /** Allowlisted Walmart OAuth authorize bases (full URL including /authorize). */
 export function normalizeWalmartAuthorizeEndpoint(raw: string): string | null {
-  const trimmed = raw.trim();
+  let trimmed = raw.trim();
   if (!trimmed) return null;
+  // Walmart "Simulate connect" App Login URLs sometimes glue query params to the path:
+  // .../authorize&clientType=seller → .../authorize?clientType=seller
+  if (trimmed.includes("/authorize&") && !trimmed.includes("/authorize?")) {
+    trimmed = trimmed.replace("/authorize&", "/authorize?");
+  }
   try {
     const url = new URL(trimmed);
     if (url.protocol !== "https:") return null;

@@ -137,7 +137,7 @@ export function buildWalmartAuthorizeUrl(input: {
     (input.authorizeEndpoint ? normalizeWalmartAuthorizeEndpoint(input.authorizeEndpoint) : null)
     ?? walmartOAuthAuthorizeUrl(input.environment);
 
-  const params = new URLSearchParams({
+  const required = new URLSearchParams({
     responseType: "code",
     clientId: creds.clientId,
     redirectUri: input.redirectUri,
@@ -146,7 +146,19 @@ export function buildWalmartAuthorizeUrl(input: {
     state: input.state,
     clientType: input.clientType?.trim() || "seller",
   });
-  return `${authorizeBase}?${params.toString()}`;
+
+  if (!creds.clientId.trim()) {
+    throw new WalmartOAuthError("Walmart Client ID is not configured on the server.");
+  }
+  if (!input.redirectUri.trim()) {
+    throw new WalmartOAuthError("Walmart OAuth redirect URI is missing.");
+  }
+
+  const url = new URL(authorizeBase);
+  for (const [key, value] of required.entries()) {
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
 }
 
 async function postWalmartToken(input: {
