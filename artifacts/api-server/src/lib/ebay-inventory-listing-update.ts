@@ -587,13 +587,13 @@ export async function updateInventoryBasedEbayListing(input: {
       });
       if (!resolved) {
         throw new Error(
-          `${message} SellerLens cleared stale sandbox offers but could not find a live inventory offer for listing ${targetListingId}. `
+          `${message} Ecommerce Guru cleared stale sandbox offers but could not find a live inventory offer for listing ${targetListingId}. `
           + "In eBay sandbox Seller Hub, confirm the listing is active or reconnect and import the listing again.",
         );
       }
       offerRow = resolved;
       staleRecoveryWarning =
-        "eBay had a stale inventory offer for this listing. SellerLens found the live offer and retried the push.";
+        "eBay had a stale inventory offer for this listing. Ecommerce Guru found the live offer and retried the push.";
     }
   }
 

@@ -23,6 +23,7 @@ import { resolveUserAccountRole } from "../lib/user-role";
 import { findPendingWorkspaceInviteForEmail } from "../lib/workspace-invite.js";
 import { getGatewaySettings } from "./payment";
 import { reconcileUserPendingPayPalPayments } from "../lib/paypal-capture";
+import { DEFAULT_PLATFORM_NAME } from "../lib/default-platform-name.js";
 import { enrichPaymentCouponAsync } from "../lib/gateway-payment";
 import { resolvePublicAppBaseUrl } from "../lib/app-base-url";
 import { canUserEditOwnProfile } from "../lib/profile-permissions.js";
@@ -239,7 +240,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   }
 
   res.json({
-    platformName: map.platform_name?.trim() || "Seller Lens",
+    platformName: map.platform_name?.trim() || DEFAULT_PLATFORM_NAME,
     logoUrl,
     faviconUrl,
     supportEmail: map.support_email?.trim() ?? "",
@@ -1107,7 +1108,7 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
           description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
         }],
         application_context: {
-          brand_name: "SellerLens",
+          brand_name: "Ecommerce Guru",
           user_action: "PAY_NOW",
           return_url: `${base}/checkout/paypal-success`,
           cancel_url: `${base}/checkout/cancel`,
@@ -1206,7 +1207,7 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
           description: `${amount} ${creditType} credits`,
         }],
         application_context: {
-          brand_name: "SellerLens",
+          brand_name: "Ecommerce Guru",
           user_action: "PAY_NOW",
           return_url: `${base}/checkout/paypal-success`,
           cancel_url: `${base}/checkout/cancel`,

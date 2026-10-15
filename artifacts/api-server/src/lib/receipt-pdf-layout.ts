@@ -215,7 +215,7 @@ export async function buildReceiptPdfBytes(data: ReceiptPdfInput): Promise<Uint8
     footerLineTop + 14,
     { size: 9, color: slate400 },
   );
-  drawTextCenter("Seller Lens · sellerlens.io", margin, contentRight, footerLineTop + 26, {
+  drawTextCenter("Ecommerce Guru · sellerlens.io", margin, contentRight, footerLineTop + 26, {
     size: 9,
     color: slate400,
   });

@@ -57,7 +57,7 @@ export async function issueAndSendEmailVerificationCode(params: {
     expiresAt,
   });
 
-  const appName = params.platformName?.trim() || "Seller Lens";
+  const appName = params.platformName?.trim() || "Ecommerce Guru";
   const html = authEmailCodeTemplate({
     platformName: appName,
     code: plainCode,

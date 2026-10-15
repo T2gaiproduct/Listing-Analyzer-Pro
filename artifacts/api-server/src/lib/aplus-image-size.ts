@@ -1,6 +1,6 @@
 import sharp from "sharp";
 
-/** Amazon A+ standard module width (SellerLens export). */
+/** Amazon A+ standard module width (Ecommerce Guru export). */
 export const APLUS_MODULE_WIDTH = 970;
 export const APLUS_MODULE_HEIGHT = 300;
 

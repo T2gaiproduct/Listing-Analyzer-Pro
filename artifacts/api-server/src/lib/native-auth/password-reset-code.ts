@@ -77,7 +77,7 @@ export async function issueAndSendPasswordResetCode(params: {
     expiresAt,
   });
 
-  const appName = params.platformName?.trim() || "Seller Lens";
+  const appName = params.platformName?.trim() || "Ecommerce Guru";
   const resetUrl = `${params.appPublicBaseUrl.replace(/\/$/, "")}/reset-password?email=${encodeURIComponent(email)}&code=${plainCode}`;
   const html = authEmailCodeTemplate({
     platformName: appName,

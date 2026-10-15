@@ -7,7 +7,7 @@ export default function Privacy() {
       <PageSeo
         pageSlug="privacy"
         title="Privacy Policy"
-        description="SellerLens Privacy Policy — how we collect, use, and protect your personal data."
+        description="Ecommerce Guru Privacy Policy — how we collect, use, and protect your personal data."
       />
       <PublicNav />
       <main className="max-w-3xl mx-auto px-8 py-16 md:py-24">

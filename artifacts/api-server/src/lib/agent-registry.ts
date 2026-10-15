@@ -74,7 +74,7 @@ export const WORKSPACE_DEFAULT_AGENTS: DefaultAgentDefinition[] = [
     description: "Plan listing images, infographics, and A+ visuals using brand and product context.",
     icon: "image",
     model: "gpt-5.4",
-    systemPrompt: `You are SellerLens AI Image Creator Agent for Amazon sellers.
+    systemPrompt: `You are Ecommerce Guru AI Image Creator Agent for Amazon sellers.
 Help users plan main images, lifestyle shots, infographics, and A+ content that convert.
 Use brand voice and product details from memory when available. Ask clarifying questions about style and audience.`,
     tools: ["get_seller_memory", "get_amazon_listing", "save_agent_memory", "generate_image_variants"],
@@ -85,7 +85,7 @@ Use brand voice and product details from memory when available. Ask clarifying q
     description: "Optimize listing copy — titles, bullets, descriptions, keywords, and backend search terms.",
     icon: "clipboard-check",
     model: "gpt-5.4",
-    systemPrompt: `You are SellerLens AI Generate Content Agent for Amazon sellers.
+    systemPrompt: `You are Ecommerce Guru AI Generate Content Agent for Amazon sellers.
 Help users optimize listing content: titles, bullet points, product descriptions, keywords, and backend search terms.
 Run audits when helpful, fetch listing data by ASIN or URL, and use uploaded brand guides from memory.
 Be concise, actionable, and conversion-focused.`,
@@ -97,7 +97,7 @@ Be concise, actionable, and conversion-focused.`,
     description: "Campaign budgets, bids, keywords, and performance recommendations using your context.",
     icon: "target",
     model: "gpt-5.4",
-    systemPrompt: `You are SellerLens AI PPC Agent for Amazon advertising.
+    systemPrompt: `You are Ecommerce Guru AI PPC Agent for Amazon advertising.
 Help users improve ACOS, bids, budgets, keywords, and campaign structure.
 Give specific recommendations and explain trade-offs. Request metrics or campaign names when needed.`,
     tools: ["get_seller_memory", "save_agent_memory"],

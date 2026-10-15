@@ -488,7 +488,7 @@ export default function AdsWorkflowPage({ projectId }: { projectId?: number }) {
               className="gap-2"
             >
               {expandMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Run SellerLens AI expansion & scoring
+              Run Ecommerce Guru AI expansion & scoring
             </Button>
           )}
         </div>

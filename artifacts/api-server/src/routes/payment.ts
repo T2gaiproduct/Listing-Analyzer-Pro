@@ -200,7 +200,7 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
         },
       }],
       application_context: {
-        brand_name: "SellerLens",
+        brand_name: "Ecommerce Guru",
         user_action: "PAY_NOW",
         return_url: finalReturnUrl,
         cancel_url: finalCancelUrl,

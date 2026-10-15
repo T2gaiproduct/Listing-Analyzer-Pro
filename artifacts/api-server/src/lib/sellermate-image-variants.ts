@@ -80,7 +80,7 @@ export async function generateSellermateImageVariants(input: {
     input.creditCtx,
     cost.creditType,
     creditsNeeded,
-    `SellerLens AI image variants (${count})`,
+    `Ecommerce Guru AI image variants (${count})`,
     "image_regenerate",
     { workspaceId: input.workspaceId, variantCount: count },
   );

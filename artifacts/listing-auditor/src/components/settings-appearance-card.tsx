@@ -20,7 +20,7 @@ export function SettingsAppearanceCard() {
           Appearance
         </CardTitle>
         <CardDescription>
-          SellerLens starts in light mode. Pick dark here if you want it — we do not follow your phone&apos;s system theme.
+          Ecommerce Guru starts in light mode. Pick dark here if you want it — we do not follow your phone&apos;s system theme.
         </CardDescription>
       </CardHeader>
       <CardContent>

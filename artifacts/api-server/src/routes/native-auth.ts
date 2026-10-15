@@ -35,10 +35,11 @@ import {
 } from "../lib/native-auth/password-reset-code.js";
 import { ensureNativeAuthSchemaMigrated } from "../lib/ensure-native-auth-schema.js";
 import { logger } from "../lib/logger.js";
+import { DEFAULT_PLATFORM_NAME } from "../lib/default-platform-name.js";
 
 const router: IRouter = Router();
 
-const APP_DISPLAY_NAME = process.env.APP_DISPLAY_NAME ?? "Seller Lens";
+const APP_DISPLAY_NAME = DEFAULT_PLATFORM_NAME;
 
 /** Public browser URL for links in email (must match where users open the app). */
 function appPublicBaseUrl(): string {

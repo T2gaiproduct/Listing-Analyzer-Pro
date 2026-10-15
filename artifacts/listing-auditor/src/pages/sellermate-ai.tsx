@@ -527,7 +527,7 @@ export default function SellerMateAiPage() {
           side="left"
           className="w-[min(100vw-3rem,18rem)] p-0 flex flex-col md:hidden bg-white text-slate-900 border-slate-200"
         >
-          <SheetTitle className="sr-only">SellerLens AI agents and chats</SheetTitle>
+          <SheetTitle className="sr-only">Ecommerce Guru AI agents and chats</SheetTitle>
           <SellerMateSidebarPanel
             defaultAgents={defaultAgents}
             customAgents={customAgents}
@@ -571,7 +571,7 @@ export default function SellerMateAiPage() {
             <PanelLeft className="w-5 h-5" />
           </Button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-800 truncate">SellerLens AI</p>
+            <p className="text-sm font-semibold text-slate-800 truncate">Ecommerce Guru AI</p>
             {selectedAgent && (
               <p className="text-[11px] text-slate-500 truncate">{selectedAgent.name}</p>
             )}
@@ -905,7 +905,7 @@ function SellerMateSidebarPanel({
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="px-3 pt-3 pb-2 border-b border-slate-100">
-        <p className="text-sm font-semibold text-slate-800">SellerLens AI</p>
+        <p className="text-sm font-semibold text-slate-800">Ecommerce Guru AI</p>
         <p className="text-[10px] text-slate-400 mt-0.5">Listing & product assistant</p>
       </div>
       <div className="p-3 border-b border-slate-100">

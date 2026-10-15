@@ -39,7 +39,7 @@ export async function resolveEbayMerchantLocationKey(input: {
           },
         },
         locationTypes: ["WAREHOUSE"],
-        name: "SellerLens default",
+        name: "Ecommerce Guru default",
         merchantLocationStatus: "ENABLED",
       }),
     },
@@ -723,7 +723,7 @@ async function resolveOfferIdForPublish(input: {
           listingId,
           alreadyPublished: true,
           linkExistingWarning:
-            "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+            "This SKU already has a live eBay listing; Ecommerce Guru linked that listing to this product.",
         };
       }
       await removeStaleOffer({
@@ -780,7 +780,7 @@ async function resolveOfferIdForPublish(input: {
           listingId,
           alreadyPublished: true,
           linkExistingWarning:
-            "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+            "This SKU already has a live eBay listing; Ecommerce Guru linked that listing to this product.",
         };
       }
       return { offerId: refreshed.offerId, alreadyPublished: false };
@@ -822,7 +822,7 @@ async function resolveOfferIdForPublish(input: {
           listingId,
           alreadyPublished: true,
           linkExistingWarning:
-            "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+            "This SKU already has a live eBay listing; Ecommerce Guru linked that listing to this product.",
         };
       }
       try {
@@ -899,7 +899,7 @@ async function publishOfferWithStaleRecovery(input: {
         offerId,
       });
       const staleOfferWarning = recoveryRounds > 0
-        ? "eBay sandbox had stale offers for this SKU. SellerLens cleared them and published a new listing."
+        ? "eBay sandbox had stale offers for this SKU. Ecommerce Guru cleared them and published a new listing."
         : undefined;
       return { offerId, listingId, staleOfferWarning };
     } catch (err) {
@@ -975,7 +975,7 @@ export async function createAndPublishEbayOffer(input: {
           offerId: existingLive.offerId,
           listingId: existingLive.listingId,
           warning:
-            "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+            "This SKU already has a live eBay listing; Ecommerce Guru linked that listing to this product.",
         };
       }
       await purgeAllOffersForCreateSku({
@@ -1012,7 +1012,7 @@ export async function createAndPublishEbayOffer(input: {
       offerId: existingLive.offerId,
       listingId: existingLive.listingId,
       warning:
-        "This SKU already has a live eBay listing; SellerLens linked that listing to this product.",
+        "This SKU already has a live eBay listing; Ecommerce Guru linked that listing to this product.",
     };
   }
 
@@ -1049,7 +1049,7 @@ export async function createAndPublishEbayOffer(input: {
     const message = err instanceof Error ? err.message : String(err);
     if (isEbayOfferNotAvailableError(message)) {
       throw new Error(
-        `${message} SellerLens could not clear stale sandbox offers for SKU "${input.sku.trim()}". `
+        `${message} Ecommerce Guru could not clear stale sandbox offers for SKU "${input.sku.trim()}". `
         + "In eBay sandbox Seller Hub, end/delete old offers for this SKU, set a new alphanumeric SKU on the product Overview, or contact support.",
       );
     }

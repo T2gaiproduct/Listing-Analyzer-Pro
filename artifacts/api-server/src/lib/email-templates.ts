@@ -50,7 +50,7 @@ export function inviteEmailTemplate({
     </div>
     <div class="content">
       <p>Hi <strong>${invitedName}</strong>,</p>
-      <p><strong>${inviterName}</strong> has invited you to join their team workspace on <strong>SellerLens</strong>.</p>
+      <p><strong>${inviterName}</strong> has invited you to join their team workspace on <strong>Ecommerce Guru</strong>.</p>
       <div class="role-box">
         <div class="role-label">Your role: ${role}</div>
         <p class="role-desc">${roleDescriptions[role] ?? "Team member access"}</p>
@@ -61,7 +61,7 @@ export function inviteEmailTemplate({
       <p style="font-size: 13px; color: #94a3b8; text-align: center;">If the button above does not work, copy and paste this link into your browser:<br><a href="${inviteUrl}" style="color: #f97316; word-break: break-all;">${inviteUrl}</a></p>
     </div>
     <div class="footer">
-      <p>SellerLens — AI-powered Amazon listing optimization</p>
+      <p>Ecommerce Guru — AI-powered Amazon listing optimization</p>
     </div>
   </div>
 </body>
@@ -104,14 +104,14 @@ export function welcomeEmailTemplate({
     </div>
     <div class="content">
       <p>Hi <strong>${memberName}</strong>,</p>
-      <p>You have been successfully added to <strong>${companyName}</strong> on <strong>SellerLens</strong>.</p>
+      <p>You have been successfully added to <strong>${companyName}</strong> on <strong>Ecommerce Guru</strong>.</p>
       <p>Your assigned role is <strong>${role}</strong>. You can now access the team workspace and start collaborating.</p>
       <div class="btn-wrapper">
         <a href="${process.env.APP_URL ?? "https://sellerlens.io"}/dashboard" class="btn">Go to Dashboard</a>
       </div>
     </div>
     <div class="footer">
-      <p>SellerLens — AI-powered Amazon listing optimization</p>
+      <p>Ecommerce Guru — AI-powered Amazon listing optimization</p>
     </div>
   </div>
 </body>
@@ -160,11 +160,11 @@ export function workspaceInviteEmailTemplate({
   <div class="container">
     <div class="header">
       <h1>Workspace Invitation</h1>
-      <p>Join <strong>${workspaceName}</strong> on SellerLens</p>
+      <p>Join <strong>${workspaceName}</strong> on Ecommerce Guru</p>
     </div>
     <div class="content">
       <p>Hi <strong>${invitedName}</strong>,</p>
-      <p><strong>${inviterName}</strong> has invited you to join the workspace below on <strong>SellerLens</strong>.</p>
+      <p><strong>${inviterName}</strong> has invited you to join the workspace below on <strong>Ecommerce Guru</strong>.</p>
       <div class="role-box">
         <div class="role-label">Workspace</div>
         <p class="workspace-name">${workspaceName}</p>
@@ -177,7 +177,7 @@ export function workspaceInviteEmailTemplate({
       <p style="font-size: 13px; color: #94a3b8; text-align: center;">If the button above does not work, copy and paste this link into your browser:<br><a href="${inviteUrl}" style="color: #f97316; word-break: break-all;">${inviteUrl}</a></p>
     </div>
     <div class="footer">
-      <p>SellerLens — AI-powered Amazon listing optimization</p>
+      <p>Ecommerce Guru — AI-powered Amazon listing optimization</p>
     </div>
   </div>
 </body>
@@ -205,8 +205,8 @@ export function adminRoleAssignedEmailTemplate({
 
   const headline = isUpdate ? "Your admin role was updated" : "You've been granted admin access";
   const intro = isUpdate
-    ? `<strong>${assignedByName}</strong> updated your admin role on <strong>SellerLens</strong>.`
-    : `<strong>${assignedByName}</strong> assigned you an admin role on <strong>SellerLens</strong>.`;
+    ? `<strong>${assignedByName}</strong> updated your admin role on <strong>Ecommerce Guru</strong>.`
+    : `<strong>${assignedByName}</strong> assigned you an admin role on <strong>Ecommerce Guru</strong>.`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -236,7 +236,7 @@ export function adminRoleAssignedEmailTemplate({
   <div class="container">
     <div class="header">
       <h1>${headline}</h1>
-      <p>SellerLens Admin</p>
+      <p>Ecommerce Guru Admin</p>
     </div>
     <div class="content">
       <p>Hi <strong>${recipientName}</strong>,</p>
@@ -253,7 +253,7 @@ export function adminRoleAssignedEmailTemplate({
       <p style="font-size: 13px; color: #94a3b8; text-align: center;">If the button does not work, copy this link:<br><a href="${adminSignInUrl}" style="color: #f97316; word-break: break-all;">${adminSignInUrl}</a></p>
     </div>
     <div class="footer">
-      <p>SellerLens — AI-powered Amazon listing optimization</p>
+      <p>Ecommerce Guru — AI-powered Amazon listing optimization</p>
     </div>
   </div>
 </body>
@@ -304,11 +304,11 @@ export function adminRoleInviteEmailTemplate({
 <body>
   <div class="container">
     <div class="header">
-      <h1>You're invited to SellerLens Admin</h1>
+      <h1>You're invited to Ecommerce Guru Admin</h1>
       <p>Create your account to get started</p>
     </div>
     <div class="content">
-      <p><strong>${assignedByName}</strong> invited you to join <strong>SellerLens</strong> as an admin user.</p>
+      <p><strong>${assignedByName}</strong> invited you to join <strong>Ecommerce Guru</strong> as an admin user.</p>
       <div class="role-box">
         <div class="role-label">Role: ${roleName}</div>
         <p style="margin: 8px 0 4px; color: #475569; font-size: 14px;">After sign-up you can access:</p>
@@ -322,7 +322,7 @@ export function adminRoleInviteEmailTemplate({
       <p style="font-size: 13px; color: #94a3b8; text-align: center;">If the button does not work, copy this link:<br><a href="${signUpUrl}" style="color: #f97316; word-break: break-all;">${signUpUrl}</a></p>
     </div>
     <div class="footer">
-      <p>SellerLens — AI-powered Amazon listing optimization</p>
+      <p>Ecommerce Guru — AI-powered Amazon listing optimization</p>
     </div>
   </div>
 </body>
@@ -341,7 +341,7 @@ export function notificationEmailTemplate({
   actionUrl?: string;
 }): string {
   const actionBlock = actionUrl
-    ? `<div class="btn-wrapper"><a href="${actionUrl}" class="btn">View in SellerLens</a></div>`
+    ? `<div class="btn-wrapper"><a href="${actionUrl}" class="btn">View in Ecommerce Guru</a></div>`
     : "";
 
   return `<!DOCTYPE html>
@@ -372,7 +372,7 @@ export function notificationEmailTemplate({
       <p>${message}</p>
       ${actionBlock}
     </div>
-    <div class="footer"><p>SellerLens — AI-powered listing optimization</p></div>
+    <div class="footer"><p>Ecommerce Guru — AI-powered listing optimization</p></div>
   </div>
 </body>
 </html>`;
@@ -389,7 +389,7 @@ export function authPasswordResetTemplate({
   resetCode: string;
   expiresMinutes: number;
 }): string {
-  const app = platformName.trim() || "Seller Lens";
+  const app = platformName.trim() || "Ecommerce Guru";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -442,7 +442,7 @@ export function authEmailCodeTemplate({
   ctaUrl?: string;
   ctaLabel?: string;
 }): string {
-  const app = platformName.trim() || "Seller Lens";
+  const app = platformName.trim() || "Ecommerce Guru";
   const introHtml =
     intro ??
     `Enter this verification code to continue to <strong>${app}</strong>:`;
@@ -477,7 +477,7 @@ export function authEmailCodeTemplate({
       ${ctaHtml}
       <p style="font-size: 13px; color: #94a3b8;">This code expires in ${expiresMinutes} minutes. If you did not request this, you can ignore this email.</p>
     </div>
-    <div class="footer"><p>SellerLens — AI-powered listing optimization</p></div>
+    <div class="footer"><p>Ecommerce Guru — AI-powered listing optimization</p></div>
   </div>
 </body>
 </html>`;

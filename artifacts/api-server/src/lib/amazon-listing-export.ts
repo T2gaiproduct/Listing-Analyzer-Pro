@@ -227,7 +227,7 @@ export function buildAmazonCsvBuffer(bundle: AuditExportBundle): Buffer {
 
 export async function buildExcelBuffer(bundle: AuditExportBundle): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "SellerLens";
+  workbook.creator = "Ecommerce Guru";
 
   const uploadSheet = workbook.addWorksheet("Amazon Upload");
   uploadSheet.addRow([...AMAZON_FLAT_FILE_HEADERS]);
@@ -271,7 +271,7 @@ export async function buildBulkExcelBuffer(bundles: AuditExportBundle[]): Promis
   }
 
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "SellerLens";
+  workbook.creator = "Ecommerce Guru";
 
   const uploadSheet = workbook.addWorksheet("Amazon Upload");
   uploadSheet.addRow([...AMAZON_FLAT_FILE_HEADERS]);

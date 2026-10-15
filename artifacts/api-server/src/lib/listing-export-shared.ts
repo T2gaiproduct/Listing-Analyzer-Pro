@@ -111,7 +111,7 @@ function generatedImageFilename(url: string): string {
   return withoutQuery.split("/").pop() ?? "";
 }
 
-/** SellerLens-generated listing graphics (excludes scrape uploads, sources, A+). */
+/** Ecommerce Guru-generated listing graphics (excludes scrape uploads, sources, A+). */
 export function isGeneratedExportImageUrl(url: string): boolean {
   const trimmed = url.trim();
   if (!trimmed) return false;

@@ -77,7 +77,7 @@ export async function expandKeywordsWithAi(
   for (const r of snapshot.searchTermReport ?? []) seed.add(r.searchTerm);
   for (const r of snapshot.listingKeywords ?? []) seed.add(r);
 
-  const prompt = `You are an Amazon Sponsored Products PPC strategist for SellerLens.
+  const prompt = `You are an Amazon Sponsored Products PPC strategist for Ecommerce Guru.
 
 Product ASIN: ${asin}
 Title: ${snapshot.productTitle ?? "Unknown"}

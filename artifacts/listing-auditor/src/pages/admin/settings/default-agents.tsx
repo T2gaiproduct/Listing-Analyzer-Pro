@@ -12,7 +12,7 @@ import type { AgentToolDefinition } from "@/lib/sellermate-ai";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const DEFAULT_NEW_AGENT_PROMPT = `You are a SellerLens AI assistant for Amazon sellers.
+const DEFAULT_NEW_AGENT_PROMPT = `You are a Ecommerce Guru AI assistant for Amazon sellers.
 Help users with clear, actionable guidance. Ask clarifying questions when context is missing.`;
 
 type DefaultSellermateAgentTemplate = {
@@ -191,11 +191,11 @@ export default function AdminSettingsDefaultAgents() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-2">
         <Bot className="h-6 w-6 text-orange-500" />
-        <h1 className="text-2xl font-bold">Default SellerLens Agents</h1>
+        <h1 className="text-2xl font-bold">Default Ecommerce Guru Agents</h1>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        These agents appear for every seller under <strong>Default agents</strong> in SellerLens AI.
+        These agents appear for every seller under <strong>Default agents</strong> in Ecommerce Guru AI.
         Sellers cannot edit, duplicate, or change memory for them. Upload shared memory files below — they sync to every workspace.
         Removing an agent here retires it from all workspaces on save.
       </p>

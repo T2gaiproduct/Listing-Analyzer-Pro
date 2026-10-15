@@ -50,7 +50,7 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="support" className="mt-6 space-y-4">
           <p className="text-sm text-muted-foreground">
-            Submit a ticket, view replies from our team, and follow up here. We also email your SellerLens account.
+            Submit a ticket, view replies from our team, and follow up here. We also email your Ecommerce Guru account.
           </p>
           <SupportTicketForm compact />
           <SupportTicketInbox />

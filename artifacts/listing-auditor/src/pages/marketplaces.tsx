@@ -871,7 +871,7 @@ export default function MarketplacesPage() {
       <div className="space-y-2">
         <h1 className="text-lg font-semibold text-foreground tracking-tight">Marketplaces</h1>
         <p className="text-xs text-muted-foreground max-w-2xl">
-          Connect the sales channels you use in this workspace. eBay and Walmart use OAuth (you approve access on their site; SellerLens stores tokens, not your marketplace password). Shopify and WooCommerce use store API credentials in the dialog.
+          Connect the sales channels you use in this workspace. eBay and Walmart use OAuth (you approve access on their site; Ecommerce Guru stores tokens, not your marketplace password). Shopify and WooCommerce use store API credentials in the dialog.
         </p>
       </div>
 
@@ -974,7 +974,7 @@ export default function MarketplacesPage() {
         />
         <ConnectCard
           marketplace="eBay"
-          description="Connect with OAuth: you sign in on eBay’s website and approve access. SellerLens never asks for your eBay password—only secure refresh tokens for import and publish."
+          description="Connect with OAuth: you sign in on eBay’s website and approve access. Ecommerce Guru never asks for your eBay password—only secure refresh tokens for import and publish."
           connected={ebayConnected}
           connectLabel="Connect with eBay"
           connectDisabled={!ebayConnectReady}

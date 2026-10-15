@@ -54,7 +54,7 @@ export async function sendWorkspaceInviteEmail(opts: {
 
   const result = await sendEmail({
     to: opts.toEmail,
-    subject: `You've been invited to join ${opts.workspaceName} on SellerLens`,
+    subject: `You've been invited to join ${opts.workspaceName} on Ecommerce Guru`,
     html,
   });
 

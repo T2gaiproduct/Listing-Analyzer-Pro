@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </h2>
           <p className="text-sm text-slate-600 mb-4 break-words">
             {staleChunk
-              ? "SellerLens was updated while this tab was open. Reload to load the latest version."
+              ? "Ecommerce Guru was updated while this tab was open. Reload to load the latest version."
               : (this.state.error.message || "An unexpected error occurred while loading this page.")}
           </p>
           <Button

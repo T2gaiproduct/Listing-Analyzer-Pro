@@ -117,7 +117,7 @@ router.get(
       const mapped = await Promise.all(agents.map((agent) => mapAgent(agent, workspaceId)));
       res.json({ agents: mapped });
     } catch (err) {
-      req.log?.error?.({ err }, "List SellerLens AI agents failed");
+      req.log?.error?.({ err }, "List Ecommerce Guru AI agents failed");
       res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load agents." });
     }
   },
@@ -346,7 +346,7 @@ router.post(
       });
       res.json(result);
     } catch (err) {
-      req.log?.error?.({ err }, "SellerLens AI chat failed");
+      req.log?.error?.({ err }, "Ecommerce Guru AI chat failed");
       res.status(500).json({ error: err instanceof Error ? err.message : "Chat failed." });
     }
   },

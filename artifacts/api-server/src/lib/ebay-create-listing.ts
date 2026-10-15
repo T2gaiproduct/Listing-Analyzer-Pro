@@ -139,7 +139,7 @@ export async function createNewEbayListingFromAudit(
     ?? parseEbayItemIdFromSku(listingRow?.sku);
   if (existingItemId) {
     throw new Error(
-      "This product is already linked to an eBay listing in SellerLens. Use Push to eBay listing to update it — List as new only creates a brand-new listing when no item is linked here.",
+      "This product is already linked to an eBay listing in Ecommerce Guru. Use Push to eBay listing to update it — List as new only creates a brand-new listing when no item is linked here.",
     );
   }
 
@@ -267,7 +267,7 @@ export async function createNewEbayListingFromAudit(
     inventorySku = inventorySkusToTry[attempt]!;
     if (attempt > 0) {
       skuRetryWarning =
-        "eBay sandbox still had a broken offer for this product. SellerLens retried with a new inventory SKU.";
+        "eBay sandbox still had a broken offer for this product. Ecommerce Guru retried with a new inventory SKU.";
       await deleteEbayInventoryItem({ environment, accessToken, sku: inventorySkusToTry[attempt - 1]! })
         .catch(() => undefined);
     }

@@ -431,7 +431,7 @@ router.get("/products/:id/marketplaces", requireAuth, resolveTeamAndWorkspace, a
             });
           }
         } catch {
-          // Non-fatal: SellerLens cards still show the stored price if the store sync fails.
+          // Non-fatal: Ecommerce Guru cards still show the stored price if the store sync fails.
         }
       }
     }

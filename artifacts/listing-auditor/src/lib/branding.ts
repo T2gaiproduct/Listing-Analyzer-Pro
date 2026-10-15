@@ -1,5 +1,14 @@
 export const DEFAULT_PLATFORM_NAME = "Ecommerce Guru";
 
+/** User-visible product name (admin Platform Name overrides). */
+export function platformDisplayName(name?: string | null): string {
+  return name?.trim() || DEFAULT_PLATFORM_NAME;
+}
+
+export function platformAiName(name?: string | null): string {
+  return `${platformDisplayName(name)} AI`;
+}
+
 export interface SiteBranding {
   platformName: string;
   logoUrl: string | null;

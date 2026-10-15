@@ -20,7 +20,7 @@ export const DEFAULT_AGENT_TEMPLATES_CATEGORY = "ai";
 
 export type DefaultAgentTemplate = DefaultAgentDefinition;
 
-const DEFAULT_NEW_AGENT_PROMPT = `You are a SellerLens AI assistant for Amazon sellers.
+const DEFAULT_NEW_AGENT_PROMPT = `You are a Ecommerce Guru AI assistant for Amazon sellers.
 Help users with clear, actionable guidance. Ask clarifying questions when context is missing.`;
 
 function builtinForSlug(slug: string): DefaultAgentTemplate | undefined {

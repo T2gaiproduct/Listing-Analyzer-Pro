@@ -55,7 +55,7 @@ export function coerceEbayOfferSku(raw: unknown): string {
   return "";
 }
 
-/** Stable inventory SKU for List-as-new (one eBay inventory item per SellerLens product). */
+/** Stable inventory SKU for List-as-new (one eBay inventory item per Ecommerce Guru product). */
 export function defaultEbayInventorySkuForAudit(auditId: number): string {
   const sku = `SL${auditId}`;
   if (!isValidEbayInventorySku(sku)) {

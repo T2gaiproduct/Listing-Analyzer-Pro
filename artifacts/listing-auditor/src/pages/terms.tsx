@@ -7,7 +7,7 @@ export default function Terms() {
       <PageSeo
         pageSlug="terms"
         title="Terms of Service"
-        description="SellerLens Terms of Service — agreement for use of the SellerLens platform and services."
+        description="Ecommerce Guru Terms of Service — agreement for use of the Ecommerce Guru platform and services."
       />
       <PublicNav />
       <main className="max-w-3xl mx-auto px-8 py-16 md:py-24">
@@ -18,7 +18,7 @@ export default function Terms() {
           <section className="mb-10">
             <h2 className="text-xl font-semibold text-slate-900 mb-3">1. Acceptance of Terms</h2>
             <p className="text-slate-600 leading-relaxed">
-              By accessing or using SellerLens ("the Service"), you agree to be bound by these Terms of Service.
+              By accessing or using Ecommerce Guru ("the Service"), you agree to be bound by these Terms of Service.
               If you do not agree, you may not use the Service. These terms apply to all visitors, users, and others
               who access or use the Service.
             </p>
@@ -27,7 +27,7 @@ export default function Terms() {
           <section className="mb-10">
             <h2 className="text-xl font-semibold text-slate-900 mb-3">2. Description of Service</h2>
             <p className="text-slate-600 leading-relaxed">
-              SellerLens provides AI-powered tools for analyzing, scoring, and optimizing Amazon product listings.
+              Ecommerce Guru provides AI-powered tools for analyzing, scoring, and optimizing Amazon product listings.
               The Service includes but is not limited to listing audits, competitor analysis, content generation,
               image analysis, and related features.
             </p>
@@ -63,7 +63,7 @@ export default function Terms() {
           <section className="mb-10">
             <h2 className="text-xl font-semibold text-slate-900 mb-3">6. Intellectual Property</h2>
             <p className="text-slate-600 leading-relaxed">
-              All content, features, and functionality of the Service are owned by SellerLens and are protected
+              All content, features, and functionality of the Service are owned by Ecommerce Guru and are protected
               by international copyright, trademark, and other intellectual property laws. You are granted a limited,
               non-exclusive, non-transferable license to use the Service for its intended purpose.
             </p>
@@ -72,7 +72,7 @@ export default function Terms() {
           <section className="mb-10">
             <h2 className="text-xl font-semibold text-slate-900 mb-3">7. Limitation of Liability</h2>
             <p className="text-slate-600 leading-relaxed">
-              The Service is provided "as is" without warranties of any kind. SellerLens shall not be liable
+              The Service is provided "as is" without warranties of any kind. Ecommerce Guru shall not be liable
               for any indirect, incidental, special, consequential, or punitive damages arising out of or
               relating to your use of the Service.
             </p>

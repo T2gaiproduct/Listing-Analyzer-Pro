@@ -59,7 +59,7 @@ function normalizeExcludeUrl(url: string): string {
   return url.trim();
 }
 
-/** SellerLens-generated assets stored on the app (not scraped marketplace URLs). */
+/** Ecommerce Guru-generated assets stored on the app (not scraped marketplace URLs). */
 export function isAppGeneratedImageUrl(url: string): boolean {
   const trimmed = url.trim();
   if (!trimmed) return false;
@@ -117,7 +117,7 @@ export function collectListingPreviewImages(opts: {
   /** A+ module images appended after product/graphics images in the gallery. */
   aplusModules?: Array<{ url: string; label?: string | null }> | null;
   /**
-   * Listing preview tab: only SellerLens-generated graphics (no scrape/import/upload URLs).
+   * Listing preview tab: only Ecommerce Guru-generated graphics (no scrape/import/upload URLs).
    */
   generatedOnly?: boolean;
 }): ListingPreviewImage[] {

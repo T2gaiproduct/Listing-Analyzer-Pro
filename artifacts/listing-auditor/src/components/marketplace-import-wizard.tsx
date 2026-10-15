@@ -367,7 +367,7 @@ function EbayImportDiagnosticsPanel({
         </div>
       ) : diagnostics.activeListingsFound === 0 ? (
         <p className="mt-2 text-amber-900/90">
-          SellerLens sees no active listings for this account. Disconnect eBay on Marketplaces, then
+          Ecommerce Guru sees no active listings for this account. Disconnect eBay on Marketplaces, then
           connect again while signed in as the sandbox seller that owns your listings (e.g. testuser_pradyuman).
         </p>
       ) : diagnostics.migrated === 0 && diagnostics.activeListingsFound > 0 ? (

@@ -2,7 +2,7 @@ import type { jsPDF } from "jspdf";
 
 type Rgb = [number, number, number];
 
-const SELLERLENS_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 40" fill="none" role="img" aria-label="SellerLens">
+const SELLERLENS_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 40" fill="none" role="img" aria-label="Ecommerce Guru">
   <g transform="translate(2 6)">
     <circle cx="14" cy="14" r="9" stroke="#f97316" stroke-width="3.5" fill="none"/>
     <path d="M10.5 10.5a5 5 0 0 1 6.2 1.2" stroke="#f97316" stroke-width="2.5" stroke-linecap="round" fill="none"/>

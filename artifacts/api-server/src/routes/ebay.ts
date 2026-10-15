@@ -119,7 +119,7 @@ function ebayCustomLabelHint(errorMessage: string): string | undefined {
     return "Push hit eBay Inventory with a hyphenated custom label (e.g. WAL-LAM-0880). Redeploy the latest API (uses inventory SKU like SL881), or in sandbox Seller Hub set Custom label to letters/digits only (WALLAMP0880).";
   }
   if (/inventory-based listing management is not currently supported/i.test(errorMessage)) {
-    return "This listing was created with eBay Inventory. SellerLens should update via Inventory, not Trading — redeploy latest API or check Seller Hub → Inventory for the offer on this item id.";
+    return "This listing was created with eBay Inventory. Ecommerce Guru should update via Inventory, not Trading — redeploy latest API or check Seller Hub → Inventory for the offer on this item id.";
   }
   return undefined;
 }
@@ -361,7 +361,7 @@ router.post(
     }
     if (connection.environment !== "sandbox") {
       res.status(400).json({
-        error: "Creating new eBay listings from SellerLens is enabled for sandbox eBay accounts in this release. Reconnect sandbox eBay on Marketplaces, or import an existing listing and use Push.",
+        error: "Creating new eBay listings from Ecommerce Guru is enabled for sandbox eBay accounts in this release. Reconnect sandbox eBay on Marketplaces, or import an existing listing and use Push.",
       });
       return;
     }

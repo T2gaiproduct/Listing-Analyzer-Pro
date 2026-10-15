@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SiteLogo, SiteLogoMark, SiteLogoIcon } from "@/components/site-logo";
+import { platformAiName, platformDisplayName } from "@/lib/branding";
+import { useBranding } from "@/hooks/use-branding";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -79,7 +81,7 @@ const mainNavItems: Array<{
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
-  { icon: Sparkles, label: "SellerLens AI", href: "/ai", feature: "sellermate_ai" },
+  { icon: Sparkles, label: "__AI__", href: "/ai", feature: "sellermate_ai" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "amazon" },
 ];
 
@@ -111,10 +113,10 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
 }
 
 // --- Page title map ---------------------------------------------------------
-function getPageTitle(location: string): string {
+function getPageTitle(location: string, appName: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
   if (location === "/marketplaces") return "Marketplaces";
-  if (location === "/ai") return "SellerLens AI";
+  if (location === "/ai") return platformAiName(appName);
   if (location === "/products") return "Product Explorer";
   if (location.startsWith("/products/")) return "Product Details";
   if (location === "/recent-projects") return "Recent Projects";
@@ -140,7 +142,7 @@ function getPageTitle(location: string): string {
   if (location.match(/^\/workspaces\/\d+$/)) return "Workspace";
   if (location === "/notifications") return "Notifications";
   if (location === "/archive") return "Archive";
-  return "SellerLens";
+  return platformDisplayName(appName);
 }
 
 // --- Ribbon visibility -------------------------------------------------------
@@ -186,6 +188,7 @@ function parseProjectContext(location: string): { type: string; id: number } | n
 // --- Main Layout ------------------------------------------------------------
 export function Layout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
+  const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { toast } = useToast();
   useCreditPurchaseReturn();
@@ -221,9 +224,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const canViewAds = isAccountOwner || canView("ads");
 
   const navReady = isAccountOwner || (activeWorkspaceId != null && !wsNavLoading);
-  const visibleNavItems = navReady
+  const visibleNavItems = (navReady
     ? mainNavItems.filter((item) => isAccountOwner || canView(item.feature))
-    : [];
+    : []
+  ).map((item) =>
+    item.label === "__AI__" ? { ...item, label: platformAiName(platformName) } : item,
+  );
   const navItemsBeforeManageAds = visibleNavItems.filter((item) => item.href !== "/recent-projects" && item.href !== "/marketplaces" && item.href !== "/ai");
   const navItemsAfterManageAds = visibleNavItems.filter((item) => item.href === "/recent-projects" || item.href === "/marketplaces" || item.href === "/ai");
 
@@ -1273,7 +1279,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <h2 className="text-base font-semibold text-slate-900">Delete project?</h2>
                 <p className="text-sm text-slate-500 mt-1">
                   This will permanently delete{" "}
-                  <span className="font-medium text-slate-700">{getPageTitle(location)}</span>. This action cannot be undone.
+                  <span className="font-medium text-slate-700">{getPageTitle(location, platformName)}</span>. This action cannot be undone.
                 </p>
               </div>
             </div>

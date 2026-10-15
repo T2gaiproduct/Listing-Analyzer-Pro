@@ -1,7 +1,7 @@
 /**
  * OAuth scopes requested when a seller connects eBay (platform-wide, not per seller).
  *
- * Only scopes that SellerLens actually uses are included by default. Optional scopes
+ * Only scopes that Ecommerce Guru actually uses are included by default. Optional scopes
  * (e.g. sell.finances) often require separate eBay approval; requesting them when
  * they are not enabled on the production keyset causes `invalid_scope` on authorize.
  */

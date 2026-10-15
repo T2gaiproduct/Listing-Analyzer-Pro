@@ -87,7 +87,7 @@ async function trySyncEbayCustomLabelFromUi(input: {
       return {
         applied: false,
         warning:
-          `Product Explorer SKU "${desired}" is saved in SellerLens. This listing is inventory-managed, so eBay may still show custom label "${current || "—"}".`,
+          `Product Explorer SKU "${desired}" is saved in Ecommerce Guru. This listing is inventory-managed, so eBay may still show custom label "${current || "—"}".`,
       };
     }
     return {
@@ -259,7 +259,7 @@ async function publishInventoryBasedEbayListing(
   });
   if (!resolvedOffer) {
     throw new Error(
-      "This eBay listing was created with inventory management. SellerLens could not find the matching inventory offer — try reconnecting eBay or contact support.",
+      "This eBay listing was created with inventory management. Ecommerce Guru could not find the matching inventory offer — try reconnecting eBay or contact support.",
     );
   }
 
@@ -479,7 +479,7 @@ async function tryInventoryPushAfterTradingFailure(
       const inventory = await tryPublishInventoryListingFirst(input, { allowSkuOfferLookup: true });
       if (inventory) {
         const skuNote =
-          `eBay custom label was updated from "${label}" to "${normalized}" so SellerLens could sync this inventory-based listing.`;
+          `eBay custom label was updated from "${label}" to "${normalized}" so Ecommerce Guru could sync this inventory-based listing.`;
         return {
           ...inventory,
           warning: inventory.warning ? `${inventory.warning} ${skuNote}` : skuNote,
@@ -499,7 +499,7 @@ async function tryInventoryPushAfterTradingFailure(
   const labelNote = label ? ` eBay custom label: "${label}".` : "";
   throw new Error(
     "This listing is managed in eBay Inventory (Trading cannot update it). "
-    + "SellerLens could not find or update the inventory offer for this item."
+    + "Ecommerce Guru could not find or update the inventory offer for this item."
     + ` Item id ${input.itemId}.${labelNote} `
     + "In sandbox Seller Hub → Inventory, check offers for this listing, or try List as new again on a product that is not yet linked. "
     + `eBay said: ${tradingMessage}`,

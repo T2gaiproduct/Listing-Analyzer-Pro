@@ -372,7 +372,7 @@ export async function syncEbayOrders(input: {
     && result.errors.length === 0
   ) {
     result.errors.push(
-      "eBay returned orders but none matched this workspace's product SKUs or item IDs. Confirm the listing SKU (e.g. SL-{itemId}) matches SellerLens.",
+      "eBay returned orders but none matched this workspace's product SKUs or item IDs. Confirm the listing SKU (e.g. SL-{itemId}) matches Ecommerce Guru.",
     );
   }
 

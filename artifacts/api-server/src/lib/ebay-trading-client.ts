@@ -301,7 +301,7 @@ function buildItemSpecificsXml(specifics: EbayItemSpecific[]): string {
 }
 
 /**
- * Host gallery images on eBay (EPS) so listings do not depend on SellerLens fetch URLs.
+ * Host gallery images on eBay (EPS) so listings do not depend on Ecommerce Guru fetch URLs.
  */
 function parseHostedPictureUrlFromUploadResponse(xml: string): string | null {
   const raw = xml.match(/<FullURL>([^<]+)<\/FullURL>/)?.[1]?.trim()

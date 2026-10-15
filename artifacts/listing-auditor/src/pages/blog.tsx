@@ -98,14 +98,14 @@ export default function Blog() {
       <PageSeo
         pageSlug="blog"
         title="Blog"
-        description="Expert tips, strategies, and insights to help you dominate Amazon search results and grow your sales with SellerLens."
+        description="Expert tips, strategies, and insights to help you dominate Amazon search results and grow your sales with Ecommerce Guru."
       />
       <PublicNav />
 
       <main>
         <section className="bg-slate-900 text-white py-20 md:py-28">
           <div className="max-w-4xl mx-auto px-8 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">SellerLens Blog</h1>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Ecommerce Guru Blog</h1>
             <p className="text-lg text-slate-300 max-w-2xl mx-auto">
               Expert tips, strategies, and insights to help you dominate Amazon search results and grow your sales.
             </p>

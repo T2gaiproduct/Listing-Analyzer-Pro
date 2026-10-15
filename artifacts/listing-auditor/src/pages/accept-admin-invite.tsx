@@ -151,7 +151,7 @@ export default function AcceptAdminInvite() {
         <div className="px-8 pt-8 pb-5 text-center border-b border-slate-100">
           <SiteLogoImage className="h-8 w-auto mx-auto mb-5" />
           <h1 className="text-2xl font-bold text-slate-900">Admin invitation</h1>
-          <p className="text-slate-500 text-sm mt-1">You've been invited to SellerLens admin</p>
+          <p className="text-slate-500 text-sm mt-1">You've been invited to Ecommerce Guru admin</p>
         </div>
 
         <div className="px-8 py-6 space-y-5">

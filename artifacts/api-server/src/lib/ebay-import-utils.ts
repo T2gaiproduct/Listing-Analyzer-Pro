@@ -29,7 +29,7 @@ export function parseEbayItemIdFromListingUrl(url: string | null | undefined): s
   return direct?.[1] ?? null;
 }
 
-/** Item ID from SellerLens auto-SKU `SL-{itemId}` or a numeric id. */
+/** Item ID from Ecommerce Guru auto-SKU `SL-{itemId}` or a numeric id. */
 export function parseEbayItemIdFromSku(sku: string | null | undefined): string | null {
   const trimmed = sku?.trim();
   if (!trimmed) return null;

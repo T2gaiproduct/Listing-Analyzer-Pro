@@ -180,7 +180,7 @@ export function resolveMarketplacePublishBaseUrl(req: Request): string {
   const base = resolvePublicBaseUrl(req);
   if (isLocalhostOrigin(base)) {
     throw new Error(
-      "Cannot publish store images from localhost. Open SellerLens through your Cloudflare preview link (or production URL) and publish again.",
+      "Cannot publish store images from localhost. Open Ecommerce Guru through your Cloudflare preview link (or production URL) and publish again.",
     );
   }
   const httpsBase = upgradePublicOriginToHttps(base);

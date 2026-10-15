@@ -26,7 +26,7 @@ export function buildProjectShareUrl(
 
 export function buildShareMessage(projectTitle: string | undefined, url: string): string {
   const name = projectTitle?.trim() || "this project";
-  return `Check out ${name} on SellerLens:\n${url}`;
+  return `Check out ${name} on Ecommerce Guru:\n${url}`;
 }
 
 /** Synchronous copy — must run in the same turn as the user click (Safari / strict browsers). */

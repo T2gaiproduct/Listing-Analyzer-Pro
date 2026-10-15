@@ -285,7 +285,7 @@ export async function fetchEbayOAuthConfig(): Promise<EbayOAuthConfigResponse> {
   return fetchJson<EbayOAuthConfigResponse>(`${basePath}/api/ebay/oauth/config`);
 }
 
-/** Full-page OAuth start: session cookie auth, then 302 to eBay (no SellerLens password form). */
+/** Full-page OAuth start: session cookie auth, then 302 to eBay (no Ecommerce Guru password form). */
 export function buildEbayOAuthConnectUrl(workspaceId?: number | null): string {
   const params = new URLSearchParams({ mode: "redirect" });
   if (workspaceId != null && workspaceId > 0) {

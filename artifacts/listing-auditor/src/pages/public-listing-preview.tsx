@@ -72,7 +72,7 @@ export default function PublicListingPreviewPage({ auditId }: { auditId: number 
             href="/"
             className="text-sm font-medium text-orange-600 hover:text-orange-700"
           >
-            SellerLens home
+            Ecommerce Guru home
           </Link>
         </div>
 

@@ -25,6 +25,8 @@ import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { useTeam } from "@/hooks/use-team";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { computePlanCreditsForSubscription, isUnlimitedPlanCreditValue } from "@/lib/plan-credits";
+import { useBranding } from "@/hooks/use-branding";
+import { platformDisplayName } from "@/lib/branding";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -108,6 +110,8 @@ function loadRazorpayScript(): Promise<void> {
 
 function CustomCreditsSection({ balance, config }: { balance: { ai: number; image: number; audit: number }; config: PaymentConfig }) {
   const { toast } = useToast();
+  const { platformName } = useBranding();
+  const brandName = platformDisplayName(platformName);
   const queryClient = useQueryClient();
   const [quantity, setQuantity] = useState(50);
   const [creditType, setCreditType] = useState("ai");
@@ -157,7 +161,7 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
           key: d.keyId,
           amount: d.amount,
           currency: d.currency,
-          name: "SellerLens",
+          name: brandName,
           description: `${quantity} ${creditType} credits`,
           order_id: d.orderId,
           handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
@@ -287,6 +291,8 @@ function GatewayBadge({ gateway }: { gateway: string }) {
 
 function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
   const { toast } = useToast();
+  const { platformName } = useBranding();
+  const brandName = platformDisplayName(platformName);
   const [loading, setLoading] = useState(false);
   const gateway = config.defaultGateway;
 
@@ -331,7 +337,7 @@ function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
-        name: "SellerLens",
+        name: brandName,
         description: "Add payment method",
         order_id: order.orderId,
         handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
@@ -558,6 +564,8 @@ function billingTabPath(tab: BillingTab): string {
 export default function Billing() {
   const [location, setLocation] = useLocation();
   const search = useSearch();
+  const { platformName } = useBranding();
+  const brandName = platformDisplayName(platformName);
   const { isTeamMember, isOwner } = useTeam();
   const {
     isBillingAccountOwner,
@@ -1109,7 +1117,7 @@ export default function Billing() {
                             key: d.keyId,
                             amount: d.amount,
                             currency: d.currency,
-                            name: "SellerLens",
+                            name: brandName,
                             description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
                             order_id: d.orderId,
                             handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {

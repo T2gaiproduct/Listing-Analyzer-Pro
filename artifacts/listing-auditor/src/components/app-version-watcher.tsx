@@ -26,7 +26,7 @@ export function AppVersionWatcher() {
       reloadScheduled.current = true;
       sessionStorage.setItem(BUILD_RELOAD_SESSION_KEY, remoteId);
       toast({
-        title: "We've updated SellerLens",
+        title: "We've updated Ecommerce Guru",
         description: "Refreshing for the latest version…",
       });
       window.setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);

@@ -103,7 +103,7 @@ export type EbayDeletionWorkItem = {
  * TODO(account-deletion): Validate `X-EBAY-SIGNATURE` on POST before processing production events.
  * See eBay Notification API signature verification docs.
  *
- * TODO(account-deletion): Map `ebayUserId` / `eiasToken` to SellerLens workspace connections
+ * TODO(account-deletion): Map `ebayUserId` / `eiasToken` to Ecommerce Guru workspace connections
  * (`marketplace_connection_*_ebay` settings) and user records; disconnect eBay, anonymize or delete
  * imported listing data, orders, and tokens per privacy policy. Do not run destructive deletes until
  * mapping and audit requirements are defined.

@@ -92,7 +92,7 @@ export default function RolesPage() {
     Projects: "Project history and archive",
     Workspace: "Team and workspace management",
     Account: "User account settings",
-    Advanced: "SellerLens AI, marketplace integrations (Amazon, Shopify, WooCommerce), and extra tools",
+    Advanced: "Ecommerce Guru AI, marketplace integrations (Amazon, Shopify, WooCommerce), and extra tools",
   };
 
   const openCreate = () => {

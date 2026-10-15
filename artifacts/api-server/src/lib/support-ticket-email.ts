@@ -62,7 +62,7 @@ function customerConfirmationHtml(params: {
 <h2 style="color:#0f172a;margin:0 0 12px;">We received your support request</h2>
 <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 12px;">${greeting}</p>
 <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 12px;">Thanks for contacting us about <strong>${escapeHtml(params.subject)}</strong>. Our team will reply within one business day.</p>
-<p style="color:#94a3b8;font-size:13px;margin:0;">SellerLens Support</p>
+<p style="color:#94a3b8;font-size:13px;margin:0;">Ecommerce Guru Support</p>
 </div></body></html>`;
 }
 
@@ -79,7 +79,7 @@ function replyHtml(params: {
 <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
 <p style="color:#475569;font-size:15px;margin:0 0 16px;">${greeting}</p>
 <div style="color:#334155;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.replyMessage)}</div>
-<p style="color:#94a3b8;font-size:13px;margin:24px 0 0;border-top:1px solid #e2e8f0;padding-top:16px;">SellerLens Support</p>
+<p style="color:#94a3b8;font-size:13px;margin:24px 0 0;border-top:1px solid #e2e8f0;padding-top:16px;">Ecommerce Guru Support</p>
 </div></body></html>`;
 }
 

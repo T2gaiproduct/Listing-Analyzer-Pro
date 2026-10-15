@@ -218,7 +218,7 @@ export default function AcceptWorkspaceInvite() {
             <p className="text-slate-500 text-sm mt-1">
               {invite?.alreadyActive
                 ? "You already have access to this workspace."
-                : "You've been invited to join a workspace on SellerLens."}
+                : "You've been invited to join a workspace on Ecommerce Guru."}
             </p>
           </div>
 
@@ -324,7 +324,7 @@ export default function AcceptWorkspaceInvite() {
         </div>
 
         <p className="text-center text-xs text-slate-400">
-          SellerLens — AI-powered Amazon listing optimization
+          Ecommerce Guru — AI-powered Amazon listing optimization
         </p>
       </div>
     </div>

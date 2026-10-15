@@ -37,8 +37,8 @@ export async function sendAdminRoleAssignedEmail(opts: {
   const adminSignInUrl = `${getAppBaseUrl(opts.appBaseUrl)}/sign-in?redirect_url=${encodeURIComponent("/admin")}`;
   const permissionLabels = formatPermissionLabels(role.permissions ?? []);
   const subject = opts.isUpdate
-    ? `Your SellerLens admin role was updated to "${role.name}"`
-    : `You've been granted SellerLens admin access (${role.name})`;
+    ? `Your Ecommerce Guru admin role was updated to "${role.name}"`
+    : `You've been granted Ecommerce Guru admin access (${role.name})`;
 
   const html = adminRoleAssignedEmailTemplate({
     recipientName: opts.recipientName,
@@ -71,7 +71,7 @@ export async function sendAdminRoleInviteEmail(opts: {
   const signUpUrl = opts.inviteUrl
     ?? `${base}/sign-up?redirect_url=${encodeURIComponent("/admin")}&email=${encodeURIComponent(opts.toEmail)}`;
   const permissionLabels = formatPermissionLabels(role.permissions ?? []);
-  const subject = `You're invited to SellerLens admin (${role.name})`;
+  const subject = `You're invited to Ecommerce Guru admin (${role.name})`;
 
   const html = adminRoleInviteEmailTemplate({
     roleName: role.name,
