@@ -1,5 +1,5 @@
 import { randomInt, createHash, timingSafeEqual } from "node:crypto";
-import { eq, and, gt, sql } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 import { db, authCredentialsTable, authPasswordResetCodesTable } from "@workspace/db";
 import { authEmailCodeTemplate } from "../email-templates.js";
 import { sendEmail } from "../email.js";
@@ -106,10 +106,13 @@ export async function issueAndSendPasswordResetCode(params: {
   return { sent: true, resetUrl };
 }
 
+const resetCodeNotExpired = sql`${authPasswordResetCodesTable.expiresAt} > now()`;
+
 export async function verifyPasswordResetCode(
   email: string,
   code: unknown,
 ): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
+  await ensureNativeAuthSchemaMigrated();
   const normalizedEmail = normalizeAuthEmail(email);
   const trimmedCode = normalizeSixDigitCode(code);
   if (trimmedCode.length !== 6) {
@@ -123,56 +126,73 @@ export async function verifyPasswordResetCode(
     return { ok: true, userId: cred.userId };
   }
 
-  const now = new Date();
-  let row:
-    | { userId: string; codeHash: string; expiresAt: Date }
-    | undefined;
+  const codeHash = hashPasswordResetCode(trimmedCode);
 
-  if (cred) {
-    [row] = await db
-      .select({
-        userId: authPasswordResetCodesTable.userId,
-        codeHash: authPasswordResetCodesTable.codeHash,
-        expiresAt: authPasswordResetCodesTable.expiresAt,
-      })
-      .from(authPasswordResetCodesTable)
-      .where(
-        and(eq(authPasswordResetCodesTable.userId, cred.userId), gt(authPasswordResetCodesTable.expiresAt, now)),
-      )
-      .limit(1);
-  }
-
-  if (!row) {
-    [row] = await db
-      .select({
-        userId: authPasswordResetCodesTable.userId,
-        codeHash: authPasswordResetCodesTable.codeHash,
-        expiresAt: authPasswordResetCodesTable.expiresAt,
-      })
-      .from(authPasswordResetCodesTable)
-      .where(
-        and(
-          sql`lower(${authPasswordResetCodesTable.email}) = ${normalizedEmail}`,
-          gt(authPasswordResetCodesTable.expiresAt, now),
-        ),
-      )
-      .limit(1);
-  }
-
-  if (!row || !codesEqual(row.codeHash, trimmedCode)) {
-    return { ok: false, error: "Invalid or expired reset code" };
-  }
-
-  const [hasCred] = await db
-    .select({ userId: authCredentialsTable.userId })
-    .from(authCredentialsTable)
-    .where(eq(authCredentialsTable.userId, row.userId))
+  // Primary: match exact code hash (avoids JS/PG clock skew on expiry).
+  const [byHash] = await db
+    .select({
+      userId: authPasswordResetCodesTable.userId,
+      email: authPasswordResetCodesTable.email,
+      codeHash: authPasswordResetCodesTable.codeHash,
+    })
+    .from(authPasswordResetCodesTable)
+    .where(and(eq(authPasswordResetCodesTable.codeHash, codeHash), resetCodeNotExpired))
     .limit(1);
-  if (!hasCred) {
-    return { ok: false, error: "Invalid or expired reset code" };
+
+  if (byHash) {
+    const rowEmail = normalizeAuthEmail(byHash.email);
+    const emailOk = rowEmail === normalizedEmail;
+    const userOk = cred != null && cred.userId === byHash.userId;
+    if (emailOk || userOk) {
+      const [hasCred] = await db
+        .select({ userId: authCredentialsTable.userId })
+        .from(authCredentialsTable)
+        .where(eq(authCredentialsTable.userId, byHash.userId))
+        .limit(1);
+      if (hasCred) return { ok: true, userId: byHash.userId };
+    }
+    if (!emailOk && !userOk) {
+      return { ok: false, error: "That reset code is not for this email address" };
+    }
   }
 
-  return { ok: true, userId: row.userId };
+  // Fallback: active code for this account (user may have mistyped one digit).
+  const accountScope = cred
+    ? or(
+        eq(authPasswordResetCodesTable.userId, cred.userId),
+        sql`lower(${authPasswordResetCodesTable.email}) = ${normalizedEmail}`,
+      )
+    : sql`lower(${authPasswordResetCodesTable.email}) = ${normalizedEmail}`;
+
+  const [activeForAccount] = await db
+    .select({
+      userId: authPasswordResetCodesTable.userId,
+      codeHash: authPasswordResetCodesTable.codeHash,
+      expiresAt: authPasswordResetCodesTable.expiresAt,
+    })
+    .from(authPasswordResetCodesTable)
+    .where(and(accountScope, resetCodeNotExpired))
+    .limit(1);
+
+  if (activeForAccount && codesEqual(activeForAccount.codeHash, trimmedCode)) {
+    return { ok: true, userId: activeForAccount.userId };
+  }
+
+  const [expiredForAccount] = await db
+    .select({ expiresAt: authPasswordResetCodesTable.expiresAt })
+    .from(authPasswordResetCodesTable)
+    .where(accountScope)
+    .limit(1);
+
+  if (expiredForAccount && expiredForAccount.expiresAt <= new Date()) {
+    return { ok: false, error: "Reset code expired — request a new code" };
+  }
+
+  if (!activeForAccount && !expiredForAccount) {
+    return { ok: false, error: "No reset code found — use Send reset code first" };
+  }
+
+  return { ok: false, error: "Incorrect reset code — check the latest email" };
 }
 
 export async function clearPasswordResetCode(userId: string): Promise<void> {

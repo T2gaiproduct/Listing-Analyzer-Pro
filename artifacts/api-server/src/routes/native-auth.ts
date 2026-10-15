@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import {
   db,
   authCredentialsTable,
@@ -316,52 +316,68 @@ router.post("/auth/forgot-password", async (req, res) => {
 
 router.post("/auth/reset-password", async (req, res) => {
   if (nativeDisabled(req, res)) return;
-  const body = req.body as { email?: string; code?: string; token?: string; password?: string };
-  const password = typeof body.password === "string" ? body.password : "";
-  if (password.length < 8) {
-    res.status(400).json({ error: "Password must be at least 8 characters" });
-    return;
-  }
-
-  const rawToken = typeof body.token === "string" ? body.token.trim() : "";
-  const codeDigits = normalizeSixDigitCode(body.code ?? (rawToken.length <= 20 ? rawToken : ""));
-  const parsedEmail = parseEmailForApi(body.email ?? "");
-
-  let userId: string | null = null;
-
-  if (!("error" in parsedEmail) && codeDigits.length === 6) {
-    const verified = await verifyPasswordResetCode(parsedEmail.email, codeDigits);
-    if (!verified.ok) {
-      res.status(400).json({ error: verified.error });
+  try {
+    await ensureNativeAuthSchemaMigrated();
+    const body = req.body as { email?: string; code?: string | number; token?: string; password?: string };
+    const password = typeof body.password === "string" ? body.password : "";
+    if (password.length < 8) {
+      res.status(400).json({ error: "Password must be at least 8 characters" });
       return;
     }
-    userId = verified.userId;
-  } else if (rawToken.length > 20) {
-    const tokenHash = hashResetTokenStable(rawToken);
-    const now = new Date();
-    const [row] = await db
-      .select()
-      .from(authPasswordResetTokensTable)
-      .where(and(eq(authPasswordResetTokensTable.tokenHash, tokenHash), gt(authPasswordResetTokensTable.expiresAt, now)))
-      .limit(1);
-    if (!row) {
-      res.status(400).json({ error: "Reset link expired or invalid" });
+
+    const rawToken = typeof body.token === "string" ? body.token.trim() : "";
+    const codeDigits = normalizeSixDigitCode(body.code ?? (rawToken.length <= 20 ? rawToken : ""));
+    const parsedEmail = parseEmailForApi(body.email ?? "");
+
+    let userId: string | null = null;
+
+    if (!("error" in parsedEmail) && codeDigits.length === 6) {
+      const verified = await verifyPasswordResetCode(parsedEmail.email, codeDigits);
+      if (!verified.ok) {
+        res.status(400).json({ error: verified.error });
+        return;
+      }
+      userId = verified.userId;
+    } else if (rawToken.length > 20) {
+      const tokenHash = hashResetTokenStable(rawToken);
+      const [row] = await db
+        .select()
+        .from(authPasswordResetTokensTable)
+        .where(
+          and(
+            eq(authPasswordResetTokensTable.tokenHash, tokenHash),
+            sql`${authPasswordResetTokensTable.expiresAt} > now()`,
+          ),
+        )
+        .limit(1);
+      if (!row) {
+        res.status(400).json({ error: "Reset link expired or invalid" });
+        return;
+      }
+      userId = row.userId;
+      await db.delete(authPasswordResetTokensTable).where(eq(authPasswordResetTokensTable.tokenHash, tokenHash));
+    } else {
+      res.status(400).json({ error: "Enter your email and the 6-digit reset code" });
       return;
     }
-    userId = row.userId;
-    await db.delete(authPasswordResetTokensTable).where(eq(authPasswordResetTokensTable.tokenHash, tokenHash));
-  } else {
-    res.status(400).json({ error: "Enter your email and the 6-digit reset code" });
-    return;
-  }
 
-  const passwordHash = await hashPassword(password);
-  await db
-    .update(authCredentialsTable)
-    .set({ passwordHash, updatedAt: new Date() })
-    .where(eq(authCredentialsTable.userId, userId));
-  await clearPasswordResetCode(userId);
-  res.json({ ok: true });
+    const passwordHash = await hashPassword(password);
+    await db
+      .update(authCredentialsTable)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(authCredentialsTable.userId, userId));
+    await clearPasswordResetCode(userId);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "reset-password failed");
+    const message =
+      process.env.NODE_ENV === "production"
+        ? "Unable to reset password. Please try again."
+        : err instanceof Error
+          ? err.message
+          : "Unable to reset password";
+    res.status(500).json({ error: message });
+  }
 });
 
 router.get("/auth/google/start", (req, res) => {

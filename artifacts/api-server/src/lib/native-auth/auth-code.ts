@@ -4,7 +4,7 @@ export function normalizeSixDigitCode(raw: unknown): string {
     return String(Math.trunc(raw)).replace(/\D/g, "").padStart(6, "0").slice(-6);
   }
   if (typeof raw === "string") {
-    return raw.replace(/\D/g, "").trim();
+    return raw.normalize("NFKC").replace(/\D/g, "").trim();
   }
   return "";
 }
