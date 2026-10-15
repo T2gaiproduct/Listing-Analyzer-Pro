@@ -269,7 +269,7 @@ function AuthFormShell({
   initialResetCode?: string;
   initialStep?: AuthStep;
 }) {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { setSession } = useNativeAuth();
   const { platformName } = useBranding();
   const copy = buildClerkLocalization(platformName);
@@ -305,6 +305,22 @@ function AuthFormShell({
   const [error, setError] = useState<string | null>(null);
   const [backendWarning, setBackendWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resetPasswordComplete, setResetPasswordComplete] = useState(false);
+
+  const signInPath = signInUrl.replace(basePath, "") || "/sign-in";
+
+  useEffect(() => {
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    if (params?.get("reset") === "success") {
+      setResetPasswordComplete(true);
+      setStep("credentials");
+      setResetOtp("");
+      setPassword("");
+      setConfirmPassword("");
+      setError(null);
+      window.history.replaceState(null, "", signInPath);
+    }
+  }, [location, signInPath]);
 
   useEffect(() => {
     void loadNativeAuthConfig().then((cfg) => {
@@ -425,9 +441,32 @@ function AuthFormShell({
     }
   }
 
+  function completePasswordResetUi(resetEmail: string) {
+    setResetPasswordComplete(true);
+    setStep("credentials");
+    setEmail(resetEmail);
+    setResetOtp("");
+    setPassword("");
+    setConfirmPassword("");
+    setError(null);
+    setBusy(false);
+    const onSignIn =
+      typeof window !== "undefined" &&
+      window.location.pathname.replace(/\/$/, "") === signInPath.replace(/\/$/, "");
+    if (onSignIn) {
+      window.history.replaceState(null, "", signInPath);
+    } else {
+      setLocation(signInPath);
+    }
+  }
+
   async function onResetPassword(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (resetPasswordComplete) {
+      setStep("credentials");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters");
       return;
@@ -461,7 +500,8 @@ function AuthFormShell({
             },
       );
       if (!result.ok) return;
-      setLocation(`${signInUrl.replace(basePath, "")}?reset=success`);
+      completePasswordResetUi(normalizedEmail);
+      return;
     } catch {
       setError("Network error");
     } finally {
@@ -648,13 +688,21 @@ function AuthFormShell({
             {error && (
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
             )}
-            <Button type="submit" disabled={busy} className="h-11 w-full bg-orange-500 text-white hover:bg-orange-600">
+            <Button
+              type="submit"
+              disabled={busy || resetPasswordComplete}
+              className="h-11 w-full bg-orange-500 text-white hover:bg-orange-600"
+            >
               {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Update password"}
             </Button>
             <button
               type="button"
               className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
-              onClick={() => setStep("forgot-request")}
+              onClick={() => {
+                setResetPasswordComplete(false);
+                setStep("forgot-request");
+                setError(null);
+              }}
             >
               Request a new code
             </button>
@@ -722,6 +770,11 @@ function AuthFormShell({
           </form>
         ) : (
           <>
+        {resetPasswordComplete && mode === "sign-in" && (
+          <p className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+            Password updated. Sign in with your new password below.
+          </p>
+        )}
         <a
           href={googleHref}
           className={cn(
@@ -781,6 +834,7 @@ function AuthFormShell({
                 type="button"
                 className="text-sm font-medium text-orange-500 hover:text-orange-600"
                 onClick={() => {
+                  setResetPasswordComplete(false);
                   setStep("forgot-request");
                   setError(null);
                 }}
