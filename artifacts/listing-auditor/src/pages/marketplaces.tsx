@@ -41,7 +41,7 @@ import {
   syncWalmartProducts,
   buildEbayOAuthConnectUrl,
   disconnectEbay,
-  startWalmartConnect,
+  buildWalmartOAuthConnectUrl,
   disconnectWalmart,
   type MarketplacePlatform,
   type ShopifySyncResult,
@@ -505,8 +505,11 @@ export default function MarketplacesPage() {
     void (async () => {
       setPendingAction("walmart");
       try {
-        const { url } = await startWalmartConnect({ walmartCallbackUri, clientType });
-        window.location.assign(url);
+        window.location.assign(buildWalmartOAuthConnectUrl({
+          workspaceId: featureWorkspaceId,
+          walmartCallbackUri,
+          clientType,
+        }));
       } catch (error) {
         walmartAppLoginStarted.current = false;
         toast({
@@ -542,17 +545,7 @@ export default function MarketplacesPage() {
       return;
     }
     setPendingAction("walmart");
-    try {
-      const { url } = await startWalmartConnect();
-      window.location.assign(url);
-    } catch (error) {
-      toast({
-        title: "Could not start Walmart sign-in",
-        description: error instanceof Error ? error.message : "Try again or contact support.",
-        variant: "destructive",
-      });
-      setPendingAction(null);
-    }
+    window.location.assign(buildWalmartOAuthConnectUrl({ workspaceId: featureWorkspaceId }));
   }
 
   async function handleWalmartDisconnect() {

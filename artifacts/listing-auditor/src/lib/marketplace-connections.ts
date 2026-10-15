@@ -308,6 +308,25 @@ export async function fetchWalmartOAuthConfig(): Promise<WalmartOAuthConfigRespo
   return fetchJson<WalmartOAuthConfigResponse>(`${basePath}/api/walmart/oauth/config`);
 }
 
+/** Full-page OAuth start: session cookie auth, then 302 to Walmart (no marketplace password in Ecommerce Guru). */
+export function buildWalmartOAuthConnectUrl(input?: {
+  workspaceId?: number | null;
+  walmartCallbackUri?: string;
+  clientType?: string;
+}): string {
+  const params = new URLSearchParams({ mode: "redirect" });
+  if (input?.workspaceId != null && input.workspaceId > 0) {
+    params.set("workspaceId", String(input.workspaceId));
+  }
+  if (input?.walmartCallbackUri?.trim()) {
+    params.set("walmartCallbackUri", input.walmartCallbackUri.trim());
+  }
+  if (input?.clientType?.trim()) {
+    params.set("clientType", input.clientType.trim());
+  }
+  return `${basePath}/api/walmart/oauth/authorize?${params.toString()}`;
+}
+
 export async function startWalmartConnect(input?: {
   walmartCallbackUri?: string;
   clientType?: string;

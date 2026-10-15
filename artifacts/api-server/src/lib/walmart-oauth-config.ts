@@ -78,18 +78,41 @@ export function walmartOAuthAuthorizeUrl(environment: WalmartEnvironment): strin
     return WALMART_PRODUCTION_AUTHORIZE;
   }
 
-  return WALMART_SANDBOX_AUTHORIZE_DOC;
+  // Walmart docs reference login.sandbox.account.wal-mart.com, but that host often has no public DNS.
+  // Sandbox apps use the production login host with sandbox client credentials unless overridden above.
+  return WALMART_PRODUCTION_AUTHORIZE;
+}
+
+/** Rewrite sandbox doc authorize host to a reachable login host when no explicit sandbox URL override is set. */
+export function applySandboxAuthorizeHostPolicy(
+  authorizeUrl: URL,
+  environment: WalmartEnvironment,
+): URL {
+  if (environment !== "sandbox") return authorizeUrl;
+  if (process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL?.trim()) {
+    return authorizeUrl;
+  }
+  const sandboxDocHost = new URL(WALMART_SANDBOX_AUTHORIZE_DOC).hostname;
+  if (authorizeUrl.hostname.toLowerCase() === sandboxDocHost) {
+    authorizeUrl.hostname = new URL(WALMART_PRODUCTION_AUTHORIZE).hostname;
+  }
+  return authorizeUrl;
+}
+
+/** Fix Walmart "Simulate connect" App Login URLs that glue query params to the path. */
+export function fixMalformedWalmartAuthorizeReferer(raw: string): string {
+  let trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  if (trimmed.includes("/authorize&") && !trimmed.includes("/authorize?")) {
+    trimmed = trimmed.replace("/authorize&", "/authorize?");
+  }
+  return trimmed;
 }
 
 /** Allowlisted Walmart OAuth authorize bases (full URL including /authorize). */
 export function normalizeWalmartAuthorizeEndpoint(raw: string): string | null {
-  let trimmed = raw.trim();
+  const trimmed = fixMalformedWalmartAuthorizeReferer(raw);
   if (!trimmed) return null;
-  // Walmart "Simulate connect" App Login URLs sometimes glue query params to the path:
-  // .../authorize&clientType=seller → .../authorize?clientType=seller
-  if (trimmed.includes("/authorize&") && !trimmed.includes("/authorize?")) {
-    trimmed = trimmed.replace("/authorize&", "/authorize?");
-  }
   try {
     const url = new URL(trimmed);
     if (url.protocol !== "https:") return null;

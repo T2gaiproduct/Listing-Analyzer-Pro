@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
+  applySandboxAuthorizeHostPolicy,
   getWalmartAppCredentials,
   normalizeWalmartAuthorizeEndpoint,
   walmartOAuthAuthorizeUrl,
@@ -121,6 +122,33 @@ function walmartOAuthAuthorizeScope(): string {
   return process.env.WALMART_OAUTH_SCOPE?.trim() || "openId";
 }
 
+export const WALMART_AUTHORIZE_REQUIRED_QUERY_PARAMS = [
+  "responseType",
+  "clientId",
+  "redirectUri",
+  "nonce",
+  "state",
+  "clientType",
+] as const;
+
+export function validateWalmartAuthorizeRedirectUrl(url: URL): void {
+  for (const key of WALMART_AUTHORIZE_REQUIRED_QUERY_PARAMS) {
+    const value = url.searchParams.get(key)?.trim();
+    if (!value) {
+      throw new WalmartOAuthError(`Walmart OAuth authorize URL is missing required parameter: ${key}`);
+    }
+  }
+  if (url.searchParams.get("responseType") !== "code") {
+    throw new WalmartOAuthError("Walmart OAuth authorize URL must use responseType=code.");
+  }
+  if (url.searchParams.get("clientType") !== "seller") {
+    const clientType = url.searchParams.get("clientType")?.trim() ?? "";
+    if (!clientType.startsWith("seller")) {
+      throw new WalmartOAuthError("Walmart OAuth authorize URL must include clientType=seller for the US marketplace.");
+    }
+  }
+}
+
 export function buildWalmartAuthorizeUrl(input: {
   environment: WalmartEnvironment;
   redirectUri: string;
@@ -133,6 +161,18 @@ export function buildWalmartAuthorizeUrl(input: {
   if (!creds) {
     throw new WalmartOAuthError(`Walmart ${input.environment} OAuth is not configured on the server.`);
   }
+  if (!creds.clientId.trim()) {
+    throw new WalmartOAuthError("Walmart Client ID is not configured on the server.");
+  }
+  const redirectUri = input.redirectUri.trim();
+  if (!redirectUri) {
+    throw new WalmartOAuthError("Walmart OAuth redirect URI is missing.");
+  }
+  const state = input.state.trim();
+  if (!state) {
+    throw new WalmartOAuthError("Walmart OAuth state is missing.");
+  }
+
   const authorizeBase =
     (input.authorizeEndpoint ? normalizeWalmartAuthorizeEndpoint(input.authorizeEndpoint) : null)
     ?? walmartOAuthAuthorizeUrl(input.environment);
@@ -140,24 +180,19 @@ export function buildWalmartAuthorizeUrl(input: {
   const required = new URLSearchParams({
     responseType: "code",
     clientId: creds.clientId,
-    redirectUri: input.redirectUri,
+    redirectUri,
     scope: walmartOAuthAuthorizeScope(),
     nonce: randomOAuthNonce(),
-    state: input.state,
+    state,
     clientType: input.clientType?.trim() || "seller",
   });
 
-  if (!creds.clientId.trim()) {
-    throw new WalmartOAuthError("Walmart Client ID is not configured on the server.");
-  }
-  if (!input.redirectUri.trim()) {
-    throw new WalmartOAuthError("Walmart OAuth redirect URI is missing.");
-  }
-
   const url = new URL(authorizeBase);
+  applySandboxAuthorizeHostPolicy(url, input.environment);
   for (const [key, value] of required.entries()) {
     url.searchParams.set(key, value);
   }
+  validateWalmartAuthorizeRedirectUrl(url);
   return url.toString();
 }
 

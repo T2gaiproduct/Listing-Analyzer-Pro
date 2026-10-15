@@ -3,6 +3,8 @@ import { getRequestUserId } from "../lib/request-auth.js";
 import { requireAuth } from "../lib/require-auth.js";
 import {
   buildWalmartOAuthCallbackUrl,
+  fixMalformedWalmartAuthorizeReferer,
+  getWalmartAppCredentials,
   isWalmartOAuthConnectReady,
   resolveActiveWalmartOAuthEnvironment,
   walmartConnectUnavailableMessageForSellers,
@@ -50,23 +52,48 @@ router.get(
 
     const redirectUri = buildWalmartOAuthCallbackUrl(req);
     const state = createWalmartOAuthState({ userId, workspaceId, environment });
-    const authorizeEndpoint = typeof req.query.walmartCallbackUri === "string"
+    const walmartCallbackRaw = typeof req.query.walmartCallbackUri === "string"
       ? req.query.walmartCallbackUri
       : undefined;
+    const authorizeEndpoint = walmartCallbackRaw
+      ? fixMalformedWalmartAuthorizeReferer(walmartCallbackRaw)
+      : undefined;
     const clientType = typeof req.query.clientType === "string" ? req.query.clientType : undefined;
-    const url = buildWalmartAuthorizeUrl({
-      environment,
-      redirectUri,
-      state,
-      clientType,
-      authorizeEndpoint,
-    });
-    res.json({ url, environment, redirectUri });
+    try {
+      const url = buildWalmartAuthorizeUrl({
+        environment,
+        redirectUri,
+        state,
+        clientType,
+        authorizeEndpoint,
+      });
+      if (req.query.mode === "redirect") {
+        res.redirect(302, url);
+        return;
+      }
+      res.json({ url, environment, redirectUri });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not start Walmart authorization.";
+      if (req.query.mode === "redirect") {
+        res.status(400).send(message);
+        return;
+      }
+      res.status(400).json({ error: message });
+    }
   },
 );
 
 router.get("/walmart/oauth/callback", async (req: Request, res: Response): Promise<void> => {
   const sessionUserId = getRequestUserId(req);
+
+  const walmartError = typeof req.query.error === "string" ? req.query.error.trim() : "";
+  if (walmartError) {
+    const detail = typeof req.query.error_description === "string"
+      ? req.query.error_description.trim()
+      : walmartError;
+    res.status(400).send(`Walmart declined authorization: ${detail}`);
+    return;
+  }
 
   const stateRaw = typeof req.query.state === "string" ? req.query.state : "";
   const parsed = parseWalmartOAuthState(stateRaw);
@@ -95,14 +122,31 @@ router.get("/walmart/oauth/callback", async (req: Request, res: Response): Promi
     return;
   }
 
-  const code = typeof req.query.code === "string" ? req.query.code : "";
-  const sellerId = typeof req.query.sellerId === "string" ? req.query.sellerId : "";
+  const callbackType = typeof req.query.type === "string" ? req.query.type.trim() : "";
+  if (callbackType && callbackType !== "auth") {
+    res.status(400).send("Unexpected Walmart callback type. Please try connecting again.");
+    return;
+  }
+
+  const code = typeof req.query.code === "string" ? req.query.code.trim() : "";
+  const sellerId = typeof req.query.sellerId === "string" ? req.query.sellerId.trim() : "";
+  const callbackClientId = typeof req.query.clientId === "string" ? req.query.clientId.trim() : "";
   if (!code) {
     res.status(400).send("Missing authorization code from Walmart.");
     return;
   }
   if (!sellerId) {
     res.status(400).send("Missing seller ID from Walmart.");
+    return;
+  }
+
+  const appCreds = getWalmartAppCredentials(parsed.environment);
+  if (!appCreds) {
+    res.status(400).send("Walmart OAuth is not configured on the server.");
+    return;
+  }
+  if (callbackClientId && callbackClientId !== appCreds.clientId) {
+    res.status(400).send("Walmart callback clientId does not match this application.");
     return;
   }
 

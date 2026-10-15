@@ -84,6 +84,34 @@ async function testRefreshTokenSurfacesWalmartError(): Promise<void> {
   }
 }
 
+function testBuildAuthorizeUrlRewritesSandboxAuthorizeHost(): void {
+  const prevId = process.env.WALMART_SANDBOX_CLIENT_ID;
+  const prevSecret = process.env.WALMART_SANDBOX_CLIENT_SECRET;
+  const prevOverride = process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL;
+  delete process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL;
+  process.env.WALMART_SANDBOX_CLIENT_ID = "app-client-id";
+  process.env.WALMART_SANDBOX_CLIENT_SECRET = "app-client-secret";
+  try {
+    const url = buildWalmartAuthorizeUrl({
+      environment: "sandbox",
+      redirectUri: "https://test.sellerlens.io/api/walmart/oauth/callback",
+      state: "state-abc",
+      authorizeEndpoint: "https://login.sandbox.account.wal-mart.com/authorize&clientType=seller",
+    });
+    const parsed = new URL(url);
+    assert.equal(parsed.hostname, "login.account.wal-mart.com");
+    assert.equal(parsed.searchParams.get("clientType"), "seller");
+    assert.equal(parsed.searchParams.get("responseType"), "code");
+  } finally {
+    if (prevId === undefined) delete process.env.WALMART_SANDBOX_CLIENT_ID;
+    else process.env.WALMART_SANDBOX_CLIENT_ID = prevId;
+    if (prevSecret === undefined) delete process.env.WALMART_SANDBOX_CLIENT_SECRET;
+    else process.env.WALMART_SANDBOX_CLIENT_SECRET = prevSecret;
+    if (prevOverride === undefined) delete process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL;
+    else process.env.WALMART_SANDBOX_OAUTH_AUTHORIZE_URL = prevOverride;
+  }
+}
+
 function testBuildAuthorizeUrlMergesAppLoginEndpoint(): void {
   const prevId = process.env.WALMART_SANDBOX_CLIENT_ID;
   const prevSecret = process.env.WALMART_SANDBOX_CLIENT_SECRET;
@@ -179,6 +207,7 @@ async function testExchangeAuthorizationCode(): Promise<void> {
 
 testProductionIsDefault();
 testTokenUrls();
+testBuildAuthorizeUrlRewritesSandboxAuthorizeHost();
 testBuildAuthorizeUrlMergesAppLoginEndpoint();
 testBuildAuthorizeUrlIncludesParams();
 await testRefreshTokenPostsBasicAuthAndGrant();
