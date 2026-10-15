@@ -49,19 +49,69 @@ async function rasterizeSvgText(svgText: string, width = 720): Promise<string> {
   }
 }
 
-export async function loadSellerLensLogoDataUrl(basePath?: string): Promise<string | null> {
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Failed to read logo blob"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fetchImageAssetAsDataUrl(absoluteUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(absoluteUrl);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (blob.type.includes("svg")) {
+      const svgText = await blob.text();
+      return rasterizeSvgText(svgText);
+    }
+    return blobToDataUrl(blob);
+  } catch {
+    return null;
+  }
+}
+
+function resolveAbsoluteAssetUrl(basePath: string, assetPath: string): string {
+  const trimmed = assetPath.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+    return trimmed;
+  }
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const bp = basePath.replace(/\/$/, "");
+  if (trimmed.startsWith("/")) return `${origin}${trimmed}`;
+  return `${origin}${bp}/${trimmed}`;
+}
+
+/** Logo for PDF exports: admin /api/branding first, then bundled logo.png. */
+export async function loadBrandingLogoDataUrl(basePath?: string): Promise<string | null> {
   if (cachedLogoDataUrl !== undefined && !basePath) return cachedLogoDataUrl;
 
+  const bp = basePath?.replace(/\/$/, "") ?? "";
   try {
-    if (basePath) {
-      const res = await fetch(`${basePath.replace(/\/$/, "")}/logo.svg`);
-      if (res.ok) {
-        const svgText = await res.text();
-        const dataUrl = await rasterizeSvgText(svgText);
+    const brandingRes = await fetch(`${bp}/api/branding`);
+    if (brandingRes.ok) {
+      const data = (await brandingRes.json()) as { logoUrl?: string | null };
+      const custom = data.logoUrl?.trim();
+      if (custom) {
+        const dataUrl = await fetchImageAssetAsDataUrl(resolveAbsoluteAssetUrl(bp, custom));
+        if (dataUrl) {
+          if (!basePath) cachedLogoDataUrl = dataUrl;
+          return dataUrl;
+        }
+      }
+    }
+
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    for (const rel of ["/logo.png", "/logo.svg"]) {
+      const dataUrl = await fetchImageAssetAsDataUrl(`${origin}${bp}${rel}`);
+      if (dataUrl) {
         if (!basePath) cachedLogoDataUrl = dataUrl;
         return dataUrl;
       }
     }
+
     const dataUrl = await rasterizeSvgText(SELLERLENS_LOGO_SVG);
     cachedLogoDataUrl = dataUrl;
     return dataUrl;
@@ -69,6 +119,10 @@ export async function loadSellerLensLogoDataUrl(basePath?: string): Promise<stri
     if (!basePath) cachedLogoDataUrl = null;
     return null;
   }
+}
+
+export async function loadSellerLensLogoDataUrl(basePath?: string): Promise<string | null> {
+  return loadBrandingLogoDataUrl(basePath);
 }
 
 /** @deprecated Use loadSellerLensLogoDataUrl */
@@ -145,7 +199,7 @@ export function drawPdfPageChrome(
   const footerText = sanitizePdfText(
     options?.footerNote
       ? `${options.footerNote} · Page ${page} of ${totalPages}`
-      : `SellerLens · Page ${page} of ${totalPages}`,
+      : `Page ${page} of ${totalPages}`,
   );
   doc.text(footerText, margin, footerY);
 }

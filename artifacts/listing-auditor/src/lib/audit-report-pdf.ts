@@ -269,7 +269,7 @@ class AuditReportPdf {
       this.doc.setPage(page);
       drawPdfPageChrome(this.doc, page, pages, this.logoDataUrl, {
         margin: MARGIN,
-        footerNote: `SellerLens · ${auditedOn}`,
+        footerNote: auditedOn,
       });
     }
 

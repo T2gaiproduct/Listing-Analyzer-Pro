@@ -5,17 +5,6 @@ type SiteLogoVariant = "public" | "app" | "footer";
 
 const wordmarkClass = "h-8 w-auto max-w-[11rem] sm:max-w-[14rem] object-contain object-left shrink-0";
 
-function splitFooterWordmark(name: string): { prefix: string; suffix: string } {
-  const trimmed = name.trim();
-  if (trimmed.length > 4 && trimmed.toLowerCase().endsWith("lens")) {
-    return {
-      prefix: trimmed.slice(0, -4),
-      suffix: trimmed.slice(-4),
-    };
-  }
-  return { prefix: trimmed, suffix: "" };
-}
-
 interface SiteLogoProps {
   className?: string;
   imageClassName?: string;
@@ -27,40 +16,23 @@ export function SiteLogo({
   imageClassName = wordmarkClass,
   variant = "public",
 }: SiteLogoProps) {
-  const { platformName, logoUrl, faviconUrl } = useBranding();
+  const { platformName, logoUrl } = useBranding();
 
-  if (variant === "footer") {
-    const { prefix, suffix } = splitFooterWordmark(platformName);
-    return (
-      <span className={cn("inline-flex items-center gap-2 min-w-0 max-w-full", className)}>
-        <img
-          src={faviconUrl}
-          alt=""
-          aria-hidden
-          width={32}
-          height={32}
-          decoding="async"
-          className="h-8 w-8 shrink-0 object-contain"
-        />
-        <span className="font-bold text-lg tracking-tight leading-none truncate" aria-label={platformName}>
-          <span className="text-white">{prefix}</span>
-          {suffix ? <span className="text-orange-500">{suffix}</span> : null}
-        </span>
-      </span>
-    );
-  }
-
-  const resolvedLogoUrl = logoUrl;
+  const footerClass =
+    "h-9 w-auto max-w-[14rem] sm:max-w-[18rem] object-contain object-left shrink-0";
 
   return (
     <span className={cn("inline-flex items-center min-w-0 max-w-full", className)}>
       <img
-        src={resolvedLogoUrl}
+        src={logoUrl}
         alt={platformName}
         width={176}
         height={32}
         decoding="async"
-        className={cn(imageClassName, variant === "app" && "max-w-[9rem]")}
+        className={cn(
+          variant === "footer" ? footerClass : imageClassName,
+          variant === "app" && "max-w-[9rem]",
+        )}
       />
     </span>
   );
@@ -84,7 +56,7 @@ export function SiteLogoMark({
   return <img src={logoUrl} alt={platformName} width={144} height={32} decoding="async" className={cn(imageClassName, "shrink-0", className)} />;
 }
 
-/** Orange magnifying-glass mark for collapsed sidebar / compact slots. */
+/** Compact mark for collapsed sidebar (uses uploaded favicon or logo from admin branding). */
 export function SiteLogoIcon({
   className,
   imageClassName = "h-8 w-8 object-contain",

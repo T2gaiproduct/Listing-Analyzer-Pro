@@ -1,6 +1,6 @@
 /** Clerk hosted auth copy — uses platform branding instead of legacy "Listing Auditor". */
 export function buildClerkLocalization(platformName: string) {
-  const app = platformName.trim() || "Seller Lens";
+  const app = platformName.trim() || "Ecommerce Guru";
 
   return {
     signIn: {
@@ -32,7 +32,7 @@ export function buildClerkLocalization(platformName: string) {
 
 /** Native auth UI only (not passed to ClerkProvider localization). */
 export function buildNativeForgotPasswordCopy(platformName: string) {
-  const app = platformName.trim() || "Seller Lens";
+  const app = platformName.trim() || "Ecommerce Guru";
   return {
     requestTitle: "Reset your password",
     requestSubtitle: `Enter your email and we'll send a 6-digit reset code for ${app}`,

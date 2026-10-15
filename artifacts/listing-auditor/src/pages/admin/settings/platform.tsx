@@ -115,7 +115,7 @@ export default function AdminSettingsPlatform() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    platform_name: "Seller Lens",
+    platform_name: "Ecommerce Guru",
     support_email: "",
     support_phone: "",
     company_address: "",
@@ -161,7 +161,7 @@ export default function AdminSettingsPlatform() {
         <CardHeader>
           <CardTitle>Branding</CardTitle>
           <CardDescription>
-            Logo and favicon appear on the public site, sign-in pages, and browser tab. Leave empty to use defaults.
+            Uploads apply site-wide (header, footer, sign-in, app sidebar, PDF exports, and browser tab). They stay after promo or notification banners are dismissed. Leave empty to use the bundled default logo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

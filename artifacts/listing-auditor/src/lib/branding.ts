@@ -1,4 +1,4 @@
-export const DEFAULT_PLATFORM_NAME = "Seller Lens";
+export const DEFAULT_PLATFORM_NAME = "Ecommerce Guru";
 
 export interface SiteBranding {
   platformName: string;
@@ -15,20 +15,18 @@ export function getBasePath() {
 
 export function defaultLogoUrl() {
   const basePath = getBasePath();
-  if (typeof window === "undefined") return `${basePath}/logo.svg`;
-  return `${window.location.origin}${basePath}/logo.svg`;
+  if (typeof window === "undefined") return `${basePath}/logo.png`;
+  return `${window.location.origin}${basePath}/logo.png`;
 }
 
 export function defaultFooterLogoUrl() {
-  const basePath = getBasePath();
-  if (typeof window === "undefined") return `${basePath}/logo-footer.svg`;
-  return `${window.location.origin}${basePath}/logo-footer.svg`;
+  return defaultLogoUrl();
 }
 
 export function defaultFaviconUrl() {
   const basePath = getBasePath();
-  if (typeof window === "undefined") return `${basePath}/favicon.svg`;
-  return `${window.location.origin}${basePath}/favicon.svg`;
+  if (typeof window === "undefined") return `${basePath}/logo.png`;
+  return `${window.location.origin}${basePath}/logo.png`;
 }
 
 export function resolveBrandingAsset(url: string | null | undefined, fallback: string) {

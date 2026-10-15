@@ -140,7 +140,7 @@ export function ReportTable<T>({
       doc.setPage(page);
       drawPdfPageChrome(doc, page, pages, logoDataUrl, {
         margin: marginX,
-        footerNote: `SellerLens · ${title}`,
+        footerNote: title,
       });
     }
 
