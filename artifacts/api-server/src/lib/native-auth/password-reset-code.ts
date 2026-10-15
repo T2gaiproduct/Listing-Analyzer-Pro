@@ -25,9 +25,19 @@ export function hashPasswordResetCode(code: string): string {
   return createHash("sha256").update(`password-reset:${normalized}`).digest("hex");
 }
 
+function normalizeStoredCodeHash(storedHash: string): string | null {
+  const normalized = storedHash.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) return null;
+  return normalized;
+}
+
 function codesEqual(storedHash: string, code: string): boolean {
-  const a = Buffer.from(storedHash, "hex");
-  const b = Buffer.from(hashPasswordResetCode(code), "hex");
+  const stored = normalizeStoredCodeHash(storedHash);
+  if (!stored) return false;
+  const expected = hashPasswordResetCode(code);
+  if (stored.length !== expected.length) return false;
+  const a = Buffer.from(stored, "hex");
+  const b = Buffer.from(expected, "hex");
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
 }
@@ -144,16 +154,9 @@ export async function verifyPasswordResetCode(
     const emailOk = rowEmail === normalizedEmail;
     const userOk = cred != null && cred.userId === byHash.userId;
     if (emailOk || userOk) {
-      const [hasCred] = await db
-        .select({ userId: authCredentialsTable.userId })
-        .from(authCredentialsTable)
-        .where(eq(authCredentialsTable.userId, byHash.userId))
-        .limit(1);
-      if (hasCred) return { ok: true, userId: byHash.userId };
+      return { ok: true, userId: byHash.userId };
     }
-    if (!emailOk && !userOk) {
-      return { ok: false, error: "That reset code is not for this email address" };
-    }
+    return { ok: false, error: "That reset code is not for this email address" };
   }
 
   // Fallback: active code for this account (user may have mistyped one digit).

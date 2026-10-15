@@ -441,6 +441,7 @@ function AuthFormShell({
       return;
     }
     const codeDigits = resetOtp.replace(/\D/g, "");
+    const normalizedEmail = email.trim().toLowerCase();
     if (!hasLegacyResetToken && codeDigits.length !== 6) {
       setError("Enter the 6-digit reset code from your email");
       return;
@@ -451,7 +452,7 @@ function AuthFormShell({
         "/api/auth/reset-password",
         hasLegacyResetToken
           ? { token: resetToken.trim(), password }
-          : { email: email.trim().toLowerCase(), code: String(codeDigits), password },
+          : { email: normalizedEmail, code: String(codeDigits), password },
       );
       if (!result.ok) return;
       setLocation(`${signInUrl.replace(basePath, "")}?reset=success`);
