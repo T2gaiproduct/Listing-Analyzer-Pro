@@ -285,6 +285,29 @@ export async function fetchEbayOAuthConfig(): Promise<EbayOAuthConfigResponse> {
   return fetchJson<EbayOAuthConfigResponse>(`${basePath}/api/ebay/oauth/config`);
 }
 
+/** True when the URL is eBay's OAuth2 authorize endpoint (not SellerLens sign-in or legacy sign-in). */
+export function isEbayOAuthAuthorizeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      (host === "auth.ebay.com" || host === "auth.sandbox.ebay.com")
+      && parsed.pathname.includes("/oauth2/authorize")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Full-page OAuth start: session cookie auth, then 302 to eBay (no SellerLens password form). */
+export function buildEbayOAuthConnectUrl(workspaceId?: number | null): string {
+  const params = new URLSearchParams({ mode: "redirect" });
+  if (workspaceId != null && workspaceId > 0) {
+    params.set("workspaceId", String(workspaceId));
+  }
+  return `${basePath}/api/ebay/oauth/authorize?${params.toString()}`;
+}
+
 export async function startEbayConnect(): Promise<{ url: string }> {
   return fetchJson<{ url: string }>(`${basePath}/api/ebay/oauth/authorize`);
 }

@@ -39,7 +39,7 @@ import {
   syncAmazonProducts,
   syncEbayProducts,
   syncWalmartProducts,
-  startEbayConnect,
+  buildEbayOAuthConnectUrl,
   disconnectEbay,
   startWalmartConnect,
   disconnectWalmart,
@@ -519,7 +519,7 @@ export default function MarketplacesPage() {
     })();
   }, [isLoading, toast, walmartConnectReady]);
 
-  async function handleEbayConnect() {
+  function handleEbayConnect() {
     if (!ebayConnectReady) {
       toast({
         title: "eBay not available",
@@ -529,17 +529,7 @@ export default function MarketplacesPage() {
       return;
     }
     setPendingAction("ebay");
-    try {
-      const { url } = await startEbayConnect();
-      window.location.assign(url);
-    } catch (error) {
-      toast({
-        title: "Could not start eBay sign-in",
-        description: error instanceof Error ? error.message : "Try again or contact support.",
-        variant: "destructive",
-      });
-      setPendingAction(null);
-    }
+    window.location.assign(buildEbayOAuthConnectUrl(featureWorkspaceId));
   }
 
   async function handleWalmartConnect() {
@@ -881,7 +871,7 @@ export default function MarketplacesPage() {
       <div className="space-y-2">
         <h1 className="text-lg font-semibold text-foreground tracking-tight">Marketplaces</h1>
         <p className="text-xs text-muted-foreground max-w-2xl">
-          Connect the sales channels you use in this workspace. Shopify, WooCommerce, eBay, and Walmart support OAuth or API connect; listing import, optimization, and publish expand per channel.
+          Connect the sales channels you use in this workspace. eBay and Walmart use OAuth (you approve access on their site; SellerLens stores tokens, not your marketplace password). Shopify and WooCommerce use store API credentials in the dialog.
         </p>
       </div>
 
@@ -984,7 +974,7 @@ export default function MarketplacesPage() {
         />
         <ConnectCard
           marketplace="eBay"
-          description="Link your eBay seller account to import inventory items into SellerLens (same flow as Shopify and WooCommerce)."
+          description="Connect with OAuth: you sign in on eBay’s website and approve access. SellerLens never asks for your eBay password—only secure refresh tokens for import and publish."
           connected={ebayConnected}
           connectLabel="Connect with eBay"
           connectDisabled={!ebayConnectReady}

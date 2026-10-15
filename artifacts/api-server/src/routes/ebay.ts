@@ -169,10 +169,15 @@ router.get(
 
     const state = createEbayOAuthState({ userId, workspaceId, environment });
     const url = buildEbayAuthorizeUrl(environment, state);
+    const redirectUri = buildEbayOAuthCallbackUrl(req);
+    if (req.query.mode === "redirect") {
+      res.redirect(302, url);
+      return;
+    }
     res.json({
       url,
       environment,
-      redirectUri: buildEbayOAuthCallbackUrl(req),
+      redirectUri,
     });
   },
 );
