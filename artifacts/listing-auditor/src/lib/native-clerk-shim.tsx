@@ -531,7 +531,13 @@ function AuthFormShell({
     <div className="w-full max-w-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
       <div className="px-8 pb-8 pt-8">
         <div className="mb-6 flex justify-center">
-          <SiteLogo imageClassName="h-8 w-auto max-w-[12rem] object-contain" />
+          <Link
+            href="/"
+            className="inline-flex rounded-md outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+            aria-label={`${platformName} home`}
+          >
+            <SiteLogo imageClassName="h-8 w-auto max-w-[12rem] object-contain" />
+          </Link>
         </div>
 
         <h1 className="text-center text-2xl font-bold tracking-tight text-slate-900">{heading}</h1>
