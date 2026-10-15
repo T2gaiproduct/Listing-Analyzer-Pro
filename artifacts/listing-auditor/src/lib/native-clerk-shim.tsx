@@ -440,7 +440,7 @@ function AuthFormShell({
       setError("Enter the email address for your account");
       return;
     }
-    const codeDigits = resetOtp.replace(/\D/g, "");
+    const codeDigits = resetOtp.normalize("NFKC").replace(/\D/g, "").slice(0, 6);
     const normalizedEmail = email.trim().toLowerCase();
     if (!hasLegacyResetToken && codeDigits.length !== 6) {
       setError("Enter the 6-digit reset code from your email");
@@ -452,7 +452,13 @@ function AuthFormShell({
         "/api/auth/reset-password",
         hasLegacyResetToken
           ? { token: resetToken.trim(), password }
-          : { email: normalizedEmail, code: String(codeDigits), password },
+          : {
+              email: normalizedEmail,
+              code: codeDigits,
+              resetCode: codeDigits,
+              token: codeDigits,
+              password,
+            },
       );
       if (!result.ok) return;
       setLocation(`${signInUrl.replace(basePath, "")}?reset=success`);
@@ -572,20 +578,24 @@ function AuthFormShell({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Reset code</Label>
-                  <div className="flex justify-center pt-1">
-                    <InputOTP maxLength={6} value={resetOtp} onChange={setResetOtp} disabled={busy}>
-                      <InputOTPGroup>
-                        {[0, 1, 2, 3, 4, 5].map((i) => (
-                          <InputOTPSlot
-                            key={i}
-                            index={i}
-                            className="h-11 w-11 border-slate-200 bg-slate-50 text-base text-slate-900 first:rounded-lg last:rounded-lg"
-                          />
-                        ))}
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
+                  <Label htmlFor="reset-code" className="text-sm font-medium text-slate-700">
+                    Reset code
+                  </Label>
+                  <Input
+                    id="reset-code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    required
+                    maxLength={6}
+                    value={resetOtp}
+                    onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="6-digit code from email subject"
+                    disabled={busy}
+                    className="h-11 border-slate-200 bg-slate-50 text-center font-mono text-lg tracking-[0.35em] text-slate-900"
+                  />
+                  <p className="text-center text-xs text-slate-500">
+                    Paste the code from the email subject (e.g. 396524 is your … password reset code).
+                  </p>
                   {devResetHint && import.meta.env.DEV && (
                     <p className="text-center text-xs text-amber-700">Dev code: {devResetHint}</p>
                   )}

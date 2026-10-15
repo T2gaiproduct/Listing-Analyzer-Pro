@@ -318,7 +318,13 @@ router.post("/auth/reset-password", async (req, res) => {
   if (nativeDisabled(req, res)) return;
   try {
     await ensureNativeAuthSchemaMigrated();
-    const body = req.body as { email?: string; code?: string | number; token?: string; password?: string };
+    const body = req.body as {
+      email?: string;
+      code?: string | number;
+      resetCode?: string | number;
+      token?: string;
+      password?: string;
+    };
     const password = typeof body.password === "string" ? body.password : "";
     if (password.length < 8) {
       res.status(400).json({ error: "Password must be at least 8 characters" });
@@ -326,7 +332,8 @@ router.post("/auth/reset-password", async (req, res) => {
     }
 
     const rawToken = typeof body.token === "string" ? body.token.trim() : "";
-    const codeDigits = normalizeSixDigitCode(body.code ?? (rawToken.length <= 20 ? rawToken : ""));
+    const codeFromBody = body.code ?? body.resetCode ?? (rawToken.length > 0 && rawToken.length <= 20 ? rawToken : undefined);
+    const codeDigits = normalizeSixDigitCode(codeFromBody);
     const parsedEmail = parseEmailForApi(body.email ?? "");
 
     let userId: string | null = null;
