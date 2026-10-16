@@ -1,12 +1,9 @@
 import { inArray } from "drizzle-orm";
 import { db, settingsTable } from "@workspace/db";
 import { sendEmail } from "./email.js";
+import { escapeHtml, modernNotificationEmailLayout } from "./email-template-layout.js";
 
 const INBOX_SETTING_KEYS = ["support_email", "email_reply_to", "email_from_address"] as const;
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
 
 function getAppBaseUrl(): string {
   return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
@@ -35,17 +32,15 @@ function adminNotificationHtml(params: {
   adminTicketsUrl: string;
 }): string {
   const who = escapeHtml(params.customerName?.trim() || params.customerEmail);
-  return `<!DOCTYPE html>
-<html lang="en"><body style="font-family:Segoe UI,sans-serif;background:#f8fafc;margin:0;padding:24px;">
-<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
-<h2 style="color:#0f172a;margin:0 0 8px;">New support ticket #${params.ticketId}</h2>
-<p style="color:#64748b;font-size:14px;margin:0 0 20px;">From <strong>${who}</strong> (${escapeHtml(params.customerEmail)})</p>
-<p style="color:#0f172a;font-weight:600;margin:0 0 8px;">${escapeHtml(params.subject)}</p>
-<div style="background:#f8fafc;border-radius:8px;padding:16px;color:#475569;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.message)}</div>
-<p style="margin:24px 0 0;text-align:center;">
-<a href="${params.adminTicketsUrl}" style="display:inline-block;background:#f97316;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;">View in admin</a>
-</p>
-</div></body></html>`;
+  return modernNotificationEmailLayout({
+    title: `New support ticket #${params.ticketId}`,
+    bodyHtml: `<p style="margin:0 0 12px;color:#64748b;font-size:14px;">From <strong>${who}</strong> (${escapeHtml(params.customerEmail)})</p>
+      <p style="margin:0 0 12px;font-weight:600;color:#0f172a;">${escapeHtml(params.subject)}</p>
+      <div style="background:#f8fafc;border-radius:12px;padding:16px;color:#475569;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.message)}</div>`,
+    ctaUrl: params.adminTicketsUrl,
+    ctaLabel: "View in admin",
+    showHero: false,
+  });
 }
 
 function customerConfirmationHtml(params: {
@@ -56,14 +51,12 @@ function customerConfirmationHtml(params: {
     ? `Hi ${escapeHtml(params.customerName.trim())},`
     : "Hi there,";
 
-  return `<!DOCTYPE html>
-<html lang="en"><body style="font-family:Segoe UI,sans-serif;background:#f8fafc;margin:0;padding:24px;">
-<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
-<h2 style="color:#0f172a;margin:0 0 12px;">We received your support request</h2>
-<p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 12px;">${greeting}</p>
-<p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 12px;">Thanks for contacting us about <strong>${escapeHtml(params.subject)}</strong>. Our team will reply within one business day.</p>
-<p style="color:#94a3b8;font-size:13px;margin:0;">Ecommerce Guru Support</p>
-</div></body></html>`;
+  return modernNotificationEmailLayout({
+    title: "We received your request",
+    greetingHtml: greeting,
+    bodyHtml: `<p style="margin:0;">Thanks for contacting us about <strong>${escapeHtml(params.subject)}</strong>. Our team will reply within one business day.</p>`,
+    showHero: true,
+  });
 }
 
 function replyHtml(params: {
@@ -74,13 +67,12 @@ function replyHtml(params: {
     ? `Hi ${escapeHtml(params.customerName.trim())},`
     : "Hi there,";
 
-  return `<!DOCTYPE html>
-<html lang="en"><body style="font-family:Segoe UI,sans-serif;background:#f8fafc;margin:0;padding:24px;">
-<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
-<p style="color:#475569;font-size:15px;margin:0 0 16px;">${greeting}</p>
-<div style="color:#334155;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.replyMessage)}</div>
-<p style="color:#94a3b8;font-size:13px;margin:24px 0 0;border-top:1px solid #e2e8f0;padding-top:16px;">Ecommerce Guru Support</p>
-</div></body></html>`;
+  return modernNotificationEmailLayout({
+    title: "Update from support",
+    greetingHtml: greeting,
+    bodyHtml: `<div style="color:#334155;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.replyMessage)}</div>`,
+    showHero: false,
+  });
 }
 
 export async function sendSupportTicketCreatedEmails(params: {
@@ -154,17 +146,15 @@ function customerFollowUpHtml(params: {
   adminTicketsUrl: string;
 }): string {
   const who = escapeHtml(params.customerName?.trim() || params.customerEmail);
-  return `<!DOCTYPE html>
-<html lang="en"><body style="font-family:Segoe UI,sans-serif;background:#f8fafc;margin:0;padding:24px;">
-<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
-<h2 style="color:#0f172a;margin:0 0 8px;">Customer reply on ticket #${params.ticketId}</h2>
-<p style="color:#64748b;font-size:14px;margin:0 0 20px;">From <strong>${who}</strong> (${escapeHtml(params.customerEmail)})</p>
-<p style="color:#0f172a;font-weight:600;margin:0 0 8px;">${escapeHtml(params.subject)}</p>
-<div style="background:#f8fafc;border-radius:8px;padding:16px;color:#475569;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.message)}</div>
-<p style="margin:24px 0 0;text-align:center;">
-<a href="${params.adminTicketsUrl}" style="display:inline-block;background:#f97316;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;">View in admin</a>
-</p>
-</div></body></html>`;
+  return modernNotificationEmailLayout({
+    title: `Customer reply on ticket #${params.ticketId}`,
+    bodyHtml: `<p style="margin:0 0 12px;color:#64748b;font-size:14px;">From <strong>${who}</strong> (${escapeHtml(params.customerEmail)})</p>
+      <p style="margin:0 0 12px;font-weight:600;color:#0f172a;">${escapeHtml(params.subject)}</p>
+      <div style="background:#f8fafc;border-radius:12px;padding:16px;color:#475569;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.message)}</div>`,
+    ctaUrl: params.adminTicketsUrl,
+    ctaLabel: "View in admin",
+    showHero: false,
+  });
 }
 
 /** Notify the support inbox that the customer replied in-app (does not email the customer). */
