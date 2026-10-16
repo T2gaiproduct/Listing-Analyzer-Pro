@@ -30,6 +30,10 @@ export async function findAuthCredentialByEmail(email: string): Promise<AuthCred
     .select(credentialSelect)
     .from(authCredentialsTable)
     .where(sql`lower(${authCredentialsTable.email}) = ${normalized}`)
+    .orderBy(
+      sql`${authCredentialsTable.emailVerified} DESC`,
+      sql`${authCredentialsTable.updatedAt} DESC NULLS LAST`,
+    )
     .limit(1);
   if (direct) return direct;
 

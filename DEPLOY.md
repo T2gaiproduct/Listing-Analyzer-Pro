@@ -374,6 +374,30 @@ pm2 restart listing-auditor-api
 
 ## Admin Access After Deployment
 
+### Option A — Native email/password (custom sign-in)
+
+On the server (password is **not** stored in git):
+
+```bash
+cd /path/to/Listing-Analyzer-Pro
+export DATABASE_URL='postgresql://...'
+bash scripts/replace-native-super-admin.sh 'you@company.com' 'YourStrongPassword'
+```
+
+Set **only** the printed `user_…` id in API `.env` and frontend build env, enable native auth, rebuild, restart:
+
+```bash
+ADMIN_USER_IDS=user_XXXXXXXX
+VITE_ADMIN_USER_IDS=user_XXXXXXXX
+NATIVE_AUTH_ENABLED=true
+AUTH_SESSION_SECRET=<long-random-secret>
+VITE_AUTH_PROVIDER=native
+```
+
+Remove all previous `ADMIN_USER_IDS` / `VITE_ADMIN_USER_IDS` entries so old admins lose `/admin` access.
+
+### Option B — Clerk sign-in (default)
+
 1. Sign up at `https://yourdomain.com/sign-up` with your admin email
 2. Find your Clerk User ID in [dashboard.clerk.com](https://dashboard.clerk.com) → Users → click your user → copy the `user_XXXXXXXX` ID
 3. Add it to `ADMIN_USER_IDS` in your `.env` file and rebuild/restart
