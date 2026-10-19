@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
-import { isMarketplaceUiCommentedOut, marketplaceUiPublicName } from "@/lib/marketplace-ui-visibility";
+import { isMarketplaceUiCommentedOut } from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
