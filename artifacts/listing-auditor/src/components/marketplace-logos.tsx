@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import {
+  filterMarketplacesVisibleInUi,
+  isMarketplaceUiCommentedOut,
+} from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -31,6 +35,7 @@ function normalizeMarketplaceName(marketplace: string): string {
 
 function MarketplaceImage({ marketplace, className }: { marketplace: string; className?: string }) {
   const displayName = normalizeMarketplaceName(marketplace);
+  if (isMarketplaceUiCommentedOut(displayName)) return null;
   const file = LOGO_FILES[displayName];
   if (!file) {
     return (
@@ -68,11 +73,11 @@ type MarketplaceEntry = {
   render: (className?: string) => ReactNode;
 };
 
-const marketplaces: MarketplaceEntry[] = [
+const marketplaces: MarketplaceEntry[] = filterMarketplacesVisibleInUi([
   "Amazon",
   "Shopify",
   "WooCommerce",
-].map((name) => ({
+] as const).map((name) => ({
   name,
   logoBoxClass: name === "WooCommerce" ? "overflow-visible" : undefined,
   cardClass: LOGO_CARD_CLASS[name],
@@ -110,6 +115,7 @@ export function MarketplaceLogo({
   className?: string;
 }) {
   const displayName = normalizeMarketplaceName(marketplace);
+  if (isMarketplaceUiCommentedOut(displayName)) return null;
   return (
     <div className={cn("h-5 w-28 flex items-center", className)}>
       <MarketplaceImage
@@ -128,6 +134,7 @@ export function MarketplaceLogos({
   variant?: "default" | "pill";
 }) {
   const pill = variant === "pill";
+  if (marketplaces.length === 0) return null;
 
   return (
     <div

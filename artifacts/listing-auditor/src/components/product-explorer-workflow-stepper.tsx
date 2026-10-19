@@ -11,10 +11,11 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { shouldShowProductMarketplacesWorkflowStep } from "@/lib/marketplace-ui-visibility";
 
 export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
-export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
+const PRODUCT_EXPLORER_WORKFLOW_STEPS_ALL: {
   id: ProductExplorerWorkflowStepId;
   key: string;
   label: string;
@@ -31,6 +32,10 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   { id: 8, key: "orders", label: "ORDERS", sub: "Order history", icon: ShoppingCart },
   { id: 9, key: "sales", label: "SALES", sub: "Sales performance", icon: TrendingUp },
 ];
+
+export const PRODUCT_EXPLORER_WORKFLOW_STEPS = PRODUCT_EXPLORER_WORKFLOW_STEPS_ALL.filter(
+  (step) => step.key !== "marketplaces" || shouldShowProductMarketplacesWorkflowStep(),
+);
 
 /** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–9). */
 export function apiStepToProductExplorerStep(

@@ -19,10 +19,18 @@ import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
 import { fetchEbayStatus, publishAuditToEbay } from "@/lib/ebay-publish";
 import { EbayListNewDialog } from "@/components/ebay-list-new-dialog";
 import { useToast } from "@/hooks/use-toast";
+import {
+  filterMarketplacesVisibleInUi,
+  MARKETPLACES_NAV_UI_COMMENTED_OUT,
+} from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const PUBLISH_PLATFORMS = ["Amazon", "Shopify", "WooCommerce", "eBay"] as const;
+
+function visiblePublishPlatforms(): PublishPlatform[] {
+  return filterMarketplacesVisibleInUi(PUBLISH_PLATFORMS) as PublishPlatform[];
+}
 type PublishPlatform = (typeof PUBLISH_PLATFORMS)[number];
 
 type ListingStatus = "live" | "pending" | "not_listed";
@@ -90,7 +98,7 @@ function ebayListingIsLinked(listing: MarketplaceListing): boolean {
 
 function buildPublishPlatformCards(listings: MarketplaceListing[]): MarketplaceListing[] {
   const byMarketplace = new Map(listings.map((listing) => [listing.marketplace, listing]));
-  return PUBLISH_PLATFORMS.map((marketplace) => {
+  return visiblePublishPlatforms().map((marketplace) => {
     const existing = byMarketplace.get(marketplace);
     if (existing && existing.id > 0) return existing;
     return {
@@ -415,7 +423,8 @@ function ListedMarketplacesSummary({
   const liveCount = liveMarketplaces.length;
   const totalListed = listedListings.length;
 
-  let headline = "Publish to Amazon, Shopify, WooCommerce, or eBay";
+  // let headline = "Publish to Amazon, Shopify, WooCommerce, or eBay";
+  let headline = "List and publish to your connected sales channels";
   if (liveCount > 0) {
     headline = liveCount === 1
       ? `Live on ${liveMarketplaces[0]}`
@@ -620,11 +629,12 @@ export function ProductMarketplacesTab({
     [data?.listings],
   );
 
-  const liveMarketplaces = useMemo(
-    () => data?.liveMarketplaces
-      ?? listedListings.filter((listing) => listing.status === "live").map((listing) => listing.marketplace),
-    [data?.liveMarketplaces, listedListings],
-  );
+  const liveMarketplaces = useMemo(() => {
+    const raw =
+      data?.liveMarketplaces
+      ?? listedListings.filter((listing) => listing.status === "live").map((listing) => listing.marketplace);
+    return filterMarketplacesVisibleInUi(raw);
+  }, [data?.liveMarketplaces, listedListings]);
 
   const platformPublishState: Record<PublishPlatform, {
     connected: boolean;
@@ -674,6 +684,10 @@ export function ProductMarketplacesTab({
         </div>
       </div>
     );
+  }
+
+  if (MARKETPLACES_NAV_UI_COMMENTED_OUT || visiblePublishPlatforms().length === 0) {
+    return null;
   }
 
   return (

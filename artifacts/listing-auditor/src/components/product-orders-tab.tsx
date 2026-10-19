@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-fetch";
+import { isMarketplaceUiCommentedOut } from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -41,7 +42,7 @@ interface ProductOrdersResponse {
   syncWarnings?: string[];
 }
 
-const MARKETPLACE_FILTER_OPTIONS: Array<{
+const MARKETPLACE_FILTER_OPTIONS_ALL: Array<{
   value: string;
   label: string;
   disabled?: boolean;
@@ -52,6 +53,10 @@ const MARKETPLACE_FILTER_OPTIONS: Array<{
   { value: "Amazon", label: "Amazon" },
   { value: "eBay", label: "eBay" },
 ];
+
+const MARKETPLACE_FILTER_OPTIONS = MARKETPLACE_FILTER_OPTIONS_ALL.filter(
+  (option) => option.value === "all" || !isMarketplaceUiCommentedOut(option.value),
+);
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
   { value: "delivered", label: "Delivered" },

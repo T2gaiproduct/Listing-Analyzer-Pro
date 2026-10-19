@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Play, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketplaceLogos } from "@/components/marketplace-logos";
+import { shouldShowMarketplaceLogoStrip } from "@/lib/marketplace-ui-visibility";
 import {
   Carousel,
   CarouselContent,
@@ -355,7 +356,9 @@ function HeroSlideCopy({
       >
         {slide.subheading}
       </p>
-      {!overlay && <MarketplaceLogos className="mb-3 sm:mb-8" />}
+      {!overlay && shouldShowMarketplaceLogoStrip() ? (
+        <MarketplaceLogos className="mb-3 sm:mb-8" />
+      ) : null}
       <HeroSlideCtas slide={slide} overlay={overlay} mobileOverlay={mobileOverlay} />
     </>
   );

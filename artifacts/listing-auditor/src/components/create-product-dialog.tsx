@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
+import { filterMarketplacesVisibleInUi } from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -246,7 +247,7 @@ export function CreateProductDialog({
             <div className="space-y-2">
               <Label className="text-[11px] text-slate-600">Target Marketplaces</Label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {MARKETPLACES.map((marketplace) => {
+                {filterMarketplacesVisibleInUi(MARKETPLACES).map((marketplace) => {
                   const checked = form.targetMarketplaces.includes(marketplace);
                   return (
                     <label
