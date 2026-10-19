@@ -20,17 +20,14 @@ import { fetchEbayStatus, publishAuditToEbay } from "@/lib/ebay-publish";
 import { EbayListNewDialog } from "@/components/ebay-list-new-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
-  filterMarketplacesVisibleInUi,
-  MARKETPLACES_NAV_UI_COMMENTED_OUT,
+  isMarketplaceUiCommentedOut,
+  marketplaceUiPublicName,
+  marketplaceUiScrubBranding,
 } from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const PUBLISH_PLATFORMS = ["Amazon", "Shopify", "WooCommerce", "eBay"] as const;
-
-function visiblePublishPlatforms(): PublishPlatform[] {
-  return filterMarketplacesVisibleInUi(PUBLISH_PLATFORMS) as PublishPlatform[];
-}
 type PublishPlatform = (typeof PUBLISH_PLATFORMS)[number];
 
 type ListingStatus = "live" | "pending" | "not_listed";
@@ -98,7 +95,7 @@ function ebayListingIsLinked(listing: MarketplaceListing): boolean {
 
 function buildPublishPlatformCards(listings: MarketplaceListing[]): MarketplaceListing[] {
   const byMarketplace = new Map(listings.map((listing) => [listing.marketplace, listing]));
-  return visiblePublishPlatforms().map((marketplace) => {
+  return PUBLISH_PLATFORMS.map((marketplace) => {
     const existing = byMarketplace.get(marketplace);
     if (existing && existing.id > 0) return existing;
     return {
@@ -304,7 +301,7 @@ function MarketplaceCard({
               ) : (
                 <>
                   <Upload className="w-3.5 h-3.5 mr-1" />
-                  Push to eBay listing
+                  {isMarketplaceUiCommentedOut("eBay") ? "Push to listing" : "Push to eBay listing"}
                 </>
               )}
             </Button>
@@ -382,7 +379,7 @@ function MarketplaceCard({
               disabled={publishDisabled}
               onClick={onListNewEbay}
             >
-              List as new on eBay
+              {isMarketplaceUiCommentedOut("eBay") ? "List as new listing" : "List as new on eBay"}
             </Button>
           )}
           {!showEbayListNew && onPublishLive && (
@@ -401,7 +398,11 @@ function MarketplaceCard({
               ) : (
                 <>
                   <Upload className="w-3.5 h-3.5 mr-1" />
-                  {isAmazon ? "Publish to Amazon" : isEbay ? "Push to eBay listing" : "Publish live"}
+                  {isAmazon
+                    ? (isMarketplaceUiCommentedOut("Amazon") ? "Publish live" : "Publish to Amazon")
+                    : isEbay
+                      ? (isMarketplaceUiCommentedOut("eBay") ? "Push to listing" : "Push to eBay listing")
+                      : "Publish live"}
                 </>
               )}
             </Button>
@@ -423,16 +424,15 @@ function ListedMarketplacesSummary({
   const liveCount = liveMarketplaces.length;
   const totalListed = listedListings.length;
 
-  // let headline = "Publish to Amazon, Shopify, WooCommerce, or eBay";
-  let headline = "List and publish to your connected sales channels";
+  let headline = marketplaceUiScrubBranding("Publish to Amazon, Shopify, WooCommerce, or eBay");
   if (liveCount > 0) {
     headline = liveCount === 1
-      ? `Live on ${liveMarketplaces[0]}`
-      : `Live on ${liveCount} marketplaces`;
+      ? `Live on ${marketplaceUiPublicName(liveMarketplaces[0] ?? "")}`
+      : `Live on ${liveCount} sales channels`;
   } else if (totalListed > 0) {
     headline = totalListed === 1
-      ? `Listed on ${listedListings[0]?.marketplace}`
-      : `Listed on ${totalListed} marketplaces`;
+      ? `Listed on ${marketplaceUiPublicName(listedListings[0]?.marketplace ?? "")}`
+      : `Listed on ${totalListed} sales channels`;
   }
 
   return (
@@ -629,12 +629,11 @@ export function ProductMarketplacesTab({
     [data?.listings],
   );
 
-  const liveMarketplaces = useMemo(() => {
-    const raw =
-      data?.liveMarketplaces
-      ?? listedListings.filter((listing) => listing.status === "live").map((listing) => listing.marketplace);
-    return filterMarketplacesVisibleInUi(raw);
-  }, [data?.liveMarketplaces, listedListings]);
+  const liveMarketplaces = useMemo(
+    () => data?.liveMarketplaces
+      ?? listedListings.filter((listing) => listing.status === "live").map((listing) => listing.marketplace),
+    [data?.liveMarketplaces, listedListings],
+  );
 
   const platformPublishState: Record<PublishPlatform, {
     connected: boolean;
@@ -646,28 +645,30 @@ export function ProductMarketplacesTab({
     Amazon: {
       connected: Boolean(amazonStatus?.connected),
       publishReady: Boolean(amazonStatus?.publishReady && amazonStatus?.connected),
-      connectHint: "Connect Amazon seller credentials to publish.",
+      connectHint: marketplaceUiScrubBranding("Connect Amazon seller credentials to publish."),
       isPublishing: publishAmazonMutation.isPending,
       onPublishLive: () => publishAmazonMutation.mutate(),
     },
     Shopify: {
       connected: Boolean(shopifyStatus?.connected),
       publishReady: Boolean(shopifyStatus?.publishReady),
-      connectHint: "Add Shopify Client ID and secret to publish.",
+      connectHint: marketplaceUiScrubBranding("Add Shopify Client ID and secret to publish."),
       isPublishing: shopifyPublishing,
       onPublishLive: () => setShopifyPublishOpen(true),
     },
     WooCommerce: {
       connected: Boolean(woocommerceStatus?.connected),
       publishReady: Boolean(woocommerceStatus?.publishReady),
-      connectHint: "Add WooCommerce API keys to publish.",
+      connectHint: marketplaceUiScrubBranding("Add WooCommerce API keys to publish."),
       isPublishing: publishWooCommerceMutation.isPending,
       onPublishLive: () => publishWooCommerceMutation.mutate("live"),
     },
     eBay: {
       connected: Boolean(ebayStatus?.connected),
       publishReady: Boolean(ebayStatus?.publishReady),
-      connectHint: "Connect sandbox eBay on Marketplaces to list new products here, or import an existing listing to push updates.",
+      connectHint: marketplaceUiScrubBranding(
+        "Connect sandbox eBay on Marketplaces to list new products here, or import an existing listing to push updates.",
+      ),
       isPublishing: publishEbayMutation.isPending,
       onPublishLive: () => publishEbayMutation.mutate(),
     },
@@ -684,10 +685,6 @@ export function ProductMarketplacesTab({
         </div>
       </div>
     );
-  }
-
-  if (MARKETPLACES_NAV_UI_COMMENTED_OUT || visiblePublishPlatforms().length === 0) {
-    return null;
   }
 
   return (

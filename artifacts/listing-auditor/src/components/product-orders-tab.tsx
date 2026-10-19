@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-fetch";
-import { isMarketplaceUiCommentedOut } from "@/lib/marketplace-ui-visibility";
+import { marketplaceUiPublicName } from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -42,21 +42,17 @@ interface ProductOrdersResponse {
   syncWarnings?: string[];
 }
 
-const MARKETPLACE_FILTER_OPTIONS_ALL: Array<{
+const MARKETPLACE_FILTER_OPTIONS: Array<{
   value: string;
   label: string;
   disabled?: boolean;
 }> = [
   { value: "all", label: "All marketplaces" },
-  { value: "Shopify", label: "Shopify" },
-  { value: "WooCommerce", label: "WooCommerce" },
-  { value: "Amazon", label: "Amazon" },
-  { value: "eBay", label: "eBay" },
+  { value: "Shopify", label: marketplaceUiPublicName("Shopify") },
+  { value: "WooCommerce", label: marketplaceUiPublicName("WooCommerce") },
+  { value: "Amazon", label: marketplaceUiPublicName("Amazon") },
+  { value: "eBay", label: marketplaceUiPublicName("eBay") },
 ];
-
-const MARKETPLACE_FILTER_OPTIONS = MARKETPLACE_FILTER_OPTIONS_ALL.filter(
-  (option) => option.value === "all" || !isMarketplaceUiCommentedOut(option.value),
-);
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
   { value: "delivered", label: "Delivered" },

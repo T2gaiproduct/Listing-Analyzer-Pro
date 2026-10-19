@@ -69,7 +69,6 @@ import {
 } from "@/lib/product-mappers";
 import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
-import { filterMarketplacesVisibleInUi } from "@/lib/marketplace-ui-visibility";
 import {
   ProductExplorerWorkflowStepper,
   nextProductExplorerWorkflowStep,
@@ -1517,7 +1516,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const byMarketplace = new Map(
       (marketplaceData?.listings ?? []).map((listing) => [listing.marketplace, listing]),
     );
-    return filterMarketplacesVisibleInUi(OVERVIEW_MARKETPLACES).map((marketplace) => {
+    return OVERVIEW_MARKETPLACES.map((marketplace) => {
       const existing = byMarketplace.get(marketplace);
       return {
         marketplace,

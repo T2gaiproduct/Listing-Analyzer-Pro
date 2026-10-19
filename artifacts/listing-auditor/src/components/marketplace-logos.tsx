@@ -1,9 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import {
-  filterMarketplacesVisibleInUi,
-  isMarketplaceUiCommentedOut,
-} from "@/lib/marketplace-ui-visibility";
+import { isMarketplaceUiCommentedOut } from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -47,7 +44,7 @@ function MarketplaceImage({ marketplace, className }: { marketplace: string; cla
   return (
     <img
       src={`${basePath}/marketplace/${file}`}
-      alt={displayName}
+      alt=""
       className={cn("h-full w-auto max-w-full object-contain object-left", className)}
     />
   );
@@ -73,11 +70,11 @@ type MarketplaceEntry = {
   render: (className?: string) => ReactNode;
 };
 
-const marketplaces: MarketplaceEntry[] = filterMarketplacesVisibleInUi([
+const marketplaces: MarketplaceEntry[] = [
   "Amazon",
   "Shopify",
   "WooCommerce",
-] as const).map((name) => ({
+].map((name) => ({
   name,
   logoBoxClass: name === "WooCommerce" ? "overflow-visible" : undefined,
   cardClass: LOGO_CARD_CLASS[name],
@@ -90,6 +87,7 @@ const marketplaces: MarketplaceEntry[] = filterMarketplacesVisibleInUi([
 }));
 
 function LogoCard({ item, pill }: { item: MarketplaceEntry; pill?: boolean }) {
+  if (isMarketplaceUiCommentedOut(item.name)) return null;
   return (
     <div
       className={cn(
@@ -97,12 +95,10 @@ function LogoCard({ item, pill }: { item: MarketplaceEntry; pill?: boolean }) {
           ? "flex items-center justify-center h-11 min-w-[7.5rem] px-4 bg-transparent"
           : cn(cardClass, item.cardClass),
       )}
-      title={item.name}
     >
       <div className={cn(logoBoxClass, item.logoBoxClass, pill && "h-5 w-24")}>
         {item.render()}
       </div>
-      <span className="sr-only">{item.name}</span>
     </div>
   );
 }
@@ -134,7 +130,8 @@ export function MarketplaceLogos({
   variant?: "default" | "pill";
 }) {
   const pill = variant === "pill";
-  if (marketplaces.length === 0) return null;
+  const visible = marketplaces.filter((item) => !isMarketplaceUiCommentedOut(item.name));
+  if (visible.length === 0) return null;
 
   return (
     <div
@@ -144,7 +141,7 @@ export function MarketplaceLogos({
         className,
       )}
     >
-      {marketplaces.map((item) => (
+      {visible.map((item) => (
         <LogoCard key={item.name} item={item} pill={pill} />
       ))}
     </div>

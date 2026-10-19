@@ -13,7 +13,6 @@ import {
 import { canExportListingSource } from "@/components/listing-export-button";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
-import { shouldShowProductMarketplacesWorkflowStep } from "@/lib/marketplace-ui-visibility";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductReferenceStep } from "@/components/product-reference-step";
 import { ProductSalesTab } from "@/components/product-sales-tab";
@@ -355,7 +354,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 7 && productId && productSource && shouldShowProductMarketplacesWorkflowStep()) {
+  if (step === 7 && productId && productSource) {
     return (
       <WorkflowStepShell {...shellProps}>
         <ProductMarketplacesTab

@@ -1,10 +1,8 @@
 /**
- * Temporary UI hide for marketplace branding (icons + labels).
+ * Temporary hide marketplace **logos and brand names** in the UI only.
+ * Connect, import, publish, nav, and workflow features stay enabled.
  *
- * Set a platform to `false` (or set MARKETPLACES_NAV_UI_COMMENTED_OUT to false)
- * to restore that UI — integration/API code is unchanged.
- *
- * Original intent: comment-out visibility without deleting connect/publish logic.
+ * Set a platform to `false` to show its logo and name again.
  */
 
 export const MARKETPLACE_UI_COMMENTED_OUT: Record<
@@ -18,9 +16,6 @@ export const MARKETPLACE_UI_COMMENTED_OUT: Record<
   Walmart: true,
 };
 
-/** Sidebar "Marketplaces" link and Product Explorer "MARKETPLACES" workflow step. */
-export const MARKETPLACES_NAV_UI_COMMENTED_OUT = true;
-
 const ALIASES: Record<string, keyof typeof MARKETPLACE_UI_COMMENTED_OUT> = {
   amazon: "Amazon",
   ebay: "eBay",
@@ -28,6 +23,10 @@ const ALIASES: Record<string, keyof typeof MARKETPLACE_UI_COMMENTED_OUT> = {
   woocommerce: "WooCommerce",
   walmart: "Walmart",
 };
+
+const BRAND_NAMES = Object.keys(MARKETPLACE_UI_COMMENTED_OUT) as Array<
+  keyof typeof MARKETPLACE_UI_COMMENTED_OUT
+>;
 
 export function normalizeMarketplaceUiName(raw: string): string {
   const key = raw.trim().toLowerCase();
@@ -40,15 +39,26 @@ export function isMarketplaceUiCommentedOut(marketplace: string): boolean {
   return flagged === true;
 }
 
-export function filterMarketplacesVisibleInUi<T extends string>(names: readonly T[]): T[] {
-  return names.filter((name) => !isMarketplaceUiCommentedOut(name));
+/** User-visible marketplace name; generic when branding is commented out. */
+export function marketplaceUiPublicName(
+  marketplace: string,
+  genericLabel = "Sales channel",
+): string {
+  if (isMarketplaceUiCommentedOut(marketplace)) return genericLabel;
+  return normalizeMarketplaceUiName(marketplace);
+}
+
+/** Replace commented-out brand names in marketing/helper copy (features unchanged). */
+export function marketplaceUiScrubBranding(text: string): string {
+  let out = text;
+  for (const brand of BRAND_NAMES) {
+    if (!MARKETPLACE_UI_COMMENTED_OUT[brand]) continue;
+    out = out.replace(new RegExp(brand, "gi"), "your sales channel");
+    if (brand === "eBay") out = out.replace(/\beBay’s\b/gi, "your channel's");
+  }
+  return out;
 }
 
 export function shouldShowMarketplaceLogoStrip(): boolean {
-  return filterMarketplacesVisibleInUi(["Amazon", "Shopify", "WooCommerce"] as const).length > 0;
-}
-
-export function shouldShowProductMarketplacesWorkflowStep(): boolean {
-  if (MARKETPLACES_NAV_UI_COMMENTED_OUT) return false;
-  return filterMarketplacesVisibleInUi(["Amazon", "Shopify", "WooCommerce", "eBay"] as const).length > 0;
+  return !BRAND_NAMES.every((brand) => MARKETPLACE_UI_COMMENTED_OUT[brand]);
 }

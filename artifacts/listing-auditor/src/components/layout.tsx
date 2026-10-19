@@ -27,7 +27,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { SiteLogo, SiteLogoMark, SiteLogoIcon } from "@/components/site-logo";
 import { platformAiName, platformDisplayName } from "@/lib/branding";
-import { MARKETPLACES_NAV_UI_COMMENTED_OUT } from "@/lib/marketplace-ui-visibility";
 import { useBranding } from "@/hooks/use-branding";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/react";
@@ -83,9 +82,7 @@ const mainNavItems: Array<{
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
   { icon: Sparkles, label: "__AI__", href: "/ai", feature: "sellermate_ai" },
-  ...(MARKETPLACES_NAV_UI_COMMENTED_OUT
-    ? []
-    : [{ icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "amazon" as const }]),
+  { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "amazon" },
 ];
 
 // --- Tooltip ----------------------------------------------------------------

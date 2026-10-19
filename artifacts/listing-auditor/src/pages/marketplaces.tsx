@@ -49,7 +49,7 @@ import {
 } from "@/lib/marketplace-connections";
 import { MarketplaceImportWizard } from "@/components/marketplace-import-wizard";
 import { AMAZON_MARKETPLACES } from "@/lib/amazon-export";
-import { isMarketplaceUiCommentedOut } from "@/lib/marketplace-ui-visibility";
+import { marketplaceUiScrubBranding } from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -137,7 +137,7 @@ function ConnectCard({
         ) : null}
       </div>
 
-      <p className="text-xs text-muted-foreground leading-relaxed flex-1">{description}</p>
+      <p className="text-xs text-muted-foreground leading-relaxed flex-1">{marketplaceUiScrubBranding(description)}</p>
 
       {detail ? (
         <p
@@ -160,7 +160,9 @@ function ConnectCard({
 
       {comingSoon ? (
         <p className="text-[11px] text-slate-600 leading-relaxed rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-          Amazon connect, import, and publish will be available here soon. Shopify and WooCommerce are available now.
+          {marketplaceUiScrubBranding(
+            "Amazon connect, import, and publish will be available here soon. Shopify and WooCommerce are available now.",
+          )}
         </p>
       ) : null}
 
@@ -865,14 +867,13 @@ export default function MarketplacesPage() {
       <div className="space-y-2">
         <h1 className="text-lg font-semibold text-foreground tracking-tight">Marketplaces</h1>
         <p className="text-xs text-muted-foreground max-w-2xl">
-          {/* Connect the sales channels you use in this workspace. eBay and Walmart use OAuth … Shopify and WooCommerce use store API credentials in the dialog. */}
-          Store connections are temporarily hidden in the app. To restore marketplace cards, edit{" "}
-          <code className="text-[10px]">marketplace-ui-visibility.ts</code>.
+          {marketplaceUiScrubBranding(
+            "Connect the sales channels you use in this workspace. eBay and Walmart use OAuth (you approve access on their site; Ecommerce Guru stores tokens, not your marketplace password). Shopify and WooCommerce use store API credentials in the dialog.",
+          )}
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
-        {!isMarketplaceUiCommentedOut("Amazon") ? (
         <div className="space-y-2">
           <ConnectCard
             marketplace="Amazon"
@@ -929,8 +930,6 @@ export default function MarketplacesPage() {
             </p>
           ) : null}
         </div>
-        ) : null}
-        {!isMarketplaceUiCommentedOut("Shopify") ? (
         <ConnectCard
           marketplace="Shopify"
           description={CONNECT_CARDS[0]!.description}
@@ -949,8 +948,6 @@ export default function MarketplacesPage() {
           onDisconnect={() => void handleStoreDisconnect("shopify")}
           onImport={shopifyConnected ? () => setImportWizardPlatform("shopify") : undefined}
         />
-        ) : null}
-        {!isMarketplaceUiCommentedOut("WooCommerce") ? (
         <ConnectCard
           marketplace="WooCommerce"
           description={CONNECT_CARDS[1]!.description}
@@ -973,8 +970,6 @@ export default function MarketplacesPage() {
               : undefined
           }
         />
-        ) : null}
-        {!isMarketplaceUiCommentedOut("eBay") ? (
         <ConnectCard
           marketplace="eBay"
           description="Connect with OAuth: you sign in on eBay’s website and approve access. Ecommerce Guru never asks for your eBay password—only secure refresh tokens for import and publish."
@@ -1002,8 +997,6 @@ export default function MarketplacesPage() {
               : undefined
           }
         />
-        ) : null}
-        {!isMarketplaceUiCommentedOut("Walmart") ? (
         <ConnectCard
           marketplace="Walmart"
           description="Link your Walmart Marketplace seller account with OAuth (same flow as eBay) to import and manage listings in this workspace."
@@ -1030,7 +1023,6 @@ export default function MarketplacesPage() {
               : undefined
           }
         />
-        ) : null}
       </div>
 
       <Dialog open={dialogTarget != null} onOpenChange={(open) => !open && setDialogTarget(null)}>

@@ -9,7 +9,7 @@ import { fetchWooCommerceStatus } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus } from "@/lib/amazon-publish";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
 import { settingsPanelClassName } from "@/components/settings-panel";
-import { isMarketplaceUiCommentedOut } from "@/lib/marketplace-ui-visibility";
+import { marketplaceUiPublicName } from "@/lib/marketplace-ui-visibility";
 
 function ConnectionRow({
   name,
@@ -59,30 +59,24 @@ export function SettingsIntegrationsCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {!isMarketplaceUiCommentedOut("Shopify") ? (
         <ConnectionRow
-          name="Shopify"
+          name={marketplaceUiPublicName("Shopify")}
           marketplace="shopify"
           connected={Boolean(shopify?.connected)}
           detail={shopify?.storeUrl}
         />
-        ) : null}
-        {!isMarketplaceUiCommentedOut("WooCommerce") ? (
         <ConnectionRow
-          name="WooCommerce"
+          name={marketplaceUiPublicName("WooCommerce")}
           marketplace="woocommerce"
           connected={Boolean(woo?.connected)}
           detail={woo?.storeUrl}
         />
-        ) : null}
-        {!isMarketplaceUiCommentedOut("Amazon") ? (
         <ConnectionRow
-          name="Amazon"
+          name={marketplaceUiPublicName("Amazon")}
           marketplace="amazon"
           connected={Boolean(amazon?.connected || amazon?.sellerId)}
           detail={amazon?.sellerId ? `Seller ${amazon.sellerId}` : null}
         />
-        ) : null}
         <Button asChild variant="outline" size="sm" className="mt-1">
           <Link href="/marketplaces">
             <Store className="w-4 h-4 mr-2" />

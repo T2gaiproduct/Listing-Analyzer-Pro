@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
-import { filterMarketplacesVisibleInUi } from "@/lib/marketplace-ui-visibility";
+import { isMarketplaceUiCommentedOut, marketplaceUiPublicName } from "@/lib/marketplace-ui-visibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -247,7 +247,7 @@ export function CreateProductDialog({
             <div className="space-y-2">
               <Label className="text-[11px] text-slate-600">Target Marketplaces</Label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {filterMarketplacesVisibleInUi(MARKETPLACES).map((marketplace) => {
+                {MARKETPLACES.map((marketplace) => {
                   const checked = form.targetMarketplaces.includes(marketplace);
                   return (
                     <label
@@ -265,6 +265,9 @@ export function CreateProductDialog({
                         className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <MarketplaceLogo marketplace={marketplace} className="h-4 w-20" />
+                      {!isMarketplaceUiCommentedOut(marketplace) ? (
+                        <span className="text-[11px] text-slate-700">{marketplace}</span>
+                      ) : null}
                     </label>
                   );
                 })}
