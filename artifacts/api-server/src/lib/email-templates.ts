@@ -1,9 +1,12 @@
 import {
+  EMAIL_ACCENT_ORANGE,
   escapeHtml,
   modernNotificationEmailLayout,
   otpEmailLayout,
   resolvePublicSiteOrigin,
 } from "./email-template-layout.js";
+
+const EMAIL_LABEL_ACCENT = EMAIL_ACCENT_ORANGE;
 
 export function inviteEmailTemplate({
   inviterName,
@@ -28,7 +31,7 @@ export function inviteEmailTemplate({
     title: "You're invited to the team",
     greetingHtml: `Hi <strong>${escapeHtml(invitedName)}</strong>,`,
     bodyHtml: `<p style="margin:0 0 12px;"><strong>${escapeHtml(inviterName)}</strong> invited you to join <strong>${escapeHtml(companyName)}</strong> on Ecommerce Guru.</p>`,
-    highlightHtml: `<p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#db2777;">Your role: ${escapeHtml(role)}</p>
+    highlightHtml: `<p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${EMAIL_LABEL_ACCENT};">Your role: ${escapeHtml(role)}</p>
       <p style="margin:0;color:#475569;font-size:14px;line-height:1.5;">${escapeHtml(roleDescriptions[role] ?? "Team member access")}</p>`,
     ctaUrl: inviteUrl,
     ctaLabel: "Accept invitation",
@@ -71,9 +74,9 @@ export function workspaceInviteEmailTemplate({
     title: "Join your workspace",
     greetingHtml: `Hi <strong>${escapeHtml(invitedName)}</strong>,`,
     bodyHtml: `<p style="margin:0 0 12px;"><strong>${escapeHtml(inviterName)}</strong> invited you to collaborate on Ecommerce Guru.</p>`,
-    highlightHtml: `<p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#db2777;">Workspace</p>
+    highlightHtml: `<p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${EMAIL_LABEL_ACCENT};">Workspace</p>
       <p style="margin:0 0 12px;font-size:17px;font-weight:700;color:#0f172a;">${escapeHtml(workspaceName)}</p>
-      <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#db2777;">Role</p>
+      <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${EMAIL_LABEL_ACCENT};">Role</p>
       <p style="margin:0;color:#475569;font-size:14px;">${escapeHtml(roleName)}</p>`,
     ctaUrl: inviteUrl,
     ctaLabel: "Accept invitation",
@@ -109,7 +112,7 @@ export function adminRoleAssignedEmailTemplate({
     greetingHtml: `Hi <strong>${escapeHtml(recipientName)}</strong>,`,
     bodyHtml: `<p style="margin:0 0 12px;">${intro}</p>
       <p style="margin:0;">Sign in with this email address, then open the admin panel.</p>`,
-    highlightHtml: `<p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#db2777;">Role: ${escapeHtml(roleName)}</p>
+    highlightHtml: `<p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${EMAIL_LABEL_ACCENT};">Role: ${escapeHtml(roleName)}</p>
       <ul style="margin:8px 0 0;padding-left:18px;color:#475569;font-size:14px;line-height:1.5;">${permissionList}</ul>`,
     ctaUrl: adminSignInUrl,
     ctaLabel: "Sign in to admin",
@@ -138,7 +141,7 @@ export function adminRoleInviteEmailTemplate({
     title: "You're invited to admin",
     bodyHtml: `<p style="margin:0 0 12px;"><strong>${escapeHtml(assignedByName)}</strong> invited you to join Ecommerce Guru as an admin.</p>
       <p style="margin:0;">Create an account using <strong>${escapeHtml(invitedEmail)}</strong>.</p>`,
-    highlightHtml: `<p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#db2777;">Role: ${escapeHtml(roleName)}</p>
+    highlightHtml: `<p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${EMAIL_LABEL_ACCENT};">Role: ${escapeHtml(roleName)}</p>
       <ul style="margin:8px 0 0;padding-left:18px;color:#475569;font-size:14px;line-height:1.5;">${permissionList}</ul>`,
     ctaUrl: signUpUrl,
     ctaLabel: "Accept invitation",

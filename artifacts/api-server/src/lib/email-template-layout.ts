@@ -1,8 +1,11 @@
 import { getConfiguredAppUrl } from "./app-base-url.js";
 
 const PLATFORM_NAME = "Ecommerce Guru";
-const ACCENT_ORANGE = "#f97316";
-const ACCENT_MAGENTA = "#db2777";
+/** Site theme orange — used for CTAs, labels, and accents in all transactional email. */
+export const EMAIL_ACCENT_ORANGE = "#f97316";
+const ACCENT_ORANGE = EMAIL_ACCENT_ORANGE;
+const HIGHLIGHT_BOX_BG = "#fff7ed";
+const HIGHLIGHT_BOX_BORDER = "#fed7aa";
 const TEXT_MUTED = "#64748b";
 const TEXT_BODY = "#475569";
 const TEXT_DARK = "#0f172a";
@@ -57,9 +60,9 @@ function emailSocialFooterHtml(): string {
 function welcomeHeroSvgHtml(): string {
   return `<div style="text-align:center;margin:8px 0 24px;">
   <svg width="200" height="120" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="">
-    <rect x="58" y="18" width="84" height="84" rx="16" fill="#fce7f3"/>
-    <rect x="72" y="32" width="56" height="72" rx="10" fill="#ffffff" stroke="#fbcfe8" stroke-width="2"/>
-    <rect x="80" y="48" width="40" height="8" rx="4" fill="#f9a8d4"/>
+    <rect x="58" y="18" width="84" height="84" rx="16" fill="#ffedd5"/>
+    <rect x="72" y="32" width="56" height="72" rx="10" fill="#ffffff" stroke="#fed7aa" stroke-width="2"/>
+    <rect x="80" y="48" width="40" height="8" rx="4" fill="#fb923c"/>
     <rect x="80" y="62" width="28" height="6" rx="3" fill="#e5e7eb"/>
     <circle cx="130" cy="28" r="14" fill="#bfdbfe"/>
     <path d="M118 88 Q140 72 158 88" stroke="#86efac" stroke-width="8" fill="none" stroke-linecap="round"/>
@@ -154,11 +157,11 @@ export function modernNotificationEmailLayout(input: ModernEmailLayoutInput): st
   const greeting = input.greetingHtml ?? "";
   const hero = input.showHero !== false ? welcomeHeroSvgHtml() : "";
   const highlight = input.highlightHtml
-    ? `<div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:14px;padding:18px 20px;margin:20px 0;text-align:left;">${input.highlightHtml}</div>`
+    ? `<div style="background:${HIGHLIGHT_BOX_BG};border:1px solid ${HIGHLIGHT_BOX_BORDER};border-radius:14px;padding:18px 20px;margin:20px 0;text-align:left;">${input.highlightHtml}</div>`
     : "";
   const ctaHtml =
     input.ctaUrl && input.ctaLabel
-      ? `<p style="margin:28px 0 8px;text-align:center;"><a href="${escapeHtml(input.ctaUrl)}" style="display:inline-block;background:${ACCENT_MAGENTA};color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:999px;font-weight:700;font-size:15px;letter-spacing:0.02em;">${escapeHtml(input.ctaLabel)}</a></p>`
+      ? `<p style="margin:28px 0 8px;text-align:center;"><a href="${escapeHtml(input.ctaUrl)}" style="display:inline-block;background:${ACCENT_ORANGE};color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:999px;font-weight:700;font-size:15px;letter-spacing:0.02em;">${escapeHtml(input.ctaLabel)}</a></p>`
       : "";
   const site = escapeHtml(resolvePublicSiteOrigin());
 
@@ -182,7 +185,7 @@ export function modernNotificationEmailLayout(input: ModernEmailLayoutInput): st
             <div style="font-size:15px;color:${TEXT_BODY};line-height:1.65;text-align:left;">${input.bodyHtml}</div>
             ${highlight}
             ${ctaHtml}
-            <p style="margin:24px 0 0;font-size:13px;color:${TEXT_MUTED};text-align:center;line-height:1.5;">You're receiving this because you use ${escapeHtml(PLATFORM_NAME)}.<br><a href="${site}" style="color:${ACCENT_MAGENTA};text-decoration:none;">${site.replace(/^https?:\/\//, "")}</a></p>
+            <p style="margin:24px 0 0;font-size:13px;color:${TEXT_MUTED};text-align:center;line-height:1.5;">You're receiving this because you use ${escapeHtml(PLATFORM_NAME)}.<br><a href="${site}" style="color:${ACCENT_ORANGE};text-decoration:none;">${site.replace(/^https?:\/\//, "")}</a></p>
           </td></tr>
           <tr><td style="background:#374151;padding:28px 24px;text-align:center;">
             ${emailSocialFooterHtml()}
