@@ -13,6 +13,7 @@ import { BrandingHead } from "@/components/branding-head";
 import { SiteLogo } from "@/components/site-logo";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { fetchJson, isApiAuthReady } from "@/lib/api-fetch";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 import { COUNTRIES } from "@/lib/countries";
 import { useTeam } from "@/hooks/use-team";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -591,11 +592,11 @@ export default function Onboarding() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Full Name *</Label>
-                  <Input className="mt-1" value={profile.fullName} onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} placeholder="Jane Smith" />
+                  <Input className="mt-1" value={profile.fullName} onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} placeholder={ECOMMERCE_GURU_PLACEHOLDERS.fullName} />
                 </div>
                 <div>
                   <Label>Company / Brand Name *</Label>
-                  <Input className="mt-1" value={profile.companyName} onChange={(e) => setProfile((p) => ({ ...p, companyName: e.target.value }))} placeholder="Acme Brands LLC" />
+                  <Input className="mt-1" value={profile.companyName} onChange={(e) => setProfile((p) => ({ ...p, companyName: e.target.value }))} placeholder={ECOMMERCE_GURU_PLACEHOLDERS.company} />
                 </div>
                 <div>
                   <Label>Email Address</Label>

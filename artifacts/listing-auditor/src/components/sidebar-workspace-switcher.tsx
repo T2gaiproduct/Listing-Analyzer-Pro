@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { applyWorkspaceCreated } from "@/lib/on-workspace-created";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
+import { egPlaceholderCompanyWithPrefix } from "@/lib/ecommerce-guru-placeholders";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -103,7 +104,7 @@ export function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: SidebarWorks
               id="sidebar-ws-name"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Acme Corp"
+              placeholder={egPlaceholderCompanyWithPrefix()}
             />
           </div>
           <div>

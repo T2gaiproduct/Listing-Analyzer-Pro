@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -187,7 +188,7 @@ export default function AdminBlogEdit({ postId }: { postId: string }) {
               )}
               <div>
                 <Label className="text-xs">Author</Label>
-                <Input className="mt-1 h-8 text-sm" value={form.author} onChange={f("author")} placeholder="Jane Smith" />
+                <Input className="mt-1 h-8 text-sm" value={form.author} onChange={f("author")} placeholder={ECOMMERCE_GURU_PLACEHOLDERS.fullName} />
               </div>
               <div>
                 <Label className="text-xs">Read Time (minutes)</Label>

@@ -11,6 +11,7 @@ import { cmsText } from "@/lib/homepage-cms";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cn } from "@/lib/utils";
 import { getEmailValidationError } from "@/lib/email-validation";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 import type { NavLink } from "@/lib/public-nav";
 
@@ -334,7 +335,7 @@ function FooterNewsletter() {
             setEmailError(value.trim() ? getEmailValidationError(value) : null);
           }}
           onBlur={() => setEmailError(getEmailValidationError(email))}
-          placeholder="your@email.com"
+          placeholder={ECOMMERCE_GURU_PLACEHOLDERS.email}
           required
           aria-invalid={emailError ? true : undefined}
           className="w-full h-11 sm:h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"

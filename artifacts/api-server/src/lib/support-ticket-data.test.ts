@@ -38,7 +38,7 @@ function testLegacyRepliesDefaultToAdmin(): void {
 function testSerializeAndAppend(): void {
   const ticket = serializePublicSupportTicket({
     id: 12,
-    name: "Sahil",
+    name: "Alex",
     createdAt: new Date("2026-01-01T12:00:00.000Z"),
     data: { subject: "Lamp issue", message: "It is dim", replies: [{ message: "Checking" }] },
   });

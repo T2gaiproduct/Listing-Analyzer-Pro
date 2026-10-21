@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { egPlaceholderCompanyWithPrefix } from "@/lib/ecommerce-guru-placeholders";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { applyWorkspaceCreated } from "@/lib/on-workspace-created";
 
@@ -557,7 +558,7 @@ export function TopbarWorkspaceSwitcher() {
                 id="topbar-ws-name"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Acme Corp"
+                placeholder={egPlaceholderCompanyWithPrefix()}
               />
             </div>
             <div>

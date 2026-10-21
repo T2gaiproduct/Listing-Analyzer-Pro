@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -90,7 +91,7 @@ export default function AdminMarketingTestimonials() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-xs">Name *</Label>
-              <Input className="mt-1 h-8 text-sm" value={form.name} onChange={f("name")} placeholder="Jane Smith" />
+              <Input className="mt-1 h-8 text-sm" value={form.name} onChange={f("name")} placeholder={ECOMMERCE_GURU_PLACEHOLDERS.fullName} />
             </div>
             <div>
               <Label className="text-xs">Avatar URL</Label>
@@ -102,7 +103,7 @@ export default function AdminMarketingTestimonials() {
             </div>
             <div>
               <Label className="text-xs">Company</Label>
-              <Input className="mt-1 h-8 text-sm" value={form.company} onChange={f("company")} placeholder="Acme Corp" />
+              <Input className="mt-1 h-8 text-sm" value={form.company} onChange={f("company")} placeholder={ECOMMERCE_GURU_PLACEHOLDERS.company} />
             </div>
           </div>
           <div>

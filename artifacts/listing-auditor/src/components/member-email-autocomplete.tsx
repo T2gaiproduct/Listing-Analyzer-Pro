@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { fetchJson } from "@/lib/api-fetch";
 import { cn } from "@/lib/utils";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -27,7 +28,7 @@ export function MemberEmailAutocomplete({
   value,
   onValueChange,
   onSuggestionSelect,
-  placeholder = "user@company.com",
+  placeholder = ECOMMERCE_GURU_PLACEHOLDERS.email,
   disabled = false,
 }: MemberEmailAutocompleteProps) {
   const [open, setOpen] = useState(false);

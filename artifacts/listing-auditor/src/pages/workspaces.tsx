@@ -23,6 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { egPlaceholderCompanyWithPrefix } from "@/lib/ecommerce-guru-placeholders";
 import { fetchJson } from "@/lib/api-fetch";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-header";
@@ -746,7 +747,7 @@ export default function WorkspacesPage() {
             </div>
             <div>
               <Label htmlFor="ws-client">Client label (optional)</Label>
-              <Input id="ws-client" placeholder="e.g. Acme Corp" value={form.clientLabel} onChange={(e) => setForm((f) => ({ ...f, clientLabel: e.target.value }))} />
+              <Input id="ws-client" placeholder={egPlaceholderCompanyWithPrefix()} value={form.clientLabel} onChange={(e) => setForm((f) => ({ ...f, clientLabel: e.target.value }))} />
             </div>
             <div>
               <Label htmlFor="ws-desc">Description</Label>

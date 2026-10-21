@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
 import { useState, useEffect } from "react";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -468,8 +469,8 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                 <div className="space-y-5">
                   <div className="grid grid-cols-2 gap-4">
                     {[
-                      { key: "fullName", label: "Full Name", icon: User, placeholder: "Jane Smith" },
-                      { key: "companyName", label: "Company / Brand", icon: Building2, placeholder: "Acme LLC" },
+                      { key: "fullName", label: "Full Name", icon: User, placeholder: ECOMMERCE_GURU_PLACEHOLDERS.fullName },
+                      { key: "companyName", label: "Company / Brand", icon: Building2, placeholder: ECOMMERCE_GURU_PLACEHOLDERS.company },
                       { key: "phone", label: "Phone", icon: Phone, placeholder: "+1 (555) 000-0000" },
                       { key: "country", label: "Country", icon: Globe, placeholder: "United States" },
                     ].map(({ key, label, icon: Icon, placeholder }) => (

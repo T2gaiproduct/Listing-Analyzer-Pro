@@ -5,6 +5,7 @@ import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { egPlaceholderCompanyWithPrefix } from "@/lib/ecommerce-guru-placeholders";
 import {
   Upload,
   Monitor,
@@ -2049,7 +2050,7 @@ export default function AuditWorkflow() {
                     <Input
                       value={brandName}
                       onChange={(e) => { setBrandName(e.target.value); if (currentAuditId) setIsDirty(true); }}
-                      placeholder="e.g. Acme Co."
+                      placeholder={egPlaceholderCompanyWithPrefix()}
                       className="border-border rounded-xl h-11"
                     />
                   </div>

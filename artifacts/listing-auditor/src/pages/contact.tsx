@@ -11,6 +11,7 @@ import { useCompanyContact } from "@/hooks/use-company-contact";
 import { DEFAULT_SUPPORT_HOURS } from "@/lib/company-contact";
 import { useToast } from "@/hooks/use-toast";
 import { getEmailValidationError } from "@/lib/email-validation";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -190,7 +191,7 @@ export default function Contact() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Full name *</Label>
-                    <Input id="name" name="name" value={form.name} onChange={handleChange} placeholder="Sahil Verma" required className="mt-1" />
+                    <Input id="name" name="name" value={form.name} onChange={handleChange} placeholder={ECOMMERCE_GURU_PLACEHOLDERS.fullName} required className="mt-1" />
                   </div>
                   <div>
                     <Label htmlFor="email">Email address *</Label>
@@ -201,7 +202,7 @@ export default function Contact() {
                       value={form.email}
                       onChange={handleChange}
                       onBlur={() => setEmailError(getEmailValidationError(form.email))}
-                      placeholder="you@company.com"
+                      placeholder={ECOMMERCE_GURU_PLACEHOLDERS.email}
                       required
                       aria-invalid={emailError ? true : undefined}
                       className="mt-1"
@@ -214,7 +215,7 @@ export default function Contact() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="company">Company name</Label>
-                      <Input id="company" name="company" value={form.company} onChange={handleChange} placeholder="Acme Corp" className="mt-1" />
+                      <Input id="company" name="company" value={form.company} onChange={handleChange} placeholder={ECOMMERCE_GURU_PLACEHOLDERS.company} className="mt-1" />
                     </div>
                     <div>
                       <Label htmlFor="phone">Phone number</Label>

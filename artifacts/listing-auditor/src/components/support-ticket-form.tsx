@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 import { fetchJson } from "@/lib/api-fetch";
 import { MY_SUPPORT_TICKETS_QUERY_KEY } from "@/lib/support-tickets";
 
@@ -106,7 +107,7 @@ export function SupportTicketForm({ compact = false }: { compact?: boolean }) {
             id="support-ticket-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
+            placeholder={ECOMMERCE_GURU_PLACEHOLDERS.fullName}
             required
             disabled={submitting}
           />

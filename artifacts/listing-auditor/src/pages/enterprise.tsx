@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 const features = [
   {
@@ -211,17 +212,17 @@ export default function Enterprise() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Full name *</Label>
-                  <Input id="name" name="name" value={form.name} onChange={handleChange} required className="mt-1" placeholder="Jane Smith" />
+                  <Input id="name" name="name" value={form.name} onChange={handleChange} required className="mt-1" placeholder={ECOMMERCE_GURU_PLACEHOLDERS.fullName} />
                 </div>
                 <div>
                   <Label htmlFor="email">Work email *</Label>
-                  <Input id="email" name="email" type="email" value={form.email} onChange={handleChange} required className="mt-1" placeholder="jane@company.com" />
+                  <Input id="email" name="email" type="email" value={form.email} onChange={handleChange} required className="mt-1" placeholder={ECOMMERCE_GURU_PLACEHOLDERS.email} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="company">Company *</Label>
-                  <Input id="company" name="company" value={form.company} onChange={handleChange} required className="mt-1" placeholder="Acme Agency" />
+                  <Input id="company" name="company" value={form.company} onChange={handleChange} required className="mt-1" placeholder={ECOMMERCE_GURU_PLACEHOLDERS.agency} />
                 </div>
                 <div>
                   <Label htmlFor="teamSize">Team size *</Label>

@@ -11,6 +11,7 @@ import { useCreateAuditDraft } from "@workspace/api-client-react";
 import { useAplusModuleCards, useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { buildGraphicsAuditDraftBody } from "@/lib/graphics-audit-draft";
 import { cn } from "@/lib/utils";
+import { egPlaceholderCompanyWithPrefix } from "@/lib/ecommerce-guru-placeholders";
 import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Search, Camera, Monitor, Lightbulb, Sparkles } from "lucide-react";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -654,7 +655,7 @@ export default function CreateProject() {
                 <Input
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
-                  placeholder="e.g. Acme Co."
+                  placeholder={egPlaceholderCompanyWithPrefix()}
                   className="border-slate-200 h-9 rounded-lg text-sm"
                 />
               </div>

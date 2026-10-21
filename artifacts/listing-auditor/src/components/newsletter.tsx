@@ -3,6 +3,7 @@ import { Mail, CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { submitNewsletterSignup } from "@/lib/newsletter-signup";
 import { getEmailValidationError } from "@/lib/email-validation";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 export function NewsletterSection({ source = "newsletter-section" }: { source?: string }) {
   const [email, setEmail] = useState("");
@@ -50,7 +51,7 @@ export function NewsletterSection({ source = "newsletter-section" }: { source?: 
                 setEmailError(value.trim() ? getEmailValidationError(value) : null);
               }}
               onBlur={() => setEmailError(getEmailValidationError(email))}
-              placeholder="your@email.com"
+              placeholder={ECOMMERCE_GURU_PLACEHOLDERS.email}
               className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               required
               aria-invalid={emailError ? true : undefined}

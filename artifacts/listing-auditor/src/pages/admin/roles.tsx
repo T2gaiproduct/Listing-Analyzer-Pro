@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ADMIN_PERMISSION_META, type AdminPermissionGroup } from "@workspace/admin-permissions";
 import { getEmailValidationError } from "@/lib/email-validation";
+import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -613,7 +614,7 @@ export default function AdminRoles() {
               <Label className="text-xs mb-1.5 block">Admin User Email *</Label>
               <Input
                 type="email"
-                placeholder="admin@example.com"
+                placeholder={ECOMMERCE_GURU_PLACEHOLDERS.teamEmail}
                 value={assignForm.email}
                 onChange={(e) => {
                   const value = e.target.value;
