@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type Mail from "nodemailer/lib/mailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
+import type SMTPConnection from "nodemailer/lib/smtp-connection";
 import { inArray } from "drizzle-orm";
 import { db, settingsTable } from "@workspace/db";
 
@@ -26,7 +27,23 @@ type SmtpConfig = {
   replyTo?: string;
 };
 
+export type SmtpConfigurationStatus = {
+  configured: boolean;
+  source: "env" | "database" | "none";
+  envOverridesDatabase: boolean;
+  host?: string;
+  port?: number;
+  from?: string;
+  hasUsername: boolean;
+  hasPassword: boolean;
+  issue?: string;
+};
+
 let cachedTransport: { key: string; transport: nodemailer.Transporter<SMTPTransport.SentMessageInfo> } | null = null;
+
+export function clearSmtpTransportCache(): void {
+  cachedTransport = null;
+}
 
 function formatFrom(name: string, address: string): string {
   const trimmedName = name.trim();
@@ -44,7 +61,20 @@ function parsePort(value: string | undefined, fallback = 587): number {
 
 function transportCacheKey(config: SmtpConfig): string {
   const user = config.auth?.user ?? "";
-  return `${config.host}:${config.port}:${config.secure}:${user}`;
+  const passLen = config.auth?.pass?.length ?? 0;
+  return `${config.host}:${config.port}:${config.secure}:${user}:${passLen}`;
+}
+
+function smtpTransportOptions(config: SmtpConfig): SMTPConnection.Options {
+  const secure = config.port === 465;
+  return {
+    host: config.host,
+    port: config.port,
+    secure,
+    requireTLS: !secure && config.port === 587,
+    auth: config.auth,
+    tls: { minVersion: "TLSv1.2" },
+  };
 }
 
 async function resolveSmtpConfigFromDb(): Promise<SmtpConfig | null> {
@@ -103,16 +133,65 @@ async function resolveSmtpConfig(): Promise<SmtpConfig | null> {
   return resolveSmtpConfigFromDb();
 }
 
+async function describeUnconfiguredSmtp(): Promise<string> {
+  if (process.env.SMTP_HOST?.trim()) {
+    if (process.env.SMTP_USER?.trim() && !process.env.SMTP_PASS?.trim()) {
+      return "Server SMTP_HOST/SMTP_USER are set but SMTP_PASS is missing in environment (overrides Admin → Email Settings).";
+    }
+    return "Server SMTP_* environment variables override the admin dashboard — check SMTP_HOST, SMTP_USER, and SMTP_PASS on the API host.";
+  }
+
+  const rows = await db
+    .select({ key: settingsTable.key, value: settingsTable.value })
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, ["smtp_host", "smtp_username", "smtp_password"]));
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  if (!map.smtp_host?.trim()) {
+    return "SMTP host is empty — save Admin → Email Settings (SMTP host, port, username, password).";
+  }
+  const username = map.smtp_username?.trim() ?? "";
+  const password = map.smtp_password?.trim() ?? "";
+  if (username && !password) {
+    return "SMTP password is not saved — open Admin → Email Settings, re-enter the mailbox password, and Save.";
+  }
+  return "Email is not configured (set SMTP in Admin → Email Settings or SMTP_HOST/SMTP_USER/SMTP_PASS env).";
+}
+
+export async function getSmtpConfigurationStatus(): Promise<SmtpConfigurationStatus> {
+  const envHost = process.env.SMTP_HOST?.trim();
+  const fromEnv = resolveSmtpConfigFromEnv();
+  const fromDb = await resolveSmtpConfigFromDb();
+  const envOverridesDatabase = Boolean(envHost && fromDb);
+
+  const active = fromEnv ?? fromDb;
+  if (active) {
+    return {
+      configured: true,
+      source: fromEnv ? "env" : "database",
+      envOverridesDatabase,
+      host: active.host,
+      port: active.port,
+      from: active.from,
+      hasUsername: Boolean(active.auth?.user),
+      hasPassword: Boolean(active.auth?.pass),
+    };
+  }
+
+  return {
+    configured: false,
+    source: "none",
+    envOverridesDatabase,
+    hasUsername: false,
+    hasPassword: false,
+    issue: await describeUnconfiguredSmtp(),
+  };
+}
+
 function getTransport(config: SmtpConfig): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
   const key = transportCacheKey(config);
   if (cachedTransport?.key === key) return cachedTransport.transport;
 
-  const transport = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: config.auth,
-  });
+  const transport = nodemailer.createTransport(smtpTransportOptions(config));
 
   cachedTransport = { key, transport };
   return transport;
@@ -146,7 +225,7 @@ export async function sendEmail({
   if (!config) {
     return {
       success: false,
-      error: "Email is not configured (set SMTP in Admin → Email Settings or SMTP_HOST/SMTP_USER/SMTP_PASS env)",
+      error: await describeUnconfiguredSmtp(),
     };
   }
 

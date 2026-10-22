@@ -48,6 +48,7 @@ import { parseEmailForApi } from "@workspace/email-validation";
 import { PLAN_CAPABILITY_CATALOG, sanitizeEnabledFeaturesForPlan } from "@workspace/workspace-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import { reconcileUserPendingPayPalPayments, testPayPalCredentials } from "../lib/paypal-capture";
+import { clearSmtpTransportCache, getSmtpConfigurationStatus, sendEmail } from "../lib/email.js";
 import { enrichPaymentCouponAsync } from "../lib/gateway-payment";
 import {
   ADMIN_INVITES_MIGRATION_HINT,
@@ -513,6 +514,45 @@ router.post("/admin/customers/:userId/reconcile-paypal", requireAdmin, async (re
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
   }
+});
+
+router.get("/admin/settings/email-status", requireAdmin, async (_req, res): Promise<void> => {
+  const status = await getSmtpConfigurationStatus();
+  res.json(status);
+});
+
+router.post("/admin/settings/test-email", requireAdmin, async (req, res): Promise<void> => {
+  const body = (req.body ?? {}) as { to?: string };
+  const parsed = parseEmailForApi(body.to);
+  if ("error" in parsed) {
+    res.status(400).json({ ok: false, error: parsed.error });
+    return;
+  }
+
+  clearSmtpTransportCache();
+  const status = await getSmtpConfigurationStatus();
+  if (!status.configured) {
+    res.status(400).json({ ok: false, error: status.issue ?? "SMTP is not configured", status });
+    return;
+  }
+
+  const result = await sendEmail({
+    to: parsed.email,
+    subject: "Ecommerce Guru — SMTP test",
+    html: `<p>This is a test email from <strong>Ecommerce Guru</strong>.</p><p>If you received this, SMTP from Admin → Email Settings is working.</p>`,
+  });
+
+  if (!result.success) {
+    res.status(400).json({ ok: false, error: result.error ?? "Send failed", status });
+    return;
+  }
+
+  res.json({
+    ok: true,
+    message: `Test email sent to ${parsed.email}.`,
+    messageId: result.id,
+    status,
+  });
 });
 
 router.post("/admin/settings/test-paypal", requireAdmin, async (req, res): Promise<void> => {
@@ -1813,6 +1853,10 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
   clearProviderCache();
   clearOpenAICache();
   clearGeminiCache();
+
+  if (category === "email") {
+    clearSmtpTransportCache();
+  }
 
   if (category === ANNOUNCEMENT_PROMO_CATEGORY) {
     const promoSettings = settings as Record<string, string>;

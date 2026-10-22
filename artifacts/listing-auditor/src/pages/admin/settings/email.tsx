@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
-import { Mail, Save, CheckCircle2 } from "lucide-react";
+import { Mail, Save, CheckCircle2, Send } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const CATEGORY = "email";
@@ -37,6 +37,8 @@ export default function AdminSettingsEmail() {
     smtp_password: "",
   });
   const [maskedFields, setMaskedFields] = useState<Set<string>>(new Set());
+  const [testTo, setTestTo] = useState("");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const { data } = useQuery({
     queryKey: ["admin-settings-email"],
@@ -60,6 +62,36 @@ export default function AdminSettingsEmail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
+  const { data: emailStatus } = useQuery({
+    queryKey: ["admin-email-status"],
+    queryFn: () =>
+      fetchJson<{
+        configured: boolean;
+        source?: string;
+        envOverridesDatabase?: boolean;
+        host?: string;
+        port?: number;
+        issue?: string;
+      }>(`${basePath}/api/admin/settings/email-status`),
+  });
+
+  const testEmail = useMutation({
+    mutationFn: (to: string) =>
+      fetchJson<{ ok: boolean; message?: string; error?: string }>(`${basePath}/api/admin/settings/test-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to }),
+      }),
+    onSuccess: (data) => {
+      setStatusMessage(data.message ?? "Test email sent.");
+      toast({ title: "Test email sent", description: data.message });
+    },
+    onError: (err: Error) => {
+      setStatusMessage(err.message);
+      toast({ title: "Test email failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   const save = useMutation({
     mutationFn: () => {
       const settingsToSave: Record<string, string> = {};
@@ -71,6 +103,7 @@ export default function AdminSettingsEmail() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-settings-email"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-email-status"] });
       toast({ title: "Email settings saved" });
     },
     onError: (err: Error) => {
@@ -140,9 +173,27 @@ export default function AdminSettingsEmail() {
           <CardHeader><CardTitle>SMTP (Nodemailer)</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-slate-500">
-              All transactional and notification emails are sent through your SMTP server (SendGrid, Gmail, etc.).
+              Domain email (BigRock): use <span className="font-medium">mail.ecomm-guru.com</span>, port{" "}
+              <span className="font-medium">465</span> (SSL) or <span className="font-medium">587</span> (STARTTLS),
+              username = full mailbox address.
             </p>
-            {field("smtp_host", "SMTP Host", "text", "smtp.example.com")}
+            {emailStatus && !emailStatus.configured && (
+              <p className="text-sm text-red-600 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                {emailStatus.issue ?? "SMTP is not fully configured."}
+              </p>
+            )}
+            {emailStatus?.envOverridesDatabase && (
+              <p className="text-sm text-amber-800 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                Server <span className="font-medium">SMTP_*</span> environment variables override these dashboard
+                settings. Remove or update them on the API host if you expect admin settings to apply.
+              </p>
+            )}
+            {emailStatus?.configured && (
+              <p className="text-xs text-green-700">
+                Active SMTP: {emailStatus.host}:{emailStatus.port} (from {emailStatus.source})
+              </p>
+            )}
+            {field("smtp_host", "SMTP Host", "text", "mail.ecomm-guru.com")}
             {field("smtp_port", "SMTP Port", "number", "587")}
             {field("smtp_username", "SMTP Username")}
             <div>
@@ -163,9 +214,34 @@ export default function AdminSettingsEmail() {
           </CardContent>
         </Card>
 
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>
-          <Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save Settings"}
-        </Button>
+        <div className="flex flex-wrap gap-3 items-end">
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            <Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save Settings"}
+          </Button>
+          <div className="flex flex-1 min-w-[220px] gap-2 items-end">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-1 block">Send test email</label>
+              <Input
+                type="email"
+                value={testTo}
+                placeholder="sidhant@example.com"
+                onChange={(e) => setTestTo(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={testEmail.isPending || !testTo.trim()}
+              onClick={() => testEmail.mutate(testTo.trim())}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {testEmail.isPending ? "Sending…" : "Test"}
+            </Button>
+          </div>
+        </div>
+        {statusMessage && (
+          <p className="text-sm text-muted-foreground">{statusMessage}</p>
+        )}
       </div>
     </>
   );
