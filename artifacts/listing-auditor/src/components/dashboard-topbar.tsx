@@ -84,7 +84,7 @@ export function DashboardTopbar({
   workspaceManageHref,
   onMenuClick,
   variant = "customer",
-  searchPlaceholder = "Search projects, listings...",
+  searchPlaceholder = "pro listingssssssss",
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
