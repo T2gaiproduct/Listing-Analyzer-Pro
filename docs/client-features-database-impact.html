@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Client Features — Database &amp; Table Impact</title>
+  <style>
+    body { font-family: "Segoe UI", system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; color: #1e293b; line-height: 1.55; }
+    h1 { font-size: 1.75rem; border-bottom: 2px solid #f97316; padding-bottom: 0.5rem; }
+    h2 { font-size: 1.25rem; margin-top: 2rem; color: #0f172a; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 0.5rem 0.65rem; text-align: left; vertical-align: top; }
+    th { background: #f1f5f9; font-weight: 600; }
+    .meta { background: #fff7ed; border: 1px solid #fed7aa; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+    .warn { background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 8px; }
+    code { background: #f1f5f9; padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.88em; }
+    ul.checklist { list-style: none; padding-left: 0; }
+    ul.checklist li { margin: 0.35rem 0; }
+    @media print { body { max-width: none; } }
+  </style>
+</head>
+<body>
+  <h1>Client Feature Requirements — Database &amp; Table Impact</h1>
+  <div class="meta">
+    <p><strong>Product:</strong> Ecommerce Guru (Listing Analyzer Pro)<br />
+    <strong>Purpose:</strong> Map each client feature to existing DB tables (additive only) and new tables.<br />
+    <strong>Status:</strong> Planning only — <strong>not implemented</strong> until approval.<br />
+    <strong>Prepared:</strong> 26 October 2026 (IST) · Version 1.0</p>
+  </div>
+
+  <h2>1. What this document is for</h2>
+  <p>Seven client areas: Excel attributes, categories, bulk content, multi-marketplace content, revenue calculator, A+ graphics, policy-compliant AI. This document lists what exists today, which PostgreSQL tables change, and new tables — without breaking current users.</p>
+  <p><strong>Principle:</strong> New fields are optional. <code>audits.generated_content</code>, current Excel columns, and single-product Generate content stay the default.</p>
+
+  <h2>2. Current database baseline</h2>
+  <table>
+    <tr><th>Table</th><th>Role today</th></tr>
+    <tr><td><code>audits</code></td><td>Project: category, listing fields, <code>generated_content</code>, <code>content_marketplace_id</code>, <code>generated_images</code> (A+)</td></tr>
+    <tr><td><code>content_marketplaces</code></td><td>AI instructions + rules per marketplace</td></tr>
+    <tr><td><code>product_profiles</code></td><td>SKU, <code>target_marketplaces</code>, workflow</td></tr>
+    <tr><td><code>graphics_projects</code></td><td>Create Graphics (main/lifestyle images)</td></tr>
+    <tr><td><code>image_prompt_templates</code></td><td>Graphics + A+ prompt templates</td></tr>
+    <tr><td><code>product_orders</code></td><td>Historical order revenue (not fee calculator)</td></tr>
+    <tr><td><code>settings</code></td><td>Admin config</td></tr>
+    <tr><td><code>amazon_seller_connections</code>, <code>amazon_publish_jobs</code></td><td>Amazon connect / publish</td></tr>
+  </table>
+
+  <h2>3. Feature → table changes</h2>
+
+  <h3>A — Additional listing attributes (Excel)</h3>
+  <table>
+    <tr><th>Impact</th><th>Table</th><th>Change</th></tr>
+    <tr><td>Modify</td><td><code>audits</code></td><td><code>listing_attributes</code> jsonb; <code>feed_product_type</code> text (optional)</td></tr>
+    <tr><td>Modify</td><td><code>product_profiles</code></td><td>Optional attribute/SKU defaults jsonb</td></tr>
+    <tr><td>New</td><td><code>amazon_listing_attribute_templates</code></td><td>Columns per product type for Excel + UI</td></tr>
+    <tr><td>New</td><td><code>amazon_product_types</code></td><td>Marketplace product type catalog</td></tr>
+  </table>
+
+  <h3>B — Category expansion (Amazon India / fees context)</h3>
+  <table>
+    <tr><th>Impact</th><th>Table</th><th>Change</th></tr>
+    <tr><td>Modify</td><td><code>audits</code></td><td><code>amazon_product_type_id</code> or <code>category_metadata</code> jsonb; keep <code>category</code> text</td></tr>
+    <tr><td>New</td><td><code>amazon_product_types</code></td><td>Shared with Feature A</td></tr>
+    <tr><td>Optional</td><td><code>amazon_marketplace_fee_hints</code></td><td>Default referral % by type (links to E)</td></tr>
+  </table>
+
+  <h3>C — Bulk content creation</h3>
+  <table>
+    <tr><th>Impact</th><th>Table</th><th>Change</th></tr>
+    <tr><td>New</td><td><code>content_generation_jobs</code></td><td>Bulk job header (user, workspace, status, counts)</td></tr>
+    <tr><td>New</td><td><code>content_generation_job_items</code></td><td>Per-audit line: status, errors, credits</td></tr>
+    <tr><td>Unchanged writes</td><td><code>audits</code></td><td>Still updates <code>generated_content</code> per product</td></tr>
+  </table>
+
+  <h3>D — Multi-marketplace content (simultaneous)</h3>
+  <table>
+    <tr><th>Impact</th><th>Table</th><th>Change</th></tr>
+    <tr><td>Keep primary</td><td><code>audits</code></td><td><code>generated_content</code> + <code>content_marketplace_id</code> unchanged as default</td></tr>
+    <tr><td>New</td><td><code>audit_content_variants</code></td><td>One row per audit + marketplace copy</td></tr>
+    <tr><td>Optional seed</td><td><code>content_marketplaces</code></td><td>e.g. <code>amazon-in</code> row</td></tr>
+  </table>
+
+  <h3>E — Revenue calculator</h3>
+  <table>
+    <tr><th>Impact</th><th>Table</th><th>Change</th></tr>
+    <tr><td>New</td><td><code>marketplace_fee_rules</code></td><td>Referral, closing, FBA rules by marketplace/category</td></tr>
+    <tr><td>Optional</td><td><code>product_profit_scenarios</code></td><td>Saved calculator inputs/results</td></tr>
+    <tr><td>Unchanged</td><td><code>product_orders</code></td><td>Historical revenue only</td></tr>
+  </table>
+
+  <h3>F — A+ Content graphics</h3>
+  <table>
+    <tr><th>Impact</th><th>Table</th><th>Change</th></tr>
+    <tr><td>Data / optional</td><td><code>image_prompt_templates</code></td><td>New A+ template rows; optional metadata json</td></tr>
+    <tr><td>JSON only</td><td><code>audits.generated_images</code></td><td>Extended A+ modules; old records still load</td></tr>
+  </table>
+
+  <h3>G — Listing policy guidelines (AI)</h3>
+  <table>
+    <tr><th>Impact</th><th>Table</th><th>Change</th></tr>
+    <tr><td>Modify</td><td><code>content_marketplaces</code></td><td>Policy version / FK to policy doc</td></tr>
+    <tr><td>New</td><td><code>marketplace_policy_documents</code></td><td>Versioned policy text for prompts</td></tr>
+    <tr><td>Optional</td><td><code>settings</code></td><td>Global compliance version keys</td></tr>
+  </table>
+
+  <h2>4. Consolidated checklist</h2>
+  <h3>Existing tables (additive only)</h3>
+  <table>
+    <tr><th>Table</th><th>Features</th><th>Notes</th></tr>
+    <tr><td><code>audits</code></td><td>A, B, D, F</td><td>Attributes, feed type, category metadata, A+ json</td></tr>
+    <tr><td><code>product_profiles</code></td><td>A</td><td>Default attributes optional</td></tr>
+    <tr><td><code>content_marketplaces</code></td><td>D, G</td><td>India row, policy fields</td></tr>
+    <tr><td><code>image_prompt_templates</code></td><td>F</td><td>More A+ templates</td></tr>
+    <tr><td><code>settings</code></td><td>G</td><td>Policy pack version</td></tr>
+  </table>
+  <h3>New tables</h3>
+  <table>
+    <tr><th>Table</th><th>Features</th></tr>
+    <tr><td><code>amazon_product_types</code></td><td>A, B</td></tr>
+    <tr><td><code>amazon_listing_attribute_templates</code></td><td>A</td></tr>
+    <tr><td><code>audit_content_variants</code></td><td>D</td></tr>
+    <tr><td><code>content_generation_jobs</code>, <code>content_generation_job_items</code></td><td>C</td></tr>
+    <tr><td><code>marketplace_fee_rules</code>, <code>product_profit_scenarios</code></td><td>E</td></tr>
+    <tr><td><code>marketplace_policy_documents</code></td><td>G</td></tr>
+    <tr><td><code>amazon_marketplace_fee_hints</code></td><td>B, E (optional)</td></tr>
+  </table>
+
+  <h2>5. Suggested phases</h2>
+  <table>
+    <tr><th>Phase</th><th>Features</th><th>DB focus</th></tr>
+    <tr><td>1</td><td>A + B + G (partial)</td><td>Product types, attribute templates, audits columns, policy docs</td></tr>
+    <tr><td>2</td><td>D</td><td><code>audit_content_variants</code>, multi-sheet export</td></tr>
+    <tr><td>3</td><td>C</td><td>Bulk job tables</td></tr>
+    <tr><td>4</td><td>E</td><td>Fee rules + calculator UI</td></tr>
+    <tr><td>5</td><td>F</td><td>A+ templates (mostly data)</td></tr>
+  </table>
+
+  <h2>6. Approval before development</h2>
+  <ul class="checklist">
+    <li>☐ Feature priority / phase order</li>
+    <li>☐ Reference Excel, policy, and A+ documents</li>
+    <li>☐ Multi-marketplace scope (e.g. Amazon IN + US + eBay)</li>
+    <li>☐ Revenue calculator scope (India-first vs all marketplaces)</li>
+    <li>☐ Approve this table plan</li>
+  </ul>
+  <div class="warn"><strong>No migrations or code</strong> until you approve this plan.</div>
+</body>
+</html>
