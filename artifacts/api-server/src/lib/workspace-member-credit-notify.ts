@@ -79,7 +79,7 @@ export async function notifyWorkspaceMemberCreditsAssigned(opts: {
   if (!email || !(await isEmailNotificationsEnabled())) return;
   if (!(await shouldSendNotificationEmailToAddress(email, "credits_assigned"))) return;
 
-  const html = notificationEmailTemplate({
+  const html = await notificationEmailTemplate({
     recipientName: row.invitedName?.trim() || "there",
     title,
     message,

@@ -44,7 +44,7 @@ export async function sendWorkspaceInviteEmail(opts: {
     return { emailSent: false, emailError: "Invitee has team notifications disabled" };
   }
 
-  const html = workspaceInviteEmailTemplate({
+  const html = await workspaceInviteEmailTemplate({
     invitedName: opts.invitedName,
     workspaceName: opts.workspaceName,
     roleName: opts.roleName,

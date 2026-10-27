@@ -58,7 +58,7 @@ export async function issueAndSendEmailVerificationCode(params: {
   });
 
   const appName = params.platformName?.trim() || "Ecommerce Guru";
-  const html = authEmailCodeTemplate({
+  const html = await authEmailCodeTemplate({
     platformName: appName,
     code: plainCode,
     expiresMinutes: 15,

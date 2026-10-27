@@ -79,7 +79,7 @@ export async function issueAndSendPasswordResetCode(params: {
 
   const appName = params.platformName?.trim() || "Ecommerce Guru";
   const resetUrl = `${params.appPublicBaseUrl.replace(/\/$/, "")}/reset-password?email=${encodeURIComponent(email)}&code=${plainCode}`;
-  const html = authEmailCodeTemplate({
+  const html = await authEmailCodeTemplate({
     platformName: appName,
     code: plainCode,
     expiresMinutes: 60,

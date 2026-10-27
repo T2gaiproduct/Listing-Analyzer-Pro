@@ -1,6 +1,7 @@
 import { inArray } from "drizzle-orm";
 import { db, settingsTable } from "@workspace/db";
 import { sendEmail } from "./email.js";
+import { resolveEmailLogoUrl } from "./email-logo-url.js";
 import { escapeHtml, modernNotificationEmailLayout } from "./email-template-layout.js";
 
 const INBOX_SETTING_KEYS = ["support_email", "email_reply_to", "email_from_address"] as const;
@@ -23,16 +24,18 @@ export async function resolveSupportInboxEmail(): Promise<string | null> {
   return null;
 }
 
-function adminNotificationHtml(params: {
+async function adminNotificationHtml(params: {
   ticketId: number;
   customerEmail: string;
   customerName?: string | null;
   subject: string;
   message: string;
   adminTicketsUrl: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const who = escapeHtml(params.customerName?.trim() || params.customerEmail);
   return modernNotificationEmailLayout({
+    logoUrl,
     title: `New support ticket #${params.ticketId}`,
     bodyHtml: `<p style="margin:0 0 12px;color:#64748b;font-size:14px;">From <strong>${who}</strong> (${escapeHtml(params.customerEmail)})</p>
       <p style="margin:0 0 12px;font-weight:600;color:#0f172a;">${escapeHtml(params.subject)}</p>
@@ -43,15 +46,17 @@ function adminNotificationHtml(params: {
   });
 }
 
-function customerConfirmationHtml(params: {
+async function customerConfirmationHtml(params: {
   customerName?: string | null;
   subject: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const greeting = params.customerName?.trim()
     ? `Hi ${escapeHtml(params.customerName.trim())},`
     : "Hi there,";
 
   return modernNotificationEmailLayout({
+    logoUrl,
     title: "We received your request",
     greetingHtml: greeting,
     bodyHtml: `<p style="margin:0;">Thanks for contacting us about <strong>${escapeHtml(params.subject)}</strong>. Our team will reply within one business day.</p>`,
@@ -59,15 +64,17 @@ function customerConfirmationHtml(params: {
   });
 }
 
-function replyHtml(params: {
+async function replyHtml(params: {
   customerName?: string | null;
   replyMessage: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const greeting = params.customerName?.trim()
     ? `Hi ${escapeHtml(params.customerName.trim())},`
     : "Hi there,";
 
   return modernNotificationEmailLayout({
+    logoUrl,
     title: "Update from support",
     greetingHtml: greeting,
     bodyHtml: `<div style="color:#334155;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(params.replyMessage)}</div>`,
@@ -94,7 +101,7 @@ export async function sendSupportTicketCreatedEmails(params: {
     const adminResult = await sendEmail({
       to: inbox,
       subject: `[Support #${params.ticketId}] ${params.subject}`,
-      html: adminNotificationHtml({
+      html: await adminNotificationHtml({
         ticketId: params.ticketId,
         customerEmail: params.email,
         customerName: params.name,
@@ -112,7 +119,7 @@ export async function sendSupportTicketCreatedEmails(params: {
   const customerResult = await sendEmail({
     to: params.email,
     subject: `We received your request: ${params.subject}`,
-    html: customerConfirmationHtml({ customerName: params.name, subject: params.subject }),
+    html: await customerConfirmationHtml({ customerName: params.name, subject: params.subject }),
   });
   customerSent = customerResult.success;
   customerError = customerResult.error;
@@ -133,20 +140,22 @@ export async function sendSupportTicketReplyEmail(params: {
   return sendEmail({
     to: params.toEmail,
     subject,
-    html: replyHtml({ customerName: params.customerName, replyMessage: params.replyMessage }),
+    html: await replyHtml({ customerName: params.customerName, replyMessage: params.replyMessage }),
   });
 }
 
-function customerFollowUpHtml(params: {
+async function customerFollowUpHtml(params: {
   ticketId: number;
   customerEmail: string;
   customerName?: string | null;
   subject: string;
   message: string;
   adminTicketsUrl: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const who = escapeHtml(params.customerName?.trim() || params.customerEmail);
   return modernNotificationEmailLayout({
+    logoUrl,
     title: `Customer reply on ticket #${params.ticketId}`,
     bodyHtml: `<p style="margin:0 0 12px;color:#64748b;font-size:14px;">From <strong>${who}</strong> (${escapeHtml(params.customerEmail)})</p>
       <p style="margin:0 0 12px;font-weight:600;color:#0f172a;">${escapeHtml(params.subject)}</p>
@@ -181,7 +190,7 @@ export async function sendSupportTicketCustomerFollowUpEmail(params: {
   return sendEmail({
     to: inbox,
     subject: `[Support #${params.ticketId}] ${subject}`,
-    html: customerFollowUpHtml({
+    html: await customerFollowUpHtml({
       ticketId: params.ticketId,
       customerEmail: params.customerEmail,
       customerName: params.customerName,

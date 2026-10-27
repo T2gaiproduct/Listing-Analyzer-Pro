@@ -318,7 +318,7 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
       const inviterName = profile?.companyName ?? "Your team owner";
       const companyName = profile?.companyName ?? "Ecommerce Guru";
       const inviteUrl = `${process.env.APP_URL ?? "https://sellerlens.io"}/accept-invite?token=${token}`;
-      const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role: roleName, invitedName });
+      const html = await inviteEmailTemplate({ inviterName, companyName, inviteUrl, role: roleName, invitedName });
       await sendEmail({ to: normalizedInviteEmail, subject: `You have been invited to join ${companyName}`, html });
     }
   } catch (emailErr) {
@@ -480,7 +480,7 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
     if (await shouldSendTeamWelcomeEmailToUser(userId)) {
       const [ownerProfile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, invite.ownerUserId));
       const companyName = ownerProfile?.companyName ?? "Ecommerce Guru";
-      const html = welcomeEmailTemplate({ companyName, memberName: invite.invitedName, role: invite.role });
+      const html = await welcomeEmailTemplate({ companyName, memberName: invite.invitedName, role: invite.role });
       await sendEmail({ to: invite.invitedEmail, subject: `Welcome to ${companyName}!`, html });
     }
   } catch (emailErr) {

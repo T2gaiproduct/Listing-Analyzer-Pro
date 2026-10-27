@@ -76,6 +76,7 @@ import {
 import { createNotification, type NotificationType } from "../lib/notifications.js";
 import { wsSend } from "../lib/ws.js";
 import { sendSupportTicketReplyEmail } from "../lib/support-ticket-email.js";
+import { clearEmailLogoUrlCache } from "../lib/email-logo-url.js";
 import { clearSmtpTransportCache, sendAdminTestEmail } from "../lib/email.js";
 import { appendSupportTicketReply, parseSupportTicketData } from "../lib/support-ticket-data.js";
 
@@ -1849,6 +1850,10 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
 
   if (category === "email") {
     clearSmtpTransportCache();
+  }
+
+  if (category === "platform") {
+    clearEmailLogoUrlCache();
   }
 
   if (category === ANNOUNCEMENT_PROMO_CATEGORY) {

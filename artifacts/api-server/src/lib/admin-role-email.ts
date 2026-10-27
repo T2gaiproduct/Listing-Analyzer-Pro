@@ -40,7 +40,7 @@ export async function sendAdminRoleAssignedEmail(opts: {
     ? `Your Ecommerce Guru admin role was updated to "${role.name}"`
     : `You've been granted Ecommerce Guru admin access (${role.name})`;
 
-  const html = adminRoleAssignedEmailTemplate({
+  const html = await adminRoleAssignedEmailTemplate({
     recipientName: opts.recipientName,
     roleName: role.name,
     permissionLabels,
@@ -73,7 +73,7 @@ export async function sendAdminRoleInviteEmail(opts: {
   const permissionLabels = formatPermissionLabels(role.permissions ?? []);
   const subject = `You're invited to Ecommerce Guru admin (${role.name})`;
 
-  const html = adminRoleInviteEmailTemplate({
+  const html = await adminRoleInviteEmailTemplate({
     roleName: role.name,
     permissionLabels,
     signUpUrl,

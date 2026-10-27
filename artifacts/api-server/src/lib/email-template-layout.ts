@@ -24,10 +24,6 @@ export function resolvePublicSiteOrigin(): string {
   return "https://sellerlens.io";
 }
 
-/** Absolute URL for the site logo (Admin → Platform Settings or /logo.png). */
-export function resolveEmailLogoUrl(): string {
-  return `${resolvePublicSiteOrigin()}/logo.png`;
-}
 
 function normalizeOtpCode(code: string): string {
   const digits = code.replace(/\D/g, "").slice(0, 6);
@@ -70,12 +66,12 @@ function welcomeHeroSvgHtml(): string {
 </div>`;
 }
 
-function logoHeaderRowHtml(): string {
-  const logoUrl = escapeHtml(resolveEmailLogoUrl());
+function logoHeaderRowHtml(logoUrl: string): string {
+  const safeLogoUrl = escapeHtml(logoUrl);
   const name = escapeHtml(PLATFORM_NAME);
   return `<tr>
     <td align="center" style="padding:32px 24px 16px;">
-      <img src="${logoUrl}" alt="${name}" width="160" height="auto" style="display:block;max-width:160px;height:auto;border:0;" />
+      <img src="${safeLogoUrl}" alt="${name}" width="160" height="auto" style="display:block;max-width:160px;height:auto;border:0;" />
     </td>
   </tr>`;
 }
@@ -88,6 +84,7 @@ export type OtpEmailLayoutInput = {
   footerNote?: string;
   ctaUrl?: string;
   ctaLabel?: string;
+  logoUrl: string;
 };
 
 /** Shootmail-style OTP email (verification codes, password reset codes). */
@@ -117,7 +114,7 @@ export function otpEmailLayout(input: OtpEmailLayoutInput): string {
     <tr>
       <td align="center" style="padding:32px 16px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:20px;box-shadow:0 8px 32px rgba(15,23,42,0.08);overflow:hidden;">
-          ${logoHeaderRowHtml()}
+          ${logoHeaderRowHtml(input.logoUrl)}
           <tr><td style="padding:0 32px 8px;text-align:center;">
             <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT_DARK};">${headline}</h1>
             <p style="margin:10px 0 0;font-size:14px;color:${TEXT_MUTED};">${subtitle}</p>
@@ -149,6 +146,7 @@ export type ModernEmailLayoutInput = {
   ctaLabel?: string;
   showHero?: boolean;
   highlightHtml?: string;
+  logoUrl: string;
 };
 
 /** Modern welcome-style layout for invites, alerts, and other non-OTP mail. */
@@ -177,7 +175,7 @@ export function modernNotificationEmailLayout(input: ModernEmailLayoutInput): st
     <tr>
       <td align="center" style="padding:32px 16px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:4px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.06);">
-          ${logoHeaderRowHtml()}
+          ${logoHeaderRowHtml(input.logoUrl)}
           <tr><td style="padding:8px 36px 32px;text-align:center;">
             ${hero}
             <h1 style="margin:0 0 16px;font-size:26px;font-weight:800;color:${TEXT_DARK};line-height:1.25;">${title}</h1>

@@ -59,7 +59,7 @@ async function sendNotificationEmail(params: {
     ? (params.link.startsWith("http") ? params.link : `${base}${params.link.startsWith("/") ? params.link : `/${params.link}`}`)
     : `${base}/notifications`;
 
-  const html = notificationEmailTemplate({
+  const html = await notificationEmailTemplate({
     recipientName: profile.name,
     title: params.title,
     message: params.message,

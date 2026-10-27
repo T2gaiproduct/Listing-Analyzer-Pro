@@ -5,10 +5,11 @@ import {
   otpEmailLayout,
   resolvePublicSiteOrigin,
 } from "./email-template-layout.js";
+import { resolveEmailLogoUrl } from "./email-logo-url.js";
 
 const EMAIL_LABEL_ACCENT = EMAIL_ACCENT_ORANGE;
 
-export function inviteEmailTemplate({
+export async function inviteEmailTemplate({
   inviterName,
   companyName,
   inviteUrl,
@@ -20,7 +21,8 @@ export function inviteEmailTemplate({
   inviteUrl: string;
   role: string;
   invitedName: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const roleDescriptions: Record<string, string> = {
     admin: "Full access — can manage team, billing, and all audits",
     editor: "Can create and edit audits, cannot manage billing or team",
@@ -28,6 +30,7 @@ export function inviteEmailTemplate({
   };
 
   return modernNotificationEmailLayout({
+    logoUrl,
     title: "You're invited to the team",
     greetingHtml: `Hi <strong>${escapeHtml(invitedName)}</strong>,`,
     bodyHtml: `<p style="margin:0 0 12px;"><strong>${escapeHtml(inviterName)}</strong> invited you to join <strong>${escapeHtml(companyName)}</strong> on Ecommerce Guru.</p>`,
@@ -38,7 +41,7 @@ export function inviteEmailTemplate({
   });
 }
 
-export function welcomeEmailTemplate({
+export async function welcomeEmailTemplate({
   companyName,
   memberName,
   role,
@@ -46,9 +49,11 @@ export function welcomeEmailTemplate({
   companyName: string;
   memberName: string;
   role: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const dashboardUrl = `${resolvePublicSiteOrigin()}/dashboard`;
   return modernNotificationEmailLayout({
+    logoUrl,
     title: "Hey, welcome!",
     greetingHtml: `Hi <strong>${escapeHtml(memberName)}</strong>,`,
     bodyHtml: `<p style="margin:0 0 12px;">You have been added to <strong>${escapeHtml(companyName)}</strong>. Your role is <strong>${escapeHtml(role)}</strong> — you can open the workspace and start collaborating right away.</p>`,
@@ -57,7 +62,7 @@ export function welcomeEmailTemplate({
   });
 }
 
-export function workspaceInviteEmailTemplate({
+export async function workspaceInviteEmailTemplate({
   invitedName,
   workspaceName,
   roleName,
@@ -69,8 +74,10 @@ export function workspaceInviteEmailTemplate({
   roleName: string;
   inviterName: string;
   inviteUrl: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   return modernNotificationEmailLayout({
+    logoUrl,
     title: "Join your workspace",
     greetingHtml: `Hi <strong>${escapeHtml(invitedName)}</strong>,`,
     bodyHtml: `<p style="margin:0 0 12px;"><strong>${escapeHtml(inviterName)}</strong> invited you to collaborate on Ecommerce Guru.</p>`,
@@ -83,7 +90,7 @@ export function workspaceInviteEmailTemplate({
   });
 }
 
-export function adminRoleAssignedEmailTemplate({
+export async function adminRoleAssignedEmailTemplate({
   recipientName,
   roleName,
   permissionLabels,
@@ -97,7 +104,8 @@ export function adminRoleAssignedEmailTemplate({
   adminSignInUrl: string;
   assignedByName: string;
   isUpdate?: boolean;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const permissionList = permissionLabels.length
     ? permissionLabels.map((label) => `<li style="margin:4px 0;">${escapeHtml(label)}</li>`).join("")
     : "<li style=\"margin:4px 0;\">Limited admin access (see your administrator for details)</li>";
@@ -108,6 +116,7 @@ export function adminRoleAssignedEmailTemplate({
     : `<strong>${escapeHtml(assignedByName)}</strong> assigned you an admin role on Ecommerce Guru.`;
 
   return modernNotificationEmailLayout({
+    logoUrl,
     title,
     greetingHtml: `Hi <strong>${escapeHtml(recipientName)}</strong>,`,
     bodyHtml: `<p style="margin:0 0 12px;">${intro}</p>
@@ -120,7 +129,7 @@ export function adminRoleAssignedEmailTemplate({
   });
 }
 
-export function adminRoleInviteEmailTemplate({
+export async function adminRoleInviteEmailTemplate({
   roleName,
   permissionLabels,
   signUpUrl,
@@ -132,12 +141,14 @@ export function adminRoleInviteEmailTemplate({
   signUpUrl: string;
   assignedByName: string;
   invitedEmail: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const permissionList = permissionLabels.length
     ? permissionLabels.map((label) => `<li style="margin:4px 0;">${escapeHtml(label)}</li>`).join("")
     : "<li style=\"margin:4px 0;\">Limited admin access (see your administrator for details)</li>";
 
   return modernNotificationEmailLayout({
+    logoUrl,
     title: "You're invited to admin",
     bodyHtml: `<p style="margin:0 0 12px;"><strong>${escapeHtml(assignedByName)}</strong> invited you to join Ecommerce Guru as an admin.</p>
       <p style="margin:0;">Create an account using <strong>${escapeHtml(invitedEmail)}</strong>.</p>`,
@@ -149,7 +160,7 @@ export function adminRoleInviteEmailTemplate({
   });
 }
 
-export function notificationEmailTemplate({
+export async function notificationEmailTemplate({
   recipientName,
   title,
   message,
@@ -159,8 +170,10 @@ export function notificationEmailTemplate({
   title: string;
   message: string;
   actionUrl?: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   return modernNotificationEmailLayout({
+    logoUrl,
     title,
     greetingHtml: `Hi <strong>${escapeHtml(recipientName)}</strong>,`,
     bodyHtml: `<p style="margin:0;">${escapeHtml(message)}</p>`,
@@ -169,7 +182,7 @@ export function notificationEmailTemplate({
   });
 }
 
-export function authPasswordResetTemplate({
+export async function authPasswordResetTemplate({
   platformName,
   resetUrl,
   resetCode,
@@ -179,9 +192,11 @@ export function authPasswordResetTemplate({
   resetUrl: string;
   resetCode: string;
   expiresMinutes: number;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const app = platformName.trim() || "Ecommerce Guru";
   return otpEmailLayout({
+    logoUrl,
     headline: "Your one time password!",
     subtitle: `Your OTP for resetting your password on ${app}`,
     code: resetCode,
@@ -192,7 +207,7 @@ export function authPasswordResetTemplate({
   });
 }
 
-export function authEmailCodeTemplate({
+export async function authEmailCodeTemplate({
   platformName,
   code,
   expiresMinutes,
@@ -208,7 +223,8 @@ export function authEmailCodeTemplate({
   intro?: string;
   ctaUrl?: string;
   ctaLabel?: string;
-}): string {
+}): Promise<string> {
+  const logoUrl = await resolveEmailLogoUrl();
   const app = platformName.trim() || "Ecommerce Guru";
   const isPasswordReset =
     headline.toLowerCase().includes("password")
@@ -218,6 +234,7 @@ export function authEmailCodeTemplate({
     : `Your OTP for signing in to ${app}`;
 
   return otpEmailLayout({
+    logoUrl,
     headline: "Your one time password!",
     subtitle,
     code,

@@ -4,6 +4,7 @@ import {
   inviteEmailTemplate,
   workspaceInviteEmailTemplate,
 } from "./email-templates.js";
+import { buildAbsoluteEmailLogoUrl } from "./email-logo-url.js";
 import { EMAIL_ACCENT_ORANGE } from "./email-template-layout.js";
 import { buildOtpDigitBoxesHtml, escapeHtml } from "./email-template-layout.js";
 
@@ -19,21 +20,36 @@ function testOtpDigitBoxes(): void {
   assert.equal((html.match(/border-radius:10px/g) ?? []).length, 6);
 }
 
-function testAuthEmailUsesOtpLayout(): void {
-  const html = authEmailCodeTemplate({
+function testBuildAbsoluteEmailLogoUrl(): void {
+  assert.equal(
+    buildAbsoluteEmailLogoUrl(null, "https://ecomm-guru.com"),
+    "https://ecomm-guru.com/logo.png",
+  );
+  assert.equal(
+    buildAbsoluteEmailLogoUrl("/api/images/branding/site-logo.png", "https://ecomm-guru.com"),
+    "https://ecomm-guru.com/api/images/branding/site-logo.png",
+  );
+  assert.equal(
+    buildAbsoluteEmailLogoUrl("https://cdn.example.com/logo.svg", "https://ecomm-guru.com"),
+    "https://cdn.example.com/logo.svg",
+  );
+}
+
+async function testAuthEmailUsesOtpLayout(): Promise<void> {
+  const html = await authEmailCodeTemplate({
     platformName: "Ecommerce Guru",
     code: "424242",
     expiresMinutes: 15,
   });
   assert.match(html, /Your one time password!/);
-  assert.match(html, /logo\.png/);
+  assert.match(html, /logo\.png|site-logo/);
   assert.match(html, />4</);
   assert.match(html, /alt="Ecommerce Guru"/);
   assert.match(html, /Ecommerce Guru<\/p>/);
 }
 
-function testInviteUsesModernLayout(): void {
-  const html = inviteEmailTemplate({
+async function testInviteUsesModernLayout(): Promise<void> {
+  const html = await inviteEmailTemplate({
     inviterName: "Alex",
     companyName: "Acme",
     inviteUrl: "https://example.com/invite",
@@ -41,15 +57,15 @@ function testInviteUsesModernLayout(): void {
     invitedName: "Sam",
   });
   assert.match(html, /Hey, welcome|invited to the team/i);
-  assert.match(html, /logo\.png/);
+  assert.match(html, /logo\.png|site-logo/);
   assert.match(html, /Get started|Accept invitation/i);
   assert.match(html, /alt="Ecommerce Guru"/);
   assert.doesNotMatch(html, /#db2777|#fdf2f8|#fbcfe8/);
   assert.match(html, new RegExp(EMAIL_ACCENT_ORANGE.replace("#", "\\#")));
 }
 
-function testWorkspaceInviteUsesOrangeTheme(): void {
-  const html = workspaceInviteEmailTemplate({
+async function testWorkspaceInviteUsesOrangeTheme(): Promise<void> {
+  const html = await workspaceInviteEmailTemplate({
     invitedName: "Amita",
     workspaceName: "My Workspace",
     roleName: "Admin",
@@ -61,9 +77,17 @@ function testWorkspaceInviteUsesOrangeTheme(): void {
   assert.doesNotMatch(html, /#db2777|#fdf2f8|#fbcfe8/);
 }
 
-testEscapeHtml();
-testOtpDigitBoxes();
-testAuthEmailUsesOtpLayout();
-testInviteUsesModernLayout();
-testWorkspaceInviteUsesOrangeTheme();
-console.log("email-template-layout: ok");
+async function main(): Promise<void> {
+  testEscapeHtml();
+  testOtpDigitBoxes();
+  testBuildAbsoluteEmailLogoUrl();
+  await testAuthEmailUsesOtpLayout();
+  await testInviteUsesModernLayout();
+  await testWorkspaceInviteUsesOrangeTheme();
+  console.log("email-template-layout: ok");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
