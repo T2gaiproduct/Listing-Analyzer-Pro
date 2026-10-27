@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
-import { Mail, Save, CheckCircle2 } from "lucide-react";
+import { Mail, Save, CheckCircle2, Send } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const CATEGORY = "email";
@@ -37,6 +37,7 @@ export default function AdminSettingsEmail() {
     smtp_password: "",
   });
   const [maskedFields, setMaskedFields] = useState<Set<string>>(new Set());
+  const [testTo, setTestTo] = useState("");
 
   const { data } = useQuery({
     queryKey: ["admin-settings-email"],
@@ -57,8 +58,63 @@ export default function AdminSettingsEmail() {
     }
     setMaskedFields(masked);
     setForm(merged);
+    const fromAddr = merged.email_from_address?.trim();
+    if (fromAddr && !testTo.trim()) {
+      setTestTo(fromAddr);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
+
+  function buildSettingsPayloadForTest(): Record<string, string> {
+    const settingsToSave: Record<string, string> = {};
+    for (const [key, value] of Object.entries(form)) {
+      if (value === "" && maskedFields.has(key)) continue;
+      settingsToSave[key] = value;
+    }
+    return settingsToSave;
+  }
+
+  const testEmail = useMutation({
+    mutationFn: async () => {
+      const to = testTo.trim();
+      if (!to) throw new Error("Enter a recipient email for the test.");
+      return fetchJson<{
+        ok?: boolean;
+        message?: string;
+        error?: string;
+        hint?: string;
+        configSource?: string;
+      }>(`${basePath}/api/admin/settings/test-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to,
+          settings: buildSettingsPayloadForTest(),
+        }),
+      });
+    },
+    onSuccess: (data) => {
+      if (data.ok === false) {
+        toast({
+          title: "Test email failed",
+          description: [data.error, data.hint].filter(Boolean).join(" "),
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "Test email sent",
+        description: [data.message, data.hint].filter(Boolean).join(" "),
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Test email failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const save = useMutation({
     mutationFn: () => {
@@ -160,6 +216,34 @@ export default function AdminSettingsEmail() {
                 </p>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Send test email</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-slate-500">
+              Uses the SMTP values above (saved password if the field is blank). Save settings first if you changed the password.
+              If the server has <code className="text-xs">SMTP_*</code> in <code className="text-xs">.env</code>, that overrides these fields.
+            </p>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Send test to</label>
+              <Input
+                type="email"
+                value={testTo}
+                placeholder="you@company.com"
+                onChange={(e) => setTestTo(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => testEmail.mutate()}
+              disabled={testEmail.isPending || !testTo.trim()}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {testEmail.isPending ? "Sending…" : "Send test email"}
+            </Button>
           </CardContent>
         </Card>
 

@@ -103,6 +103,72 @@ async function resolveSmtpConfig(): Promise<SmtpConfig | null> {
   return resolveSmtpConfigFromDb();
 }
 
+export function clearSmtpTransportCache(): void {
+  cachedTransport = null;
+}
+
+function smtpConfigFromMap(map: Record<string, string | undefined>): SmtpConfig | null {
+  const host = map.smtp_host?.trim();
+  if (!host) return null;
+
+  const port = parsePort(map.smtp_port);
+  const username = map.smtp_username?.trim() ?? "";
+  const password = map.smtp_password?.trim() ?? "";
+  if (username && (!password || password === "***")) return null;
+
+  const fromName = map.email_from_name?.trim() || "Ecommerce Guru";
+  const fromAddress = map.email_from_address?.trim();
+  const replyTo = map.email_reply_to?.trim();
+
+  return {
+    host,
+    port,
+    secure: port === 465,
+    auth: username ? { user: username, pass: password } : undefined,
+    from: fromAddress ? formatFrom(fromName, fromAddress) : emailFrom,
+    replyTo: replyTo || undefined,
+  };
+}
+
+/** Merge DB email settings with optional admin form overrides (empty password = keep DB secret). */
+export async function resolveSmtpConfigForAdminTest(
+  overrides?: Record<string, string>,
+): Promise<{ config: SmtpConfig | null; configSource: "env" | "database" | "form"; hint?: string }> {
+  const fromEnv = resolveSmtpConfigFromEnv();
+  if (fromEnv) {
+    return {
+      config: fromEnv,
+      configSource: "env",
+      hint: "Server .env SMTP_* overrides Admin Email Settings. Test uses environment variables.",
+    };
+  }
+
+  const rows = await db
+    .select({ key: settingsTable.key, value: settingsTable.value })
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, [...EMAIL_SETTING_KEYS]));
+
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const o = overrides ?? {};
+  for (const [key, value] of Object.entries(o)) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (key === "smtp_password" && trimmed === "") continue;
+    if (trimmed !== "") map[key] = trimmed;
+  }
+
+  const config = smtpConfigFromMap(map);
+  const usedForm = Object.entries(o).some(([k, v]) => typeof v === "string" && v.trim() !== "" && k !== "smtp_password");
+  return {
+    config,
+    configSource: usedForm ? "form" : "database",
+    hint:
+      !config && map.smtp_username?.trim() && !map.smtp_password?.trim()
+        ? "SMTP password missing. Save settings with a password or re-enter it before testing."
+        : undefined,
+  };
+}
+
 function getTransport(config: SmtpConfig): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
   const key = transportCacheKey(config);
   if (cachedTransport?.key === key) return cachedTransport.transport;
@@ -112,10 +178,34 @@ function getTransport(config: SmtpConfig): nodemailer.Transporter<SMTPTransport.
     port: config.port,
     secure: config.secure,
     auth: config.auth,
+    ...(config.port === 587 ? { requireTLS: true } : {}),
+    tls: { minVersion: "TLSv1.2" },
   });
 
   cachedTransport = { key, transport };
   return transport;
+}
+
+async function sendMailWithConfig(
+  config: SmtpConfig,
+  mail: { to: string; subject: string; html: string; replyTo?: string },
+): Promise<{ success: boolean; error?: string; id?: string }> {
+  try {
+    const transport = getTransport(config);
+    const options: Mail.Options = {
+      from: config.from,
+      to: mail.to,
+      subject: mail.subject,
+      html: mail.html,
+    };
+    const resolvedReplyTo = mail.replyTo ?? config.replyTo;
+    if (resolvedReplyTo) options.replyTo = resolvedReplyTo;
+
+    const result = await transport.sendMail(options);
+    return { success: true, id: result.messageId };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
 }
 
 export async function isEmailNotificationsEnabled(): Promise<boolean> {
@@ -150,20 +240,41 @@ export async function sendEmail({
     };
   }
 
-  try {
-    const transport = getTransport(config);
-    const mail: Mail.Options = {
-      from: config.from,
-      to,
-      subject,
-      html,
-    };
-    const resolvedReplyTo = replyTo ?? config.replyTo;
-    if (resolvedReplyTo) mail.replyTo = resolvedReplyTo;
+  return sendMailWithConfig(config, { to, subject, html, replyTo });
+}
 
-    const result = await transport.sendMail(mail);
-    return { success: true, id: result.messageId };
-  } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+export async function sendAdminTestEmail(input: {
+  to: string;
+  settings?: Record<string, string>;
+}): Promise<{
+  success: boolean;
+  error?: string;
+  id?: string;
+  configSource?: string;
+  hint?: string;
+}> {
+  clearSmtpTransportCache();
+  const { config, configSource, hint } = await resolveSmtpConfigForAdminTest(input.settings);
+  if (!config) {
+    return {
+      success: false,
+      error:
+        hint ??
+        "Email is not configured. Set SMTP host, port, username, and password, then save or test again.",
+      configSource,
+      hint,
+    };
   }
+
+  const html = `<p>This is a test email from <strong>Ecommerce Guru</strong> admin settings.</p>
+<p>If you received this, SMTP is working for sign-up OTP and notifications.</p>
+<p style="color:#64748b;font-size:12px;">Sent at ${new Date().toISOString()} · source: ${configSource}</p>`;
+
+  const result = await sendMailWithConfig(config, {
+    to: input.to,
+    subject: "Ecommerce Guru — SMTP test email",
+    html,
+  });
+
+  return { ...result, configSource, hint: result.success ? hint : undefined };
 }

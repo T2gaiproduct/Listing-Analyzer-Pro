@@ -76,6 +76,7 @@ import {
 import { createNotification, type NotificationType } from "../lib/notifications.js";
 import { wsSend } from "../lib/ws.js";
 import { sendSupportTicketReplyEmail } from "../lib/support-ticket-email.js";
+import { clearSmtpTransportCache, sendAdminTestEmail } from "../lib/email.js";
 import { appendSupportTicketReply, parseSupportTicketData } from "../lib/support-ticket-data.js";
 
 const router: IRouter = Router();
@@ -513,6 +514,38 @@ router.post("/admin/customers/:userId/reconcile-paypal", requireAdmin, async (re
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
   }
+});
+
+router.post("/admin/settings/test-email", requireAdmin, async (req, res): Promise<void> => {
+  const body = (req.body ?? {}) as { to?: string; settings?: Record<string, string> };
+  const parsed = parseEmailForApi(body.to ?? "");
+  if ("error" in parsed) {
+    res.status(400).json({ ok: false, error: parsed.error });
+    return;
+  }
+
+  const result = await sendAdminTestEmail({
+    to: parsed.email,
+    settings: body.settings,
+  });
+
+  if (!result.success) {
+    res.status(400).json({
+      ok: false,
+      error: result.error ?? "Test email could not be sent.",
+      configSource: result.configSource,
+      hint: result.hint,
+    });
+    return;
+  }
+
+  res.json({
+    ok: true,
+    message: `Test email sent to ${parsed.email}. Check inbox and spam.`,
+    messageId: result.id,
+    configSource: result.configSource,
+    hint: result.hint,
+  });
 });
 
 router.post("/admin/settings/test-paypal", requireAdmin, async (req, res): Promise<void> => {
@@ -1813,6 +1846,10 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
   clearProviderCache();
   clearOpenAICache();
   clearGeminiCache();
+
+  if (category === "email") {
+    clearSmtpTransportCache();
+  }
 
   if (category === ANNOUNCEMENT_PROMO_CATEGORY) {
     const promoSettings = settings as Record<string, string>;
