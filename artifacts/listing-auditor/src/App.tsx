@@ -364,7 +364,23 @@ function OnboardingSignUpRedirect() {
   return <Redirect to="/sign-up" />;
 }
 
+function CloudPreviewDashboardRedirect() {
+  useEffect(() => {
+    window.location.replace(`${basePath}/dashboard`);
+  }, []);
+  return (
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-50 to-blue-50">
+      <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      <p className="text-sm text-slate-600">Cloud preview: opening dashboard…</p>
+    </div>
+  );
+}
+
 function SignInPage() {
+  if (isCloudPreviewSkipAuthBuild()) {
+    return <CloudPreviewDashboardRedirect />;
+  }
+
   const params = new URLSearchParams(window.location.search);
   const redirectParam = params.get("redirect_url");
   const email = params.get("email") ?? undefined;
@@ -460,6 +476,7 @@ function HomeRedirect() {
   } = useOnboardingSummary();
   if (!isLoaded) return <Landing />;
   if (!user) return <Landing />;
+  if (isCloudPreviewSkipAuthBuild()) return <Redirect to="/dashboard" />;
   if (envAdmin && !adminLoaded) return <AuthLoading />;
   if ((envAdmin || (adminLoaded && isAdmin)) && !permLoaded) return <AuthLoading />;
   if (envAdmin || (adminLoaded && isAdmin)) return <Redirect to={defaultRoute} />;
@@ -485,6 +502,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     refetch: refetchSummary,
   } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
+  if (isCloudPreviewSkipAuthBuild() && user) {
+    return (
+      <>
+        <Show when="signed-in">
+          <Layout>{children}</Layout>
+        </Show>
+        <Show when="signed-out">
+          <Redirect to="/dashboard" />
+        </Show>
+      </>
+    );
+  }
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
   if (user && envAdmin && !adminLoaded) return <AuthLoading />;
   if (user && !isAdminUser && !summaryFetched) return <AuthLoading />;
