@@ -338,7 +338,7 @@ apply_cloud_agent_quick_tunnel_env() {
     export VITE_CLOUD_PREVIEW_SKIP_AUTH="${VITE_CLOUD_PREVIEW_SKIP_AUTH:-true}"
     echo "==> Cloud Agent quick tunnel: ENABLE_CLOUD_AGENT_QUICK_TUNNEL + VITE_CLOUD_AGENT_PREVIEW (local dev-stack only)" >&2
     if [[ "$CLOUD_PREVIEW_SKIP_AUTH" == "true" ]]; then
-      echo "==> Cloud preview testing: CLOUD_PREVIEW_SKIP_AUTH (auto admin sign-in — no Clerk on *.trycloudflare.com)" >&2
+      echo "==> Cloud preview testing: CLOUD_PREVIEW_SKIP_AUTH (auto sign-in — user /dashboard + admin, no Clerk)" >&2
     fi
   fi
 }
@@ -628,7 +628,8 @@ if [[ -n "$PUBLIC_URL" ]]; then
     echo "  Amazon OAuth redirect: $PUBLIC_URL/api/amazon/oauth/callback"
   else
     if [[ "${CLOUD_PREVIEW_SKIP_AUTH:-}" == "true" ]]; then
-      echo "  Cloudflare (testing — auto sign-in): $PUBLIC_URL/dashboard"
+      echo "  Cloudflare user dashboard (testing): $PUBLIC_URL/dashboard"
+      echo "  Cloudflare admin (testing):          $PUBLIC_URL/admin/dashboard"
     else
       echo "  Cloudflare: $PUBLIC_URL/admin/dashboard"
       echo "  Sign in:    $PUBLIC_URL/sign-in"
