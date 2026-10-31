@@ -20,12 +20,41 @@ export function isCloudPreviewSkipAuthEnabled(): boolean {
   return true;
 }
 
-export function previewAuthUserIdFromEnv(): string | null {
-  const ids = (process.env.ADMIN_USER_IDS ?? "")
+export const CLOUD_PREVIEW_DUMMY_USER_ID_DEFAULT = "user_cloudpreview_demo_customer";
+
+export type CloudPreviewPersona = "admin" | "customer";
+
+export function cloudPreviewDummyUserIdFromEnv(): string {
+  const fromEnv = (process.env.CLOUD_PREVIEW_DUMMY_USER_ID ?? "").trim();
+  return fromEnv || CLOUD_PREVIEW_DUMMY_USER_ID_DEFAULT;
+}
+
+export function previewAdminUserIdsFromEnv(): string[] {
+  return (process.env.ADMIN_USER_IDS ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  return ids[0] ?? null;
+}
+
+/** First configured admin — legacy default for config endpoint. */
+export function previewAuthUserIdFromEnv(): string | null {
+  return previewAdminUserIdsFromEnv()[0] ?? null;
+}
+
+export function previewAllowedUserIds(): string[] {
+  const dummy = cloudPreviewDummyUserIdFromEnv();
+  const admins = previewAdminUserIdsFromEnv();
+  return [...new Set([...admins, dummy])];
+}
+
+export function previewUserIdForPersona(persona: CloudPreviewPersona): string | null {
+  if (persona === "admin") return previewAuthUserIdFromEnv();
+  return cloudPreviewDummyUserIdFromEnv();
+}
+
+export function parseCloudPreviewPersona(raw: unknown): CloudPreviewPersona {
+  if (raw === "admin" || raw === "customer") return raw;
+  return "customer";
 }
 
 /** Browser Host on quick tunnels is forwarded by scripts/dev-proxy.mjs as x-forwarded-host. */
@@ -94,10 +123,7 @@ export function verifyCloudPreviewSessionToken(token: string): CloudPreviewAuthC
   const exp = parsed.exp;
   if (!userId || typeof exp !== "number" || exp < Date.now()) return null;
 
-  const allowed = (process.env.ADMIN_USER_IDS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const allowed = previewAllowedUserIds();
   if (allowed.length > 0 && !allowed.includes(userId)) return null;
 
   return {

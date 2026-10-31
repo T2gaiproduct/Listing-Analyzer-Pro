@@ -14,6 +14,7 @@ import {
 } from "react";
 import { Loader2 } from "lucide-react";
 import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
+import { getStoredPreviewPersona, type CloudPreviewPersona } from "@/lib/cloud-preview-persona";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -26,16 +27,22 @@ type PreviewUser = {
   update: (params: { firstName?: string; lastName?: string }) => Promise<void>;
 };
 
-function buildUser(userId: string, email: string): PreviewUser {
+const adminUserIdsEnv = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function buildUser(userId: string, email: string, persona: CloudPreviewPersona): PreviewUser {
+  const isAdminPersona = persona === "admin" || adminUserIdsEnv.includes(userId);
   return {
     id: userId,
     primaryEmailAddress: { emailAddress: email },
     emailAddresses: [{ emailAddress: email }],
-    fullName: "Cloud preview",
+    fullName: isAdminPersona ? "Preview admin" : "Demo customer",
     imageUrl: null,
     update: async () => {},
   };
-};
+}
 
 type PreviewAuthState = {
   isLoaded: boolean;
@@ -57,15 +64,23 @@ async function bootstrapPreviewSession(): Promise<{
   userId: string;
   email: string;
   token: string;
+  persona: CloudPreviewPersona;
 } | null> {
   if (!isCloudflareQuickPreviewHost()) return null;
+  const persona = getStoredPreviewPersona();
   const res = await fetch(`${basePath}/api/cloud-preview/session`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ persona }),
   });
   if (!res.ok) return null;
-  return (await res.json()) as { userId: string; email: string; token: string };
+  return (await res.json()) as {
+    userId: string;
+    email: string;
+    token: string;
+    persona: CloudPreviewPersona;
+  };
 }
 
 export function ClerkProvider({ children }: { children?: ReactNode }) {
@@ -84,7 +99,8 @@ export function ClerkProvider({ children }: { children?: ReactNode }) {
       const data = await bootstrapPreviewSession();
       if (cancelled) return;
       if (data?.userId && data.token) {
-        const next = buildUser(data.userId, data.email);
+        const persona = data.persona ?? getStoredPreviewPersona();
+        const next = buildUser(data.userId, data.email, persona);
         setUser(next);
         setSessionToken(data.token);
         notify(next);

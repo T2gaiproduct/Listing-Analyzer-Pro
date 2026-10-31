@@ -28,6 +28,7 @@ LOCAL_DEV_PUBLIC_URL="${LOCAL_DEV_PUBLIC_URL:-http://127.0.0.1:3000}"
 # Cloud Agent may inject a dummy CLERK_PUBLISHABLE_KEY — always prefer VITE (real UI key).
 CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
 ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-${VITE_ADMIN_USER_IDS:-}}"
+CLOUD_PREVIEW_DUMMY_USER_ID="${CLOUD_PREVIEW_DUMMY_USER_ID:-user_cloudpreview_demo_customer}"
 if [[ -z "$ADMIN_IDS_FOR_STACK" && -f "$ROOT/.replit" ]]; then
   ADMIN_IDS_FOR_STACK="$(python3 - <<PY
 import re
@@ -571,6 +572,10 @@ tmux_cmd new-session -d -s db-push -c "$ROOT" -- bash -lc "
   bash scripts/sync-local-db.sh
 "
 
+if [[ "${CLOUD_PREVIEW_SKIP_AUTH:-}" == "true" ]]; then
+  bash "$ROOT/scripts/seed-cloud-preview-dummy-user.sh"
+fi
+
 echo "==> Starting API server (port 8080)"
 tmux_cmd kill-session -t api-server-live 2>/dev/null || true
 tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
@@ -581,6 +586,7 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
   export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
   export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+  export CLOUD_PREVIEW_DUMMY_USER_ID='$CLOUD_PREVIEW_DUMMY_USER_ID'
   export ENABLE_CLOUD_AGENT_QUICK_TUNNEL='${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}'
   export CLOUD_PREVIEW_SKIP_AUTH='${CLOUD_PREVIEW_SKIP_AUTH:-}'
   export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
@@ -670,6 +676,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
     export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
     export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
     export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+    export CLOUD_PREVIEW_DUMMY_USER_ID='$CLOUD_PREVIEW_DUMMY_USER_ID'
     export ENABLE_CLOUD_AGENT_QUICK_TUNNEL='${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}'
     export CLOUD_PREVIEW_SKIP_AUTH='${CLOUD_PREVIEW_SKIP_AUTH:-}'
     export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"

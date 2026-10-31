@@ -1,17 +1,24 @@
 import { Router, type IRouter } from "express";
 import {
+  cloudPreviewDummyUserIdFromEnv,
   isCloudPreviewSessionRequest,
   isCloudPreviewSkipAuthEnabled,
   mintCloudPreviewSessionToken,
+  parseCloudPreviewPersona,
   previewAuthUserIdFromEnv,
+  previewUserIdForPersona,
 } from "../lib/cloud-preview-auth.js";
 
 const router: IRouter = Router();
 
 router.get("/cloud-preview/config", (_req, res) => {
+  const enabled = isCloudPreviewSkipAuthEnabled();
   res.json({
-    skipAuth: isCloudPreviewSkipAuthEnabled(),
-    previewUserId: isCloudPreviewSkipAuthEnabled() ? previewAuthUserIdFromEnv() : null,
+    skipAuth: enabled,
+    previewUserId: enabled ? previewAuthUserIdFromEnv() : null,
+    defaultPersona: enabled ? "customer" : null,
+    customerUserId: enabled ? cloudPreviewDummyUserIdFromEnv() : null,
+    adminUserId: enabled ? previewAuthUserIdFromEnv() : null,
   });
 });
 
@@ -25,10 +32,19 @@ router.post("/cloud-preview/session", (req, res) => {
     return;
   }
 
-  const userId = previewAuthUserIdFromEnv();
+  const persona = parseCloudPreviewPersona(
+    typeof req.body === "object" && req.body !== null
+      ? (req.body as { persona?: unknown }).persona
+      : undefined,
+  );
+
+  const userId = previewUserIdForPersona(persona);
   if (!userId) {
     res.status(503).json({
-      error: "ADMIN_USER_IDS is not configured for preview auto sign-in",
+      error:
+        persona === "admin"
+          ? "ADMIN_USER_IDS is not configured for preview admin sign-in"
+          : "Cloud preview dummy customer id is not configured",
     });
     return;
   }
@@ -38,6 +54,7 @@ router.post("/cloud-preview/session", (req, res) => {
     userId,
     email: `preview+${userId.slice(-8)}@cloud-preview.local`,
     token,
+    persona,
   });
 });
 

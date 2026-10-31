@@ -1,6 +1,6 @@
-import { Link } from "wouter";
 import { isCloudPreviewSkipAuthBuild } from "@/lib/cloud-preview-skip-auth";
 import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
+import { switchCloudPreviewPersona } from "@/lib/cloud-preview-persona";
 
 /** Quick-tunnel testing only — jump between customer dashboard and admin without sign-in. */
 export function CloudPreviewTestingBanner({ variant }: { variant: "customer" | "admin" }) {
@@ -12,19 +12,27 @@ export function CloudPreviewTestingBanner({ variant }: { variant: "customer" | "
       {" · "}
       {variant === "customer" ? (
         <>
-          You are on the <span className="font-medium">user dashboard</span>.
+          Signed in as <span className="font-medium">demo customer</span>.
           {" "}
-          <Link href="/admin/dashboard" className="font-semibold text-orange-700 underline underline-offset-2">
-            Open admin
-          </Link>
+          <button
+            type="button"
+            className="font-semibold text-orange-700 underline underline-offset-2"
+            onClick={() => switchCloudPreviewPersona("admin", "/admin/dashboard")}
+          >
+            Switch to admin
+          </button>
         </>
       ) : (
         <>
-          You are in <span className="font-medium">admin</span>.
+          Signed in as <span className="font-medium">admin</span>.
           {" "}
-          <Link href="/dashboard" className="font-semibold text-orange-700 underline underline-offset-2">
-            Open user dashboard
-          </Link>
+          <button
+            type="button"
+            className="font-semibold text-orange-700 underline underline-offset-2"
+            onClick={() => switchCloudPreviewPersona("customer", "/dashboard")}
+          >
+            Switch to demo customer
+          </button>
         </>
       )}
     </div>
