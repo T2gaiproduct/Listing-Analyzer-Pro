@@ -28,9 +28,18 @@ export function previewAuthUserIdFromEnv(): string | null {
   return ids[0] ?? null;
 }
 
+/** Browser Host on quick tunnels is forwarded by scripts/dev-proxy.mjs as x-forwarded-host. */
+export function previewRequestHostname(req: Request): string {
+  const forwarded = req.headers["x-forwarded-host"];
+  const forwardedHost = (Array.isArray(forwarded) ? forwarded[0] : forwarded)
+    ?.split(",")[0]
+    ?.trim();
+  const raw = forwardedHost || req.headers.host || "";
+  return raw.split(":")[0]?.toLowerCase() ?? "";
+}
+
 export function isCloudPreviewSessionRequest(req: Request): boolean {
-  const host = (req.headers.host ?? "").split(":")[0]?.toLowerCase() ?? "";
-  return isCloudAgentQuickTunnelHostname(host);
+  return isCloudAgentQuickTunnelHostname(previewRequestHostname(req));
 }
 
 export function setCloudPreviewAuthOnRequest(

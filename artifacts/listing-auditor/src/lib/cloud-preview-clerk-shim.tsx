@@ -136,7 +136,7 @@ export function useClerk() {
   return {
     addListener,
     signOut: async () => {
-      window.location.href = `${basePath}/admin/dashboard`;
+      window.location.href = previewLandingPath;
     },
   };
 }
@@ -200,8 +200,10 @@ function PreviewRedirect({ to }: { to: string }) {
   );
 }
 
+const previewLandingPath = `${basePath}/dashboard`;
+
 export function SignIn(props: { fallbackRedirectUrl?: string; forceRedirectUrl?: string }) {
-  const redirectUrl = props.forceRedirectUrl ?? props.fallbackRedirectUrl ?? `${basePath}/admin/dashboard`;
+  const redirectUrl = props.forceRedirectUrl ?? props.fallbackRedirectUrl ?? previewLandingPath;
   const { isSignedIn, isLoaded } = usePreviewAuth();
   if (isLoaded && isSignedIn) return <PreviewRedirect to={redirectUrl} />;
   return (

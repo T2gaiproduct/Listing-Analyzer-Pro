@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import { appendPlanSelectionToPath, coercePlanId } from "@/lib/plan-selection";
 import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
+import { isCloudPreviewSkipAuthBuild } from "@/lib/cloud-preview-skip-auth";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -13,7 +14,18 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
  * Custom email/password flows fail with captcha_invalid when Turnstile cannot load
  * (common on Cloudflare preview tunnels and strict browser extensions).
  */
-export default function SignUpPage() {
+function SignUpPagePreviewRedirect() {
+  useEffect(() => {
+    window.location.replace(`${basePath}/dashboard`);
+  }, []);
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+    </div>
+  );
+}
+
+function SignUpPageClerk() {
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
 
   const redirectParam = searchParams.get("redirect_url");
@@ -96,4 +108,11 @@ export default function SignUpPage() {
       )}
     </div>
   );
+}
+
+export default function SignUpPage() {
+  if (isCloudPreviewSkipAuthBuild()) {
+    return <SignUpPagePreviewRedirect />;
+  }
+  return <SignUpPageClerk />;
 }

@@ -627,8 +627,12 @@ if [[ -n "$PUBLIC_URL" ]]; then
     echo "  Sign in:  $PUBLIC_URL/sign-in"
     echo "  Amazon OAuth redirect: $PUBLIC_URL/api/amazon/oauth/callback"
   else
-    echo "  Cloudflare: $PUBLIC_URL/admin/dashboard"
-    echo "  Sign in:    $PUBLIC_URL/sign-in"
+    if [[ "${CLOUD_PREVIEW_SKIP_AUTH:-}" == "true" ]]; then
+      echo "  Cloudflare (testing — auto sign-in): $PUBLIC_URL/dashboard"
+    else
+      echo "  Cloudflare: $PUBLIC_URL/admin/dashboard"
+      echo "  Sign in:    $PUBLIC_URL/sign-in"
+    fi
     if using_named_cloudflare_tunnel; then
       echo "  (stable named tunnel — URL does not change on restart)"
     else
