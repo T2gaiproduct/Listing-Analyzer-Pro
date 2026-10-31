@@ -27,8 +27,45 @@ LOCAL_DEV_PUBLIC_URL="${LOCAL_DEV_PUBLIC_URL:-http://127.0.0.1:3000}"
 # Keep API and frontend on the same Clerk instance (required for PATCH /api/profile, onboarding, etc.)
 # Cloud Agent may inject a dummy CLERK_PUBLISHABLE_KEY — always prefer VITE (real UI key).
 CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
+ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-${VITE_ADMIN_USER_IDS:-}}"
+if [[ -z "$ADMIN_IDS_FOR_STACK" && -f "$ROOT/.replit" ]]; then
+  ADMIN_IDS_FOR_STACK="$(python3 - <<PY
+import re
+from pathlib import Path
+text = Path("$ROOT/.replit").read_text()
+m = re.search(r'^ADMIN_USER_IDS\s*=\s*"([^"]+)"', text, re.M)
+print(m.group(1) if m else "")
+PY
+)"
+fi
+
+clerk_secret_is_docs_placeholder() {
+  [[ "${1:-}" =~ ^sk_test_0123456 ]]
+}
+
+# Cursor injects CLERK_SECRET_KEY by name, but the value is sometimes still the AGENTS.md placeholder.
+resolve_clerk_secret_for_stack() {
+  local var candidate=""
+  for var in CLERK_SECRET_KEY CLERK_SECRET CLERK_API_SECRET; do
+    candidate="${!var:-}"
+    [[ -n "$candidate" ]] || continue
+    if clerk_secret_is_docs_placeholder "$candidate"; then
+      echo "WARNING: $var is the AGENTS.md placeholder (sk_test_0123456…) — replace it in Cursor Cloud → Environment with your real Clerk secret." >&2
+      continue
+    fi
+    if curl -sf -H "Authorization: Bearer $candidate" "https://api.clerk.com/v1/instance" >/dev/null; then
+      echo "$candidate"
+      return 0
+    fi
+    echo "WARNING: $var is set but Clerk API rejected it (wrong app or revoked key)." >&2
+  done
+  return 1
+}
+
 CLERK_SEC_FOR_STACK="${CLERK_SECRET_KEY:-}"
-ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-}"
+if resolved_secret="$(resolve_clerk_secret_for_stack)"; then
+  CLERK_SEC_FOR_STACK="$resolved_secret"
+fi
 
 clerk_instance_from_publishable_key() {
   local key="$1"
@@ -123,6 +160,8 @@ build_listing_auditor_preview() {
     export BASE_PATH=/
     export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
     export VITE_ADMIN_USER_IDS="$ADMIN_IDS_FOR_STACK"
+    export VITE_CLOUD_AGENT_PREVIEW="${VITE_CLOUD_AGENT_PREVIEW:-}"
+    export VITE_CLOUD_PREVIEW_SKIP_AUTH="${VITE_CLOUD_PREVIEW_SKIP_AUTH:-}"
     if [[ -n "$clerk_proxy_export" ]]; then
       eval "$clerk_proxy_export"
     fi
@@ -295,7 +334,12 @@ apply_cloud_agent_quick_tunnel_env() {
   if using_cloud_agent_quick_tunnel; then
     export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=true
     export VITE_CLOUD_AGENT_PREVIEW=true
+    export CLOUD_PREVIEW_SKIP_AUTH="${CLOUD_PREVIEW_SKIP_AUTH:-true}"
+    export VITE_CLOUD_PREVIEW_SKIP_AUTH="${VITE_CLOUD_PREVIEW_SKIP_AUTH:-true}"
     echo "==> Cloud Agent quick tunnel: ENABLE_CLOUD_AGENT_QUICK_TUNNEL + VITE_CLOUD_AGENT_PREVIEW (local dev-stack only)" >&2
+    if [[ "$CLOUD_PREVIEW_SKIP_AUTH" == "true" ]]; then
+      echo "==> Cloud preview testing: CLOUD_PREVIEW_SKIP_AUTH (auto admin sign-in — no Clerk on *.trycloudflare.com)" >&2
+    fi
   fi
 }
 
@@ -537,7 +581,8 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
   export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
   export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-  export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
+  export ENABLE_CLOUD_AGENT_QUICK_TUNNEL='${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}'
+  export CLOUD_PREVIEW_SKIP_AUTH='${CLOUD_PREVIEW_SKIP_AUTH:-}'
   export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
   export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
   export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
@@ -620,7 +665,8 @@ if [[ -n "$PUBLIC_URL" ]]; then
     export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
     export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
     export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
+    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL='${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}'
+    export CLOUD_PREVIEW_SKIP_AUTH='${CLOUD_PREVIEW_SKIP_AUTH:-}'
     export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
     export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
     export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"

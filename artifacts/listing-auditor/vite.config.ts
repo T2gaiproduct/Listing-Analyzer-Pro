@@ -60,11 +60,15 @@ const disableHmr =
   process.env.VITE_DISABLE_HMR === "true" || Boolean(process.env.VITE_CLERK_PROXY_URL);
 
 const useNativeAuthProvider = process.env.VITE_AUTH_PROVIDER === "native";
+const useCloudPreviewSkipAuth = process.env.VITE_CLOUD_PREVIEW_SKIP_AUTH === "true";
 
 export default defineConfig({
   base: basePath,
   define: {
     "import.meta.env.VITE_APP_BUILD_ID": JSON.stringify(appBuildId),
+    "import.meta.env.VITE_CLOUD_PREVIEW_SKIP_AUTH": JSON.stringify(
+      useCloudPreviewSkipAuth ? "true" : "",
+    ),
   },
   plugins: [
     appBuildIdPlugin(appBuildId),
@@ -90,11 +94,18 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
-      ...(useNativeAuthProvider
+      ...(useCloudPreviewSkipAuth
         ? {
-            "@clerk/react": path.resolve(import.meta.dirname, "src/lib/native-clerk-shim.tsx"),
+            "@clerk/react": path.resolve(
+              import.meta.dirname,
+              "src/lib/cloud-preview-clerk-shim.tsx",
+            ),
           }
-        : {}),
+        : useNativeAuthProvider
+          ? {
+              "@clerk/react": path.resolve(import.meta.dirname, "src/lib/native-clerk-shim.tsx"),
+            }
+          : {}),
     },
     dedupe: ["react", "react-dom"],
   },

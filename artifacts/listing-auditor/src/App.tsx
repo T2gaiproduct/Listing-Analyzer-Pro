@@ -34,6 +34,8 @@ import {
   type ProfileSummaryForGate,
 } from "@/lib/onboarding-gate";
 import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
+import { isCloudPreviewSkipAuthBuild } from "@/lib/cloud-preview-skip-auth";
+import { CloudPreviewClerkSetupGate } from "@/components/cloud-preview-clerk-setup-gate";
 import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
@@ -348,7 +350,7 @@ function stripBase(path: string): string {
     : path;
 }
 
-if (!isNativeAuthProvider && !clerkPubKey) {
+if (!isNativeAuthProvider && !isCloudPreviewSkipAuthBuild() && !clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
 }
 
@@ -1129,7 +1131,9 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <HomepageCmsProvider>
             <BrandingHead />
-            <ClerkProviderWithRoutes />
+            <CloudPreviewClerkSetupGate>
+              <ClerkProviderWithRoutes />
+            </CloudPreviewClerkSetupGate>
           </HomepageCmsProvider>
         </QueryClientProvider>
       </ThemeProvider>

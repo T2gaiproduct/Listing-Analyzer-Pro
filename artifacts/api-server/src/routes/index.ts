@@ -30,10 +30,12 @@ import imagePromptTemplatesRouter from "./image-prompt-templates";
 import adminImagePromptTemplatesRouter from "./admin-image-prompt-templates";
 import supportTicketsRouter from "./support-tickets";
 import nativeAuthRouter from "./native-auth";
+import cloudPreviewRouter from "./cloud-preview.js";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(cloudPreviewRouter);
 router.use(nativeAuthRouter);
 router.use(fetchListingRouter);
 router.use(adminRouter);

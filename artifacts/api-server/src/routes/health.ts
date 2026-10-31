@@ -9,6 +9,7 @@ import {
   resolveActiveWalmartOAuthEnvironment,
   walmartOAuthDefaultEnvironment,
 } from "../lib/walmart-oauth-config.js";
+import { isCloudPreviewSkipAuthEnabled } from "../lib/cloud-preview-auth.js";
 
 function clerkPublishableFromEnv(): string {
   return (
@@ -70,6 +71,7 @@ router.get("/healthz", async (_req, res) => {
     clerkSecretLooksLikePlaceholder: clerkSecretKey
       ? clerkSecretLooksLikeDocsPlaceholder(clerkSecretKey)
       : false,
+    cloudPreviewSkipAuth: isCloudPreviewSkipAuthEnabled(),
     walmartOAuth,
     ...build,
   });

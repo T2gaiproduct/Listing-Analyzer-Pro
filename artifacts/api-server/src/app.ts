@@ -8,6 +8,7 @@ import path from "path";
 import fs from "node:fs";
 import { clerkMiddlewareSafe } from "./middlewares/clerk-auth-error";
 import { nativeAuthMiddleware } from "./middlewares/native-auth-middleware.js";
+import { cloudPreviewAuthMiddleware } from "./middlewares/cloud-preview-auth-middleware.js";
 import router from "./routes";
 import { isStaleApiProcess, loadedBuildId, readDiskBuildMeta } from "./lib/api-build-meta";
 import { logger } from "./lib/logger";
@@ -95,6 +96,7 @@ app.use(handleJsonParseError);
 
 app.use(clerkMiddlewareSafe((req) => clerkMiddlewareOptionsForRequest(req)));
 app.use(nativeAuthMiddleware);
+app.use(cloudPreviewAuthMiddleware);
 
 // Public CMS/branding assets — register before /api/images/:auditId/:filename so
 // segment names like "heroes" are not captured as audit ids (see protected-images.ts).
