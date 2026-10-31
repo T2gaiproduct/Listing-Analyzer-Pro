@@ -1806,6 +1806,10 @@ export default function AuditWorkflow() {
       nav(returnTo);
       return;
     }
+    if (workflowEntry === "scratch" && activeStep === 2) {
+      nav(returnTo);
+      return;
+    }
     if (resumeAuditId && activeStep === 2) {
       nav(returnTo);
       return;
@@ -1845,9 +1849,8 @@ export default function AuditWorkflow() {
     setUploadedImages(draft.imageUrls.filter(Boolean));
     const params = new URLSearchParams(window.location.search);
     params.delete("resume");
-    params.set("entry", "scratch");
     const query = params.toString();
-    window.history.replaceState({}, "", `${window.location.pathname}?${query}`);
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
     setActiveStep(2);
   }
 
@@ -1935,6 +1938,7 @@ export default function AuditWorkflow() {
             activeStep={activeStep}
             stepCompleted={stepCompleted}
             onStepClick={handleStepClick}
+            hideSelectStep={workflowEntry === "scratch"}
           />
         </div>
       </div>

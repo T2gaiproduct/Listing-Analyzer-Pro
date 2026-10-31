@@ -58,6 +58,8 @@ interface BuildBrandWorkflowStepperProps {
   activeStep: BuildBrandWorkflowStepId;
   stepCompleted?: Partial<Record<BuildBrandWorkflowStepId, boolean>>;
   onStepClick?: (stepId: BuildBrandWorkflowStepId) => void;
+  /** Build Your Brand “Create from scratch” — hide SELECT and show Upload as step 1 of 6. */
+  hideSelectStep?: boolean;
   className?: string;
 }
 
@@ -65,11 +67,19 @@ export function BuildBrandWorkflowStepper({
   activeStep,
   stepCompleted = {},
   onStepClick,
+  hideSelectStep = false,
   className,
 }: BuildBrandWorkflowStepperProps) {
   const activeStepRef = useRef<HTMLButtonElement>(null);
-  const activeMeta = BUILD_BRAND_WORKFLOW_STEPS.find((s) => s.id === activeStep) ?? BUILD_BRAND_WORKFLOW_STEPS[0];
-  const progressPct = Math.round((activeStep / BUILD_BRAND_WORKFLOW_STEPS.length) * 100);
+  const visibleSteps = hideSelectStep
+    ? BUILD_BRAND_WORKFLOW_STEPS.filter((s) => s.id !== 1)
+    : BUILD_BRAND_WORKFLOW_STEPS;
+  const totalSteps = visibleSteps.length;
+  const displayStepIndex = hideSelectStep
+    ? Math.max(1, activeStep - 1)
+    : activeStep;
+  const activeMeta = visibleSteps.find((s) => s.id === activeStep) ?? visibleSteps[0];
+  const progressPct = Math.round((displayStepIndex / totalSteps) * 100);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches) return;
@@ -86,7 +96,7 @@ export function BuildBrandWorkflowStepper({
       <div className="px-4 py-2.5 border-b border-border sm:hidden">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-            Step {activeStep} of {BUILD_BRAND_WORKFLOW_STEPS.length}
+            Step {displayStepIndex} of {totalSteps}
           </p>
           <p className="text-[11px] text-muted-foreground truncate">{activeMeta.sub}</p>
         </div>
@@ -103,10 +113,11 @@ export function BuildBrandWorkflowStepper({
         className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:overflow-x-visible"
       >
         <div className="flex items-stretch w-max min-w-full sm:w-full sm:min-w-0 px-1 sm:px-0">
-          {BUILD_BRAND_WORKFLOW_STEPS.map((s) => {
+          {visibleSteps.map((s, index) => {
             const isActive = activeStep === s.id;
             const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
             const clickable = Boolean(onStepClick);
+            const displayNumber = hideSelectStep ? index + 1 : s.id;
 
             return (
               <button
@@ -130,7 +141,7 @@ export function BuildBrandWorkflowStepper({
                       : "bg-card border-border text-muted-foreground",
                   )}
                 >
-                  {isCompleted ? <Check className="w-4 h-4" /> : s.id}
+                  {isCompleted ? <Check className="w-4 h-4" /> : displayNumber}
                 </div>
                 <p
                   className={cn(
