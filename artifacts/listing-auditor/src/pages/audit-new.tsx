@@ -1,5 +1,10 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import {
+  BuildBrandStartDrawer,
+  type BuildBrandStartEntry,
+} from "@/components/build-brand-start-drawer";
 import {
   ArrowRight,
   Upload,
@@ -59,6 +64,12 @@ const steps = [
 
 export default function AuditNew() {
   const [, setLocation] = useLocation();
+  const [startDrawerOpen, setStartDrawerOpen] = useState(false);
+
+  function handleStartChoice(entry: BuildBrandStartEntry) {
+    setStartDrawerOpen(false);
+    setLocation(`/audits/workflow?entry=${entry}`);
+  }
 
   return (
     <div className="min-h-full animate-in fade-in duration-500">
@@ -88,12 +99,17 @@ export default function AuditNew() {
         <Button
           size="lg"
           className="mt-7 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-10 py-6 rounded-full shadow-lg shadow-orange-400/30 text-base font-semibold"
-          onClick={() => setLocation("/audits/workflow")}
+          onClick={() => setStartDrawerOpen(true)}
         >
           <Sparkles className="w-5 h-5 mr-2" />
           Start Generating
           <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
+        <BuildBrandStartDrawer
+          open={startDrawerOpen}
+          onOpenChange={setStartDrawerOpen}
+          onChoose={handleStartChoice}
+        />
         </div>
       </div>
 

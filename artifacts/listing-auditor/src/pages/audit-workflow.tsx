@@ -42,6 +42,8 @@ import {
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
 import { BuildBrandProductSearch, type BuildBrandProductPick } from "@/components/build-brand-product-search";
+import { BuildBrandImportLinkPanel } from "@/components/build-brand-import-link-panel";
+import type { BuildBrandStartEntry } from "@/components/build-brand-start-drawer";
 import { BuildBrandExportStep } from "@/components/build-brand-export-step";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { cn } from "@/lib/utils";
@@ -89,6 +91,12 @@ import {
 } from "@workspace/api-client-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function parseWorkflowEntry(raw: string): BuildBrandStartEntry | null {
+  const entry = new URLSearchParams(raw).get("entry");
+  if (entry === "existing" || entry === "import-link" || entry === "scratch") return entry;
+  return null;
+}
 
 type WorkflowGeneratedImage = {
   url: string;
@@ -627,6 +635,8 @@ export default function AuditWorkflow() {
   const aplusImageCostPerModule = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
   const graphicsEditCreditCost = creditRules.find((r) => r.featureType === "graphics_edit")?.creditsRequired ?? 1;
 
+  const [workflowEntry] = useState(() => parseWorkflowEntry(search));
+
   const [resumeAuditId] = useState(() => {
     const params = new URLSearchParams(search);
     const resume = params.get("resume");
@@ -638,7 +648,11 @@ export default function AuditWorkflow() {
     [search, resumeAuditId],
   );
 
-  const [activeStep, setActiveStep] = useState<StepId>(() => (resumeAuditId && !isNaN(resumeAuditId) ? 2 : 1));
+  const [activeStep, setActiveStep] = useState<StepId>(() => {
+    if (resumeAuditId && !isNaN(resumeAuditId)) return 2;
+    if (workflowEntry === "scratch") return 2;
+    return 1;
+  });
   const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const [selectedProduct, setSelectedProduct] = useState<BuildBrandProductPick | null>(null);
 
@@ -1812,6 +1826,31 @@ export default function AuditWorkflow() {
     setActiveStep(2);
   }
 
+  function handleImportLinkSuccess(draft: {
+    productName: string;
+    category: string;
+    productDescription: string;
+    projectName: string;
+    imageUrls: string[];
+  }) {
+    setSelectedProduct(null);
+    setCurrentAuditId(null);
+    stepRestoredForAuditIdRef.current = null;
+    lastRestoredAtRef.current = null;
+    forceUploadStepRef.current = true;
+    setProductName(draft.productName);
+    setProjectName(draft.projectName);
+    setCategory(draft.category);
+    setProductDescription(draft.productDescription);
+    setUploadedImages(draft.imageUrls.filter(Boolean));
+    const params = new URLSearchParams(window.location.search);
+    params.delete("resume");
+    params.set("entry", "scratch");
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}?${query}`);
+    setActiveStep(2);
+  }
+
   /* ── Next step ── */
   function handleNextStep() {
     if (activeStep === 1) {
@@ -1913,8 +1952,14 @@ export default function AuditWorkflow() {
 
         <div className="py-4 sm:py-5 w-full min-w-0 px-4 sm:px-6 lg:max-w-6xl lg:mx-auto lg:px-8">
 
-          {/* STEP 1: Select existing product ── */}
-          {activeStep === 1 && (
+          {/* STEP 1: Entry — import link or select existing product ── */}
+          {activeStep === 1 && workflowEntry === "import-link" && (
+            <BuildBrandImportLinkPanel
+              onImported={handleImportLinkSuccess}
+              onBack={() => nav("/audits/new")}
+            />
+          )}
+          {activeStep === 1 && workflowEntry !== "import-link" && (
             <BuildBrandProductSearch
               selectedProduct={selectedProduct}
               onSelectProduct={setSelectedProduct}
