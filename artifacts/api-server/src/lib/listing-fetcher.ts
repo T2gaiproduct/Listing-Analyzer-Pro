@@ -1,10 +1,16 @@
 import * as cheerio from "cheerio";
+import type { Request } from "express";
 import {
   fetchListingByAsin,
   fetchListingByUrl,
   type FetchedListing,
   type FetchedListingAttribute,
 } from "./amazon-fetcher";
+import {
+  enrichAmazonListingFromCatalog,
+  resolveMarketplaceCodeForAmazonListing,
+} from "./amazon-catalog-listing.js";
+import { resolveAmazonConnectionForWorkspace } from "./resolve-amazon-settings.js";
 
 export type { FetchedListing, FetchedListingAttribute };
 import { normalizeShopifyTags } from "./shopify-product-sync.js";
@@ -566,10 +572,54 @@ async function enrichListingTargetKeywords(listing: FetchedListing): Promise<Fet
   return { ...listing, targetKeywords };
 }
 
-export async function fetchListing(input: { asin?: string; url?: string }): Promise<FetchedListing> {
+export type FetchListingSpApiContext = {
+  workspaceId: number;
+  userId: string;
+  req?: Request;
+};
+
+async function enrichAmazonListingIfConnected(
+  listing: FetchedListing,
+  opts: { url?: string; spApi?: FetchListingSpApiContext },
+): Promise<FetchedListing> {
+  if (!opts.spApi?.workspaceId) return listing;
+
+  const connection = await resolveAmazonConnectionForWorkspace({
+    workspaceId: opts.spApi.workspaceId,
+    userId: opts.spApi.userId,
+    req: opts.spApi.req,
+  });
+  if (!connection) return listing;
+
+  const marketplaceCode = resolveMarketplaceCodeForAmazonListing({
+    url: opts.url,
+    connection,
+  });
+
+  try {
+    return await enrichAmazonListingFromCatalog({
+      listing,
+      marketplaceCode,
+      connection,
+    });
+  } catch {
+    return listing;
+  }
+}
+
+export async function fetchListing(input: {
+  asin?: string;
+  url?: string;
+  spApi?: FetchListingSpApiContext;
+}): Promise<FetchedListing> {
   if (input.asin?.trim()) {
     if (isAmazonAsin(input.asin)) {
-      return enrichListingTargetKeywords(await fetchListingByAsin(input.asin.trim()));
+      const listing = await fetchListingByAsin(input.asin.trim());
+      const enriched = await enrichAmazonListingIfConnected(listing, {
+        url: input.url,
+        spApi: input.spApi,
+      });
+      return enrichListingTargetKeywords(enriched);
     }
     throw new Error(
       "That value is not a valid Amazon ASIN. Paste a full product URL from Amazon, Shopify, Walmart, eBay, Etsy, or another store.",
@@ -597,7 +647,12 @@ export async function fetchListing(input: { asin?: string; url?: string }): Prom
 
   const platform = detectListingPlatform(normalizedUrl);
   if (platform === "amazon") {
-    return enrichListingTargetKeywords(await fetchListingByUrl(normalizedUrl));
+    const listing = await fetchListingByUrl(normalizedUrl);
+    const enriched = await enrichAmazonListingIfConnected(listing, {
+      url: normalizedUrl,
+      spApi: input.spApi,
+    });
+    return enrichListingTargetKeywords(enriched);
   }
 
   return enrichListingTargetKeywords(await fetchNonAmazonListing(normalizedUrl, platform));

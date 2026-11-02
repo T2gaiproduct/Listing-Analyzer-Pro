@@ -32,6 +32,23 @@ export function resolveAmazonMarketplace(input: string | undefined | null): (typ
   return found ?? AMAZON_MARKETPLACES[0];
 }
 
+/** Map an Amazon retail hostname (e.g. www.amazon.in) to a marketplace code (IN). */
+export function resolveAmazonMarketplaceCodeFromHostname(hostname: string): AmazonMarketplaceId {
+  const host = hostname.trim().toLowerCase().replace(/^www\./, "");
+  const found = AMAZON_MARKETPLACES.find(
+    (m) => host === m.domain || host.endsWith(`.${m.domain}`),
+  );
+  return (found?.id ?? "US") as AmazonMarketplaceId;
+}
+
+export function resolveAmazonMarketplaceCodeFromProductUrl(url: string): AmazonMarketplaceId {
+  try {
+    return resolveAmazonMarketplaceCodeFromHostname(new URL(url).hostname);
+  } catch {
+    return "US";
+  }
+}
+
 const AMAZON_MARKETPLACE_CURRENCIES: Record<AmazonMarketplaceId, string> = {
   US: "USD",
   CA: "CAD",

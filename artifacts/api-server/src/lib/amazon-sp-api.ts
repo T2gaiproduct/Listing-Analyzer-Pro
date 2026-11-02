@@ -659,3 +659,44 @@ function parseMerchantListingsReport(text: string): MerchantListingsReportRow[] 
 
   return rows;
 }
+
+export type CatalogItemPayload = {
+  asin?: string;
+  attributes?: Record<string, unknown>;
+  summaries?: Array<Record<string, unknown>>;
+  images?: Array<{
+    marketplaceId?: string;
+    images?: Array<{ link?: string; variant?: string; height?: number; width?: number }>;
+  }>;
+  productTypes?: unknown[];
+  dimensions?: unknown[];
+};
+
+export async function getCatalogItemByAsin(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  asin: string;
+  marketplaceCode: string;
+}): Promise<CatalogItemPayload> {
+  const normalizedAsin = opts.asin.trim().toUpperCase();
+  if (!/^[A-Z0-9]{10}$/.test(normalizedAsin)) {
+    throw new Error("Invalid ASIN for catalog lookup.");
+  }
+  const marketplaceId = resolveSpMarketplaceId(opts.marketplaceCode);
+  const region = spApiRegionForMarketplaceCode(opts.marketplaceCode);
+  const includedData = ["attributes", "summaries", "images", "productTypes", "dimensions"].join(",");
+  const path =
+    `/catalog/2022-04-01/items/${encodeURIComponent(normalizedAsin)}` +
+    `?marketplaceIds=${encodeURIComponent(marketplaceId)}` +
+    `&includedData=${encodeURIComponent(includedData)}`;
+
+  const data = await spApiRequest<{ payload?: CatalogItemPayload } & CatalogItemPayload>({
+    settings: opts.settings,
+    refreshToken: opts.refreshToken,
+    method: "GET",
+    path,
+    region,
+  });
+
+  return data.payload ?? data;
+}
