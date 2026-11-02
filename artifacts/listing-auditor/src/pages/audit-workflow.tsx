@@ -42,6 +42,7 @@ import {
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
 import { BuildBrandProductSearch, type BuildBrandProductPick } from "@/components/build-brand-product-search";
+import { BuildBrandUploadAttributesSection } from "@/components/build-brand-upload-attributes-section";
 import type { BuildBrandStartEntry } from "@/components/build-brand-start-drawer";
 import { BuildBrandExportStep } from "@/components/build-brand-export-step";
 import { ProductListingPreview } from "@/components/product-listing-preview";
@@ -55,7 +56,11 @@ import {
 } from "@/lib/listing-content-format";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useApiAuthReady } from "@/components/api-token-bridge";
-import type { ReferenceIntelligenceRow, SellerProductDetail } from "@/lib/reference-research";
+import type {
+  ReferenceIntelligenceRow,
+  ReferenceResearchData,
+  SellerProductDetail,
+} from "@/lib/reference-research";
 import { getSafeReturnTo } from "@/lib/navigation-return";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
@@ -633,6 +638,11 @@ export default function AuditWorkflow() {
   });
   const aplusImageCostPerModule = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
   const graphicsEditCreditCost = creditRules.find((r) => r.featureType === "graphics_edit")?.creditsRequired ?? 1;
+  const referenceCreditLabel = useMemo(() => {
+    const rule = creditRules.find((r) => r.featureType === "reference_research");
+    const n = rule?.creditsRequired ?? 1;
+    return `${n} AI credit${n === 1 ? "" : "s"}`;
+  }, [creditRules]);
 
   const [workflowEntry] = useState(() => parseWorkflowEntry(search));
 
@@ -2144,6 +2154,24 @@ export default function AuditWorkflow() {
                     )}
                   </div>
                 </div>
+
+                <BuildBrandUploadAttributesSection
+                  key={currentAuditId ?? "new-upload"}
+                  auditId={currentAuditId}
+                  initialData={
+                    (auditData as { referenceResearch?: ReferenceResearchData | null } | undefined)
+                      ?.referenceResearch ?? null
+                  }
+                  creditLabel={referenceCreditLabel}
+                  onEnsureAudit={ensureAuditDraft}
+                  onResearchUpdated={() => {
+                    if (currentAuditId) {
+                      void queryClient.invalidateQueries({
+                        queryKey: getGetAuditQueryKey(currentAuditId),
+                      });
+                    }
+                  }}
+                />
               </div>
             </div>
           )}
