@@ -519,7 +519,7 @@ export default function Dashboard() {
     provisioningWorkspace
     || dashboardScopeLoading
     || (wsLoading && !memberWorkspaceId && !isBillingAccountOwner)
-    || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))
+    || (dashboardQueryEnabled && !isError && (isLoading || (isFetching && !dashboard)))
   ) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">

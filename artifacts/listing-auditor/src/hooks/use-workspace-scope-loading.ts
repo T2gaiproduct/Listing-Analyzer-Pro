@@ -20,12 +20,14 @@ export function useWorkspaceScopeLoading(
 
   useEffect(() => {
     if (!pending) return;
-    if (!query.isEnabled) return;
+    if (!query.isEnabled) {
+      setPending(false);
+      return;
+    }
     if (!query.isFetching && !query.isLoading) {
       setPending(false);
     }
   }, [pending, query.isEnabled, query.isFetching, query.isLoading]);
 
-  // If scope changed but the query cannot run (no workspace yet), do not block the UI forever.
   return pending && query.isEnabled;
 }
