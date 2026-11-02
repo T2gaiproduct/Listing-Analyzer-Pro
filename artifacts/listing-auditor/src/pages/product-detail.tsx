@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -79,6 +79,10 @@ import {
 } from "@/lib/listing-content-field-merge";
 import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
+import {
+  listingViewToGenerated,
+  resolveExistingContentForMarketplaceSlug,
+} from "@/components/listing-content-card";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -1148,6 +1152,33 @@ export default function ProductDetailPage({ id }: { id: number }) {
     };
   }, [effectiveAudit, listingProduct]);
 
+  const storeDescriptionHtmlForMerge = useMemo(
+    () => listingProduct?.descriptionHtml?.trim()
+      || (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml?.trim()
+      || null,
+    [listingProduct?.descriptionHtml, effectiveAudit],
+  );
+
+  const listingPreviewMergeBaselineFor = useCallback(
+    (marketplaceId: number | undefined): GeneratedContent => {
+      if (marketplaceId == null) return sourceListingForPreviewMerge;
+      const slug = contentMarketplaces.find((m) => m.id === marketplaceId)?.slug;
+      const view = resolveExistingContentForMarketplaceSlug(
+        existingListingContent,
+        slug,
+        storeDescriptionHtmlForMerge,
+      );
+      if (!view) return sourceListingForPreviewMerge;
+      return listingViewToGenerated(view);
+    },
+    [
+      contentMarketplaces,
+      existingListingContent,
+      sourceListingForPreviewMerge,
+      storeDescriptionHtmlForMerge,
+    ],
+  );
+
   const listingSuggestions = useMemo(
     () => collectListingSuggestions(effectiveAudit?.result, product?.aiSuggestions),
     [effectiveAudit?.result, product?.aiSuggestions],
@@ -1219,7 +1250,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     for (const row of contentVariants) {
       const preview = variantToPreviewGeneratedContent(
         row.generatedContent as ContentVariantWithMeta,
-        sourceListingForPreviewMerge,
+        listingPreviewMergeBaselineFor(row.contentMarketplaceId),
       );
       if (preview) generatedIds.add(row.contentMarketplaceId);
     }
@@ -1234,7 +1265,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       if (legacyMeta) return [legacyMeta];
     }
     return [];
-  }, [contentVariants, contentMarketplaces, effectiveAudit?.generatedContent, effectiveAudit, sourceListingForPreviewMerge]);
+  }, [contentVariants, contentMarketplaces, effectiveAudit?.generatedContent, effectiveAudit, listingPreviewMergeBaselineFor]);
 
   useEffect(() => {
     if (listingPreviewMarketplaces.length === 0) {
@@ -1253,7 +1284,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (listingPreviewMarketplaceId != null) {
       const fromTab = contentVariants.find((v) => v.contentMarketplaceId === listingPreviewMarketplaceId)
         ?.generatedContent as ContentVariantWithMeta | undefined;
-      const tabContent = variantToPreviewGeneratedContent(fromTab, sourceListingForPreviewMerge);
+      const tabContent = variantToPreviewGeneratedContent(
+        fromTab,
+        listingPreviewMergeBaselineFor(listingPreviewMarketplaceId),
+      );
       if (tabContent) return tabContent;
     }
     const legacyId = (effectiveAudit as { contentMarketplaceId?: number | null })?.contentMarketplaceId;
@@ -1270,7 +1304,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     effectiveAudit?.generatedContent,
     effectiveAudit,
     listingPreviewMarketplaces.length,
-    sourceListingForPreviewMerge,
+    listingPreviewMergeBaselineFor,
   ]);
 
   useEffect(() => {
@@ -2155,7 +2189,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           productId={product.id}
           productSource={resolvedSource}
           productSku={product.sku}
-          productAsin={product.asin ?? effectiveAudit?.asin}
+          productAsin={effectiveAudit?.asin}
           targetKeywords={listingProduct?.targetKeywords ?? product.targetKeywords}
           canPublishMarketplaces={canEditProduct}
           onSaveAndContinue={() => void saveAndContinueWorkflowStep()}
@@ -2185,6 +2219,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               }
               showListingCompare={shouldShowExistingListingContent(listingProduct, effectiveAudit)}
               auditId={optimizeAuditId}
+              onFieldSelectionsSaved={setListingPreviewMarketplaceId}
               onContentVariantsUpdated={(variants) => {
                 const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
                   ? { ...current, contentVariants: variants }

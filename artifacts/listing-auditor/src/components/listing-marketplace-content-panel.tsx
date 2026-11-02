@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Loader2, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Loader2, Save, Sparkles } from "lucide-react";
 import { getGetAuditQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,15 +18,21 @@ import {
 } from "@/components/listing-content-card";
 import {
   defaultFieldSourcesAi,
-  mergeListingContentByFieldSources,
+  LISTING_CONTENT_FIELD_KEYS,
   resolveAiSnapshot,
   type ContentVariantWithMeta,
-  type ListingContentFieldKey,
-  type ListingContentFieldSource,
+  type ListingContentFieldSources,
 } from "@/lib/listing-content-field-merge";
 import { useToast } from "@/hooks/use-toast";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function fieldSourcesEqual(
+  a: ListingContentFieldSources,
+  b: ListingContentFieldSources,
+): boolean {
+  return LISTING_CONTENT_FIELD_KEYS.every((key) => (a[key] ?? "ai") === (b[key] ?? "ai"));
+}
 
 export type ContentVariantRow = {
   contentMarketplaceId: number;
@@ -50,6 +56,7 @@ export function ListingMarketplaceContentPanel({
   showListingCompare,
   auditId,
   onContentVariantsUpdated,
+  onFieldSelectionsSaved,
 }: {
   contentMarketplaces: ContentMarketplaceOption[];
   contentMarketplaceId?: number;
@@ -68,6 +75,7 @@ export function ListingMarketplaceContentPanel({
   showListingCompare?: boolean;
   auditId?: number | null;
   onContentVariantsUpdated?: (variants: ContentVariantRow[]) => void;
+  onFieldSelectionsSaved?: (contentMarketplaceId: number) => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -114,53 +122,56 @@ export function ListingMarketplaceContentPanel({
   const aiView = generatedContentToListingView(
     activeContent ? resolveAiSnapshot(activeContent) : undefined,
   );
-  const fieldSources = activeContent?.fieldSources ?? defaultFieldSourcesAi();
+  const savedFieldSources = activeContent?.fieldSources ?? defaultFieldSourcesAi();
+  const [draftFieldSources, setDraftFieldSources] = useState<ListingContentFieldSources>(savedFieldSources);
 
-  const saveFieldSource = useMutation({
-    mutationFn: async ({
-      field,
-      source,
-    }: {
-      field: ListingContentFieldKey;
-      source: ListingContentFieldSource;
-    }) => {
+  const savedFieldSourcesKey = JSON.stringify(savedFieldSources);
+
+  useEffect(() => {
+    setDraftFieldSources(savedFieldSources);
+  }, [contentMarketplaceId, savedFieldSourcesKey, savedFieldSources]);
+
+  const selectionsDirty = !fieldSourcesEqual(draftFieldSources, savedFieldSources);
+
+  const saveFieldSelections = useMutation({
+    mutationFn: async (sources: ListingContentFieldSources) => {
       if (!auditId || contentMarketplaceId == null) {
         throw new Error("Missing audit or marketplace");
       }
-      const nextSources = { ...fieldSources, [field]: source };
       const res = await fetch(
         `${basePath}/api/audits/${auditId}/content-variants/${contentMarketplaceId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ fieldSources: nextSources }),
+          body: JSON.stringify({ fieldSources: sources }),
         },
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to save selection");
+        throw new Error((err as { error?: string }).error ?? "Failed to save selections");
       }
       return res.json() as Promise<{
         contentVariants: ContentVariantRow[];
         contentMarketplaceId: number;
       }>;
     },
-    onMutate: ({ field, source }) => {
-      const previous = contentVariants;
-      onContentVariantsUpdated?.(applyFieldSourceLocally(field, source));
-      return { previous };
-    },
     onSuccess: (data) => {
       onContentVariantsUpdated?.(data.contentVariants);
-      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId!) });
-    },
-    onError: (err, _vars, context) => {
-      if (context?.previous) {
-        onContentVariantsUpdated?.(context.previous);
+      if (contentMarketplaceId != null) {
+        onFieldSelectionsSaved?.(contentMarketplaceId);
       }
+      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId!) });
       toast({
-        title: "Could not save selection",
+        title: "Selections saved",
+        description: activeMarketplace?.name
+          ? `Listing Preview for ${activeMarketplace.name} now uses your green-box choices.`
+          : "Listing Preview now uses your green-box choices.",
+      });
+    },
+    onError: (err) => {
+      toast({
+        title: "Could not save selections",
         description: err instanceof Error ? err.message : "Try again",
         variant: "destructive",
       });
@@ -180,34 +191,6 @@ export function ListingMarketplaceContentPanel({
     ),
     [existingContent, activeMarketplace?.slug, storeDescriptionHtml],
   );
-
-  function applyFieldSourceLocally(
-    field: ListingContentFieldKey,
-    source: ListingContentFieldSource,
-  ): ContentVariantRow[] {
-    if (contentMarketplaceId == null || !activeContent) return contentVariants;
-    const nextSources = { ...(activeContent.fieldSources ?? defaultFieldSourcesAi()), [field]: source };
-    const ai = resolveAiSnapshot(activeContent);
-    const existingGc: GeneratedContent = {
-      title: existingForTab?.title ?? "",
-      bulletPoints: existingForTab?.bulletPoints ?? [],
-      keywords: existingForTab?.keywords ?? [],
-      htmlDescription: existingForTab?.htmlDescription ?? "",
-      attributes: existingForTab?.attributes,
-    };
-    const merged = mergeListingContentByFieldSources(existingGc, ai, nextSources);
-    return contentVariants.map((row) => {
-      if (row.contentMarketplaceId !== contentMarketplaceId) return row;
-      return {
-        ...row,
-        generatedContent: {
-          ...merged,
-          aiSnapshot: activeContent.aiSnapshot ?? ai,
-          fieldSources: nextSources,
-        },
-      };
-    });
-  }
 
   const useCompareLayout = Boolean(showListingCompare && existingForTab);
 
@@ -369,11 +352,39 @@ export function ListingMarketplaceContentPanel({
       )}
 
       <div className="rounded-lg border border-orange-200/80 bg-white overflow-hidden">
-        <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-orange-100 bg-orange-50/80">
-          <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-            Optimized content
-          </p>
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-orange-100 bg-orange-50/80">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Sparkles className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+              Optimized content
+            </p>
+          </div>
+          {useCompareLayout && hasActiveContent && auditId && (
+            <Button
+              type="button"
+              size="sm"
+              className={cn(
+                "h-7 text-[10px] shrink-0 gap-1",
+                selectionsDirty
+                  ? "bg-orange-500 hover:bg-orange-600"
+                  : "bg-slate-400 hover:bg-slate-500 cursor-default",
+              )}
+              disabled={!selectionsDirty || saveFieldSelections.isPending || optimizeDisabled}
+              onClick={() => saveFieldSelections.mutate(draftFieldSources)}
+            >
+              {saveFieldSelections.isPending ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Save className="w-3 h-3" />
+                  Save
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         <div className="min-w-0">
@@ -393,15 +404,20 @@ export function ListingMarketplaceContentPanel({
                 existing={existingForTab}
                 optimized={aiView ?? activeView}
                 marketplaceName={activeMarketplace?.name}
-                fieldSources={fieldSources}
-                fieldPickDisabled={optimizeDisabled || !auditId || saveFieldSource.isPending}
+                fieldSources={draftFieldSources}
+                fieldPickDisabled={optimizeDisabled || !auditId || saveFieldSelections.isPending}
                 onFieldSourceChange={(field, source) => {
-                  saveFieldSource.mutate({ field, source });
+                  setDraftFieldSources((prev) => ({ ...prev, [field]: source }));
                 }}
               />
               {hasActiveContent && auditId && (
                 <p className="px-4 pb-3 text-[10px] text-slate-500 text-center">
-                  Use ✓ for AI copy or ✕ to keep your current listing for each section. Choices are saved per marketplace tab.
+                  Green box = your choice (✓ AI or ✕ current). Click{" "}
+                  <span className="font-semibold text-slate-700">Save</span>{" "}
+                  for this marketplace tab — Listing Preview updates only after Save.
+                  {selectionsDirty && (
+                    <span className="block mt-1 text-amber-800 font-medium">Unsaved changes on this tab.</span>
+                  )}
                 </p>
               )}
               {isOptimizing && (

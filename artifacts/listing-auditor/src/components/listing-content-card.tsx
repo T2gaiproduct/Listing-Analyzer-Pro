@@ -462,7 +462,7 @@ function compareBlockClass(selected: boolean): string {
   );
 }
 
-function listingViewToGenerated(view: ListingContentView | null): GeneratedContent {
+export function listingViewToGenerated(view: ListingContentView | null): GeneratedContent {
   return {
     title: view?.title ?? "",
     bulletPoints: view?.bulletPoints ?? [],
@@ -507,7 +507,7 @@ function SelectedMergedListingSummary({
           Selected listing copy
         </p>
         <p className="text-[9px] text-emerald-800/80 mt-0.5">
-          Your ✓ / ✕ choices combined — same as Listing Preview
+          Your ✓ / ✕ choices combined — matches Listing Preview after you click Save
         </p>
       </div>
       <div className="px-3 py-3 space-y-2.5 text-[11px] text-slate-800">
