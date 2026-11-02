@@ -123,6 +123,9 @@ build_listing_auditor_preview() {
     export BASE_PATH=/
     export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
     export VITE_ADMIN_USER_IDS="$ADMIN_IDS_FOR_STACK"
+    if using_cloud_agent_quick_tunnel; then
+      export VITE_CLOUD_AGENT_PREVIEW=true
+    fi
     if [[ -n "$clerk_proxy_export" ]]; then
       eval "$clerk_proxy_export"
     fi
