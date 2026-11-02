@@ -61,6 +61,7 @@ import {
   MarketplacesPage,
   ProductDetailPage,
   AuditNew,
+  AuditImportFromLink,
   AuditDetail,
   CompetitorNew,
   AuditListings,
@@ -1025,6 +1026,9 @@ function Router() {
       </Route>
       <Route path="/audits/new">
         <WorkspaceProtectedRoute requireCreate><AuditNew /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/audits/import-from-link">
+        <WorkspaceProtectedRoute requireCreate><AuditImportFromLink /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audits/workflow">
         <WorkspaceProtectedRoute requireCreate><AuditWorkflow /></WorkspaceProtectedRoute>

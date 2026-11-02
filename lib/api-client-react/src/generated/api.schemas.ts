@@ -23,6 +23,11 @@ export interface FetchListingBody {
   url?: string;
 }
 
+export interface FetchedListingAttribute {
+  attribute: string;
+  value: string;
+}
+
 export interface FetchedListing {
   productName: string;
   /** Platform product identifier (Amazon ASIN or store-specific id such as shopify:handle, walmart:123) */
@@ -39,6 +44,7 @@ export interface FetchedListing {
   price?: string | null;
   /** @nullable */
   rating?: string | null;
+  attributes?: FetchedListingAttribute[];
 }
 
 export interface GenerateContentDirectBody {

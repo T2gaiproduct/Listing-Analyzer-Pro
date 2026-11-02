@@ -36,6 +36,7 @@ export const MarketplacesPage = lazyWithRetry(() => import("@/pages/marketplaces
 export const ProductDetailPage = lazyWithRetry(() => import("@/pages/product-detail"));
 export const RecentProjectsPage = lazyWithRetry(() => import("@/pages/recent-projects"));
 export const AuditNew = lazyWithRetry(() => import("@/pages/audit-new"));
+export const AuditImportFromLink = lazyWithRetry(() => import("@/pages/audit-import-from-link"));
 export const AuditDetail = lazyWithRetry(() => import("@/pages/audit-detail"));
 export const CompetitorNew = lazyWithRetry(() => import("@/pages/competitor-new"));
 export const AuditListings = lazyWithRetry(() => import("@/pages/audit-listings"));

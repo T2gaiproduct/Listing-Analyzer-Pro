@@ -68,6 +68,10 @@ export default function AuditNew() {
 
   function handleStartChoice(entry: BuildBrandStartEntry) {
     setStartDrawerOpen(false);
+    if (entry === "import-link") {
+      setLocation("/audits/import-from-link");
+      return;
+    }
     setLocation(`/audits/workflow?entry=${entry}`);
   }
 

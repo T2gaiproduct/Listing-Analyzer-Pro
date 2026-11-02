@@ -3,14 +3,16 @@ import {
   fetchListingByAsin,
   fetchListingByUrl,
   type FetchedListing,
+  type FetchedListingAttribute,
 } from "./amazon-fetcher";
+
+export type { FetchedListing, FetchedListingAttribute };
 import { normalizeShopifyTags } from "./shopify-product-sync.js";
 import {
   extractKeywordsFromListing,
   resolveTargetKeywordsForListing,
 } from "./listing-keyword-suggester.js";
 
-export type { FetchedListing };
 
 export type ListingPlatform = "amazon" | "shopify" | "walmart" | "ebay" | "etsy" | "generic";
 
@@ -145,6 +147,15 @@ async function fetchShopifyProductJson(url: string): Promise<FetchedListing | nu
     const title = product.title.trim();
     const price = product.variants?.[0]?.price ? `$${product.variants[0].price}` : null;
 
+    const attributes: FetchedListingAttribute[] = [];
+    if (product.product_type?.trim()) {
+      attributes.push({ attribute: "Product type", value: product.product_type.trim() });
+    }
+    const tags = normalizeShopifyTags(product.tags).slice(0, 12);
+    if (tags.length) {
+      attributes.push({ attribute: "Tags", value: tags.join(", ") });
+    }
+
     return {
       productName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
       asin: extractPlatformProductId("shopify", url),
@@ -156,6 +167,7 @@ async function fetchShopifyProductJson(url: string): Promise<FetchedListing | nu
       description,
       price,
       rating: null,
+      attributes,
     };
   } catch {
     return null;
@@ -281,6 +293,37 @@ function uniqueUrls(urls: string[]): string[] {
   return out;
 }
 
+function attributesFromJsonLd(product: JsonLdNode): FetchedListingAttribute[] {
+  const rows: FetchedListingAttribute[] = [];
+  const push = (attribute: string, value: string) => {
+    const a = attribute.trim();
+    const v = value.trim();
+    if (!a || !v) return;
+    if (rows.some((r) => r.attribute.toLowerCase() === a.toLowerCase())) return;
+    rows.push({ attribute: a, value: v });
+  };
+
+  const props = product.additionalProperty;
+  const list = Array.isArray(props) ? props : props ? [props] : [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const node = entry as JsonLdNode;
+    const name = asString(node.name) ?? asString(node.propertyID);
+    const value = asString(node.value) ?? asString(node.description);
+    if (name && value) push(name, value);
+  }
+
+  const brand = typeof product.brand === "object"
+    ? asString((product.brand as JsonLdNode).name)
+    : asString(product.brand);
+  if (brand) push("Brand", brand);
+
+  const sku = asString(product.sku);
+  if (sku) push("SKU", sku);
+
+  return rows.slice(0, 40);
+}
+
 function parseFromJsonLd(product: JsonLdNode, pageUrl: string): Partial<FetchedListing> {
   const title = asString(product.name) ?? "";
   const description = asString(product.description);
@@ -312,6 +355,7 @@ function parseFromJsonLd(product: JsonLdNode, pageUrl: string): Partial<FetchedL
     price: price ? (price.startsWith("$") ? price : `$${price}`) : null,
     rating,
     category,
+    attributes: attributesFromJsonLd(product),
   };
 }
 
@@ -355,12 +399,24 @@ function parsePlatformSpecific(
       || $("h1").first().text().trim()
       || partial.title;
     partial.price = $(".x-price-primary span").first().text().trim() || partial.price;
+    const ebayAttrs: FetchedListingAttribute[] = [...(partial.attributes ?? [])];
     $(".ux-labels-values__labels-content, .ux-layout-section-evo__item").each((_, el) => {
       const text = $(el).text().replace(/\s+/g, " ").trim();
       if (text.length > 8 && text.length < 240) {
         partial.bulletPoints = [...(partial.bulletPoints ?? []), text];
       }
     });
+    $(".ux-labels-values__labels-content").each((_, labelEl) => {
+      const label = $(labelEl).text().replace(/\s+/g, " ").trim();
+      const value = $(labelEl).closest(".ux-labels-values").find(".ux-labels-values__values-content").first()
+        .text()
+        .replace(/\s+/g, " ")
+        .trim();
+      if (label && value && label.length < 80) {
+        ebayAttrs.push({ attribute: label, value });
+      }
+    });
+    partial.attributes = ebayAttrs.slice(0, 40);
   }
 
   if (platform === "etsy") {
@@ -416,6 +472,18 @@ function parsePlatformSpecific(
   return partial;
 }
 
+function mergeAttributes(partials: Array<Partial<FetchedListing>>): FetchedListingAttribute[] {
+  const rows: FetchedListingAttribute[] = [];
+  for (const partial of partials) {
+    for (const row of partial.attributes ?? []) {
+      if (!row.attribute?.trim() || !row.value?.trim()) continue;
+      if (rows.some((r) => r.attribute.toLowerCase() === row.attribute.toLowerCase())) continue;
+      rows.push({ attribute: row.attribute.trim(), value: row.value.trim() });
+    }
+  }
+  return rows.slice(0, 40);
+}
+
 function mergeListing(
   platform: ListingPlatform,
   pageUrl: string,
@@ -433,6 +501,7 @@ function mergeListing(
       .filter((item, index, arr) => arr.indexOf(item) === index)
       .slice(0, 7);
   }
+  const attributes = mergeAttributes(partials);
 
   const title = merged.title?.trim() ?? "";
   if (!title) {
@@ -463,6 +532,7 @@ function mergeListing(
     description: merged.description ?? null,
     price: merged.price ?? null,
     rating: merged.rating ?? null,
+    attributes,
   };
 }
 

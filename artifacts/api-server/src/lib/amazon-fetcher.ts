@@ -1,6 +1,11 @@
 import * as cheerio from "cheerio";
 import { extractKeywordsFromListing } from "./listing-keyword-suggester.js";
 
+export type FetchedListingAttribute = {
+  attribute: string;
+  value: string;
+};
+
 export interface FetchedListing {
   productName: string;
   asin: string;
@@ -12,6 +17,7 @@ export interface FetchedListing {
   description: string | null;
   price: string | null;
   rating: string | null;
+  attributes: FetchedListingAttribute[];
 }
 
 function extractAsinFromUrl(url: string): string | null {
@@ -202,6 +208,30 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
     $("#aplus p").first().text().trim() ||
     null;
 
+  const attributes: FetchedListingAttribute[] = [];
+  const pushAttr = (attribute: string, value: string) => {
+    const a = attribute.replace(/\s+/g, " ").trim();
+    const v = value.replace(/\s+/g, " ").trim();
+    if (!a || !v || a.length > 120 || v.length > 500) return;
+    if (attributes.some((row) => row.attribute.toLowerCase() === a.toLowerCase())) return;
+    attributes.push({ attribute: a, value: v });
+  };
+
+  $("#productDetails_techSpec_section_1 tr, #productDetails_detailBullets_sections1 tr").each((_, row) => {
+    const cells = $(row).find("th, td");
+    if (cells.length >= 2) {
+      pushAttr($(cells[0]).text(), $(cells[1]).text());
+    }
+  });
+
+  $("#detailBullets_feature_div li").each((_, el) => {
+    const text = $(el).text().replace(/\s+/g, " ").trim();
+    const colon = text.indexOf(":");
+    if (colon > 0 && colon < 80) {
+      pushAttr(text.slice(0, colon), text.slice(colon + 1));
+    }
+  });
+
   const keywords = extractKeywordsFromListing(title, bulletPoints);
   const productName = title.split(",")[0]?.trim() || title.slice(0, 60) || "Product";
 
@@ -216,6 +246,7 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
     description,
     price,
     rating,
+    attributes: attributes.slice(0, 40),
   };
 }
 

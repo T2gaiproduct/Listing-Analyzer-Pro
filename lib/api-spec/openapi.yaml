@@ -672,6 +672,16 @@ components:
           type: ["string", "null"]
         rating:
           type: ["string", "null"]
+        attributes:
+          type: array
+          items:
+            type: object
+            required: [attribute, value]
+            properties:
+              attribute:
+                type: string
+              value:
+                type: string
       required:
         - productName
         - asin
