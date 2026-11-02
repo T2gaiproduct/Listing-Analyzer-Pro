@@ -21,5 +21,6 @@ export * from "./product-marketplace-listings";
 export * from "./product-profiles";
 export * from "./sellermate";
 export * from "./content-marketplaces";
+export * from "./audit-content-variants";
 export * from "./image-prompt-templates";
 export * from "./native-auth";

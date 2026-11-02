@@ -34,6 +34,10 @@ import {
   fetchReferenceListingSummaries,
 } from "../lib/analyze-reference-intelligence.js";
 import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
+import {
+  listAuditContentVariants,
+  upsertAuditContentVariant,
+} from "../lib/audit-content-variant-service.js";
 import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refresh.js";
 import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-product-listing-refresh.js";
 import { listProductMarketplacesSafe } from "../lib/product-marketplaces.js";
@@ -760,11 +764,14 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
     .from(competitorsTable)
     .where(and(eq(competitorsTable.auditId, audit.id), eq(competitorsTable.isDeleted, 0)));
 
+  const contentVariants = await listAuditContentVariants(audit.id);
+
   res.json({
     ...audit,
     referenceLinks: profile?.referenceLinks ?? null,
     result: audit.result ?? null,
     competitors,
+    contentVariants,
   });
 });
 
@@ -1206,11 +1213,6 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
 
   const cost = await getCreditCost("content");
   const creditCtx2 = getCreditCtx(req);
-  const creditCheck = await hasCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired);
-  if (!creditCheck) {
-    res.status(402).json({ error: await insufficientCreditsMessage(creditCtx2, cost.creditType, cost.creditsRequired) });
-    return;
-  }
 
   const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
@@ -1220,7 +1222,34 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
     promptReferenceImageUrls?: string[];
     contentMarketplaceId?: number;
     contentMarketplaceSlug?: string;
+    contentMarketplaceIds?: number[];
   };
+
+  const marketplaceIdsRaw = Array.isArray(body.contentMarketplaceIds)
+    ? body.contentMarketplaceIds.filter((n) => Number.isFinite(n) && n > 0)
+    : [];
+  let marketplaceIds = marketplaceIdsRaw.length > 0
+    ? [...new Set(marketplaceIdsRaw.map((n) => Math.trunc(n)))]
+    : [body.contentMarketplaceId ?? audit.contentMarketplaceId].filter(
+        (n): n is number => n != null && Number.isFinite(n) && n > 0,
+      );
+
+  if (marketplaceIds.length === 0) {
+    const fallback = await resolveContentMarketplaceForGeneration({
+      contentMarketplaceId: body.contentMarketplaceId ?? audit.contentMarketplaceId ?? undefined,
+      contentMarketplaceSlug: body.contentMarketplaceSlug,
+    });
+    marketplaceIds = [fallback.id];
+  }
+
+  const totalCredits = cost.creditsRequired * marketplaceIds.length;
+  const creditCheckBatch = await hasCreditsTeamAware(creditCtx2, cost.creditType, totalCredits);
+  if (!creditCheckBatch) {
+    res.status(402).json({
+      error: await insufficientCreditsMessage(creditCtx2, cost.creditType, totalCredits),
+    });
+    return;
+  }
 
   try {
     const uploadReferenceContext = formatReferenceResearchForContentPrompt(
@@ -1229,40 +1258,84 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
         : null,
     );
     const auditImageUrls = (audit.imageUrls as string[]) ?? [];
-    const marketplace = await resolveContentMarketplaceForGeneration({
-      contentMarketplaceId: body.contentMarketplaceId ?? audit.contentMarketplaceId,
-      contentMarketplaceSlug: body.contentMarketplaceSlug,
-    });
-    const generatedContent = await generateListingContent({
-      productName: audit.productName,
-      asin: audit.asin,
-      brandName: audit.brandName,
-      category: audit.category,
-      productDescription: audit.productDescription,
-      imageUrls: auditImageUrls.length > 0 ? auditImageUrls : undefined,
-      currentTitle: audit.title,
-      currentBullets: audit.bulletPoints as string[],
-      currentKeywords: audit.targetKeywords as string[],
-      auditSummary: audit.result?.summary,
-      customPrompt: body.customPrompt,
-      uploadReferenceContext,
-      contentMarketplaceId: marketplace.id,
-    });
-
-    const contentDeduct = await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
-
     const sourceListingContent = audit.sourceListingContent ?? buildSourceListingSnapshot(audit);
+
+    let lastGenerated: Awaited<ReturnType<typeof generateListingContent>> | null = null;
+    let lastMarketplaceId: number | null = null;
+    let lastDeduct: Awaited<ReturnType<typeof deductCreditsTeamAware>> | null = null;
+    const batchResults: Array<{ contentMarketplaceId: number; ok: boolean; error?: string }> = [];
+
+    for (const mpId of marketplaceIds) {
+      try {
+        const marketplace = await resolveContentMarketplaceForGeneration({
+          contentMarketplaceId: mpId,
+          contentMarketplaceSlug: body.contentMarketplaceSlug,
+        });
+        const generatedContent = await generateListingContent({
+          productName: audit.productName,
+          asin: audit.asin,
+          brandName: audit.brandName,
+          category: audit.category,
+          productDescription: audit.productDescription,
+          imageUrls: auditImageUrls.length > 0 ? auditImageUrls : undefined,
+          currentTitle: audit.title,
+          currentBullets: audit.bulletPoints as string[],
+          currentKeywords: audit.targetKeywords as string[],
+          auditSummary: audit.result?.summary,
+          customPrompt: body.customPrompt,
+          uploadReferenceContext,
+          contentMarketplaceId: marketplace.id,
+        });
+
+        lastDeduct = await deductCreditsTeamAware(
+          creditCtx2,
+          cost.creditType,
+          cost.creditsRequired,
+          cost.activityName,
+          "content",
+          { auditId: id },
+        );
+        await upsertAuditContentVariant(id, marketplace.id, generatedContent);
+        lastGenerated = generatedContent;
+        lastMarketplaceId = marketplace.id;
+        batchResults.push({ contentMarketplaceId: marketplace.id, ok: true });
+      } catch (inner) {
+        const message = inner instanceof Error ? inner.message : "Generation failed";
+        batchResults.push({ contentMarketplaceId: mpId, ok: false, error: message });
+      }
+    }
+
+    const anyOk = batchResults.some((r) => r.ok);
+    if (!anyOk || !lastGenerated || lastMarketplaceId == null) {
+      const firstErr = batchResults.find((r) => !r.ok)?.error ?? "Content generation failed";
+      if (batchResults[0] && !batchResults[0].ok) {
+        const err0 = batchResults[0].error ?? "";
+        if (/disabled|not found/i.test(err0)) {
+          res.status(404).json({ error: firstErr, batchResults });
+          return;
+        }
+      }
+      res.status(500).json({ error: firstErr, batchResults });
+      return;
+    }
 
     await db.update(auditsTable)
       .set({
-        generatedContent,
+        generatedContent: lastGenerated,
         sourceListingContent,
-        contentMarketplaceId: marketplace.id,
+        contentMarketplaceId: lastMarketplaceId,
         updatedAt: new Date(),
       })
       .where(eq(auditsTable.id, id));
 
-    res.json(withCreditUsage(generatedContent as Record<string, unknown>, contentDeduct));
+    const contentVariants = await listAuditContentVariants(id);
+    const payload = {
+      ...lastGenerated,
+      contentMarketplaceId: lastMarketplaceId,
+      contentVariants,
+      batchResults,
+    };
+    res.json(withCreditUsage(payload as Record<string, unknown>, lastDeduct));
   } catch (err) {
     if (err instanceof ContentMarketplaceError) {
       res.status(err.code === "disabled" ? 400 : 404).json({ error: err.message });

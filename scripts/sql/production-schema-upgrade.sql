@@ -492,6 +492,17 @@ CREATE TABLE IF NOT EXISTS auth_password_reset_codes (
 
 CREATE INDEX IF NOT EXISTS auth_password_reset_codes_email_idx ON auth_password_reset_codes (lower(email));
 
+CREATE TABLE IF NOT EXISTS audit_content_variants (
+  id serial PRIMARY KEY,
+  audit_id integer NOT NULL,
+  content_marketplace_id integer NOT NULL,
+  generated_content jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS audit_content_variants_audit_marketplace_uidx
+  ON audit_content_variants (audit_id, content_marketplace_id);
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

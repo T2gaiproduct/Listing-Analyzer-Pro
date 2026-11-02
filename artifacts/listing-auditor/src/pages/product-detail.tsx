@@ -44,11 +44,14 @@ import { fetchShopifyStatus } from "@/lib/shopify-publish";
 import { ShopifyPublishCollectionsDialog } from "@/components/shopify-publish-collections-dialog";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
-import { ContentMarketplaceSelect } from "@/components/content-marketplace-select";
 import {
   pickDefaultMarketplaceId,
   useListingContentMarketplaces,
 } from "@/lib/content-marketplaces";
+import {
+  ListingMarketplaceContentPanel,
+  type ContentVariantRow,
+} from "@/components/listing-marketplace-content-panel";
 import { ScoreBadge, ScoreRing } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -917,157 +920,6 @@ function ListingContentCard({
   );
 }
 
-function ListingSuggestionsCard({ suggestions }: { suggestions: string[] }) {
-  return (
-    <div className="rounded-lg border border-orange-200/80 bg-orange-50/40 overflow-hidden shadow-sm">
-      <div className="border-b border-orange-100 bg-orange-50 px-4 py-2.5 flex items-center gap-2">
-        <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-        <p className="text-[10px] font-semibold text-orange-900">Improvement Suggestions</p>
-      </div>
-      <ul className="px-4 py-4 space-y-2.5">
-        {suggestions.map((suggestion) => (
-          <li
-            key={suggestion}
-            className="text-[11px] text-slate-700 leading-relaxed flex gap-1.5"
-          >
-            <CheckCircle2 className="w-3 h-3 text-orange-500 shrink-0 mt-0.5" />
-            <span>{suggestion}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function OptimizedContentPanel({
-  generatedContent,
-  existingContent,
-  suggestions,
-  hasGeneratedContent,
-  isOptimizing,
-  onOptimize,
-  optimizeDisabled,
-  hideBulletPoints = false,
-  showExistingContent = true,
-  contentMarketplaces,
-  contentMarketplaceId,
-  onContentMarketplaceChange,
-  marketplacesLoading,
-  selectedMarketplaceName,
-}: {
-  generatedContent?: GeneratedContent | null;
-  existingContent?: ListingContentView | null;
-  suggestions: string[];
-  hasGeneratedContent: boolean;
-  isOptimizing: boolean;
-  onOptimize: () => void;
-  optimizeDisabled?: boolean;
-  hideBulletPoints?: boolean;
-  showExistingContent?: boolean;
-  contentMarketplaces: import("@/lib/content-marketplaces").ContentMarketplaceOption[];
-  contentMarketplaceId?: number;
-  onContentMarketplaceChange: (id: number) => void;
-  marketplacesLoading?: boolean;
-  selectedMarketplaceName?: string;
-}) {
-  const optimizedContent: ListingContentView | null = hasGeneratedContent && generatedContent?.title
-    ? {
-        title: generatedContent.title,
-        bulletPoints: generatedContent.bulletPoints?.filter(Boolean) ?? [],
-        keywords: generatedContent.keywords?.filter(Boolean) ?? [],
-        htmlDescription: generatedContent.htmlDescription?.trim() ?? "",
-      }
-    : null;
-
-  const showSuggestions = !hasGeneratedContent;
-
-  return (
-    <div className="space-y-4">
-      <ContentMarketplaceSelect
-        marketplaces={contentMarketplaces}
-        value={contentMarketplaceId}
-        onChange={onContentMarketplaceChange}
-        loading={marketplacesLoading}
-        disabled={isOptimizing || optimizeDisabled}
-      />
-      {selectedMarketplaceName ? (
-        <p className="text-[11px] text-slate-500">
-          Content will follow <span className="font-medium text-slate-700">{selectedMarketplaceName}</span> rules configured in Admin.
-        </p>
-      ) : null}
-      <div
-        className={cn(
-          "grid gap-4 items-start",
-          showExistingContent ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1",
-        )}
-      >
-        {showExistingContent ? (
-          <div className="space-y-2 min-w-0">
-            <div className="flex items-center gap-1.5 px-1">
-              <FileText className="w-3.5 h-3.5 text-slate-500" />
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Existing Content
-              </p>
-            </div>
-            <ListingContentCard
-              content={existingContent}
-              emptyMessage="No existing listing content yet. Add details in Overview or import from your store."
-              accent="slate"
-              hideBulletPoints={hideBulletPoints}
-            />
-          </div>
-        ) : null}
-
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-                Optimized Content
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-[11px]"
-              onClick={onOptimize}
-              disabled={optimizeDisabled || isOptimizing}
-            >
-              {isOptimizing ? (
-                <>
-                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  Generating…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                  {hasGeneratedContent ? "Regenerate" : "Generate"}
-                </>
-              )}
-            </Button>
-          </div>
-
-          {isOptimizing && showSuggestions ? (
-            <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/40 px-4 py-8 text-center">
-              <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
-              <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
-            </div>
-          ) : showSuggestions ? (
-            <ListingSuggestionsCard suggestions={suggestions} />
-          ) : (
-            <ListingContentCard
-              content={optimizedContent}
-              emptyMessage="No optimized content yet. Use Generate above (1 AI credit)."
-              accent="orange"
-            />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AuditResultsPanel({
   overallScore,
   result,
@@ -1377,7 +1229,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
     );
   }, [contentMarketplaces, effectiveAudit]);
 
-  const selectedContentMarketplace = contentMarketplaces.find((m) => m.id === contentMarketplaceId);
+  const contentVariants = useMemo((): ContentVariantRow[] => {
+    const raw = (effectiveAudit as { contentVariants?: ContentVariantRow[] } | null)?.contentVariants;
+    return raw ?? [];
+  }, [effectiveAudit]);
 
   const resolvedSource = product?.sourceType ?? source ?? "listing";
 
@@ -2283,7 +2138,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
 
-  function handleOptimizeContent() {
+  function handleOptimizeContent(marketplaceIds: number[]) {
     if (!optimizeAuditId) {
       toast({
         title: "Cannot optimize",
@@ -2293,11 +2148,22 @@ export default function ProductDetailPage({ id }: { id: number }) {
       return;
     }
     if (!canEditProduct) return;
+    const ids = marketplaceIds.length > 0 ? marketplaceIds : (contentMarketplaceId != null ? [contentMarketplaceId] : []);
 
     generateContent.mutate(
-      { id: optimizeAuditId, data: { contentMarketplaceId } },
+      { id: optimizeAuditId, data: { contentMarketplaceIds: ids } },
       {
-        onSuccess: (generatedContent: GeneratedContent) => {
+        onSuccess: (payload: GeneratedContent & {
+          contentMarketplaceId?: number;
+          contentVariants?: ContentVariantRow[];
+          batchResults?: Array<{ contentMarketplaceId: number; ok: boolean; error?: string }>;
+        }) => {
+          const generatedContent: GeneratedContent = {
+            title: payload.title,
+            bulletPoints: payload.bulletPoints,
+            keywords: payload.keywords,
+            htmlDescription: payload.htmlDescription,
+          };
           const sourceSnapshot = existingListingContent
             ? {
                 title: existingListingContent.title,
@@ -2307,34 +2173,37 @@ export default function ProductDetailPage({ id }: { id: number }) {
               }
             : undefined;
 
+          const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
+            ? {
+                ...current,
+                generatedContent,
+                contentMarketplaceId: payload.contentMarketplaceId ?? current.contentMarketplaceId,
+                contentVariants: payload.contentVariants ?? current.contentVariants,
+                sourceListingContent: current.sourceListingContent ?? sourceSnapshot,
+              }
+            : current);
+
           queryClient.setQueryData<GetAuditQueryResult>(
             productAuditQueryKey(optimizeAuditId),
-            (current) => (current
-              ? {
-                  ...current,
-                  generatedContent,
-                  sourceListingContent: current.sourceListingContent ?? sourceSnapshot,
-                }
-              : current),
+            mergeAudit,
           );
           if (optimizeAuditId !== id) {
-            queryClient.setQueryData<GetAuditQueryResult>(
-              productAuditQueryKey(id),
-              (current) => (current
-                ? {
-                    ...current,
-                    generatedContent,
-                    sourceListingContent: current.sourceListingContent ?? sourceSnapshot,
-                  }
-                : current),
-            );
+            queryClient.setQueryData<GetAuditQueryResult>(productAuditQueryKey(id), mergeAudit);
+          }
+          if (payload.contentMarketplaceId != null) {
+            setContentMarketplaceId(payload.contentMarketplaceId);
           }
           void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
           void queryClient.invalidateQueries({ queryKey: productAuditQueryKey(optimizeAuditId) });
           refreshCreditBalances(queryClient);
+
+          const okCount = payload.batchResults?.filter((r) => r.ok).length ?? ids.length;
+          const failCount = payload.batchResults?.filter((r) => !r.ok).length ?? 0;
           toast({
-            title: "Listing content regenerated",
-            description: "Your optimized content is ready. 1 AI credit was used.",
+            title: failCount > 0 ? "Partially generated" : "Optimized content ready",
+            description: failCount > 0
+              ? `${okCount} marketplace(s) succeeded, ${failCount} failed. ${okCount} AI credit(s) used.`
+              : `${okCount} marketplace(s) updated. ${okCount} AI credit(s) used.`,
           });
         },
         onError: (err) => {
@@ -2387,7 +2256,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           hasGeneratedContent={hasGeneratedListing}
           productImageUrls={productImageUrls}
           isOptimizing={isOptimizingContent}
-          onOptimize={handleOptimizeContent}
+          onOptimize={() => handleOptimizeContent(contentMarketplaceId != null ? [contentMarketplaceId] : [])}
           optimizeDisabled={!canOptimizeContent}
           productId={product.id}
           productSource={resolvedSource}
@@ -2400,15 +2269,18 @@ export default function ProductDetailPage({ id }: { id: number }) {
           isSyncingStore={syncToStoreMutation.isPending}
           referenceResearch={referenceResearch}
           OptimizedContentPanel={(panelProps) => (
-            <OptimizedContentPanel
-              {...panelProps}
-              hideBulletPoints={isStoreImportProduct(product)}
-              showExistingContent={shouldShowExistingListingContent(product, effectiveAudit)}
+            <ListingMarketplaceContentPanel
               contentMarketplaces={contentMarketplaces}
               contentMarketplaceId={contentMarketplaceId}
               onContentMarketplaceChange={setContentMarketplaceId}
+              contentVariants={contentVariants}
+              legacyGeneratedContent={effectiveAudit?.generatedContent}
+              legacyMarketplaceId={(effectiveAudit as { contentMarketplaceId?: number | null })?.contentMarketplaceId}
+              suggestions={panelProps.suggestions}
+              isOptimizing={panelProps.isOptimizing}
+              onGenerate={handleOptimizeContent}
+              optimizeDisabled={panelProps.optimizeDisabled}
               marketplacesLoading={marketplacesLoading}
-              selectedMarketplaceName={selectedContentMarketplace?.name}
             />
           )}
           overviewContent={

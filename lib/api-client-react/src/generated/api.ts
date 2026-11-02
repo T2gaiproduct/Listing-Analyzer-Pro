@@ -893,6 +893,7 @@ export type GenerateContentBody = {
   promptReferenceImageUrls?: string[];
   contentMarketplaceId?: number;
   contentMarketplaceSlug?: string;
+  contentMarketplaceIds?: number[];
 };
 
 export const generateContent = async (
