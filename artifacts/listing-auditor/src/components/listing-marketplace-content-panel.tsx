@@ -1,101 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { Check, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import type { GeneratedContent } from "@workspace/api-client-react";
-
-type ListingContentView = {
-  title: string;
-  bulletPoints: string[];
-  keywords: string[];
-  htmlDescription: string;
-};
+import {
+  generatedContentToListingView,
+  ListingContentCard,
+  ListingSuggestionsCard,
+} from "@/components/listing-content-card";
 
 export type ContentVariantRow = {
   contentMarketplaceId: number;
   generatedContent: GeneratedContent;
 };
-
-function ListingContentCard({
-  content,
-  emptyMessage,
-}: {
-  content: ListingContentView | null;
-  emptyMessage: string;
-}) {
-  if (!content?.title?.trim()) {
-    return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center">
-        <p className="text-[11px] text-slate-500">{emptyMessage}</p>
-      </div>
-    );
-  }
-
-  const plainDesc = content.htmlDescription?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() ?? "";
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2.5 text-[11px]">
-      <div>
-        <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">Title</p>
-        <p className="font-medium text-slate-900 leading-snug">{content.title}</p>
-      </div>
-      {content.bulletPoints.length > 0 && (
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Bullet points</p>
-          <ul className="list-disc pl-4 space-y-1 text-slate-700">
-            {content.bulletPoints.map((b, i) => (
-              <li key={i}>{b}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {content.keywords.length > 0 && (
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Keywords</p>
-          <p className="text-slate-600">{content.keywords.join(", ")}</p>
-        </div>
-      )}
-      {plainDesc ? (
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Description</p>
-          <p className="text-slate-600 leading-relaxed">{plainDesc}</p>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ListingSuggestionsCard({ suggestions }: { suggestions: string[] }) {
-  if (suggestions.length === 0) return null;
-  return (
-    <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 p-3 space-y-2">
-      <p className="text-[11px] font-semibold text-slate-800 flex items-center gap-1.5">
-        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-        Improvement suggestions
-      </p>
-      <ul className="space-y-1.5">
-        {suggestions.map((suggestion) => (
-          <li key={suggestion} className="text-[11px] text-slate-700 leading-relaxed flex gap-1.5">
-            <CheckCircle2 className="w-3 h-3 text-slate-500 shrink-0 mt-0.5" />
-            <span>{suggestion}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function toListingView(gc: GeneratedContent | null | undefined): ListingContentView | null {
-  if (!gc?.title?.trim()) return null;
-  return {
-    title: gc.title,
-    bulletPoints: gc.bulletPoints?.filter(Boolean) ?? [],
-    keywords: gc.keywords?.filter(Boolean) ?? [],
-    htmlDescription: gc.htmlDescription?.trim() ?? "",
-  };
-}
 
 export function ListingMarketplaceContentPanel({
   contentMarketplaces,
@@ -157,7 +76,7 @@ export function ListingMarketplaceContentPanel({
 
   const activeMarketplace = contentMarketplaces.find((m) => m.id === contentMarketplaceId);
   const activeContent = contentMarketplaceId != null ? variantMap.get(contentMarketplaceId) : undefined;
-  const activeView = toListingView(activeContent);
+  const activeView = generatedContentToListingView(activeContent);
   const hasActiveContent = Boolean(activeView?.title?.trim());
 
   function toggleBatch(id: number) {
@@ -183,6 +102,12 @@ export function ListingMarketplaceContentPanel({
         : contentMarketplaces[0]
           ? [contentMarketplaces[0].id]
           : [];
+
+  const regenerateActive = () => {
+    if (contentMarketplaceId != null) {
+      onGenerate([contentMarketplaceId]);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -277,7 +202,7 @@ export function ListingMarketplaceContentPanel({
                 ) : (
                   <>
                     <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                    {hasActiveContent ? "Regenerate" : "Generate"}
+                    Generate
                     {generateCount > 1 ? ` (${generateCount})` : ""}
                   </>
                 )}
@@ -287,36 +212,63 @@ export function ListingMarketplaceContentPanel({
         </>
       )}
 
-      <div className="space-y-2 min-w-0">
-        <div className="flex items-center gap-1.5 px-1">
-          <Sparkles className="w-3.5 h-3.5 text-slate-600" />
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-            Optimized content
-            {activeMarketplace ? ` — ${activeMarketplace.name}` : ""}
-          </p>
+      <div className="rounded-lg border border-orange-200/80 bg-orange-50/20 overflow-hidden shadow-sm">
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-orange-100/80 bg-white/60">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+              Optimized content
+            </p>
+          </div>
+          {hasActiveContent && contentMarketplaceId != null ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] border-orange-200 hover:bg-orange-50"
+              onClick={regenerateActive}
+              disabled={optimizeDisabled || isOptimizing}
+            >
+              {isOptimizing ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Regenerating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3 mr-1 text-orange-500" />
+                  Regenerate
+                </>
+              )}
+            </Button>
+          ) : null}
         </div>
 
-        {isOptimizing && !hasActiveContent ? (
-          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/40 px-4 py-8 text-center">
-            <Loader2 className="w-5 h-5 animate-spin text-slate-500 mx-auto mb-2" />
-            <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
-          </div>
-        ) : !hasActiveContent ? (
-          <>
-            <ListingSuggestionsCard suggestions={suggestions} />
-            {!suggestions.length && (
-              <ListingContentCard
-                content={null}
-                emptyMessage="No optimized content for this marketplace yet. Select marketplaces above and click Generate."
-              />
-            )}
-          </>
-        ) : (
-          <ListingContentCard
-            content={activeView}
-            emptyMessage="No optimized content yet."
-          />
-        )}
+        <div className="p-3 sm:p-4 space-y-3 min-w-0">
+          {isOptimizing && !hasActiveContent ? (
+            <div className="rounded-lg border border-dashed border-orange-200/60 bg-white/80 px-4 py-8 text-center">
+              <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
+              <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
+            </div>
+          ) : !hasActiveContent ? (
+            <>
+              <ListingSuggestionsCard suggestions={suggestions} />
+              {!suggestions.length && (
+                <ListingContentCard
+                  content={null}
+                  emptyMessage="No optimized content for this marketplace yet. Select marketplaces above and click Generate."
+                  accent="orange"
+                />
+              )}
+            </>
+          ) : (
+            <ListingContentCard
+              content={activeView}
+              emptyMessage="No optimized content yet."
+              accent="orange"
+            />
+          )}
+        </div>
       </div>
     </div>
   );
