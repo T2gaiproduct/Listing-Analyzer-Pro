@@ -3,6 +3,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { GeneratedContent } from "@workspace/api-client-react";
+import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import { AplusContentWizard } from "@/components/aplus-content-wizard";
 import { GraphicsWizard } from "@/components/graphics-wizard";
 import {
@@ -183,6 +184,9 @@ export function ProductWorkflowStepContent({
   onSyncToStore,
   isSyncingStore,
   referenceResearch,
+  listingPreviewMarketplaces,
+  listingPreviewMarketplaceId,
+  onListingPreviewMarketplaceChange,
   OptimizedContentPanel,
 }: {
   step: ProductExplorerWorkflowStepId;
@@ -193,6 +197,9 @@ export function ProductWorkflowStepContent({
   productImageUrl?: string | null;
   audit: AuditLike | null | undefined;
   generatedContent: GeneratedContent | null | undefined;
+  listingPreviewMarketplaces?: ContentMarketplaceOption[];
+  listingPreviewMarketplaceId?: number;
+  onListingPreviewMarketplaceChange?: (id: number) => void;
   existingContent?: {
     title: string;
     bulletPoints: string[];
@@ -329,6 +336,9 @@ export function ProductWorkflowStepContent({
           auditId={auditId}
           audit={audit}
           generatedContent={generatedContent}
+          listingPreviewMarketplaces={listingPreviewMarketplaces}
+          listingPreviewMarketplaceId={listingPreviewMarketplaceId}
+          onListingPreviewMarketplaceChange={onListingPreviewMarketplaceChange}
           productName={productName}
           brandName={brandName}
           category={category}

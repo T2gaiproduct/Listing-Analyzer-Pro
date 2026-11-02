@@ -73,7 +73,11 @@ import {
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
-import type { ContentVariantWithMeta } from "@/lib/listing-content-field-merge";
+import {
+  type ContentVariantWithMeta,
+  variantToPreviewGeneratedContent,
+} from "@/lib/listing-content-field-merge";
+import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
@@ -982,6 +986,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const { data: listingContentMarketplaceData, isLoading: marketplacesLoading } = useListingContentMarketplaces();
   const contentMarketplaces = listingContentMarketplaceData?.marketplaces ?? [];
   const [contentMarketplaceId, setContentMarketplaceId] = useState<number | undefined>(undefined);
+  const [listingPreviewMarketplaceId, setListingPreviewMarketplaceId] = useState<number | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     if (!contentMarketplaces.length) return;
@@ -1183,28 +1190,63 @@ export default function ProductDetailPage({ id }: { id: number }) {
     referenceResearch?.productDetails,
   ]);
 
-  /** Listing Preview tab: merged optimized copy for the active content marketplace (user field picks). */
+  /** Listing Preview: only marketplaces with generated optimized content on this audit. */
+  const listingPreviewMarketplaces = useMemo((): ContentMarketplaceOption[] => {
+    const generatedIds = new Set<number>();
+    for (const row of contentVariants) {
+      const preview = variantToPreviewGeneratedContent(
+        row.generatedContent as ContentVariantWithMeta,
+      );
+      if (preview) generatedIds.add(row.contentMarketplaceId);
+    }
+    const legacyId = (effectiveAudit as { contentMarketplaceId?: number | null })?.contentMarketplaceId;
+    if (legacyId != null && effectiveAudit?.generatedContent?.title?.trim()) {
+      generatedIds.add(legacyId);
+    }
+    const ordered = contentMarketplaces.filter((m) => generatedIds.has(m.id));
+    if (ordered.length > 0) return ordered;
+    if (legacyId != null && effectiveAudit?.generatedContent?.title?.trim()) {
+      const legacyMeta = contentMarketplaces.find((m) => m.id === legacyId);
+      if (legacyMeta) return [legacyMeta];
+    }
+    return [];
+  }, [contentVariants, contentMarketplaces, effectiveAudit?.generatedContent, effectiveAudit]);
+
+  useEffect(() => {
+    if (listingPreviewMarketplaces.length === 0) {
+      setListingPreviewMarketplaceId(undefined);
+      return;
+    }
+    setListingPreviewMarketplaceId((prev) => (
+      prev != null && listingPreviewMarketplaces.some((m) => m.id === prev)
+        ? prev
+        : listingPreviewMarketplaces[0]?.id
+    ));
+  }, [listingPreviewMarketplaces]);
+
+  /** Listing Preview tab: merged optimized copy for the selected preview marketplace (user field picks). */
   const listingPreviewGeneratedContent = useMemo((): GeneratedContent | null => {
-    const pickVariant = (raw: ContentVariantWithMeta | undefined): GeneratedContent | null => {
-      if (!raw?.title?.trim()) return null;
-      const { fieldSources: _fs, aiSnapshot: _ai, ...merged } = raw;
-      return merged;
-    };
-    if (contentMarketplaceId != null) {
-      const fromTab = contentVariants.find((v) => v.contentMarketplaceId === contentMarketplaceId)
+    if (listingPreviewMarketplaceId != null) {
+      const fromTab = contentVariants.find((v) => v.contentMarketplaceId === listingPreviewMarketplaceId)
         ?.generatedContent as ContentVariantWithMeta | undefined;
-      const tabContent = pickVariant(fromTab);
+      const tabContent = variantToPreviewGeneratedContent(fromTab);
       if (tabContent) return tabContent;
     }
     const legacyId = (effectiveAudit as { contentMarketplaceId?: number | null })?.contentMarketplaceId;
-    if (legacyId != null) {
-      const fromLegacy = contentVariants.find((v) => v.contentMarketplaceId === legacyId)
-        ?.generatedContent as ContentVariantWithMeta | undefined;
-      const legacyContent = pickVariant(fromLegacy);
-      if (legacyContent) return legacyContent;
+    if (legacyId != null && listingPreviewMarketplaceId === legacyId) {
+      return effectiveAudit?.generatedContent ?? null;
     }
-    return effectiveAudit?.generatedContent ?? null;
-  }, [contentMarketplaceId, contentVariants, effectiveAudit?.generatedContent, effectiveAudit]);
+    if (listingPreviewMarketplaces.length === 0) {
+      return null;
+    }
+    return null;
+  }, [
+    listingPreviewMarketplaceId,
+    contentVariants,
+    effectiveAudit?.generatedContent,
+    effectiveAudit,
+    listingPreviewMarketplaces.length,
+  ]);
 
   useEffect(() => {
     if (productImageUrls.length === 0) return;
@@ -2042,6 +2084,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
           productImageUrl={product.imageUrl}
           audit={effectiveAudit}
           generatedContent={listingPreviewGeneratedContent}
+          listingPreviewMarketplaces={listingPreviewMarketplaces}
+          listingPreviewMarketplaceId={listingPreviewMarketplaceId}
+          onListingPreviewMarketplaceChange={setListingPreviewMarketplaceId}
           existingContent={existingListingContent}
           suggestions={listingSuggestions}
           hasGeneratedContent={hasGeneratedListing}

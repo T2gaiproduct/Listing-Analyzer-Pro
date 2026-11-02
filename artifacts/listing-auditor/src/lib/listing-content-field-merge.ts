@@ -41,6 +41,15 @@ export function resolveAiSnapshot(variant: ContentVariantWithMeta): GeneratedCon
   return rest;
 }
 
+/** User-approved merged copy for listing preview (after ✓/✕ field picks). */
+export function variantToPreviewGeneratedContent(
+  raw: ContentVariantWithMeta | undefined | null,
+): GeneratedContent | null {
+  if (!raw?.title?.trim()) return null;
+  const { fieldSources: _fs, aiSnapshot: _ai, ...merged } = raw;
+  return merged;
+}
+
 export function mergeListingContentByFieldSources(
   existing: GeneratedContent,
   ai: GeneratedContent,

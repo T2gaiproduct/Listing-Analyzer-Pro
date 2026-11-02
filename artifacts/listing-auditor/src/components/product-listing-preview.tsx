@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { copyTextToClipboard } from "@/lib/project-share";
 import type { GeneratedContent } from "@workspace/api-client-react";
+import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import { Button } from "@/components/ui/button";
 import { ListingExportButton } from "@/components/listing-export-button";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
@@ -73,6 +74,9 @@ export function ProductListingPreview({
   auditId,
   audit,
   generatedContent,
+  listingPreviewMarketplaces,
+  listingPreviewMarketplaceId,
+  onListingPreviewMarketplaceChange,
   productName,
   brandName,
   category,
@@ -95,6 +99,10 @@ export function ProductListingPreview({
   auditId: number;
   audit: AuditLike | null | undefined;
   generatedContent: GeneratedContent | null | undefined;
+  /** When set, preview is scoped to Optimize-generated marketplaces only. */
+  listingPreviewMarketplaces?: ContentMarketplaceOption[];
+  listingPreviewMarketplaceId?: number;
+  onListingPreviewMarketplaceChange?: (id: number) => void;
   productName: string;
   brandName?: string | null;
   category?: string | null;
@@ -333,6 +341,12 @@ export function ProductListingPreview({
 
   const lightboxOpen = lightboxRawUrl !== null;
 
+  const showPreviewMarketplaceTabs = Boolean(
+    listingPreviewMarketplaces && onListingPreviewMarketplaceChange,
+  );
+  const previewMarketplacesEmpty = showPreviewMarketplaceTabs
+    && (listingPreviewMarketplaces?.length ?? 0) === 0;
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -377,13 +391,44 @@ export function ProductListingPreview({
         </div>
       </div>
 
-      {(!hasListingCopy || (!hasImages && aplusModules.length === 0)) && !hasPreviewProductDetails && (
+      {showPreviewMarketplaceTabs && (listingPreviewMarketplaces?.length ?? 0) > 0 && (
+        <div className="overflow-x-auto border-b border-slate-200 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex gap-0 min-w-max">
+            {listingPreviewMarketplaces!.map((m) => {
+              const isActive = m.id === listingPreviewMarketplaceId;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => onListingPreviewMarketplaceChange!(m.id)}
+                  className={cn(
+                    "relative px-4 py-2.5 text-left border-b-2 transition-colors shrink-0 -mb-px",
+                    isActive
+                      ? "border-slate-900 text-slate-900"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-200",
+                  )}
+                >
+                  <span className="text-[11px] font-semibold">{m.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {previewMarketplacesEmpty && (
+        <p className="text-[11px] text-amber-800 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2">
+          No optimized listing yet. Open Optimize Listing, generate copy for at least one marketplace, and use ✓ or ✕ on each section to confirm your choices — then return here to preview.
+        </p>
+      )}
+
+      {(!hasListingCopy || (!hasImages && aplusModules.length === 0)) && !hasPreviewProductDetails && !previewMarketplacesEmpty && (
         <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2">
           {generatedOnly
             ? !hasListingCopy && !hasImages
-              ? "This preview shows generated listing copy, reference attributes, graphics, and A+ content. Complete earlier workflow steps to fill it in."
+              ? "This preview shows your approved optimized copy per marketplace, plus graphics and A+ content from earlier steps."
               : !hasListingCopy
-                ? "Generate listing copy on the Listing step to preview title, bullets, and description here."
+                ? "Select a marketplace above or generate optimized copy on the Optimize Listing step."
                 : "Generate graphics on the Graphics step to preview the image gallery here."
             : !hasListingCopy && !hasImages
               ? "Generate listing content and graphics in the earlier steps to see a full preview."
