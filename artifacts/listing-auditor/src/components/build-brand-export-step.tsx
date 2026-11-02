@@ -97,12 +97,14 @@ export function BuildBrandExportStep({
   marketplace = DEFAULT_EXPORT_MARKETPLACE,
   onSaveProduct,
   isSaving,
+  showSaveProduct = true,
 }: {
   auditId: number;
   /** Used for export preview/download field mapping (defaults to US). */
   marketplace?: AmazonMarketplaceId;
-  onSaveProduct: () => void;
+  onSaveProduct?: () => void;
   isSaving?: boolean;
+  showSaveProduct?: boolean;
 }) {
   const [downloading, setDownloading] = useState<"csv" | "excel" | null>(null);
   const { toast } = useToast();
@@ -226,16 +228,18 @@ export function BuildBrandExportStep({
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="gap-2"
-          onClick={onSaveProduct}
-          disabled={isSaving}
-        >
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save product
-        </Button>
+        {showSaveProduct && onSaveProduct && (
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={onSaveProduct}
+            disabled={isSaving}
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Save product
+          </Button>
+        )}
         <Button
           type="button"
           variant="outline"

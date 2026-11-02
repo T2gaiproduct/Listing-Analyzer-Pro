@@ -22,7 +22,7 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   { id: 2, key: "listing", label: "OPTIMIZE LISTING", sub: "Create optimized content", icon: FileText },
   { id: 3, key: "graphics", label: "GRAPHICS", sub: "Product graphics & A+", icon: ImageIcon },
   { id: 4, key: "listing_preview", label: "LISTING PREVIEW", sub: "Amazon-style preview", icon: Eye },
-  { id: 5, key: "export", label: "EXPORT", sub: "Publish listing", icon: Store },
+  { id: 5, key: "export", label: "EXPORT", sub: "Marketplaces & Excel", icon: Store },
   { id: 6, key: "miscellaneous", label: "MISCELLANEOUS", sub: "Orders & sales", icon: Boxes },
 ];
 

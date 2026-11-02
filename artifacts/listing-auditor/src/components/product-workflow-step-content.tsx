@@ -12,7 +12,7 @@ import {
 } from "@/components/product-explorer-workflow-stepper";
 import { canExportListingSource } from "@/components/listing-export-button";
 import { ProductListingPreview } from "@/components/product-listing-preview";
-import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
+import { ProductExportTab } from "@/components/product-export-tab";
 import { ProductMiscellaneousTab } from "@/components/product-miscellaneous-tab";
 import type { ReferenceResearchData } from "@/lib/reference-research";
 
@@ -357,12 +357,11 @@ export function ProductWorkflowStepContent({
   if (step === 5 && productId && productSource) {
     return (
       <WorkflowStepShell {...shellProps}>
-        <ProductMarketplacesTab
+        <ProductExportTab
           productId={productId}
           auditId={auditId}
-          source={productSource}
-          enabled
-          canPublish={canPublishMarketplaces}
+          productSource={productSource}
+          canPublishMarketplaces={canPublishMarketplaces}
         />
       </WorkflowStepShell>
     );
