@@ -23,8 +23,8 @@ import {
 } from "lucide-react";
 import { getAudit, useGenerateContent, type AuditWithResults, type GetAuditQueryResult } from "@workspace/api-client-react";
 
-function productAuditQueryKey(auditId: number) {
-  return ["product-audit", auditId] as const;
+function productAuditQueryKey(auditId: number, scope: string) {
+  return ["product-audit", auditId, scope] as const;
 }
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
 import type { ReferenceResearchData } from "@/lib/reference-research";
@@ -934,7 +934,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     isLoading: auditLoading,
     isError: auditError,
   } = useQuery({
-    queryKey: ["product-audit", id, auditQueryScope],
+    queryKey: productAuditQueryKey(id, auditQueryScope),
     queryFn: () => fetchAuditForProductDetail(id, showAccountProducts),
     enabled: queryEnabled && shouldFetchAudit,
     retry: 1,
@@ -966,7 +966,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     && optimizeAuditId !== id;
 
   const { data: linkedAuditData } = useQuery({
-    queryKey: ["product-audit", optimizeAuditId ?? 0, auditQueryScope],
+    queryKey: productAuditQueryKey(optimizeAuditId ?? 0, auditQueryScope),
     queryFn: () => fetchAuditForProductDetail(optimizeAuditId ?? 0, showAccountProducts),
     enabled: shouldFetchLinkedAudit,
     retry: 1,
@@ -1210,7 +1210,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (productImageUrls.length === 0) return;
     const auditId = optimizeAuditId ?? id;
     queryClient.setQueryData<GetAuditQueryResult>(
-      productAuditQueryKey(auditId),
+      productAuditQueryKey(auditId, auditQueryScope),
       (current) => {
         if (!current) return current;
         const merged = [...(current.imageUrls ?? [])];
@@ -1226,8 +1226,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
     await Promise.all([
       queryClient.refetchQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] }),
-      queryClient.refetchQueries({ queryKey: productAuditQueryKey(auditId) }),
-      queryClient.refetchQueries({ queryKey: productAuditQueryKey(id) }),
+      queryClient.refetchQueries({ queryKey: productAuditQueryKey(auditId, auditQueryScope) }),
+      queryClient.refetchQueries({ queryKey: productAuditQueryKey(id, auditQueryScope) }),
       queryClient.refetchQueries({ queryKey: ["product-marketplaces", id, resolvedSource] }),
     ]);
   }
@@ -1729,7 +1729,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       body: JSON.stringify({ currentStep: apiStep }),
     });
     void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
-    void queryClient.invalidateQueries({ queryKey: productAuditQueryKey(auditId) });
+    void queryClient.invalidateQueries({ queryKey: productAuditQueryKey(auditId, auditQueryScope) });
   }
 
   async function saveAndContinueWorkflowStep(
@@ -1970,17 +1970,22 @@ export default function ProductDetailPage({ id }: { id: number }) {
             : current);
 
           queryClient.setQueryData<GetAuditQueryResult>(
-            productAuditQueryKey(optimizeAuditId),
+            productAuditQueryKey(optimizeAuditId, auditQueryScope),
             mergeAudit,
           );
           if (optimizeAuditId !== id) {
-            queryClient.setQueryData<GetAuditQueryResult>(productAuditQueryKey(id), mergeAudit);
+            queryClient.setQueryData<GetAuditQueryResult>(
+              productAuditQueryKey(id, auditQueryScope),
+              mergeAudit,
+            );
           }
           if (payload.contentMarketplaceId != null) {
             setContentMarketplaceId(payload.contentMarketplaceId);
           }
           void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
-          void queryClient.invalidateQueries({ queryKey: productAuditQueryKey(optimizeAuditId) });
+          void queryClient.invalidateQueries({
+            queryKey: productAuditQueryKey(optimizeAuditId, auditQueryScope),
+          });
           refreshCreditBalances(queryClient);
 
           const okCount = payload.batchResults?.filter((r) => r.ok).length ?? ids.length;
@@ -2079,10 +2084,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   ? { ...current, contentVariants: variants }
                   : current);
                 if (optimizeAuditId != null) {
-                  queryClient.setQueryData(productAuditQueryKey(optimizeAuditId), mergeAudit);
+                  queryClient.setQueryData(
+                    productAuditQueryKey(optimizeAuditId, auditQueryScope),
+                    mergeAudit,
+                  );
                 }
                 if (optimizeAuditId !== id) {
-                  queryClient.setQueryData(productAuditQueryKey(id), mergeAudit);
+                  queryClient.setQueryData(
+                    productAuditQueryKey(id, auditQueryScope),
+                    mergeAudit,
+                  );
                 }
               }}
             />

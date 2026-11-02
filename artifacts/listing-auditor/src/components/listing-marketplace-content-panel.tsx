@@ -18,6 +18,7 @@ import {
 } from "@/components/listing-content-card";
 import {
   defaultFieldSourcesAi,
+  mergeListingContentByFieldSources,
   resolveAiSnapshot,
   type ContentVariantWithMeta,
   type ListingContentFieldKey,
@@ -145,11 +146,19 @@ export function ListingMarketplaceContentPanel({
         contentMarketplaceId: number;
       }>;
     },
+    onMutate: ({ field, source }) => {
+      const previous = contentVariants;
+      onContentVariantsUpdated?.(applyFieldSourceLocally(field, source));
+      return { previous };
+    },
     onSuccess: (data) => {
       onContentVariantsUpdated?.(data.contentVariants);
       void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId!) });
     },
-    onError: (err) => {
+    onError: (err, _vars, context) => {
+      if (context?.previous) {
+        onContentVariantsUpdated?.(context.previous);
+      }
       toast({
         title: "Could not save selection",
         description: err instanceof Error ? err.message : "Try again",
@@ -171,6 +180,35 @@ export function ListingMarketplaceContentPanel({
     ),
     [existingContent, activeMarketplace?.slug, storeDescriptionHtml],
   );
+
+  function applyFieldSourceLocally(
+    field: ListingContentFieldKey,
+    source: ListingContentFieldSource,
+  ): ContentVariantRow[] {
+    if (contentMarketplaceId == null || !activeContent) return contentVariants;
+    const nextSources = { ...(activeContent.fieldSources ?? defaultFieldSourcesAi()), [field]: source };
+    const ai = resolveAiSnapshot(activeContent);
+    const existingGc: GeneratedContent = {
+      title: existingForTab?.title ?? "",
+      bulletPoints: existingForTab?.bulletPoints ?? [],
+      keywords: existingForTab?.keywords ?? [],
+      htmlDescription: existingForTab?.htmlDescription ?? "",
+      attributes: existingForTab?.attributes,
+    };
+    const merged = mergeListingContentByFieldSources(existingGc, ai, nextSources);
+    return contentVariants.map((row) => {
+      if (row.contentMarketplaceId !== contentMarketplaceId) return row;
+      return {
+        ...row,
+        generatedContent: {
+          ...merged,
+          aiSnapshot: activeContent.aiSnapshot ?? ai,
+          fieldSources: nextSources,
+        },
+      };
+    });
+  }
+
   const useCompareLayout = Boolean(showListingCompare && existingForTab);
 
   function toggleBatch(id: number) {
