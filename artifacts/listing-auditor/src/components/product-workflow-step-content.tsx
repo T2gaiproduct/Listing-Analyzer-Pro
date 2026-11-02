@@ -248,7 +248,7 @@ export function ProductWorkflowStepContent({
   const showContinueFooter = hasNextStep
     && !listingEditorContent
     && Boolean(onSaveAndContinue)
-    && step !== 7
+    && step !== 6
     && step !== 3;
   const showStoreSyncOnStep = Boolean(
     showStoreSync && !listingEditorContent && step >= 1 && step <= 4,
@@ -325,14 +325,6 @@ export function ProductWorkflowStepContent({
   if (step === 4) {
     return (
       <WorkflowStepShell {...shellProps}>
-        <AplusContentWizard embedded createOnly auditId={auditId} productName={productName} />
-      </WorkflowStepShell>
-    );
-  }
-
-  if (step === 5) {
-    return (
-      <WorkflowStepShell {...shellProps}>
         <ProductListingPreview
           auditId={auditId}
           audit={audit}
@@ -354,7 +346,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 6 && productId && productSource) {
+  if (step === 5 && productId && productSource) {
     return (
       <WorkflowStepShell {...shellProps}>
         <ProductMarketplacesTab
@@ -368,7 +360,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 7 && productId && productSource) {
+  if (step === 6 && productId && productSource) {
     return (
       <WorkflowStepShell showSaveAndContinue={false}>
         <ProductOrdersTab productId={productId} source={productSource} enabled />
@@ -376,7 +368,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 8 && productId && productSource) {
+  if (step === 7 && productId && productSource) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <ProductSalesTab productId={productId} source={productSource} enabled />
