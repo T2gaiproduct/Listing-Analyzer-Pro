@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link2, Loader2, ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { UPLOAD_TAB_FIELD_CLASS } from "@/components/build-brand-upload-attributes-section";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import type { FetchedListing } from "@workspace/api-client-react";
@@ -139,71 +141,88 @@ export default function AuditImportFromLinkPage() {
 
   return (
     <div className="min-h-full bg-background">
-      <div className="border-b border-border bg-card px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-center gap-3">
-          <Button type="button" variant="ghost" size="sm" onClick={() => nav("/audits/new")}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
+      <div className="mx-auto w-full max-w-[min(96rem,calc(100vw-2rem))] space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex flex-wrap items-center gap-2 min-h-[44px] rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-2 sm:px-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 shrink-0 px-2 text-[11px] font-semibold"
+            onClick={() => nav("/audits/new")}
+          >
+            <ArrowLeft className="mr-1 h-3.5 w-3.5" />
             Back
           </Button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100">
-            <Link2 className="h-4 w-4 text-orange-600" aria-hidden />
-          </div>
-          <div>
-            <h1 className="text-base font-semibold text-foreground">Import from link</h1>
-            <p className="text-xs text-muted-foreground">Fetch a listing, preview it, then save to Product Explorer</p>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100">
+              <Link2 className="h-4 w-4 text-orange-600" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm font-semibold text-foreground sm:text-base">Import from link</h1>
+              <p className="text-[11px] text-muted-foreground sm:text-xs">
+                Fetch a listing, preview it, then save to Product Explorer
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
-        <div className="grid gap-4 rounded-xl border border-orange-100 bg-orange-50/30 p-4 sm:grid-cols-2 sm:items-end">
-          <div className="space-y-2">
-            <Label htmlFor="import-marketplace">Marketplace</Label>
-            <Select value={marketplace} onValueChange={(v) => setMarketplace(v as ImportLinkMarketplace)}>
-              <SelectTrigger id="import-marketplace" className="border-orange-200 bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {IMPORT_LINK_MARKETPLACES.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="import-url">Product link</Label>
-            <p className="text-xs text-muted-foreground">{marketplaceMeta.hint}</p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                id="import-url"
-                value={url}
-                onChange={(e) => {
-                  setUrl(e.target.value);
-                  setListing(null);
-                }}
-                placeholder={marketplaceMeta.placeholder}
-                className="border-orange-200 focus-visible:ring-orange-500"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleFetch();
-                }}
-              />
-              <Button
-                type="button"
-                className="shrink-0 bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600"
-                disabled={!url.trim() || fetchListing.isPending}
-                onClick={handleFetch}
-              >
-                {fetchListing.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Fetching…
-                  </>
-                ) : (
-                  "Fetch listing"
-                )}
-              </Button>
+        <div className="w-full space-y-4">
+          <div className="grid w-full gap-4 md:grid-cols-[minmax(0,16rem)_1fr] md:items-end lg:grid-cols-[minmax(0,18rem)_1fr]">
+            <div className="space-y-1.5 min-w-0">
+              <Label htmlFor="import-marketplace" className="text-xs">
+                Marketplace
+              </Label>
+              <Select value={marketplace} onValueChange={(v) => setMarketplace(v as ImportLinkMarketplace)}>
+                <SelectTrigger
+                  id="import-marketplace"
+                  className={cn(UPLOAD_TAB_FIELD_CLASS, "h-11 sm:h-12 bg-card")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMPORT_LINK_MARKETPLACES.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 min-w-0 md:col-span-1">
+              <Label htmlFor="import-url" className="text-xs">
+                Product link
+              </Label>
+              <p className="text-[11px] text-muted-foreground">{marketplaceMeta.hint}</p>
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-stretch">
+                <Input
+                  id="import-url"
+                  value={url}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    setListing(null);
+                  }}
+                  placeholder={marketplaceMeta.placeholder}
+                  className={cn(UPLOAD_TAB_FIELD_CLASS, "h-11 sm:h-12 flex-1 text-sm")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleFetch();
+                  }}
+                />
+                <Button
+                  type="button"
+                  className="h-11 shrink-0 bg-gradient-to-r from-orange-500 to-amber-500 px-5 text-white hover:from-orange-600 hover:to-amber-600 sm:h-12"
+                  disabled={!url.trim() || fetchListing.isPending}
+                  onClick={handleFetch}
+                >
+                  {fetchListing.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Fetching…
+                    </>
+                  ) : (
+                    "Fetch listing"
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -211,7 +230,7 @@ export default function AuditImportFromLinkPage() {
         {listing && (
           <>
             <BuildBrandFetchedListingPreview listing={listing} />
-            <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => nav("/audits/new")}>
                 Cancel
               </Button>
