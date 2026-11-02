@@ -9,7 +9,10 @@ import type { GeneratedContent } from "@workspace/api-client-react";
 import {
   generatedContentToListingView,
   ListingContentCard,
+  ListingMarketplaceContentCompare,
   ListingSuggestionsCard,
+  resolveExistingContentForMarketplaceSlug,
+  type ListingContentView,
 } from "@/components/listing-content-card";
 
 export type ContentVariantRow = {
@@ -29,6 +32,9 @@ export function ListingMarketplaceContentPanel({
   onGenerate,
   optimizeDisabled,
   marketplacesLoading,
+  existingContent,
+  storeDescriptionHtml,
+  showListingCompare,
 }: {
   contentMarketplaces: ContentMarketplaceOption[];
   contentMarketplaceId?: number;
@@ -41,6 +47,10 @@ export function ListingMarketplaceContentPanel({
   onGenerate: (marketplaceIds: number[]) => void;
   optimizeDisabled?: boolean;
   marketplacesLoading?: boolean;
+  /** Imported / audit listing snapshot for side-by-side compare. */
+  existingContent?: ListingContentView | null;
+  storeDescriptionHtml?: string | null;
+  showListingCompare?: boolean;
 }) {
   const variantMap = useMemo(() => {
     const map = new Map<number, GeneratedContent>();
@@ -76,10 +86,26 @@ export function ListingMarketplaceContentPanel({
     });
   }, [contentMarketplaceId]);
 
+  const activeMarketplace = contentMarketplaceId != null
+    ? contentMarketplaces.find((m) => m.id === contentMarketplaceId)
+    : undefined;
   const activeContent = contentMarketplaceId != null ? variantMap.get(contentMarketplaceId) : undefined;
   const activeView = generatedContentToListingView(activeContent);
   const hasActiveContent = Boolean(activeView?.title?.trim())
+    || (activeView?.bulletPoints?.length ?? 0) > 0
+    || (activeView?.keywords?.length ?? 0) > 0
+    || activeView?.htmlDescription?.trim()
     || (activeView?.attributes?.length ?? 0) > 0;
+
+  const existingForTab = useMemo(
+    () => resolveExistingContentForMarketplaceSlug(
+      existingContent,
+      activeMarketplace?.slug,
+      storeDescriptionHtml,
+    ),
+    [existingContent, activeMarketplace?.slug, storeDescriptionHtml],
+  );
+  const useCompareLayout = Boolean(showListingCompare && existingForTab);
 
   function toggleBatch(id: number) {
     setBatchSelected((prev) => {
@@ -247,11 +273,30 @@ export function ListingMarketplaceContentPanel({
         </div>
 
         <div className="min-w-0">
-          {isOptimizing && !hasActiveContent ? (
+          {isOptimizing && !hasActiveContent && !useCompareLayout ? (
             <div className="px-4 py-8 text-center">
               <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
               <p className="text-[11px] text-slate-600">Generating optimized listing copy and attributes…</p>
             </div>
+          ) : useCompareLayout ? (
+            <>
+              {suggestions.length > 0 && !hasActiveContent && (
+                <div className="px-4 pt-4">
+                  <ListingSuggestionsCard suggestions={suggestions} />
+                </div>
+              )}
+              <ListingMarketplaceContentCompare
+                existing={existingForTab}
+                optimized={activeView}
+                marketplaceName={activeMarketplace?.name}
+              />
+              {isOptimizing && (
+                <div className="px-4 pb-4 flex items-center justify-center gap-2 text-[11px] text-slate-600">
+                  <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                  Generating optimized copy for {activeMarketplace?.name ?? "this marketplace"}…
+                </div>
+              )}
+            </>
           ) : !hasActiveContent ? (
             <div className="px-4 py-4 space-y-3">
               <ListingSuggestionsCard suggestions={suggestions} />

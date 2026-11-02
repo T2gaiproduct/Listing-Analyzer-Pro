@@ -2050,6 +2050,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
               onGenerate={handleOptimizeContent}
               optimizeDisabled={panelProps.optimizeDisabled}
               marketplacesLoading={marketplacesLoading}
+              existingContent={existingListingContent}
+              storeDescriptionHtml={
+                listingProduct?.descriptionHtml
+                ?? (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml
+              }
+              showListingCompare={shouldShowExistingListingContent(listingProduct, effectiveAudit)}
             />
           )}
           overviewContent={

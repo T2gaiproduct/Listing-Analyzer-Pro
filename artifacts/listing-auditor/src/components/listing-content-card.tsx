@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { CheckCircle2, Code2, Copy, Eye, FileText, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -317,6 +317,282 @@ export function ListingContentCard({
     <div className={cn("rounded-lg border bg-white overflow-hidden", borderClass)}>
       {header}
       {body}
+    </div>
+  );
+}
+
+/** Adjust imported store copy per content marketplace tab (same product, channel-specific emphasis). */
+export function resolveExistingContentForMarketplaceSlug(
+  base: ListingContentView | null | undefined,
+  slug: string | undefined,
+  storeDescriptionHtml?: string | null,
+): ListingContentView | null {
+  if (!base?.title?.trim()
+    && !(base?.bulletPoints?.length)
+    && !(base?.htmlDescription?.trim())
+    && !storeDescriptionHtml?.trim()) {
+    return null;
+  }
+  const normalizedSlug = slug?.trim().toLowerCase();
+  if (normalizedSlug === "shopify" || normalizedSlug === "woocommerce") {
+    const title = base?.title?.trim() ?? "";
+    const bulletPoints = normalizedSlug === "woocommerce"
+      ? []
+      : normalizeBulletPoints(base?.bulletPoints ?? []);
+    return {
+      title,
+      bulletPoints,
+      keywords: base?.keywords?.filter(Boolean) ?? [],
+      htmlDescription: storeDescriptionHtml?.trim() || base?.htmlDescription?.trim() || "",
+      category: base?.category ?? null,
+      attributes: base?.attributes,
+    };
+  }
+  return base ?? null;
+}
+
+function CollapsibleTextBlock({
+  text,
+  className,
+  collapsedLines = 6,
+}: {
+  text: string;
+  className?: string;
+  collapsedLines?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const lines = text.split("\n");
+  const needsToggle = lines.length > collapsedLines;
+  const visible = expanded || !needsToggle ? text : lines.slice(0, collapsedLines).join("\n");
+
+  return (
+    <div className={className}>
+      <p className="text-[11px] leading-relaxed whitespace-pre-wrap break-words">{visible}</p>
+      {needsToggle && (
+        <button
+          type="button"
+          className="text-[10px] font-medium text-blue-600 hover:text-blue-800 mt-1"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CompareFieldShell({
+  label,
+  showAiBadge,
+  children,
+}: {
+  label: string;
+  showAiBadge?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50/80">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">{label}</p>
+        {showAiBadge && (
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+            AI optimized
+          </span>
+        )}
+      </div>
+      <div className="px-3 py-3 space-y-3">{children}</div>
+    </div>
+  );
+}
+
+export function ListingMarketplaceContentCompare({
+  existing,
+  optimized,
+  marketplaceName,
+}: {
+  existing: ListingContentView | null;
+  optimized: ListingContentView | null;
+  marketplaceName?: string;
+}) {
+  const existingBullets = normalizeBulletPoints(existing?.bulletPoints ?? []);
+  const optimizedBullets = normalizeBulletPoints(optimized?.bulletPoints ?? []);
+  const existingKeywords = existing?.keywords?.filter(Boolean) ?? [];
+  const optimizedKeywords = optimized?.keywords?.filter(Boolean) ?? [];
+  const existingDesc = existing?.htmlDescription?.trim() ?? "";
+  const optimizedDesc = optimized?.htmlDescription?.trim() ?? "";
+  const optimizedPreview = useMemo(
+    () => (optimizedDesc
+      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(optimizedDesc))
+      : ""),
+    [optimizedDesc],
+  );
+  const existingPreview = useMemo(
+    () => (existingDesc
+      ? sanitizeHtmlDescription(formatHtmlDescriptionForPreview(existingDesc))
+      : ""),
+    [existingDesc],
+  );
+
+  const hasExisting = Boolean(existing?.title?.trim())
+    || existingBullets.length > 0
+    || existingKeywords.length > 0
+    || existingDesc
+    || (existing?.attributes?.length ?? 0) > 0;
+  const hasOptimized = Boolean(optimized?.title?.trim())
+    || optimizedBullets.length > 0
+    || optimizedKeywords.length > 0
+    || optimizedDesc
+    || (optimized?.attributes?.length ?? 0) > 0;
+
+  if (!hasExisting && !hasOptimized) {
+    return (
+      <p className="text-[11px] text-slate-500 px-4 py-6 text-center">
+        No listing content to compare yet.
+      </p>
+    );
+  }
+
+  const contextLabel = marketplaceName ? ` on ${marketplaceName}` : "";
+
+  return (
+    <div className="px-4 py-4 space-y-4 min-w-0">
+      {hasExisting && (
+        <p className="text-[10px] text-slate-500">
+          Compare your current listing{contextLabel} with AI-optimized copy for this marketplace.
+        </p>
+      )}
+
+      {(existing?.title?.trim() || optimized?.title?.trim()) && (
+        <CompareFieldShell
+          label="Product title"
+          showAiBadge={Boolean(optimized?.title?.trim() && optimized.title.trim() !== (existing?.title?.trim() ?? ""))}
+        >
+          {hasExisting && existing?.title?.trim() && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Current</p>
+              <p className="text-[11px] text-slate-500 leading-snug">{existing.title}</p>
+            </div>
+          )}
+          {optimized?.title?.trim() && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1">AI suggests</p>
+              <p className="text-[11px] font-medium text-slate-900 leading-snug">{optimized.title}</p>
+            </div>
+          )}
+        </CompareFieldShell>
+      )}
+
+      {(existingBullets.length > 0 || optimizedBullets.length > 0) && (
+        <CompareFieldShell
+          label="Bullet points"
+          showAiBadge={optimizedBullets.length > 0 && JSON.stringify(existingBullets) !== JSON.stringify(optimizedBullets)}
+        >
+          {existingBullets.length > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Current</p>
+              <CollapsibleTextBlock
+                className="text-slate-500"
+                text={existingBullets.map((b, i) => `${i + 1}. ${b}`).join("\n")}
+              />
+            </div>
+          )}
+          {optimizedBullets.length > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
+              <ul className="space-y-2">
+                {optimizedBullets.map((bullet, index) => (
+                  <li key={`${index}-${bullet.slice(0, 20)}`} className="flex gap-2 text-[11px] text-slate-800 leading-relaxed">
+                    <span className="text-blue-600 font-bold shrink-0">•</span>
+                    <span className="whitespace-pre-wrap break-words">{bullet}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </CompareFieldShell>
+      )}
+
+      {(existingKeywords.length > 0 || optimizedKeywords.length > 0) && (
+        <CompareFieldShell
+          label="Tags / keywords"
+          showAiBadge={optimizedKeywords.length > 0 && JSON.stringify(existingKeywords) !== JSON.stringify(optimizedKeywords)}
+        >
+          {existingKeywords.length > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Current</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">{existingKeywords.join(", ")}</p>
+            </div>
+          )}
+          {optimizedKeywords.length > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
+              <p className="text-[11px] text-slate-800 leading-relaxed">{optimizedKeywords.join(", ")}</p>
+            </div>
+          )}
+        </CompareFieldShell>
+      )}
+
+      {(existingDesc || optimizedDesc) && (
+        <CompareFieldShell
+          label="Description"
+          showAiBadge={Boolean(optimizedDesc && optimizedDesc !== existingDesc)}
+        >
+          {existingDesc && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Current</p>
+              <div
+                className="text-[11px] text-slate-500 prose prose-sm max-w-none amazon-listing-description border border-slate-100 rounded-md p-2 bg-slate-50/50"
+                dangerouslySetInnerHTML={{ __html: existingPreview }}
+              />
+            </div>
+          )}
+          {optimizedDesc && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
+              <div
+                className="text-[11px] text-slate-800 prose prose-sm max-w-none amazon-listing-description border border-orange-100 rounded-md p-2 bg-orange-50/30"
+                dangerouslySetInnerHTML={{ __html: optimizedPreview }}
+              />
+            </div>
+          )}
+        </CompareFieldShell>
+      )}
+
+      {((existing?.attributes?.length ?? 0) > 0 || (optimized?.attributes?.length ?? 0) > 0) && (
+        <CompareFieldShell label="Attributes" showAiBadge={(optimized?.attributes?.length ?? 0) > 0}>
+          {(existing?.attributes?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Current</p>
+              <p className="text-[11px] text-slate-500">
+                {(existing?.attributes ?? []).map((row) => `${row.attribute}: ${row.value}`).join(" · ")}
+              </p>
+            </div>
+          )}
+          {(optimized?.attributes?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
+              <div className="rounded-md border border-slate-200 overflow-hidden">
+                <table className="w-full text-[11px]">
+                  <tbody>
+                    {(optimized?.attributes ?? []).map((row, index) => (
+                      <tr key={`${row.attribute}-${index}`} className="border-b border-slate-50 last:border-0">
+                        <td className="px-2 py-1.5 font-medium text-slate-800 w-[38%]">{row.attribute}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{row.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </CompareFieldShell>
+      )}
+
+      {!hasOptimized && hasExisting && (
+        <p className="text-[10px] text-slate-500 text-center pt-1">
+          Click Generate to create optimized copy for this marketplace tab.
+        </p>
+      )}
     </div>
   );
 }
