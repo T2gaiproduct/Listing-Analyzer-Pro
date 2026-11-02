@@ -78,7 +78,8 @@ export function ListingMarketplaceContentPanel({
 
   const activeContent = contentMarketplaceId != null ? variantMap.get(contentMarketplaceId) : undefined;
   const activeView = generatedContentToListingView(activeContent);
-  const hasActiveContent = Boolean(activeView?.title?.trim());
+  const hasActiveContent = Boolean(activeView?.title?.trim())
+    || (activeView?.attributes?.length ?? 0) > 0;
 
   const generateActive = () => {
     if (contentMarketplaceId != null) {
@@ -176,7 +177,7 @@ export function ListingMarketplaceContentPanel({
               ) : (
                 <>
                   <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                  {hasActiveContent ? "Regenerate" : "Generate"}
+                  Generate
                 </>
               )}
             </Button>
@@ -259,7 +260,7 @@ export function ListingMarketplaceContentPanel({
           {isOptimizing && !hasActiveContent ? (
             <div className="px-4 py-8 text-center">
               <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
-              <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
+              <p className="text-[11px] text-slate-600">Generating optimized listing copy and attributes…</p>
             </div>
           ) : !hasActiveContent ? (
             <div className="px-4 py-4 space-y-3">

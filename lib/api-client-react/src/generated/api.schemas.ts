@@ -62,11 +62,17 @@ export interface GenerateContentDirectBody {
   contentMarketplaceSlug?: string;
 }
 
+export interface GeneratedListingAttribute {
+  attribute: string;
+  value: string;
+}
+
 export interface GeneratedContent {
   title: string;
   bulletPoints: string[];
   keywords: string[];
   htmlDescription: string;
+  attributes?: GeneratedListingAttribute[];
 }
 
 export interface GeneratedImages {

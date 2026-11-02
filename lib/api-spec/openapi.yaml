@@ -727,6 +727,17 @@ components:
         - bulletPoints
         - targetKeywords
 
+    GeneratedListingAttribute:
+      type: object
+      properties:
+        attribute:
+          type: string
+        value:
+          type: string
+      required:
+        - attribute
+        - value
+
     GeneratedContent:
       type: object
       properties:
@@ -742,6 +753,10 @@ components:
             type: string
         htmlDescription:
           type: string
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedListingAttribute"
       required:
         - title
         - bulletPoints

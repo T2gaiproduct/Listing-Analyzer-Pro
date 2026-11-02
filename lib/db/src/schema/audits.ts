@@ -18,11 +18,17 @@ export const auditResultSchema = z.object({
   summary: z.string(),
 });
 
+export const generatedListingAttributeSchema = z.object({
+  attribute: z.string(),
+  value: z.string(),
+});
+
 export const generatedContentSchema = z.object({
   title: z.string(),
   bulletPoints: z.array(z.string()),
   keywords: z.array(z.string()),
   htmlDescription: z.string(),
+  attributes: z.array(generatedListingAttributeSchema).optional(),
 });
 
 export const generatedImagesSchema = z.object({

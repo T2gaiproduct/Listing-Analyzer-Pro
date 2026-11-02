@@ -27,10 +27,37 @@ const LISTING_JSON_OUTPUT_SPEC = `Return ONLY a JSON object:
   "title": "<optimized title>",
   "bulletPoints": ["<bullet 1>", "<bullet 2>", "<bullet 3>", "<bullet 4>", "<bullet 5>"],
   "keywords": ["<keyword 1>", "<keyword 2>", "<keyword 3>", "<keyword 4>", "<keyword 5>", "<keyword 6>", "<keyword 7>", "<keyword 8>", "<keyword 9>", "<keyword 10>"],
-  "htmlDescription": "<p>Opening paragraph...</p><h3>Feature 1</h3><p>Details...</p>..."
+  "htmlDescription": "<p>Opening paragraph...</p><h3>Feature 1</h3><p>Details...</p>...",
+  "attributes": [
+    { "attribute": "Brand", "value": "<brand or Generic>" },
+    { "attribute": "Material", "value": "<material>" }
+  ]
 }
 
+Include "attributes": 8–16 marketplace-relevant product specification rows (attribute name + value), e.g. Brand, Color, Material, Size, Dimensions, MPN, Department, Style — use facts from product context only; do not invent compliance certifications.
+
 Return ONLY the JSON object, no markdown, no explanation.`;
+
+const GENERATED_ATTRIBUTE_MAX = 24;
+
+function normalizeGeneratedAttributes(raw: unknown): Array<{ attribute: string; value: string }> {
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ attribute: string; value: string }> = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { attribute?: unknown; value?: unknown };
+    const attribute = String(row.attribute ?? "").trim();
+    const value = String(row.value ?? "").trim();
+    if (!attribute || !value) continue;
+    const key = attribute.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ attribute, value });
+    if (out.length >= GENERATED_ATTRIBUTE_MAX) break;
+  }
+  return out;
+}
 
 function buildProductContextBlock(data: {
   productName: string;
@@ -100,7 +127,7 @@ Generate optimized listing content for ${marketplace.name}. ${LISTING_JSON_OUTPU
 
   const { content } = await generateChatCompletion(
     [{ role: "user", content: prompt }],
-    { maxTokens: 3000 },
+    { maxTokens: 3600 },
   );
 
   try {
@@ -111,11 +138,13 @@ Generate optimized listing content for ${marketplace.name}. ${LISTING_JSON_OUTPU
     const normalizedDescription = stripInlineStrongFromParagraphs(
       normalizeListingHtmlDescription(rawDescription),
     );
+    const attributes = normalizeGeneratedAttributes(parsed.attributes);
     return {
       title: parsed.title ?? data.currentTitle,
       bulletPoints: normalizeBulletPoints(parsed.bulletPoints ?? data.currentBullets),
       keywords: parsed.keywords ?? data.currentKeywords,
       htmlDescription: sanitizeHtmlDescription(normalizedDescription),
+      ...(attributes.length > 0 ? { attributes } : {}),
     };
   } catch {
     return {

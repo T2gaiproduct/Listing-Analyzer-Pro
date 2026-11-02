@@ -1140,7 +1140,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }, [product?.imageUrls, product?.imageUrl, effectiveAudit?.imageUrls]);
 
   const overviewPreview = useMemo(() => {
-    const gc = effectiveAudit?.generatedContent;
+    const variantGc = contentMarketplaceId != null
+      ? contentVariants.find((v) => v.contentMarketplaceId === contentMarketplaceId)?.generatedContent
+      : undefined;
+    const gc = variantGc ?? effectiveAudit?.generatedContent;
     const title =
       gc?.title?.trim()
       || existingListingContent?.title?.trim()
@@ -1160,10 +1163,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
       ?? listingProduct?.htmlDescription
       ?? listingProduct?.description
       ?? null;
-    const attributes =
-      referenceResearch?.productDetails?.filter(
-        (row) => row.attribute?.trim() && row.value?.trim(),
-      ) ?? [];
+    const generatedAttributes =
+      gc?.attributes?.filter((row) => row.attribute?.trim() && row.value?.trim()) ?? [];
+    const attributes = generatedAttributes.length > 0
+      ? generatedAttributes
+      : referenceResearch?.productDetails?.filter(
+          (row) => row.attribute?.trim() && row.value?.trim(),
+        ) ?? [];
     return {
       imageUrls: productImageUrls,
       title,
@@ -1172,6 +1178,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
       attributes,
     };
   }, [
+    contentMarketplaceId,
+    contentVariants,
     effectiveAudit?.generatedContent,
     effectiveAudit?.bulletPoints,
     existingListingContent,
