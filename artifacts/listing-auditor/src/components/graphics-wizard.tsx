@@ -23,6 +23,7 @@ import {
 import {
   ImageTypeCustomizeDialog,
   SelectedGraphicsTypesSummary,
+  type GraphicsImageTypeOption,
 } from "@/components/graphics-type-customize-ui";
 import {
   GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
@@ -691,6 +692,16 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const lifestyleRecords = records.filter((r) => r.type === "lifestyle");
   const featureRecords = records.filter((r) => r.type === "feature");
 
+  /** Graphic types already saved on this product (drives “generated” ticks in the selector). */
+  const generatedImageTypeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const record of records) {
+      const slug = record.imageType?.trim();
+      if (slug) ids.add(slug);
+    }
+    return ids;
+  }, [records]);
+
   // If there's a completed project (either existing or just created), show results
   const showResults = !createOnly
     && ((existingProject?.status === "completed" && !projectId) || (project?.status === "completed" && !isGenerating));
@@ -777,6 +788,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               <ImageCard
                 key={record.id}
                 record={record}
+                imageTypes={IMAGE_TYPES}
                 canEditGraphics={canEditGraphics}
                 isLoading={loadingIds.has(record.id)}
                 onRegenerate={() => handleRegenerate(record)}
@@ -1289,6 +1301,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
             {IMAGE_TYPES.map((type) => {
               const isSelected = selectedImageTypes.includes(type.id);
+              const isGenerated = generatedImageTypeIds.has(type.id);
+              const showCheck = isSelected || isGenerated;
               return (
                 <div
                   key={type.id}
@@ -1301,25 +1315,34 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   className={`relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all ${
                     isSelected
                       ? "border-orange-500 bg-orange-50/30"
-                      : "border-slate-200 bg-white hover:border-slate-300"
+                      : isGenerated
+                        ? "border-emerald-400/80 bg-emerald-50/25"
+                        : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
                   <div className="flex items-start gap-2.5">
                     <span className="text-xl leading-none mt-0.5">{type.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : isGenerated ? "text-emerald-900" : "text-slate-900"}`}>
                           {type.label}
                         </h3>
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                            isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
+                            isSelected
+                              ? "border-orange-500 bg-orange-500"
+                              : isGenerated
+                                ? "border-emerald-600 bg-emerald-600"
+                                : "border-slate-300"
                           }`}
                         >
-                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                          {showCheck && <Check className="w-3 h-3 text-white" />}
                         </div>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
+                      {isGenerated && !isSelected && (
+                        <p className="text-[10px] font-medium text-emerald-700 mt-1">Generated — select again to create another</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1381,6 +1404,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               <ImageCard
                 key={record.id}
                 record={record}
+                imageTypes={IMAGE_TYPES}
                 canEditGraphics={canEditGraphics}
                 isLoading={loadingIds.has(record.id)}
                 onRegenerate={() => handleRegenerate(record)}
@@ -1431,8 +1455,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 }
 
 /* ─── Image Card sub-component ─── */
-function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload, onView, canEditGraphics }: {
+function ImageCard({ record, imageTypes, isLoading, onRegenerate, onEdit, onHistory, onDownload, onView, canEditGraphics }: {
   record: ImageRecord;
+  imageTypes?: GraphicsImageTypeOption[];
   isLoading: boolean;
   onRegenerate: () => void;
   onEdit: () => void;
@@ -1441,12 +1466,13 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
   onView: () => void;
   canEditGraphics: boolean;
 }) {
+  const typeLabel = resolveGraphicsRecordLabel(record, imageTypes);
   return (
     <div className="group relative rounded-lg border overflow-hidden bg-white">
       <div className="aspect-square relative overflow-hidden">
         <ProtectedAppImage
           src={record.currentUrl}
-          alt={`${record.type} ${record.index + 1}`}
+          alt={typeLabel}
           className="w-full h-full object-contain"
         />
         {isLoading && (
@@ -1469,10 +1495,12 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
           </div>
         )}
       </div>
-      <div className="px-3 py-2 border-t bg-slate-50 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-[11px] capitalize py-0">{record.style}</Badge>
-          <span className="text-xs text-slate-400">{record.aspectRatio}</span>
+      <div className="px-3 py-2 border-t bg-slate-50 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Badge variant="outline" className="text-[11px] py-0 truncate max-w-[9rem]" title={typeLabel}>
+            {typeLabel}
+          </Badge>
+          <span className="text-xs text-slate-400 shrink-0">{record.aspectRatio}</span>
         </div>
         {record.versions.length > 0 && (
           <span className="text-xs text-slate-400">{record.versions.length}v</span>
