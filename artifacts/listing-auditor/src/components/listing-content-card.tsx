@@ -5,6 +5,7 @@ import type {
   ListingContentFieldSource,
   ListingContentFieldSources,
 } from "@/lib/listing-content-field-merge";
+import { mergeListingContentByFieldSources } from "@/lib/listing-content-field-merge";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
@@ -461,14 +462,79 @@ function compareBlockClass(selected: boolean): string {
   );
 }
 
-/** After ✓/✕ pick, show only the chosen column; while comparing (no pickers), show both. */
-function showCompareSide(
-  side: ListingContentFieldSource,
-  fieldSource: ListingContentFieldSource,
-  pickersActive: boolean,
-): boolean {
-  if (!pickersActive) return true;
-  return fieldSource === side;
+function listingViewToGenerated(view: ListingContentView | null): GeneratedContent {
+  return {
+    title: view?.title ?? "",
+    bulletPoints: view?.bulletPoints ?? [],
+    keywords: view?.keywords ?? [],
+    htmlDescription: view?.htmlDescription ?? "",
+    attributes: view?.attributes,
+  };
+}
+
+function SelectedMergedListingSummary({
+  existing,
+  optimized,
+  fieldSources,
+}: {
+  existing: ListingContentView | null;
+  optimized: ListingContentView | null;
+  fieldSources: ListingContentFieldSources;
+}) {
+  const merged = useMemo(
+    () => mergeListingContentByFieldSources(
+      listingViewToGenerated(existing),
+      listingViewToGenerated(optimized),
+      fieldSources,
+    ),
+    [existing, optimized, fieldSources],
+  );
+  const bullets = normalizeBulletPoints(merged.bulletPoints ?? []);
+  const keywords = (merged.keywords ?? []).filter(Boolean);
+  const hasCopy = Boolean(
+    merged.title?.trim()
+    || bullets.length
+    || keywords.length
+    || merged.htmlDescription?.trim()
+    || (merged.attributes?.length ?? 0) > 0,
+  );
+  if (!hasCopy) return null;
+
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50/25 overflow-hidden">
+      <div className="px-3 py-2 border-b border-emerald-100 bg-emerald-50/60">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900">
+          Selected listing copy
+        </p>
+        <p className="text-[9px] text-emerald-800/80 mt-0.5">
+          Your ✓ / ✕ choices combined — same as Listing Preview
+        </p>
+      </div>
+      <div className="px-3 py-3 space-y-2.5 text-[11px] text-slate-800">
+        {merged.title?.trim() && (
+          <p className="font-medium leading-snug">{merged.title}</p>
+        )}
+        {bullets.length > 0 && (
+          <ul className="list-disc pl-4 space-y-1 text-slate-700">
+            {bullets.map((b, i) => (
+              <li key={`${i}-${b.slice(0, 16)}`}>{b}</li>
+            ))}
+          </ul>
+        )}
+        {keywords.length > 0 && (
+          <p className="text-slate-600">
+            <span className="font-semibold text-slate-700">Keywords: </span>
+            {keywords.join(", ")}
+          </p>
+        )}
+        {(merged.attributes?.length ?? 0) > 0 && (
+          <p className="text-slate-600 leading-relaxed">
+            {(merged.attributes ?? []).map((row) => `${row.attribute}: ${row.value}`).join(" · ")}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ListingMarketplaceContentCompare({
@@ -542,7 +608,6 @@ export function ListingMarketplaceContentCompare({
       {(existing?.title?.trim() || optimized?.title?.trim()) && (() => {
         const titleDiff = Boolean(optimized?.title?.trim() && optimized.title.trim() !== (existing?.title?.trim() ?? ""));
         const titleSource = sourceFor("title");
-        const titlePickers = titleDiff && Boolean(onFieldSourceChange);
         return (
         <CompareFieldShell
           label="Product title"
@@ -551,13 +616,13 @@ export function ListingMarketplaceContentCompare({
           onPickSource={titleDiff ? pick("title") : undefined}
           pickDisabled={fieldPickDisabled}
         >
-          {hasExisting && existing?.title?.trim() && showCompareSide("current", titleSource, titlePickers) && (
+          {hasExisting && existing?.title?.trim() && (
             <div className={compareBlockClass(titleSource === "current")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Current</p>
               <p className="text-[11px] text-slate-500 leading-snug">{existing.title}</p>
             </div>
           )}
-          {optimized?.title?.trim() && showCompareSide("ai", titleSource, titlePickers) && (
+          {optimized?.title?.trim() && (
             <div className={compareBlockClass(titleSource === "ai")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1">AI suggests</p>
               <p className="text-[11px] font-medium text-slate-900 leading-snug">{optimized.title}</p>
@@ -571,7 +636,6 @@ export function ListingMarketplaceContentCompare({
         const bulletsDiff = optimizedBullets.length > 0
           && JSON.stringify(existingBullets) !== JSON.stringify(optimizedBullets);
         const bulletSource = sourceFor("bulletPoints");
-        const bulletPickers = bulletsDiff && Boolean(onFieldSourceChange);
         return (
         <CompareFieldShell
           label="Bullet points"
@@ -580,7 +644,7 @@ export function ListingMarketplaceContentCompare({
           onPickSource={bulletsDiff ? pick("bulletPoints") : undefined}
           pickDisabled={fieldPickDisabled}
         >
-          {existingBullets.length > 0 && showCompareSide("current", bulletSource, bulletPickers) && (
+          {existingBullets.length > 0 && (
             <div className={compareBlockClass(bulletSource === "current")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Current</p>
               <CollapsibleTextBlock
@@ -589,7 +653,7 @@ export function ListingMarketplaceContentCompare({
               />
             </div>
           )}
-          {optimizedBullets.length > 0 && showCompareSide("ai", bulletSource, bulletPickers) && (
+          {optimizedBullets.length > 0 && (
             <div className={compareBlockClass(bulletSource === "ai")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
               <ul className="space-y-2">
@@ -610,7 +674,6 @@ export function ListingMarketplaceContentCompare({
         const kwDiff = optimizedKeywords.length > 0
           && JSON.stringify(existingKeywords) !== JSON.stringify(optimizedKeywords);
         const kwSource = sourceFor("keywords");
-        const kwPickers = kwDiff && Boolean(onFieldSourceChange);
         return (
         <CompareFieldShell
           label="Tags / keywords"
@@ -619,13 +682,13 @@ export function ListingMarketplaceContentCompare({
           onPickSource={kwDiff ? pick("keywords") : undefined}
           pickDisabled={fieldPickDisabled}
         >
-          {existingKeywords.length > 0 && showCompareSide("current", kwSource, kwPickers) && (
+          {existingKeywords.length > 0 && (
             <div className={compareBlockClass(kwSource === "current")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Current</p>
               <p className="text-[11px] text-slate-500 leading-relaxed">{existingKeywords.join(", ")}</p>
             </div>
           )}
-          {optimizedKeywords.length > 0 && showCompareSide("ai", kwSource, kwPickers) && (
+          {optimizedKeywords.length > 0 && (
             <div className={compareBlockClass(kwSource === "ai")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
               <p className="text-[11px] text-slate-800 leading-relaxed">{optimizedKeywords.join(", ")}</p>
@@ -638,7 +701,6 @@ export function ListingMarketplaceContentCompare({
       {(existingDesc || optimizedDesc) && (() => {
         const descDiff = Boolean(optimizedDesc && optimizedDesc !== existingDesc);
         const descSource = sourceFor("htmlDescription");
-        const descPickers = descDiff && Boolean(onFieldSourceChange);
         return (
         <CompareFieldShell
           label="Description"
@@ -647,7 +709,7 @@ export function ListingMarketplaceContentCompare({
           onPickSource={descDiff ? pick("htmlDescription") : undefined}
           pickDisabled={fieldPickDisabled}
         >
-          {existingDesc && showCompareSide("current", descSource, descPickers) && (
+          {existingDesc && (
             <div className={compareBlockClass(descSource === "current")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Current</p>
               <div
@@ -656,7 +718,7 @@ export function ListingMarketplaceContentCompare({
               />
             </div>
           )}
-          {optimizedDesc && showCompareSide("ai", descSource, descPickers) && (
+          {optimizedDesc && (
             <div className={compareBlockClass(descSource === "ai")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
               <div
@@ -673,7 +735,6 @@ export function ListingMarketplaceContentCompare({
         const attrDiff = (optimized?.attributes?.length ?? 0) > 0
           && JSON.stringify(existing?.attributes ?? []) !== JSON.stringify(optimized?.attributes ?? []);
         const attrSource = sourceFor("attributes");
-        const attrPickers = attrDiff && Boolean(onFieldSourceChange);
         return (
         <CompareFieldShell
           label="Attributes"
@@ -682,7 +743,7 @@ export function ListingMarketplaceContentCompare({
           onPickSource={attrDiff ? pick("attributes") : undefined}
           pickDisabled={fieldPickDisabled}
         >
-          {(existing?.attributes?.length ?? 0) > 0 && showCompareSide("current", attrSource, attrPickers) && (
+          {(existing?.attributes?.length ?? 0) > 0 && (
             <div className={compareBlockClass(attrSource === "current")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Current</p>
               <p className="text-[11px] text-slate-500">
@@ -690,7 +751,7 @@ export function ListingMarketplaceContentCompare({
               </p>
             </div>
           )}
-          {(optimized?.attributes?.length ?? 0) > 0 && showCompareSide("ai", attrSource, attrPickers) && (
+          {(optimized?.attributes?.length ?? 0) > 0 && (
             <div className={compareBlockClass(attrSource === "ai")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
               <div className="rounded-md border border-slate-200 overflow-hidden">
@@ -715,6 +776,14 @@ export function ListingMarketplaceContentCompare({
         <p className="text-[10px] text-slate-500 text-center pt-1">
           Click Generate to create optimized copy for this marketplace tab.
         </p>
+      )}
+
+      {hasOptimized && fieldSources && onFieldSourceChange && (
+        <SelectedMergedListingSummary
+          existing={existing}
+          optimized={optimized}
+          fieldSources={fieldSources}
+        />
       )}
     </div>
   );
