@@ -15,6 +15,7 @@ import { ProductListingPreview } from "@/components/product-listing-preview";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
+import { ProductMiscellaneousTab } from "@/components/product-miscellaneous-tab";
 import type { ReferenceResearchData } from "@/lib/reference-research";
 
 type AuditLike = {
@@ -176,6 +177,9 @@ export function ProductWorkflowStepContent({
   listingEditorContent,
   productId,
   productSource,
+  productSku,
+  productAsin,
+  targetKeywords,
   canPublishMarketplaces,
   onSaveAndContinue,
   isSavingContinue,
@@ -216,6 +220,9 @@ export function ProductWorkflowStepContent({
   listingEditorContent?: React.ReactNode;
   productId?: number;
   productSource?: string;
+  productSku?: string | null;
+  productAsin?: string | null;
+  targetKeywords?: string[] | null;
   canPublishMarketplaces?: boolean;
   onSaveAndContinue?: () => void;
   isSavingContinue?: boolean;
@@ -255,7 +262,8 @@ export function ProductWorkflowStepContent({
   const showContinueFooter = hasNextStep
     && !listingEditorContent
     && Boolean(onSaveAndContinue)
-    && step !== 6
+    && step !== 7
+    && step !== 8
     && step !== 3;
   const showStoreSyncOnStep = Boolean(
     showStoreSync && !listingEditorContent && step >= 1 && step <= 4,
@@ -370,7 +378,24 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 6 && productId && productSource) {
+  if (step === 6 && productId) {
+    return (
+      <WorkflowStepShell {...shellProps}>
+        <ProductMiscellaneousTab
+          productId={productId}
+          productName={productName}
+          sku={productSku}
+          asin={productAsin}
+          sourceType={productSource}
+          brandName={brandName}
+          category={category}
+          targetKeywords={targetKeywords}
+        />
+      </WorkflowStepShell>
+    );
+  }
+
+  if (step === 7 && productId && productSource) {
     return (
       <WorkflowStepShell showSaveAndContinue={false}>
         <ProductOrdersTab productId={productId} source={productSource} enabled />
@@ -378,7 +403,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 7 && productId && productSource) {
+  if (step === 8 && productId && productSource) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <ProductSalesTab productId={productId} source={productSource} enabled />

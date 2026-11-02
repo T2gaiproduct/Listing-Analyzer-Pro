@@ -7,10 +7,11 @@ import {
   ShoppingCart,
   Store,
   TrendingUp,
+  Boxes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   id: ProductExplorerWorkflowStepId;
@@ -24,8 +25,9 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   { id: 3, key: "graphics", label: "GRAPHICS", sub: "Product graphics & A+", icon: ImageIcon },
   { id: 4, key: "listing_preview", label: "LISTING PREVIEW", sub: "Amazon-style preview", icon: Eye },
   { id: 5, key: "marketplaces", label: "MARKETPLACES", sub: "List & publish", icon: Store },
-  { id: 6, key: "orders", label: "ORDERS", sub: "Order history", icon: ShoppingCart },
-  { id: 7, key: "sales", label: "SALES", sub: "Sales performance", icon: TrendingUp },
+  { id: 6, key: "miscellaneous", label: "MISCELLANEOUS", sub: "Extra details", icon: Boxes },
+  { id: 7, key: "orders", label: "ORDERS", sub: "Order history", icon: ShoppingCart },
+  { id: 8, key: "sales", label: "SALES", sub: "Sales performance", icon: TrendingUp },
 ];
 
 /** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–7). */
@@ -42,7 +44,7 @@ export function productExplorerStepToApiStep(
   peStep: ProductExplorerWorkflowStepId,
 ): number | null {
   if (peStep === 1) return null;
-  if (peStep >= 5) return null;
+  if (peStep >= 5) return null; // Marketplaces, Miscellaneous, Orders, Sales are local-only
   if (peStep === 4) return null;
   if (peStep === 2) return 2;
   if (peStep === 3) return 3;
@@ -53,7 +55,7 @@ export function productExplorerStepToApiStep(
 export function productExplorerSaveContinueApiStep(
   fromStep: ProductExplorerWorkflowStepId,
 ): number | null {
-  const nextStep = Math.min(7, fromStep + 1) as ProductExplorerWorkflowStepId;
+  const nextStep = Math.min(8, fromStep + 1) as ProductExplorerWorkflowStepId;
   const nextApi = productExplorerStepToApiStep(nextStep);
   if (nextApi != null) return nextApi;
   if (fromStep === 3) return 5;
@@ -63,7 +65,7 @@ export function productExplorerSaveContinueApiStep(
 export function nextProductExplorerWorkflowStep(
   step: ProductExplorerWorkflowStepId,
 ): ProductExplorerWorkflowStepId | null {
-  if (step >= 7) return null;
+  if (step >= 8) return null;
   return (step + 1) as ProductExplorerWorkflowStepId;
 }
 
@@ -146,8 +148,9 @@ export function productExplorerStepCompletedFromData(
     3: graphicsDone || aplusDone,
     4: previewReady,
     5: marketplacesDone,
-    6: ordersDone,
-    7: salesDone,
+    6: Boolean(input.productImageUrl?.trim()) || uploadDone,
+    7: ordersDone,
+    8: salesDone,
   };
 }
 
@@ -174,7 +177,8 @@ export function productExplorerStepCompletedFromCurrentStep(
     4: complete || apiStep >= 4,
     5: complete || apiStep >= 5,
     6: complete || apiStep >= 5,
-    7: complete,
+    7: complete || apiStep >= 5,
+    8: complete,
   };
 }
 
