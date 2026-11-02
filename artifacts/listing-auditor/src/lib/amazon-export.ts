@@ -74,3 +74,29 @@ export async function downloadAuditExport(opts: {
   anchor.click();
   URL.revokeObjectURL(objectUrl);
 }
+
+export async function downloadMultiMarketplaceExcel(opts: {
+  auditId: number;
+  basePath: string;
+}): Promise<void> {
+  const url = `${opts.basePath}/api/audits/${opts.auditId}/export/multi-marketplace-excel`;
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) {
+    const contentType = res.headers.get("Content-Type") ?? "";
+    if (contentType.includes("application/json")) {
+      const err = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(err.error ?? `Export failed (${res.status})`);
+    }
+    throw new Error(`Export failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? "multi-marketplace-listing.xlsx";
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(objectUrl);
+}

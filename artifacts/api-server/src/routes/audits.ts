@@ -107,6 +107,11 @@ import {
   shopifyExportFilename,
 } from "../lib/shopify-listing-export.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
+import {
+  buildMultiMarketplaceExcelBuffer,
+  buildMultiMarketplaceExportFilename,
+} from "../lib/multi-marketplace-listing-export.js";
+import { listEnabledContentMarketplaces } from "../lib/content-marketplace-service.js";
 import { materializeAuditImagesForPublish } from "../lib/materialize-audit-images-for-publish.js";
 import {
   resolveAmazonExportImageBaseUrl,
@@ -606,6 +611,54 @@ router.get("/audits/:id/export/excel", requireAuth, resolveTeamAndWorkspace, asy
     res.status(400).json({ error: message });
   }
 });
+
+router.get(
+  "/audits/:id/export/multi-marketplace-excel",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  async (req, res): Promise<void> => {
+    const auditId = Number.parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(auditId)) {
+      res.status(400).json({ error: "Invalid audit id" });
+      return;
+    }
+
+    const loaded = await loadAuditForExport(req, auditId);
+    if (!loaded) {
+      res.status(404).json({ error: "Audit not found" });
+      return;
+    }
+
+    try {
+      const prepared = await prepareAuditForAmazonExport(req, loaded);
+      const variants = await listAuditContentVariants(auditId);
+      const marketplaces = await listEnabledContentMarketplaces();
+      const buffer = await buildMultiMarketplaceExcelBuffer({
+        audit: prepared.audit,
+        variants: variants.map((row) => ({
+          contentMarketplaceId: row.contentMarketplaceId,
+          generatedContent: row.generatedContent,
+        })),
+        marketplaces: marketplaces.map((m) => ({
+          id: m.id,
+          slug: m.slug,
+          name: m.name,
+          sortOrder: m.sortOrder,
+        })),
+        graphicsImageRecords: prepared.graphicsImageRecords,
+        graphicsProjectId: prepared.graphicsProjectId,
+        publicBaseUrl: prepared.publicBaseUrl,
+      });
+      const filename = buildMultiMarketplaceExportFilename(prepared.audit);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Export failed";
+      res.status(400).json({ error: message });
+    }
+  },
+);
 
 router.get("/audits/:id/export/zip", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const auditId = Number.parseInt(String(req.params.id), 10);

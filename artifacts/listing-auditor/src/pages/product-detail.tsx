@@ -2179,6 +2179,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
           listingPreviewMarketplaces={listingPreviewMarketplaces}
           listingPreviewMarketplaceId={listingPreviewMarketplaceId}
           onListingPreviewMarketplaceChange={setListingPreviewMarketplaceId}
+          contentVariants={contentVariants}
+          contentMarketplaces={contentMarketplaces}
           existingContent={existingListingContent}
           suggestions={listingSuggestions}
           hasGeneratedContent={hasGeneratedListing}

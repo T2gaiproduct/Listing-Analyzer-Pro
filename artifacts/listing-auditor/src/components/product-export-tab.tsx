@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
-import { BuildBrandExportStep } from "@/components/build-brand-export-step";
 import { canExportListingSource } from "@/components/listing-export-button";
+import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
+import type { ContentVariantRow } from "@/components/listing-marketplace-content-panel";
+import { ProductMultiMarketplaceExcelPanel } from "@/components/product-multi-marketplace-excel-panel";
 
 type ExportPanel = "marketplaces" | "excel";
 
@@ -42,11 +44,17 @@ export function ProductExportTab({
   productId,
   auditId,
   productSource,
+  productName,
+  contentVariants,
+  contentMarketplaces,
   canPublishMarketplaces,
 }: {
   productId: number;
   auditId: number;
   productSource: string;
+  productName?: string;
+  contentVariants: ContentVariantRow[];
+  contentMarketplaces: ContentMarketplaceOption[];
   canPublishMarketplaces?: boolean;
 }) {
   const [panel, setPanel] = useState<ExportPanel>("marketplaces");
@@ -71,7 +79,12 @@ export function ProductExportTab({
       {panel === "excel" && (
         <div className="min-w-0 pt-1">
           {excelEnabled ? (
-            <BuildBrandExportStep auditId={auditId} showSaveProduct={false} />
+            <ProductMultiMarketplaceExcelPanel
+              auditId={auditId}
+              productName={productName}
+              contentVariants={contentVariants}
+              contentMarketplaces={contentMarketplaces}
+            />
           ) : (
             <p className="text-[11px] text-slate-500 py-6 text-center px-4">
               Excel export is available for listing and audit products with optimized content.

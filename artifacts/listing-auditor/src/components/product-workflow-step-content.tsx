@@ -13,6 +13,7 @@ import {
 import { canExportListingSource } from "@/components/listing-export-button";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { ProductExportTab } from "@/components/product-export-tab";
+import type { ContentVariantRow } from "@/components/listing-marketplace-content-panel";
 import { ProductMiscellaneousTab } from "@/components/product-miscellaneous-tab";
 import type { ReferenceResearchData } from "@/lib/reference-research";
 
@@ -188,6 +189,8 @@ export function ProductWorkflowStepContent({
   listingPreviewMarketplaces,
   listingPreviewMarketplaceId,
   onListingPreviewMarketplaceChange,
+  contentVariants,
+  contentMarketplaces,
   OptimizedContentPanel,
 }: {
   step: ProductExplorerWorkflowStepId;
@@ -201,6 +204,8 @@ export function ProductWorkflowStepContent({
   listingPreviewMarketplaces?: ContentMarketplaceOption[];
   listingPreviewMarketplaceId?: number;
   onListingPreviewMarketplaceChange?: (id: number) => void;
+  contentVariants?: ContentVariantRow[];
+  contentMarketplaces?: ContentMarketplaceOption[];
   existingContent?: {
     title: string;
     bulletPoints: string[];
@@ -365,6 +370,9 @@ export function ProductWorkflowStepContent({
           productId={productId}
           auditId={auditId}
           productSource={productSource}
+          productName={productName}
+          contentVariants={contentVariants ?? []}
+          contentMarketplaces={contentMarketplaces ?? []}
           canPublishMarketplaces={canPublishMarketplaces}
         />
       </WorkflowStepShell>
