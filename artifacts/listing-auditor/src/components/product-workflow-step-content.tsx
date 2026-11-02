@@ -150,6 +150,7 @@ export function ProductWorkflowStepContent({
   isSyncingStore,
   referenceResearch,
   OptimizedContentPanel,
+  onWorkflowStepChange,
 }: {
   step: ProductExplorerWorkflowStepId;
   auditId: number;
@@ -197,6 +198,7 @@ export function ProductWorkflowStepContent({
     onOptimize: () => void;
     optimizeDisabled?: boolean;
   }>;
+  onWorkflowStepChange?: (step: ProductExplorerWorkflowStepId) => void;
 }) {
   const imageUrls = useMemo(
     () => collectImageUrls(audit, productImageUrls),
@@ -206,7 +208,8 @@ export function ProductWorkflowStepContent({
   const showContinueFooter = hasNextStep
     && !listingEditorContent
     && Boolean(onSaveAndContinue)
-    && step !== 7;
+    && step !== 7
+    && step !== 3;
   const showStoreSyncOnStep = Boolean(
     showStoreSync && !listingEditorContent && step >= 1 && step <= 4,
   );
@@ -257,9 +260,23 @@ export function ProductWorkflowStepContent({
   if (step === 3) {
     return (
       <WorkflowStepShell {...shellProps}>
-        <div className="flex items-center gap-1.5">
-          <ImageIcon className="w-3.5 h-3.5 text-orange-500" />
-          <h3 className="text-xs font-semibold text-slate-900">Product graphics</h3>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <ImageIcon className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+            <h3 className="text-xs font-semibold text-slate-900">Product graphics</h3>
+          </div>
+          {onWorkflowStepChange ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] rounded-lg gap-1 shrink-0"
+              onClick={() => onWorkflowStepChange(4)}
+            >
+              A+ Content
+              <ArrowRight className="w-3 h-3" />
+            </Button>
+          ) : null}
         </div>
         <div className="space-y-2 min-w-0">
           <div className="flex items-center gap-1.5 px-1">
