@@ -175,9 +175,6 @@ export function ProductWorkflowStepContent({
   listingEditorContent,
   productId,
   productSource,
-  productSku,
-  productAsin,
-  targetKeywords,
   canPublishMarketplaces,
   onSaveAndContinue,
   isSavingContinue,
@@ -218,9 +215,6 @@ export function ProductWorkflowStepContent({
   listingEditorContent?: React.ReactNode;
   productId?: number;
   productSource?: string;
-  productSku?: string | null;
-  productAsin?: string | null;
-  targetKeywords?: string[] | null;
   canPublishMarketplaces?: boolean;
   onSaveAndContinue?: () => void;
   isSavingContinue?: boolean;
@@ -377,17 +371,7 @@ export function ProductWorkflowStepContent({
   if (step === 6 && productId && productSource) {
     return (
       <WorkflowStepShell showSaveAndContinue={false}>
-        <ProductMiscellaneousTab
-          productId={productId}
-          productSource={productSource}
-          productName={productName}
-          sku={productSku}
-          asin={productAsin}
-          sourceType={productSource}
-          brandName={brandName}
-          category={category}
-          targetKeywords={targetKeywords}
-        />
+        <ProductMiscellaneousTab productId={productId} productSource={productSource} />
       </WorkflowStepShell>
     );
   }

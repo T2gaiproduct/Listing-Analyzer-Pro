@@ -2188,9 +2188,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
           optimizeDisabled={!canOptimizeContent}
           productId={product.id}
           productSource={resolvedSource}
-          productSku={product.sku}
-          productAsin={effectiveAudit?.asin}
-          targetKeywords={listingProduct?.targetKeywords ?? product.targetKeywords}
           canPublishMarketplaces={canEditProduct}
           onSaveAndContinue={() => void saveAndContinueWorkflowStep()}
           isSavingContinue={isSavingWorkflowStep}
