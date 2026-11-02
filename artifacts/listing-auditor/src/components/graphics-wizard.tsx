@@ -296,7 +296,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGraphicsError, setLastGraphicsError] = useState<string | null>(null);
 
-  const { data: project, refetch } = useQuery({
+  const { data: project, refetch: refetchProject } = useQuery({
     queryKey: ["graphics-project", activeProjectId],
     queryFn: () => {
       if (!activeProjectId) return null;
@@ -306,8 +306,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           return r.json();
         });
     },
-    enabled: !!activeProjectId && isGenerating,
-    refetchInterval: 1500,
+    enabled: !!activeProjectId && (isGenerating || createOnly),
+    refetchInterval: isGenerating ? 1500 : false,
   });
 
   const totalImages = (project?.lifestyleCount ?? 0) + (project?.featureCount ?? 0);
@@ -324,14 +324,17 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         refreshCreditBalances(queryClient);
       }
       if (createOnly) {
-        queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
         setSelectedImageTypes([]);
         setImageTypePromptConfigs({});
         startTimeRef.current = 0;
-        toast({
-          title: "Graphics generated",
-          description: "Your new graphics are saved to this product.",
-        });
+        void (async () => {
+          await queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
+          await refetchProject();
+          toast({
+            title: "Graphics generated",
+            description: "Your new graphics appear below.",
+          });
+        })();
       }
       return;
     }
@@ -357,7 +360,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     const remaining = totalImages - project.generatedCount;
     const eta = Math.ceil((remaining / MAX_CONCURRENT) * IMAGE_GENERATION_SEC);
     setEtaSeconds(eta);
-  }, [auditId, createOnly, project, totalImages, queryClient]);
+  }, [auditId, createOnly, project, totalImages, queryClient, refetchProject]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -454,7 +457,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     onSuccess: () => {
       refreshCreditBalances(queryClient);
       toast({ title: "Image regenerated" });
-      refetch();
+      refetchProject();
     },
     onError: (err) => {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Regeneration failed", variant: "destructive" });
@@ -493,7 +496,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       setEditRecord(null);
       setEditPrompt("");
       setEditReferenceImages([]);
-      refetch();
+      refetchProject();
     },
     onError: (err) => {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Edit failed", variant: "destructive" });
@@ -528,7 +531,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       setIsGenerating(true);
       startTimeRef.current = Date.now();
       setTimeout(() => {
-        refetch();
+        refetchProject();
       }, 500);
     },
     onError: (err) => {
@@ -697,6 +700,11 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     && ((existingProject?.status === "failed" && !projectId) || (project?.status === "failed" && !isGenerating));
   const showFailedBanner = createOnly
     && ((existingProject?.status === "failed" && !projectId) || (project?.status === "failed" && !isGenerating));
+
+  const showCreateOnlyGallery = createOnly
+    && !isGenerating
+    && records.length > 0
+    && (displayProject?.status === "completed" || displayProject?.status === "generating");
 
   // If generating, show centered loader
   if (isGenerating) {
@@ -1352,6 +1360,37 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             promptMaxChars={PROMPT_MAX_CHARS}
             examplePrompts={customizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
           />
+        </div>
+      )}
+
+      {showCreateOnlyGallery && (
+        <div className="space-y-3 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Generated graphics ({records.length})
+            </p>
+            {canEditGraphics && records.length > 0 && (
+              <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleDownloadAll}>
+                <Download className="w-3 h-3" />
+                Download all
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {records.map((record) => (
+              <ImageCard
+                key={record.id}
+                record={record}
+                canEditGraphics={canEditGraphics}
+                isLoading={loadingIds.has(record.id)}
+                onRegenerate={() => handleRegenerate(record)}
+                onEdit={() => handleEdit(record)}
+                onHistory={() => setHistoryRecord(record)}
+                onDownload={() => void handleDownload(record.currentUrl, `${record.id}.png`)}
+                onView={() => setFullscreenUrl(record.currentUrl)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
