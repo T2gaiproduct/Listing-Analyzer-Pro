@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,14 +39,6 @@ import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type ChannelFilter = "all" | "amazon" | "shopify" | "woocommerce";
-
-const CHANNEL_FILTER_LABELS: Record<Exclude<ChannelFilter, "all">, string> = {
-  amazon: "Amazon",
-  shopify: "Shopify",
-  woocommerce: "WooCommerce",
-};
-
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
@@ -68,6 +60,7 @@ interface ProductListItem {
   sourceType: ProductSourceType;
   sourceTypeLabel: string;
   isShopifyImport?: boolean;
+  isWooCommerceImport?: boolean;
   referenceUrl?: string | null;
   auditScore?: number | null;
   auditPending?: boolean;
@@ -77,13 +70,6 @@ interface ProductListItem {
 interface ProductsResponse {
   products: ProductListItem[];
 }
-
-const CHANNEL_FILTERS: Array<{ id: ChannelFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "amazon", label: "Amazon" },
-  { id: "shopify", label: "Shopify" },
-  { id: "woocommerce", label: "WooCommerce" },
-];
 
 const SOURCE_TYPE_LABELS: Record<ProductSourceType, string> = {
   listing: "Build Your Brand",
@@ -150,6 +136,19 @@ function canExportListingProduct(product: ProductListItem): boolean {
   return canExportListingSource(product.sourceType);
 }
 
+function productTypeLabel(product: ProductListItem): string {
+  return product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project";
+}
+
+function productChannelTags(product: ProductListItem): string[] {
+  const tags = new Set(product.channels.map((c) => c.trim()).filter(Boolean));
+  if (product.isShopifyImport) tags.add("Shopify");
+  if (product.isWooCommerceImport) tags.add("WooCommerce");
+  return [...tags].sort((a, b) => a.localeCompare(b));
+}
+
+type DynamicFilterOption = { label: string; count: number };
+
 function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): ProductListItem {
   const workflowUrl = raw.workflowUrl ?? `/audits/workflow?resume=${raw.id}`;
   const isShopifyImport = raw.isShopifyImport === true;
@@ -168,6 +167,7 @@ function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): P
       : (raw.sourceTypeLabel ?? SOURCE_TYPE_LABELS[sourceType]),
     detailUrl: isShopifyImport ? productDetailUrl(raw.id, "listing") : detailUrl,
     isShopifyImport,
+    isWooCommerceImport: raw.isWooCommerceImport === true,
     referenceUrl: raw.referenceUrl ?? null,
     auditScore,
     auditPending: raw.auditPending ?? auditScore == null,
@@ -226,6 +226,38 @@ function ProductThumb({ imageUrl, name }: { imageUrl: string | null; name: strin
     <div className="w-7 h-7 rounded-md bg-muted border border-border flex items-center justify-center flex-shrink-0">
       <Package className="w-3.5 h-3.5 text-muted-foreground" />
     </div>
+  );
+}
+
+function FilterPill({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "h-7 px-3 rounded-full text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0",
+        active
+          ? "bg-orange-500 text-white border-orange-500"
+          : "bg-card text-muted-foreground border-border hover:border-orange-400/40 hover:bg-muted",
+      )}
+    >
+      {label}
+      {count != null && count > 0 ? (
+        <span className={cn("ml-1 tabular-nums", active ? "text-orange-100" : "text-muted-foreground/80")}>
+          ({count})
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -397,7 +429,8 @@ export default function ProductsPage() {
   );
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
-  const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [bulkExporting, setBulkExporting] = useState(false);
@@ -590,6 +623,41 @@ export default function ProductsPage() {
     );
   }
 
+  const dynamicTypeFilters = useMemo((): DynamicFilterOption[] => {
+    const counts = new Map<string, number>();
+    for (const product of products) {
+      const label = productTypeLabel(product);
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([label, count]) => ({ label, count }));
+  }, [products]);
+
+  const dynamicChannelFilters = useMemo((): DynamicFilterOption[] => {
+    const counts = new Map<string, number>();
+    for (const product of products) {
+      for (const channel of productChannelTags(product)) {
+        counts.set(channel, (counts.get(channel) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([label, count]) => ({ label, count }));
+  }, [products]);
+
+  useEffect(() => {
+    if (typeFilter !== "all" && !dynamicTypeFilters.some((o) => o.label === typeFilter)) {
+      setTypeFilter("all");
+    }
+  }, [dynamicTypeFilters, typeFilter]);
+
+  useEffect(() => {
+    if (channelFilter !== "all" && !dynamicChannelFilters.some((o) => o.label === channelFilter)) {
+      setChannelFilter("all");
+    }
+  }, [dynamicChannelFilters, channelFilter]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
@@ -597,13 +665,21 @@ export default function ProductsPage() {
         const hay = `${p.name} ${p.sku}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+      if (typeFilter !== "all" && productTypeLabel(p) !== typeFilter) return false;
       if (channelFilter !== "all") {
-        const label = CHANNEL_FILTER_LABELS[channelFilter];
-        if (!p.channels.some((c) => c.toLowerCase() === label.toLowerCase())) return false;
+        const channels = productChannelTags(p);
+        if (!channels.some((c) => c.toLowerCase() === channelFilter.toLowerCase())) return false;
       }
       return true;
     });
-  }, [products, search, channelFilter]);
+  }, [products, search, typeFilter, channelFilter]);
+
+  const activeFilterSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (typeFilter !== "all") parts.push(typeFilter);
+    if (channelFilter !== "all") parts.push(channelFilter);
+    return parts.join(" · ");
+  }, [typeFilter, channelFilter]);
 
   const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(productKey(p)));
   const selectedProducts = useMemo(
@@ -734,26 +810,57 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Channel filters */}
-      <div className="flex flex-wrap items-center gap-2 -mx-1 px-1">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {CHANNEL_FILTERS.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setChannelFilter(id)}
-              className={cn(
-                "h-7 px-3 rounded-full text-[11px] font-medium border transition-colors",
-                channelFilter === id
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-card text-muted-foreground border-border hover:border-orange-400/40 hover:bg-muted",
-              )}
-            >
-              {label}
-            </button>
-          ))}
+      {/* Dynamic filters (from current product list) */}
+      {(dynamicTypeFilters.length > 0 || dynamicChannelFilters.length > 0) && (
+        <div className="space-y-2 -mx-1 px-1">
+          {dynamicTypeFilters.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
+                Type
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <FilterPill
+                  label="All"
+                  active={typeFilter === "all"}
+                  onClick={() => setTypeFilter("all")}
+                />
+                {dynamicTypeFilters.map(({ label, count }) => (
+                  <FilterPill
+                    key={label}
+                    label={label}
+                    count={count}
+                    active={typeFilter === label}
+                    onClick={() => setTypeFilter(label)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          {dynamicChannelFilters.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
+                Channel
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <FilterPill
+                  label="All"
+                  active={channelFilter === "all"}
+                  onClick={() => setChannelFilter("all")}
+                />
+                {dynamicChannelFilters.map(({ label, count }) => (
+                  <FilterPill
+                    key={label}
+                    label={label}
+                    count={count}
+                    active={channelFilter === label}
+                    onClick={() => setChannelFilter(label)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {selectedCount > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-200 bg-orange-50/80 px-3 py-2">
@@ -1030,7 +1137,7 @@ export default function ProductsPage() {
         <p className="text-[10px] text-muted-foreground text-right">
           {filtered.length} product{filtered.length === 1 ? "" : "s"}
           {selectedCount > 0 ? ` · ${selectedCount} selected` : ""}
-          {channelFilter !== "all" ? ` · filtered by ${CHANNEL_FILTER_LABELS[channelFilter]}` : ""}
+          {activeFilterSummary ? ` · filtered by ${activeFilterSummary}` : ""}
         </p>
       )}
       {deleteDialog}

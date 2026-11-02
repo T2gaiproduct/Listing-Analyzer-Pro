@@ -1,6 +1,6 @@
 import type { Request } from "express";
-import { and, eq, isNotNull } from "drizzle-orm";
-import { db, graphicsProjectsTable } from "@workspace/db";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { db, graphicsProjectsTable, productProfilesTable } from "@workspace/db";
 import { shouldExcludeAuditFromProductExplorer } from "@workspace/graphics-aplus-audit";
 import { loadScopedRecents, pickProjectThumbnail } from "./scoped-recents-load";
 import { getAccountOwnerId, getListScopeWorkspaceId, getWorkspaceCtx } from "./workspace-route-helpers";
@@ -50,6 +50,41 @@ function deriveSku(productName: string, id: number, prefix?: string): string {
     .map((w) => w.slice(0, 3).toUpperCase());
   const skuPrefix = parts.join("-") || "PRD";
   return `${skuPrefix}-${String(id).padStart(4, "0")}`;
+}
+
+async function listTargetMarketplacesForAudits(
+  auditIds: number[],
+): Promise<Map<number, string[]>> {
+  const uniqueIds = [...new Set(auditIds.filter((id) => id > 0))];
+  if (uniqueIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      auditId: productProfilesTable.auditId,
+      targetMarketplaces: productProfilesTable.targetMarketplaces,
+    })
+    .from(productProfilesTable)
+    .where(inArray(productProfilesTable.auditId, uniqueIds));
+
+  const map = new Map<number, string[]>();
+  for (const row of rows) {
+    const markets = Array.isArray(row.targetMarketplaces)
+      ? row.targetMarketplaces.filter((m): m is string => typeof m === "string" && m.trim()).map((m) => m.trim())
+      : [];
+    if (markets.length > 0) map.set(row.auditId, markets);
+  }
+  return map;
+}
+
+function mergeChannelTags(...groups: string[][]): string[] {
+  const merged = new Set<string>();
+  for (const group of groups) {
+    for (const value of group) {
+      const trimmed = value.trim();
+      if (trimmed) merged.add(trimmed);
+    }
+  }
+  return [...merged].sort((a, b) => a.localeCompare(b));
 }
 
 function sourceTypeLabel(type: ProductSourceType): string {
@@ -262,13 +297,17 @@ export async function loadUnifiedProductList(
   const auditItems = items.filter((item) => item.sourceType === "listing" || item.sourceType === "audit");
   if (auditItems.length > 0) {
     const auditIds = auditItems.map((item) => item.id);
-    const [channelsByAuditId, catalogExtras] = await Promise.all([
+    const [channelsByAuditId, catalogExtras, targetMarketplacesByAuditId] = await Promise.all([
       listLiveChannelsForAudits(auditIds),
       loadAuditCatalogExtras(auditIds),
+      listTargetMarketplacesForAudits(auditIds),
     ]);
 
     for (const item of auditItems) {
-      item.channels = channelsByAuditId.get(item.id) ?? [];
+      item.channels = mergeChannelTags(
+        channelsByAuditId.get(item.id) ?? [],
+        targetMarketplacesByAuditId.get(item.id) ?? [],
+      );
       const extras = catalogExtras.get(item.id);
       if (extras?.sku) item.sku = extras.sku;
       if (extras?.price != null) item.price = extras.price;
