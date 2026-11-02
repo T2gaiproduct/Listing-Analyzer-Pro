@@ -191,37 +191,6 @@ export function ListingContentCard({
           </div>
         )}
 
-        {attributeRows.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Attributes</p>
-              <button
-                type="button"
-                onClick={() => copyText(
-                  attributeRows.map((row) => `${row.attribute}: ${row.value}`).join("\n"),
-                  "Attributes",
-                )}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
-              >
-                <Copy className="w-3 h-3" />
-                Copy
-              </button>
-            </div>
-            <div className="overflow-x-auto rounded-md border border-slate-200">
-              <table className="w-full text-[11px]">
-                <tbody>
-                  {attributeRows.map((row, index) => (
-                    <tr key={`${row.attribute}-${index}`} className="border-b border-slate-50 last:border-0">
-                      <td className="px-3 py-2 font-medium text-slate-800 align-top w-[38%]">{row.attribute}</td>
-                      <td className="px-3 py-2 text-slate-600 align-top">{row.value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
         {keywords.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -300,10 +269,41 @@ export function ListingContentCard({
                 dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
               />
             ) : (
-              <pre className="text-[10px] text-slate-100 leading-relaxed border border-slate-700 rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">
+              <pre className="text-[10px] text-slate-100 leading-relaxed border border-slate-700 rounded-md p-3 bg-slate-900 whitespace-pre-wrap break-words font-mono">
                 {htmlDescription}
               </pre>
             )}
+          </div>
+        )}
+
+        {attributeRows.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Attributes</p>
+              <button
+                type="button"
+                onClick={() => copyText(
+                  attributeRows.map((row) => `${row.attribute}: ${row.value}`).join("\n"),
+                  "Attributes",
+                )}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+            </div>
+            <div className="rounded-md border border-slate-200">
+              <table className="w-full text-[11px] table-fixed">
+                <tbody>
+                  {attributeRows.map((row, index) => (
+                    <tr key={`${row.attribute}-${index}`} className="border-b border-slate-50 last:border-0">
+                      <td className="px-3 py-2 font-medium text-slate-800 align-top w-[38%] break-words">{row.attribute}</td>
+                      <td className="px-3 py-2 text-slate-600 align-top break-words">{row.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

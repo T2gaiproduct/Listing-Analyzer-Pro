@@ -122,7 +122,7 @@ export function ListingMarketplaceContentPanel({
     || (contentMarketplaceId == null && contentMarketplaces.length === 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0 overflow-x-hidden">
       {marketplacesLoading ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -132,7 +132,7 @@ export function ListingMarketplaceContentPanel({
         <p className="text-[11px] text-slate-500">No content marketplaces configured. Add them in Admin.</p>
       ) : (
         <div className="flex items-end justify-between gap-3 border-b border-slate-200">
-          <div className="overflow-x-auto flex-1 min-w-0 [scrollbar-width:thin]">
+          <div className="overflow-x-auto flex-1 min-w-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex gap-0 min-w-max">
               {contentMarketplaces.map((m) => {
                 const isActive = m.id === contentMarketplaceId;
