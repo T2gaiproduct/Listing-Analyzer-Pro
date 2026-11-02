@@ -81,14 +81,6 @@ export function ListingMarketplaceContentPanel({
   const hasActiveContent = Boolean(activeView?.title?.trim())
     || (activeView?.attributes?.length ?? 0) > 0;
 
-  const generateActive = () => {
-    if (contentMarketplaceId != null) {
-      onGenerate([contentMarketplaceId]);
-    } else if (contentMarketplaces[0]) {
-      onGenerate([contentMarketplaces[0].id]);
-    }
-  };
-
   function toggleBatch(id: number) {
     setBatchSelected((prev) => {
       const next = new Set(prev);
@@ -103,23 +95,25 @@ export function ListingMarketplaceContentPanel({
   }
 
   const batchIds = [...batchSelected];
-  const generateBatch = () => {
-    const targets = batchIds.length > 0
-      ? batchIds
-      : contentMarketplaceId != null
-        ? [contentMarketplaceId]
-        : contentMarketplaces[0]
-          ? [contentMarketplaces[0].id]
-          : [];
-    if (targets.length === 0) return;
-    onGenerate(targets);
-    setGenerateMenuOpen(false);
-  };
+  const hasGenerateSelection = batchIds.length > 0;
 
-  const generateDisabled =
+  const generateControlsDisabled =
     optimizeDisabled
     || isOptimizing
     || (contentMarketplaceId == null && contentMarketplaces.length === 0);
+
+  const primaryGenerateDisabled = generateControlsDisabled || !hasGenerateSelection;
+
+  const generateBatch = () => {
+    if (batchIds.length === 0) return;
+    onGenerate(batchIds);
+    setGenerateMenuOpen(false);
+  };
+
+  const runPrimaryGenerate = () => {
+    if (!hasGenerateSelection) return;
+    onGenerate(batchIds);
+  };
 
   return (
     <div className="space-y-4 min-w-0 overflow-x-hidden">
@@ -165,9 +159,9 @@ export function ListingMarketplaceContentPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 text-[11px] rounded-r-none border-r-0 pr-3"
-              onClick={generateActive}
-              disabled={generateDisabled}
+              className="h-8 text-[11px] rounded-r-none border-r-0 pr-3 disabled:pointer-events-none"
+              onClick={runPrimaryGenerate}
+              disabled={primaryGenerateDisabled}
             >
               {isOptimizing ? (
                 <>
@@ -188,7 +182,7 @@ export function ListingMarketplaceContentPanel({
                   variant="outline"
                   size="sm"
                   className="h-8 px-2 rounded-l-none"
-                  disabled={generateDisabled}
+                  disabled={generateControlsDisabled}
                   aria-label="Choose marketplaces to generate"
                 >
                   <ChevronDown className="w-3.5 h-3.5" />
@@ -232,11 +226,7 @@ export function ListingMarketplaceContentPanel({
                     size="sm"
                     className="h-7 text-[10px]"
                     onClick={generateBatch}
-                    disabled={
-                      optimizeDisabled
-                      || isOptimizing
-                      || (batchIds.length === 0 && contentMarketplaceId == null)
-                    }
+                    disabled={primaryGenerateDisabled}
                   >
                     Generate
                     {batchIds.length > 1 ? ` (${batchIds.length})` : ""}
