@@ -16,6 +16,23 @@ export async function listAuditContentVariants(auditId: number) {
     .where(eq(auditContentVariantsTable.auditId, auditId));
 }
 
+export async function getAuditContentVariant(
+  auditId: number,
+  contentMarketplaceId: number,
+): Promise<AuditContentVariantGenerated | null> {
+  const [row] = await db
+    .select({ generatedContent: auditContentVariantsTable.generatedContent })
+    .from(auditContentVariantsTable)
+    .where(
+      and(
+        eq(auditContentVariantsTable.auditId, auditId),
+        eq(auditContentVariantsTable.contentMarketplaceId, contentMarketplaceId),
+      ),
+    )
+    .limit(1);
+  return row?.generatedContent ?? null;
+}
+
 export async function upsertAuditContentVariant(
   auditId: number,
   contentMarketplaceId: number,

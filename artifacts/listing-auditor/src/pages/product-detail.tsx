@@ -2056,6 +2056,18 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 ?? (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml
               }
               showListingCompare={shouldShowExistingListingContent(listingProduct, effectiveAudit)}
+              auditId={optimizeAuditId}
+              onContentVariantsUpdated={(variants) => {
+                const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
+                  ? { ...current, contentVariants: variants }
+                  : current);
+                if (optimizeAuditId != null) {
+                  queryClient.setQueryData(productAuditQueryKey(optimizeAuditId), mergeAudit);
+                }
+                if (optimizeAuditId !== id) {
+                  queryClient.setQueryData(productAuditQueryKey(id), mergeAudit);
+                }
+              }}
             />
           )}
           overviewContent={

@@ -1,8 +1,32 @@
 import { pgTable, serial, integer, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { z } from "zod/v4";
 import { generatedContentSchema } from "./audits.js";
-import type { z } from "zod/v4";
 
-export type AuditContentVariantGenerated = z.infer<typeof generatedContentSchema>;
+export const listingContentFieldKeySchema = z.enum([
+  "title",
+  "bulletPoints",
+  "keywords",
+  "htmlDescription",
+  "attributes",
+]);
+export type ListingContentFieldKey = z.infer<typeof listingContentFieldKeySchema>;
+
+export const listingContentFieldSourceSchema = z.enum(["current", "ai"]);
+export type ListingContentFieldSource = z.infer<typeof listingContentFieldSourceSchema>;
+
+export const listingContentFieldSourcesSchema = z.partialRecord(
+  listingContentFieldKeySchema,
+  listingContentFieldSourceSchema,
+);
+
+export const auditContentVariantGeneratedSchema = generatedContentSchema.extend({
+  /** Which side is kept per field after user review (defaults to ai when missing). */
+  fieldSources: listingContentFieldSourcesSchema.optional(),
+  /** Raw AI output from the last Generate for this marketplace (for compare + toggles). */
+  aiSnapshot: generatedContentSchema.optional(),
+});
+
+export type AuditContentVariantGenerated = z.infer<typeof auditContentVariantGeneratedSchema>;
 
 export const auditContentVariantsTable = pgTable(
   "audit_content_variants",

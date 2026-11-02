@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, Loader2, Sparkles } from "lucide-react";
+import { getGetAuditQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,10 +16,20 @@ import {
   resolveExistingContentForMarketplaceSlug,
   type ListingContentView,
 } from "@/components/listing-content-card";
+import {
+  defaultFieldSourcesAi,
+  resolveAiSnapshot,
+  type ContentVariantWithMeta,
+  type ListingContentFieldKey,
+  type ListingContentFieldSource,
+} from "@/lib/listing-content-field-merge";
+import { useToast } from "@/hooks/use-toast";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export type ContentVariantRow = {
   contentMarketplaceId: number;
-  generatedContent: GeneratedContent;
+  generatedContent: GeneratedContent & ContentVariantWithMeta;
 };
 
 export function ListingMarketplaceContentPanel({
@@ -35,6 +47,8 @@ export function ListingMarketplaceContentPanel({
   existingContent,
   storeDescriptionHtml,
   showListingCompare,
+  auditId,
+  onContentVariantsUpdated,
 }: {
   contentMarketplaces: ContentMarketplaceOption[];
   contentMarketplaceId?: number;
@@ -51,9 +65,14 @@ export function ListingMarketplaceContentPanel({
   existingContent?: ListingContentView | null;
   storeDescriptionHtml?: string | null;
   showListingCompare?: boolean;
+  auditId?: number | null;
+  onContentVariantsUpdated?: (variants: ContentVariantRow[]) => void;
 }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const variantMap = useMemo(() => {
-    const map = new Map<number, GeneratedContent>();
+    const map = new Map<number, GeneratedContent & ContentVariantWithMeta>();
     for (const row of contentVariants) {
       map.set(row.contentMarketplaceId, row.generatedContent);
     }
@@ -91,6 +110,53 @@ export function ListingMarketplaceContentPanel({
     : undefined;
   const activeContent = contentMarketplaceId != null ? variantMap.get(contentMarketplaceId) : undefined;
   const activeView = generatedContentToListingView(activeContent);
+  const aiView = generatedContentToListingView(
+    activeContent ? resolveAiSnapshot(activeContent) : undefined,
+  );
+  const fieldSources = activeContent?.fieldSources ?? defaultFieldSourcesAi();
+
+  const saveFieldSource = useMutation({
+    mutationFn: async ({
+      field,
+      source,
+    }: {
+      field: ListingContentFieldKey;
+      source: ListingContentFieldSource;
+    }) => {
+      if (!auditId || contentMarketplaceId == null) {
+        throw new Error("Missing audit or marketplace");
+      }
+      const nextSources = { ...fieldSources, [field]: source };
+      const res = await fetch(
+        `${basePath}/api/audits/${auditId}/content-variants/${contentMarketplaceId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ fieldSources: nextSources }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Failed to save selection");
+      }
+      return res.json() as Promise<{
+        contentVariants: ContentVariantRow[];
+        contentMarketplaceId: number;
+      }>;
+    },
+    onSuccess: (data) => {
+      onContentVariantsUpdated?.(data.contentVariants);
+      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId!) });
+    },
+    onError: (err) => {
+      toast({
+        title: "Could not save selection",
+        description: err instanceof Error ? err.message : "Try again",
+        variant: "destructive",
+      });
+    },
+  });
   const hasActiveContent = Boolean(activeView?.title?.trim())
     || (activeView?.bulletPoints?.length ?? 0) > 0
     || (activeView?.keywords?.length ?? 0) > 0
@@ -287,9 +353,19 @@ export function ListingMarketplaceContentPanel({
               )}
               <ListingMarketplaceContentCompare
                 existing={existingForTab}
-                optimized={activeView}
+                optimized={aiView ?? activeView}
                 marketplaceName={activeMarketplace?.name}
+                fieldSources={fieldSources}
+                fieldPickDisabled={optimizeDisabled || !auditId || saveFieldSource.isPending}
+                onFieldSourceChange={(field, source) => {
+                  saveFieldSource.mutate({ field, source });
+                }}
               />
+              {hasActiveContent && auditId && (
+                <p className="px-4 pb-3 text-[10px] text-slate-500 text-center">
+                  Use ✓ for AI copy or ✕ to keep your current listing for each section. Choices are saved per marketplace tab.
+                </p>
+              )}
               {isOptimizing && (
                 <div className="px-4 pb-4 flex items-center justify-center gap-2 text-[11px] text-slate-600">
                   <Loader2 className="w-4 h-4 animate-spin text-orange-500" />

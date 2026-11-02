@@ -35,9 +35,15 @@ import {
 } from "../lib/analyze-reference-intelligence.js";
 import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
 import {
+  getAuditContentVariant,
   listAuditContentVariants,
   upsertAuditContentVariant,
 } from "../lib/audit-content-variant-service.js";
+import {
+  mergeListingContentByFieldSources,
+  resolveAiSnapshot,
+} from "../lib/listing-content-field-merge.js";
+import { listingContentFieldSourcesSchema } from "@workspace/db";
 import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refresh.js";
 import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-product-listing-refresh.js";
 import { listProductMarketplacesSafe } from "../lib/product-marketplaces.js";
@@ -1295,7 +1301,17 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
           "content",
           { auditId: id },
         );
-        await upsertAuditContentVariant(id, marketplace.id, generatedContent);
+        await upsertAuditContentVariant(id, marketplace.id, {
+          ...generatedContent,
+          aiSnapshot: generatedContent,
+          fieldSources: {
+            title: "ai",
+            bulletPoints: "ai",
+            keywords: "ai",
+            htmlDescription: "ai",
+            attributes: "ai",
+          },
+        });
         lastGenerated = generatedContent;
         lastMarketplaceId = marketplace.id;
         batchResults.push({ contentMarketplaceId: marketplace.id, ok: true });
@@ -1345,6 +1361,72 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
     res.status(httpStatus).json({ error: message });
   }
 });
+
+router.patch(
+  "/audits/:id/content-variants/:marketplaceId",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["build_brand", "audits"], "edit"),
+  async (req, res): Promise<void> => {
+    const id = parseInt(String(req.params.id ?? ""), 10);
+    const marketplaceId = parseInt(String(req.params.marketplaceId ?? ""), 10);
+    if (isNaN(id) || isNaN(marketplaceId)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const audit = await loadScopedAudit(req, id, "write");
+    if (!audit) {
+      res.status(404).json({ error: "Audit not found" });
+      return;
+    }
+
+    const parsedSources = listingContentFieldSourcesSchema.safeParse(
+      (req.body as { fieldSources?: unknown })?.fieldSources,
+    );
+    if (!parsedSources.success) {
+      res.status(400).json({ error: "Invalid fieldSources" });
+      return;
+    }
+
+    const variant = await getAuditContentVariant(id, marketplaceId);
+    if (!variant) {
+      res.status(404).json({ error: "No optimized content for this marketplace yet. Generate first." });
+      return;
+    }
+
+    const ai = resolveAiSnapshot(variant);
+    const sourceListing = (audit.sourceListingContent ?? buildSourceListingSnapshot(audit)) as {
+      title: string;
+      bulletPoints: string[];
+      keywords: string[];
+      htmlDescription: string;
+      attributes?: { attribute: string; value: string }[];
+    };
+
+    const fieldSources = {
+      ...(variant.fieldSources ?? {}),
+      ...parsedSources.data,
+    };
+    const merged = mergeListingContentByFieldSources(sourceListing, ai, fieldSources);
+
+    await upsertAuditContentVariant(id, marketplaceId, {
+      ...merged,
+      aiSnapshot: variant.aiSnapshot ?? ai,
+      fieldSources,
+    });
+
+    if (audit.contentMarketplaceId === marketplaceId) {
+      await db
+        .update(auditsTable)
+        .set({ generatedContent: merged, updatedAt: new Date() })
+        .where(eq(auditsTable.id, id));
+    }
+
+    const contentVariants = await listAuditContentVariants(id);
+    res.json({ contentMarketplaceId: marketplaceId, generatedContent: merged, fieldSources, contentVariants });
+  },
+);
 
 router.patch("/audits/:id/reference-research", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
