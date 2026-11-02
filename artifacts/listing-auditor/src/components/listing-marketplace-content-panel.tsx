@@ -1,6 +1,8 @@
-import { useEffect, useMemo } from "react";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import type { GeneratedContent } from "@workspace/api-client-react";
@@ -55,6 +57,9 @@ export function ListingMarketplaceContentPanel({
     return map;
   }, [contentVariants, legacyGeneratedContent, legacyMarketplaceId]);
 
+  const [generateMenuOpen, setGenerateMenuOpen] = useState(false);
+  const [batchSelected, setBatchSelected] = useState<Set<number>>(() => new Set());
+
   useEffect(() => {
     if (!contentMarketplaces.length) return;
     if (contentMarketplaceId != null && contentMarketplaces.some((m) => m.id === contentMarketplaceId)) {
@@ -62,6 +67,14 @@ export function ListingMarketplaceContentPanel({
     }
     onContentMarketplaceChange(contentMarketplaces[0].id);
   }, [contentMarketplaces, contentMarketplaceId, onContentMarketplaceChange]);
+
+  useEffect(() => {
+    if (contentMarketplaceId == null) return;
+    setBatchSelected((prev) => {
+      if (prev.size > 0) return prev;
+      return new Set([contentMarketplaceId]);
+    });
+  }, [contentMarketplaceId]);
 
   const activeContent = contentMarketplaceId != null ? variantMap.get(contentMarketplaceId) : undefined;
   const activeView = generatedContentToListingView(activeContent);
@@ -74,6 +87,38 @@ export function ListingMarketplaceContentPanel({
       onGenerate([contentMarketplaces[0].id]);
     }
   };
+
+  function toggleBatch(id: number) {
+    setBatchSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllBatch() {
+    setBatchSelected(new Set(contentMarketplaces.map((m) => m.id)));
+  }
+
+  const batchIds = [...batchSelected];
+  const generateBatch = () => {
+    const targets = batchIds.length > 0
+      ? batchIds
+      : contentMarketplaceId != null
+        ? [contentMarketplaceId]
+        : contentMarketplaces[0]
+          ? [contentMarketplaces[0].id]
+          : [];
+    if (targets.length === 0) return;
+    onGenerate(targets);
+    setGenerateMenuOpen(false);
+  };
+
+  const generateDisabled =
+    optimizeDisabled
+    || isOptimizing
+    || (contentMarketplaceId == null && contentMarketplaces.length === 0);
 
   return (
     <div className="space-y-4">
@@ -114,30 +159,91 @@ export function ListingMarketplaceContentPanel({
               })}
             </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 text-[11px] shrink-0 mb-1.5"
-            onClick={generateActive}
-            disabled={
-              optimizeDisabled
-              || isOptimizing
-              || (contentMarketplaceId == null && contentMarketplaces.length === 0)
-            }
-          >
-            {isOptimizing ? (
-              <>
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                {hasActiveContent ? "Regenerate" : "Generate"}
-              </>
-            )}
-          </Button>
+          <div className="flex shrink-0 mb-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-[11px] rounded-r-none border-r-0 pr-3"
+              onClick={generateActive}
+              disabled={generateDisabled}
+            >
+              {isOptimizing ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3 mr-1 opacity-70" />
+                  {hasActiveContent ? "Regenerate" : "Generate"}
+                </>
+              )}
+            </Button>
+            <Popover open={generateMenuOpen} onOpenChange={setGenerateMenuOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2 rounded-l-none"
+                  disabled={generateDisabled}
+                  aria-label="Choose marketplaces to generate"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-56 p-0">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    Generate for
+                  </p>
+                </div>
+                <div className="max-h-48 overflow-y-auto px-3 py-2 space-y-2">
+                  {contentMarketplaces.map((m) => (
+                    <label
+                      key={m.id}
+                      className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={batchSelected.has(m.id)}
+                        onCheckedChange={() => toggleBatch(m.id)}
+                        disabled={isOptimizing || optimizeDisabled}
+                      />
+                      <span className="flex-1">{m.name}</span>
+                      {variantMap.has(m.id) ? (
+                        <Check className="w-3 h-3 text-emerald-600 shrink-0" aria-hidden />
+                      ) : null}
+                    </label>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-slate-100 bg-slate-50/80">
+                  <button
+                    type="button"
+                    className="text-[10px] font-medium text-slate-600 hover:text-slate-900"
+                    onClick={selectAllBatch}
+                    disabled={isOptimizing || optimizeDisabled}
+                  >
+                    Select all
+                  </button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 text-[10px]"
+                    onClick={generateBatch}
+                    disabled={
+                      optimizeDisabled
+                      || isOptimizing
+                      || (batchIds.length === 0 && contentMarketplaceId == null)
+                    }
+                  >
+                    Generate
+                    {batchIds.length > 1 ? ` (${batchIds.length})` : ""}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       )}
 
