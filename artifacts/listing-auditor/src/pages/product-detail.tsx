@@ -686,93 +686,6 @@ function DetailField({ label, children }: { label: string; children: React.React
   );
 }
 
-function CompactSummaryField({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-2 py-1.5">
-      <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <div className={cn("text-[10px] font-medium text-slate-900 mt-0.5", mono && "font-mono")}>{value}</div>
-    </div>
-  );
-}
-
-function CompactStatChip({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: "emerald";
-}) {
-  return (
-    <div className="rounded-lg border border-slate-100 bg-white px-2 py-1.5 text-center">
-      <p className="text-[9px] text-slate-400">{label}</p>
-      <p
-        className={cn(
-          "text-xs font-semibold tabular-nums mt-0.5",
-          accent === "emerald" ? "text-emerald-600" : "text-slate-900",
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-type MarketplaceListingStatus = "live" | "pending" | "not_listed";
-
-const OVERVIEW_MARKETPLACES = ["Amazon", "Shopify", "WooCommerce"] as const;
-
-function formatOverviewPrice(price: number | null | undefined, currency: string | null | undefined): string {
-  if (price == null || !Number.isFinite(price) || price <= 0) return "—";
-  if (currency === "INR") return `₹${price.toFixed(2)}`;
-  if (currency?.trim()) return `${currency.trim()} ${price.toFixed(2)}`;
-  return `$${price.toFixed(2)}`;
-}
-
-function MarketplaceStatusBadge({ status, label }: { status: MarketplaceListingStatus; label: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
-        status === "live" && "bg-emerald-50 text-emerald-700 border-emerald-200",
-        status === "pending" && "bg-amber-50 text-amber-700 border-amber-200",
-        status === "not_listed" && "bg-slate-50 text-slate-500 border-slate-200",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function OverviewMarketplaceStatus({
-  listings,
-}: {
-  listings: Array<{ marketplace: string; status: MarketplaceListingStatus; statusLabel: string }>;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-2 py-1.5">
-      <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">Marketplaces</p>
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mt-1">
-        {listings.map((listing) => (
-          <div key={listing.marketplace} className="inline-flex items-center gap-1">
-            <MarketplaceLogo marketplace={listing.marketplace} className="h-2.5 w-12" />
-            <MarketplaceStatusBadge status={listing.status} label={listing.statusLabel} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ListingContentCard({
   content,
   emptyMessage,
@@ -1496,20 +1409,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const liveMarketplaces = marketplaceData?.liveMarketplaces ?? [];
 
-  const overviewMarketplaceListings = useMemo(() => {
-    const byMarketplace = new Map(
-      (marketplaceData?.listings ?? []).map((listing) => [listing.marketplace, listing]),
-    );
-    return OVERVIEW_MARKETPLACES.map((marketplace) => {
-      const existing = byMarketplace.get(marketplace);
-      return {
-        marketplace,
-        status: existing?.status ?? "not_listed",
-        statusLabel: existing?.statusLabel ?? "Not Listed",
-      };
-    });
-  }, [marketplaceData?.listings]);
-
   const referenceResearch = (effectiveAudit as { referenceResearch?: ReferenceResearchData | null } | null)
     ?.referenceResearch ?? null;
 
@@ -2101,9 +2000,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const imageSrc = product.imageUrl && !imageFailed ? resolveImageUrl(product.imageUrl) : null;
   const createdDate = product.createdAt ? format(new Date(product.createdAt), "MMM d, yyyy") : "—";
-  const listingRating = product.stats.listingScore > 0
-    ? (product.stats.listingScore / 20).toFixed(1)
-    : "—";
 
   function openListingEditor() {
     if (!canEditProduct || !listingProduct) return;
@@ -2516,88 +2412,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
             />
           )}
           overviewContent={
-            <div className="space-y-3">
-              <ProductExplorerOverviewPreview
-                imageUrls={overviewPreview.imageUrls}
-                title={overviewPreview.title}
-                bulletPoints={overviewPreview.bulletPoints}
-                descriptionHtml={overviewPreview.descriptionHtml}
-                attributes={overviewPreview.attributes}
-              />
-              <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                <h2 className="text-[11px] font-semibold text-slate-900">Details &amp; stats</h2>
-                {canEditProduct && !isEditingListing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-[10px]"
-                    onClick={openListingEditor}
-                  >
-                    <Pencil className="w-2.5 h-2.5 mr-1 opacity-70" />
-                    Edit listing
-                  </Button>
-                )}
-              </div>
-              {isStoreImportProduct(product) ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <CompactSummaryField label="SKU" value={listingProduct?.sku ?? product.sku} mono />
-                  <CompactSummaryField label="Brand" value={product.brandName || "—"} />
-                  <CompactSummaryField label="Category" value={product.category || "—"} />
-                  <CompactSummaryField
-                    label="Price"
-                    value={formatOverviewPrice(listingProduct?.listingPrice, listingProduct?.listingCurrency)}
-                  />
-                  <div className="col-span-2 sm:col-span-4">
-                    <OverviewMarketplaceStatus listings={overviewMarketplaceListings} />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <CompactSummaryField label="SKU" value={product.sku} mono />
-                  <CompactSummaryField label="Brand" value={product.brandName || "—"} />
-                  <CompactSummaryField label="Category" value={product.category || "—"} />
-                  <CompactSummaryField
-                    label="Price"
-                    value={formatOverviewPrice(listingProduct?.listingPrice, listingProduct?.listingCurrency)}
-                  />
-                  <CompactSummaryField
-                    label="Listing Score"
-                    value={
-                      <span className="inline-flex items-center gap-1">
-                        <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                        {listingRating}
-                        {product.stats.listingScore > 0 && (
-                          <span className="text-slate-400 font-normal">/ 5</span>
-                        )}
-                      </span>
-                    }
-                  />
-                  <CompactSummaryField label="Created" value={createdDate} />
-                  <div className="col-span-2 sm:col-span-4">
-                    <OverviewMarketplaceStatus listings={overviewMarketplaceListings} />
-                  </div>
-                </div>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-slate-100 pt-2.5">
-                <CompactStatChip label="Orders" value={String(product.stats.totalOrders)} />
-                <CompactStatChip
-                  label="Revenue"
-                  value={
-                    product.stats.revenue != null
-                      ? product.stats.revenueCurrency === "INR"
-                        ? `₹${product.stats.revenue.toLocaleString("en-IN")}`
-                        : `$${product.stats.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                      : "—"
-                  }
-                  accent="emerald"
-                />
-                <CompactStatChip
-                  label="Marketplaces"
-                  value={liveMarketplaces.length > 0 ? String(liveMarketplaces.length) : String(product.stats.marketplacesActive)}
-                />
-              </div>
-            </div>
+            <ProductExplorerOverviewPreview
+              imageUrls={overviewPreview.imageUrls}
+              title={overviewPreview.title}
+              bulletPoints={overviewPreview.bulletPoints}
+              descriptionHtml={overviewPreview.descriptionHtml}
+              attributes={overviewPreview.attributes}
+            />
           }
           listingEditorContent={
             isEditingListing && editForm ? (
