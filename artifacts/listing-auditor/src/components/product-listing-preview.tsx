@@ -30,7 +30,7 @@ import {
 } from "@/lib/listing-content-format";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { ReferenceIntelligenceListingPreview } from "@/components/reference-intelligence-table";
+import { SpecificationsFeaturesSection } from "@/components/specifications-features-section";
 import {
   mergeListingPreviewProductDetails,
   type ReferenceIntelligenceRow,
@@ -235,7 +235,39 @@ export function ProductListingPreview({
     [referenceIntelligence, productDetails],
   );
 
-  const hasPreviewProductDetails = previewDetailRows.length > 0;
+  const specificationRows = useMemo((): SellerProductDetail[] => {
+    const fromGenerated = (generatedContent?.attributes ?? audit?.generatedContent?.attributes ?? [])
+      .map((row) => ({
+        attribute: row.attribute?.trim() ?? "",
+        value: row.value?.trim() ?? "",
+      }))
+      .filter((row) => row.attribute && row.value);
+
+    const fromResearch = previewDetailRows.map((row) => ({
+      attribute: row.attribute?.trim() ?? "",
+      value: row.referencePatternNotes?.trim() ?? "",
+    })).filter((row) => row.attribute && row.value);
+
+    if (fromGenerated.length === 0) return fromResearch;
+
+    const byKey = new Map<string, SellerProductDetail>();
+    for (const row of fromResearch) {
+      byKey.set(row.attribute.toLowerCase(), row);
+    }
+    for (const row of fromGenerated) {
+      byKey.set(row.attribute.toLowerCase(), row);
+    }
+    const generatedKeys = fromGenerated.map((r) => r.attribute.toLowerCase());
+    const extraKeys = fromResearch
+      .map((r) => r.attribute.toLowerCase())
+      .filter((k) => !generatedKeys.includes(k));
+    return [
+      ...generatedKeys.map((k) => byKey.get(k)!),
+      ...extraKeys.map((k) => byKey.get(k)!),
+    ];
+  }, [generatedContent?.attributes, audit?.generatedContent?.attributes, previewDetailRows]);
+
+  const hasSpecificationRows = specificationRows.length > 0;
 
   const hasListingCopy = Boolean(
     title.trim() || bullets.length > 0 || descriptionPreviewHtml.length > 0,
@@ -638,12 +670,15 @@ export function ProductListingPreview({
           </div>
         )}
 
-        {hasPreviewProductDetails && (
-          <section className="border-t border-slate-200 bg-white" aria-label="Product details">
-            <div className="border-b border-slate-200 px-4 lg:px-5 bg-white">
-              <p className="py-2.5 text-[11px] font-semibold text-slate-900">Product details</p>
-            </div>
-            <ReferenceIntelligenceListingPreview rows={previewDetailRows} />
+        {hasSpecificationRows && (
+          <section
+            className="border-t border-slate-200 bg-white px-4 pb-5 lg:px-5"
+            aria-label="Specifications and features"
+          >
+            <SpecificationsFeaturesSection
+              rows={specificationRows}
+              className="mt-0 pt-4 border-t-0"
+            />
           </section>
         )}
 
