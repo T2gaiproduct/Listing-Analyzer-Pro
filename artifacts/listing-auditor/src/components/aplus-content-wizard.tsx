@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Check, Download, Loader2, Maximize2, Sparkles, Wand2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ProtectedAppImage } from "@/components/protected-app-image";
+import { downloadAppImage } from "@/lib/download-app-image";
 import { getGetAuditQueryKey, useGetAudit } from "@workspace/api-client-react";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { Button } from "@/components/ui/button";
@@ -125,6 +128,7 @@ export function AplusContentWizard({
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
   const [aplusCustomizeModuleId, setAplusCustomizeModuleId] = useState<string | null>(null);
+  const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
   const syncedAuditIdRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -306,9 +310,345 @@ export function AplusContentWizard({
   const headingClass = embedded ? "text-lg font-bold" : "text-2xl font-bold";
   const subClass = embedded ? "text-xs text-slate-500 mt-0.5" : "text-base text-slate-500 mt-0.5";
 
+  const generatedAplusModuleIds = useMemo(
+    () => new Set(aplusModules.map((m) => m.id)),
+    [aplusModules],
+  );
+
+  const handleDownloadAllAplus = () => {
+    aplusModules.forEach((module, index) => {
+      setTimeout(
+        () => void downloadAppImage(module.imageUrl, `aplus-${module.id}.png`),
+        index * 300,
+      );
+    });
+  };
+
+  const aplusGenerateProgress = aplusProgress.total > 0
+    ? Math.min(95, (aplusProgress.done / aplusProgress.total) * 100)
+    : 15;
+
+  if (createOnly && isGenerating) {
+    return (
+      <div className={embedded ? "py-8" : "min-h-[40vh] flex items-center justify-center"}>
+        <div className="text-center space-y-6 max-w-md mx-auto">
+          <div className="relative w-20 h-20 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
+            <div className="absolute inset-0 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
+            <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-orange-500 animate-spin" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold text-slate-900">Generating your A+ modules</h1>
+            <p className="text-sm text-slate-500">
+              {aplusProgress.done} / {aplusProgress.total || selectedAplusModules.length || "…"} complete
+            </p>
+          </div>
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-orange-500 transition-all duration-500"
+              style={{ width: `${aplusGenerateProgress}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const moduleSelectorGrid = (
+    <div className={cn(
+      "grid gap-3 w-full",
+      createOnly ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4",
+    )}>
+      {(aplusModulesLoading && APLUS_MODULE_CARDS.length === 0) ? (
+        <p className="text-xs text-slate-500 col-span-full py-4 text-center">Loading A+ modules…</p>
+      ) : null}
+      {APLUS_MODULE_CARDS.map((module) => {
+        const isSelected = selectedAplusModules.includes(module.id);
+        const isGenerated = generatedAplusModuleIds.has(module.id);
+        const showCheck = isSelected || isGenerated;
+        const cardClass = createOnly
+          ? cn(
+            "relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all text-left",
+            isSelected
+              ? "border-orange-500 bg-orange-50/30"
+              : isGenerated
+                ? "border-emerald-400/80 bg-emerald-50/25"
+                : "border-slate-200 bg-white hover:border-slate-300",
+            (isGenerating || modulesUnavailable) && "opacity-60 cursor-not-allowed",
+          )
+          : cn(
+            "relative rounded-2xl border-2 p-5 text-left transition-all",
+            isSelected
+              ? "border-orange-500 bg-orange-50/40 shadow-sm"
+              : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+            isGenerating && "opacity-60 cursor-not-allowed",
+          );
+
+        return (
+          <button
+            key={module.id}
+            type="button"
+            disabled={isGenerating || modulesUnavailable}
+            onClick={() => {
+              if (isGenerating || modulesUnavailable) return;
+              if (createOnly) {
+                if (!selectedAplusModules.includes(module.id)) {
+                  setSelectedAplusModules((prev) => [...prev, module.id]);
+                }
+                setAplusCustomizeModuleId(module.id);
+                return;
+              }
+              setSelectedAplusModules((prev) => (
+                prev.includes(module.id)
+                  ? prev.filter((id) => id !== module.id)
+                  : [...prev, module.id]
+              ));
+            }}
+            className={cardClass}
+          >
+            {createOnly ? (
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl leading-none mt-0.5">{module.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className={cn(
+                      "text-sm font-semibold",
+                      isSelected ? "text-orange-900" : isGenerated ? "text-emerald-900" : "text-slate-900",
+                    )}
+                    >
+                      {module.label}
+                    </h3>
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                        isSelected
+                          ? "border-orange-500 bg-orange-500"
+                          : isGenerated
+                            ? "border-emerald-600 bg-emerald-600"
+                            : "border-slate-300",
+                      )}
+                    >
+                      {showCheck && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5 leading-tight">{module.desc}</p>
+                  {isGenerated && !isSelected && (
+                    <p className="text-[10px] font-medium text-emerald-700 mt-1">
+                      Generated — select again to create another
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="text-3xl leading-none block mb-3">{module.icon}</span>
+                <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                  {module.label}
+                </p>
+                <p className="text-xs text-slate-400 mt-1 leading-snug">{module.desc}</p>
+                {isSelected && (
+                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
+                    <Check className="w-3.5 h-3.5 text-white" />
+                  </div>
+                )}
+                {isGenerated && !isSelected && (
+                  <div
+                    className="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm"
+                    aria-label="Generated"
+                  >
+                    <Check className="w-3.5 h-3.5 text-white" />
+                  </div>
+                )}
+              </>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const selectedSummary = selectedAplusModules.length > 0 && (
+    <>
+      <div className={cn("flex items-center gap-2", createOnly ? "text-sm" : "gap-3")}>
+        <span className={cn(
+          "rounded-full bg-orange-100 text-orange-700 font-semibold",
+          createOnly ? "px-2.5 py-1 text-xs" : "px-4 py-1.5 text-sm text-orange-600",
+        )}
+        >
+          {selectedAplusModules.length} selected
+        </span>
+        {!createOnly && (
+          <span className="text-xs text-slate-400">
+            {selectedAplusModules.length === allAplusModuleIds.length
+              ? "All modules will be generated"
+              : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
+          </span>
+        )}
+        {createOnly && (
+          <span className="text-slate-400 text-xs">
+            ~{selectedAplusModules.length * 45}s total
+          </span>
+        )}
+      </div>
+      <SelectedGraphicsTypesSummary
+        imageTypes={APLUS_MODULE_CARDS}
+        selectedTypeIds={selectedAplusModules}
+        getConfig={getAplusModuleConfig}
+        onEdit={setAplusCustomizeModuleId}
+        onRemove={(moduleId) => {
+          setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
+          if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
+        }}
+        instructionText="Selected modules — tap a row to customize prompt, references, and quality."
+        hideAspectRatio
+      />
+    </>
+  );
+
+  const customizeDialog = (
+    <ImageTypeCustomizeDialog
+      open={aplusCustomizeModuleId !== null}
+      onOpenChange={(open) => { if (!open) setAplusCustomizeModuleId(null); }}
+      type={APLUS_MODULE_CARDS.find((m) => m.id === aplusCustomizeModuleId) ?? null}
+      config={aplusCustomizeModuleId ? getAplusModuleConfig(aplusCustomizeModuleId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+      onConfigChange={(patch) => {
+        if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
+      }}
+      hideAspectRatio
+    />
+  );
+
+  const generateButton = (
+    <Button
+      size={createOnly ? "default" : (embedded ? "default" : "lg")}
+      className={cn(
+        createOnly
+          ? "w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6 min-h-11"
+          : "w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2.5 shadow-lg shadow-orange-500/20 font-semibold",
+        !createOnly && (embedded ? "h-11 text-sm" : "h-14 text-base"),
+      )}
+      disabled={
+        isGenerating
+        || modulesUnavailable
+        || aplusModulesLoading
+        || selectedAplusModules.length === 0
+        || (isTeamMember && (memberCredits?.imageCredits ?? 0) < aplusImageCostPerModule * selectedAplusModules.length)
+      }
+      onClick={handleGenerateAplus}
+    >
+      {isGenerating ? (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Generating A+ Content…
+        </>
+      ) : (
+        <>
+          <Sparkles className="w-4 h-4" />
+          {selectedAplusModules.length > 0
+            ? (createOnly && hasExistingModules
+              ? `Regenerate ${selectedAplusModules.length} Module${selectedAplusModules.length > 1 ? "s" : ""}`
+              : `Generate ${selectedAplusModules.length} A+ Module${selectedAplusModules.length > 1 ? "s" : ""}`)
+            : (createOnly && hasExistingModules ? "Optimize A+ Content" : "Generate A+ Content")}
+        </>
+      )}
+    </Button>
+  );
+
+  if (createOnly) {
+    return (
+      <div className="w-full min-w-0 max-w-full space-y-6">
+        {modulesUnavailable && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            A+ module templates are not available yet. Refresh the page; if this persists, an admin must enable A+ modules under Settings → Image prompts.
+          </p>
+        )}
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Wand2 className="w-4 h-4 text-orange-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Select A+ Content</h2>
+              <p className="text-xs text-slate-500">Choose the modules you want to generate. You can select multiple.</p>
+            </div>
+          </div>
+          {moduleSelectorGrid}
+          {selectedSummary}
+          {customizeDialog}
+        </div>
+
+        {aplusModules.length > 0 && (
+          <div className="space-y-3 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Generated A+ content ({aplusModules.length})
+              </p>
+              {aplusModules.length > 0 && (
+                <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleDownloadAllAplus}>
+                  <Download className="w-3 h-3" />
+                  Download all
+                </Button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {aplusModules.map((module) => (
+                <div key={module.id} className="group relative rounded-lg border overflow-hidden bg-white">
+                  <div className="aspect-square relative overflow-hidden bg-slate-50">
+                    <ProtectedAppImage
+                      src={module.imageUrl}
+                      alt={module.title}
+                      className="w-full h-full object-contain"
+                    />
+                    <div className="absolute inset-0 bg-black/55 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        title="View full screen"
+                        className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm"
+                        onClick={() => setFullscreenUrl(module.imageUrl)}
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Download"
+                        className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm"
+                        onClick={() => void downloadAppImage(module.imageUrl, `aplus-${module.id}.png`)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-medium text-slate-600 px-2 py-1.5 truncate border-t border-slate-100">
+                    {module.title}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 w-full">
+          {generateButton}
+        </div>
+
+        <Dialog open={fullscreenUrl !== null} onOpenChange={(open) => { if (!open) setFullscreenUrl(null); }}>
+          <DialogContent className="max-w-5xl p-2 sm:p-4 border-0 bg-transparent shadow-none">
+            {fullscreenUrl && (
+              <ProtectedAppImage
+                src={fullscreenUrl}
+                alt="A+ module"
+                className="w-full max-h-[85vh] object-contain rounded-xl bg-black/20 mx-auto"
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
   return (
     <div className={embedded ? "space-y-5" : "space-y-8"}>
-      {!createOnly && (
       <div className="flex items-center gap-4">
         <div className={cn(
           "rounded-xl bg-orange-100 flex items-center justify-center shrink-0",
@@ -322,7 +662,6 @@ export function AplusContentWizard({
           <p className={subClass}>Choose the modules you want to generate. You can select multiple.</p>
         </div>
       </div>
-      )}
 
       {modulesUnavailable && (
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -330,130 +669,10 @@ export function AplusContentWizard({
         </p>
       )}
 
-      <div className={cn(
-        "grid gap-4",
-        createOnly ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-      )}>
-        {(aplusModulesLoading && APLUS_MODULE_CARDS.length === 0) ? (
-          <p className="text-xs text-slate-500 col-span-full py-4 text-center">Loading A+ modules…</p>
-        ) : null}
-        {APLUS_MODULE_CARDS.map((module) => {
-          const isSelected = selectedAplusModules.includes(module.id);
-          const generated = aplusModules.find((m) => m.id === module.id);
-          return (
-            <button
-              key={module.id}
-              type="button"
-              onClick={() => {
-                if (isGenerating || modulesUnavailable) return;
-                setSelectedAplusModules((prev) => (
-                  prev.includes(module.id)
-                    ? prev.filter((id) => id !== module.id)
-                    : [...prev, module.id]
-                ));
-              }}
-              disabled={isGenerating}
-              className={cn(
-                "relative rounded-2xl border-2 p-5 text-left transition-all",
-                isSelected
-                  ? "border-orange-500 bg-orange-50/40 shadow-sm"
-                  : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
-                isGenerating && "opacity-60 cursor-not-allowed",
-              )}
-            >
-              <span className="text-3xl leading-none block mb-3">{module.icon}</span>
-              <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
-                {module.label}
-              </p>
-              <p className="text-xs text-slate-400 mt-1 leading-snug">{module.desc}</p>
-              {isSelected && (
-                <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
-                  <Check className="w-3.5 h-3.5 text-white" />
-                </div>
-              )}
-              {generated && !isSelected && (
-                <div
-                  className="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm"
-                  aria-label="Generated"
-                >
-                  <Check className="w-3.5 h-3.5 text-white" />
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {selectedAplusModules.length > 0 && (
-        <div className="flex items-center gap-3">
-          <span className="px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 font-semibold text-sm">
-            {selectedAplusModules.length} selected
-          </span>
-          <span className="text-xs text-slate-400">
-            {selectedAplusModules.length === allAplusModuleIds.length
-              ? "All modules will be generated"
-              : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
-          </span>
-        </div>
-      )}
-
-      {selectedAplusModules.length > 0 && (
-        <SelectedGraphicsTypesSummary
-          imageTypes={APLUS_MODULE_CARDS}
-          selectedTypeIds={selectedAplusModules}
-          getConfig={getAplusModuleConfig}
-          onEdit={setAplusCustomizeModuleId}
-          onRemove={(moduleId) => {
-            setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
-            if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
-          }}
-          instructionText="Selected modules — tap a row to customize prompt, references, and quality."
-          hideAspectRatio
-        />
-      )}
-
-      <ImageTypeCustomizeDialog
-        open={aplusCustomizeModuleId !== null}
-        onOpenChange={(open) => { if (!open) setAplusCustomizeModuleId(null); }}
-        type={APLUS_MODULE_CARDS.find((m) => m.id === aplusCustomizeModuleId) ?? null}
-        config={aplusCustomizeModuleId ? getAplusModuleConfig(aplusCustomizeModuleId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
-        onConfigChange={(patch) => {
-          if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
-        }}
-        hideAspectRatio
-      />
-
-      <Button
-        size={embedded ? "default" : "lg"}
-        className={cn(
-          "w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2.5 shadow-lg shadow-orange-500/20 font-semibold",
-          embedded ? "h-11 text-sm" : "h-14 text-base",
-        )}
-        disabled={
-          isGenerating
-          || modulesUnavailable
-          || aplusModulesLoading
-          || selectedAplusModules.length === 0
-          || (isTeamMember && (memberCredits?.imageCredits ?? 0) < aplusImageCostPerModule * selectedAplusModules.length)
-        }
-        onClick={handleGenerateAplus}
-      >
-        {isGenerating ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Generating A+ Content…
-          </>
-        ) : (
-          <>
-            <Sparkles className="w-4 h-4" />
-            {selectedAplusModules.length > 0
-              ? (createOnly && hasExistingModules
-                ? `Regenerate ${selectedAplusModules.length} Module${selectedAplusModules.length > 1 ? "s" : ""}`
-                : `Generate ${selectedAplusModules.length} A+ Module${selectedAplusModules.length > 1 ? "s" : ""}`)
-              : (createOnly && hasExistingModules ? "Optimize A+ Content" : "Generate A+ Content")}
-          </>
-        )}
-      </Button>
+      {moduleSelectorGrid}
+      {selectedSummary}
+      {customizeDialog}
+      {generateButton}
 
       {aplusStatus === "generating" && (
         <div className="space-y-4">
@@ -475,7 +694,7 @@ export function AplusContentWizard({
         </div>
       )}
 
-      {aplusModules.length > 0 && !createOnly && (
+      {aplusModules.length > 0 && (
         <AplusModuleGallery
           auditId={auditId}
           modules={aplusModules}
