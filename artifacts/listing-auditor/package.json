@@ -85,6 +85,7 @@
     "dompurify": "^3.4.15",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
-    "web-vitals": "^4.2.4"
+    "web-vitals": "^4.2.4",
+    "xlsx": "^0.18.5"
   }
 }

@@ -31,6 +31,7 @@ import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { canExportListingSource } from "@/components/listing-export-button";
 import { downloadAuditExport } from "@/lib/amazon-export";
 import { BULK_PRODUCTS_EXPORT_MAX, downloadBulkProductsExcel } from "@/lib/bulk-products-export";
+import { BulkUploadCatalogTrigger } from "@/components/bulk-upload-catalog-dialog";
 import { fetchAccountOverviewProducts, fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
@@ -677,6 +678,22 @@ export default function ProductsPage() {
           )}
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-xl sm:justify-end">
+          {!showAccountProducts && featureWorkspaceId && (
+            <BulkUploadCatalogTrigger
+              disabled={needsWorkspaceSelection}
+              onImported={({ imported, failed }) => {
+                void queryClient.invalidateQueries({ queryKey: ["products"] });
+                void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
+                toast({
+                  title: failed > 0 ? "Import completed with errors" : "Catalog imported",
+                  description:
+                    failed > 0
+                      ? `${imported} product${imported === 1 ? "" : "s"} added, ${failed} row${failed === 1 ? "" : "s"} failed.`
+                      : `${imported} product${imported === 1 ? "" : "s"} added to Product Explorer.`,
+                });
+              }}
+            />
+          )}
           {filtered.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>

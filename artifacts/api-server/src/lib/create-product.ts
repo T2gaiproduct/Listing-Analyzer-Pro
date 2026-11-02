@@ -21,6 +21,11 @@ export interface CreateProductBody {
   referenceLinks?: string;
   driveFolderUrl?: string;
   targetMarketplaces: string[];
+  category?: string;
+  brandName?: string;
+  title?: string;
+  bulletPoints?: string[];
+  targetKeywords?: string[];
 }
 
 export function parseCreateProductBody(body: unknown):
@@ -41,6 +46,16 @@ export function parseCreateProductBody(body: unknown):
     ? raw.targetMarketplaces.filter((m): m is string => typeof m === "string")
     : [];
 
+  const category = typeof raw.category === "string" && raw.category.trim() ? raw.category.trim() : undefined;
+  const brandName = typeof raw.brandName === "string" && raw.brandName.trim() ? raw.brandName.trim() : undefined;
+  const title = typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : undefined;
+  const bulletPoints = Array.isArray(raw.bulletPoints)
+    ? raw.bulletPoints.filter((b): b is string => typeof b === "string" && b.trim()).map((b) => b.trim())
+    : undefined;
+  const targetKeywords = Array.isArray(raw.targetKeywords)
+    ? raw.targetKeywords.filter((k): k is string => typeof k === "string" && k.trim()).map((k) => k.trim())
+    : undefined;
+
   return {
     success: true,
     data: {
@@ -51,6 +66,11 @@ export function parseCreateProductBody(body: unknown):
       referenceLinks: typeof raw.referenceLinks === "string" ? raw.referenceLinks : undefined,
       driveFolderUrl: typeof raw.driveFolderUrl === "string" ? raw.driveFolderUrl : undefined,
       targetMarketplaces,
+      category,
+      brandName,
+      title,
+      bulletPoints: bulletPoints?.length ? bulletPoints : undefined,
+      targetKeywords: targetKeywords?.length ? targetKeywords : undefined,
     },
   };
 }
@@ -63,6 +83,11 @@ export async function createProductRecord(input: {
 }) {
   const { body, ownerId, createdByUserId, workspaceId } = input;
   const brandGuess = body.productName.trim().split(/\s+/)[0] ?? null;
+  const brandName = body.brandName?.trim() || brandGuess;
+  const category = body.category?.trim() || null;
+  const title = body.title?.trim() || body.productName.trim();
+  const bulletPoints = body.bulletPoints?.length ? body.bulletPoints : [];
+  const targetKeywords = body.targetKeywords?.length ? body.targetKeywords : [];
 
   const [audit] = await db
     .insert(auditsTable)
@@ -73,12 +98,12 @@ export async function createProductRecord(input: {
       projectName: body.productName.trim(),
       productName: body.productName.trim(),
       asin: null,
-      brandName: brandGuess,
-      category: null,
-      title: body.productName.trim(),
-      bulletPoints: [],
+      brandName,
+      category,
+      title,
+      bulletPoints,
       imageUrls: [],
-      targetKeywords: [],
+      targetKeywords,
       overallScore: 0,
       status: "draft",
       currentStep: 1,

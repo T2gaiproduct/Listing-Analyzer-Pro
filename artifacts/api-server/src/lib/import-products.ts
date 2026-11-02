@@ -25,6 +25,31 @@ function normalizeImportRow(raw: unknown, rowIndex: number):
   const assignedManager = pickString(row, ["assignedManager", "assigned_manager", "manager"]);
   const referenceLinks = pickString(row, ["referenceLinks", "reference_links", "references"]);
   const driveFolderUrl = pickString(row, ["driveFolderUrl", "drive_folder_url", "drive_folder"]);
+  const category = pickString(row, ["category", "product_category"]);
+  const brandName = pickString(row, ["brandName", "brand_name", "brand"]);
+  const title = pickString(row, ["title", "listing_title", "listingTitle"]);
+  const keywordsRaw = pickString(row, ["targetKeywords", "target_keywords", "keywords", "search_terms"]);
+
+  const bulletPoints: string[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const b = pickString(row, [`bullet${i}`, `bullet_${i}`, `bulletPoint${i}`]);
+    if (b) bulletPoints.push(b);
+  }
+  if (bulletPoints.length === 0) {
+    const bulletsRaw = row.bulletPoints ?? row.bullet_points;
+    if (Array.isArray(bulletsRaw)) {
+      for (const b of bulletsRaw) {
+        if (typeof b === "string" && b.trim()) bulletPoints.push(b.trim());
+      }
+    }
+  }
+
+  let targetKeywords: string[] | undefined;
+  if (keywordsRaw) {
+    targetKeywords = keywordsRaw.split(/[,|;]/).map((k) => k.trim()).filter(Boolean);
+  } else if (Array.isArray(row.targetKeywords)) {
+    targetKeywords = row.targetKeywords.filter((k): k is string => typeof k === "string" && k.trim()).map((k) => k.trim());
+  }
 
   let targetMarketplaces: string[] = [];
   const marketplacesRaw = row.targetMarketplaces ?? row.target_marketplaces ?? row.marketplaces ?? row.channels;
@@ -45,6 +70,11 @@ function normalizeImportRow(raw: unknown, rowIndex: number):
     referenceLinks,
     driveFolderUrl,
     targetMarketplaces: targetMarketplaces.length > 0 ? targetMarketplaces : ["Amazon"],
+    category: category || undefined,
+    brandName: brandName || undefined,
+    title: title || undefined,
+    bulletPoints: bulletPoints.length > 0 ? bulletPoints : undefined,
+    targetKeywords,
   });
 }
 
