@@ -24,6 +24,7 @@ import { analyzeListingWithAI } from "../lib/analyzer";
 import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
 import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
+import { formatReferenceResearchForContentPrompt } from "../lib/reference-research-prompt.js";
 import {
   ContentMarketplaceError,
   resolveContentMarketplaceForGeneration,
@@ -953,12 +954,18 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   try {
+    const uploadReferenceContext = formatReferenceResearchForContentPrompt(
+      audit.referenceResearch
+        ? normalizeReferenceResearchData(audit.referenceResearch as import("@workspace/db").ReferenceResearchData)
+        : null,
+    );
     const content = await generateEbcContent({
       prompt: prompt.trim(),
       productName: audit.productName,
       bulletPoints: audit.bulletPoints as string[],
       targetKeywords: audit.targetKeywords as string[],
       summary: (audit.result as { summary?: string } | null)?.summary ?? "",
+      uploadReferenceContext,
     });
     const ebcDeduct = await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
     res.json(withCreditUsage(content as unknown as Record<string, unknown>, ebcDeduct));
@@ -1024,6 +1031,11 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
     return;
   }
 
+  const uploadReferenceContext = formatReferenceResearchForContentPrompt(
+    audit.referenceResearch
+      ? normalizeReferenceResearchData(audit.referenceResearch as import("@workspace/db").ReferenceResearchData)
+      : null,
+  );
   const prompt = rawPrompt?.trim() || buildDefaultAplusPrompt({
     productName: audit.productName,
     brandName: audit.brandName,
@@ -1032,6 +1044,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
     bulletPoints: audit.bulletPoints as string[],
     targetKeywords: audit.targetKeywords as string[],
     summary: (audit.result as { summary?: string } | null)?.summary ?? "",
+    uploadReferenceContext,
   });
 
   await saveAplusState(id, audit, {
@@ -1053,6 +1066,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
           bulletPoints: audit.bulletPoints as string[],
           targetKeywords: audit.targetKeywords as string[],
           summary: (audit.result as { summary?: string } | null)?.summary ?? "",
+          uploadReferenceContext,
         });
 
         const [auditAfterCopy] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
@@ -1150,20 +1164,25 @@ router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWo
   }
 
   try {
-    const imageUrls = [
-      ...(parsed.data.promptReferenceImageUrls ?? []),
-      ...(parsed.data.imageUrls ?? []),
-    ];
+    const bodyExtra = req.body as { referenceResearch?: unknown };
+    const refParsed = bodyExtra.referenceResearch
+      ? referenceResearchDataSchema.safeParse(bodyExtra.referenceResearch)
+      : null;
+    const uploadReferenceContext = refParsed?.success
+      ? formatReferenceResearchForContentPrompt(normalizeReferenceResearchData(refParsed.data))
+      : undefined;
+    const imageUrls = parsed.data.imageUrls;
     const generatedContent = await generateListingContent({
       productName: parsed.data.productName,
       brandName: parsed.data.brandName,
       category: parsed.data.category,
       productDescription: parsed.data.productDescription,
-      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+      imageUrls: imageUrls?.length ? imageUrls : undefined,
       currentTitle: parsed.data.title,
       currentBullets: parsed.data.bulletPoints,
       currentKeywords: parsed.data.targetKeywords,
       customPrompt: parsed.data.customPrompt,
+      uploadReferenceContext,
       contentMarketplaceId: parsed.data.contentMarketplaceId,
       contentMarketplaceSlug: parsed.data.contentMarketplaceSlug,
     });
@@ -1204,10 +1223,12 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
   };
 
   try {
-    const imageUrls = [
-      ...(body.promptReferenceImageUrls ?? []),
-      ...((audit.imageUrls as string[]) ?? []),
-    ];
+    const uploadReferenceContext = formatReferenceResearchForContentPrompt(
+      audit.referenceResearch
+        ? normalizeReferenceResearchData(audit.referenceResearch as import("@workspace/db").ReferenceResearchData)
+        : null,
+    );
+    const auditImageUrls = (audit.imageUrls as string[]) ?? [];
     const marketplace = await resolveContentMarketplaceForGeneration({
       contentMarketplaceId: body.contentMarketplaceId ?? audit.contentMarketplaceId,
       contentMarketplaceSlug: body.contentMarketplaceSlug,
@@ -1218,12 +1239,13 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       brandName: audit.brandName,
       category: audit.category,
       productDescription: audit.productDescription,
-      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+      imageUrls: auditImageUrls.length > 0 ? auditImageUrls : undefined,
       currentTitle: audit.title,
       currentBullets: audit.bulletPoints as string[],
       currentKeywords: audit.targetKeywords as string[],
       auditSummary: audit.result?.summary,
       customPrompt: body.customPrompt,
+      uploadReferenceContext,
       contentMarketplaceId: marketplace.id,
     });
 

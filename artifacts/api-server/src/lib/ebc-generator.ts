@@ -35,6 +35,7 @@ export async function generateEbcContent(data: {
   bulletPoints: string[];
   targetKeywords: string[];
   summary: string;
+  uploadReferenceContext?: string;
 }): Promise<EbcContent> {
   const systemPrompt = `You are an expert Amazon A+ Enhanced Brand Content (EBC) copywriter. You create compelling, conversion-focused content for Amazon product pages. Your copy is persuasive, benefit-driven, and follows Amazon's A+ content best practices.`;
 
@@ -44,6 +45,7 @@ Product: ${data.productName}
 AI Audit Summary: ${data.summary}
 Current Bullet Points: ${data.bulletPoints.slice(0, 5).map((bp, i) => `${i + 1}. ${bp}`).join("\n")}
 Target Keywords: ${data.targetKeywords.slice(0, 8).join(", ")}
+${data.uploadReferenceContext?.trim() ? `\nUpload-step reference (attributes & research — factual/spec context only):\n${data.uploadReferenceContext.trim()}\n` : ""}
 
 USER'S CUSTOM PROMPT / REQUIREMENTS:
 ${data.prompt}

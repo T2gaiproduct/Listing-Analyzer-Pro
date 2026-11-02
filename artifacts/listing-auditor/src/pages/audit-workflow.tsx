@@ -86,7 +86,6 @@ import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import {
   useCreateAuditDraft,
   usePatchAudit,
-  useGenerateContentDirect,
   useGetAudit,
   getGetAuditStatsQueryKey,
   getListAuditsQueryKey,
@@ -110,18 +109,10 @@ type WorkflowGeneratedImage = {
   imageType?: string;
 };
 
-/** Upload-tab images used as default AI references when the user did not add custom refs. */
-function defaultReferenceImagesFromUpload(uploadedImages: string[]): string[] {
-  return uploadedImages.filter((url) => url?.trim()).slice(0, 10);
-}
-
-function resolvePromptReferenceImages(
-  userReferenceImages: string[],
-  uploadDefaults: string[],
-): string[] | undefined {
-  if (userReferenceImages.length > 0) return userReferenceImages;
-  const defaults = defaultReferenceImagesFromUpload(uploadDefaults);
-  return defaults.length > 0 ? defaults : undefined;
+/** Image generation uses only per-type reference images — not Upload product photos. */
+function resolvePromptReferenceImages(userReferenceImages: string[]): string[] | undefined {
+  const urls = userReferenceImages.filter((url) => url?.trim());
+  return urls.length > 0 ? urls : undefined;
 }
 
 function graphicsRecordToWorkflowImage(r: {
@@ -724,7 +715,6 @@ export default function AuditWorkflow() {
       },
     );
   }, [currentAuditId, patchAudit, queryClient]);
-  const generateContentDirect = useGenerateContentDirect();
   const { data: listingContentMarketplaceData, isLoading: marketplacesLoading } = useListingContentMarketplaces();
   const contentMarketplaces = listingContentMarketplaceData?.marketplaces ?? [];
   const [contentMarketplaceId, setContentMarketplaceId] = useState<number | undefined>(undefined);
@@ -1110,6 +1100,35 @@ export default function AuditWorkflow() {
     void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
   }, [projectName, productName, brandName, category, uploadedImages, productDescription, queryClient]);
 
+  const generateListingFromUploadContext = useCallback(async () => {
+    const auditId = await ensureAuditDraft();
+    if (!auditId) {
+      throw new Error("Could not save project — check product name and category on Upload.");
+    }
+    await persistUploadTabToAudit(auditId);
+    const data = await fetchJson<{
+      title: string;
+      bulletPoints: string[];
+      keywords: string[];
+      htmlDescription: string;
+    }>(`${basePath}/api/audits/${auditId}/generate-content`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentMarketplaceId }),
+    });
+    if (currentAuditId !== auditId) {
+      setCurrentAuditId(auditId);
+    }
+    void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+    return data;
+  }, [
+    ensureAuditDraft,
+    persistUploadTabToAudit,
+    contentMarketplaceId,
+    currentAuditId,
+    queryClient,
+  ]);
+
   const persistAuditImageRecordsFromGraphics = useCallback((records: Array<{
     id: string;
     type: string;
@@ -1145,11 +1164,6 @@ export default function AuditWorkflow() {
     setIsDirty(true);
   }, []);
 
-  const uploadReferenceImages = useMemo(
-    () => defaultReferenceImagesFromUpload(uploadedImages),
-    [uploadedImages],
-  );
-
   const aplusModuleConfigsPayload = useMemo(() => {
     const configs: Record<string, {
       imageCustomPrompt?: string;
@@ -1160,12 +1174,12 @@ export default function AuditWorkflow() {
       const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
       configs[moduleId] = {
         imageCustomPrompt: (config.customPrompt ?? "").trim() || undefined,
-        promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages, uploadReferenceImages),
+        promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages),
         quality: config.quality,
       };
     }
     return configs;
-  }, [selectedAplusModules, aplusModulePromptConfigs, uploadReferenceImages]);
+  }, [selectedAplusModules, aplusModulePromptConfigs]);
 
   const aplusGenerateOptions = useMemo(() => ({
     moduleConfigs: aplusModuleConfigsPayload,
@@ -1184,11 +1198,11 @@ export default function AuditWorkflow() {
         customPrompt: config.customPrompt.trim() || undefined,
         aspectRatio: config.aspectRatio,
         quality: config.quality,
-        promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages, uploadReferenceImages),
+        promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages),
       };
     }
     return configs;
-  }, [selectedImageTypes, imageTypePromptConfigs, uploadReferenceImages]);
+  }, [selectedImageTypes, imageTypePromptConfigs]);
 
   type GraphicsTypeConfigs = Record<string, {
     customPrompt?: string;
@@ -1598,38 +1612,21 @@ export default function AuditWorkflow() {
         toast({ title: "Category required", description: "Please select a category in the Upload step first.", variant: "destructive" });
         return;
       }
-      const { syntheticTitle, syntheticBullets, syntheticKeywords } = buildSyntheticListingFields(
-        productName,
-        brandName,
-        category,
-      );
-      generateContentDirect.mutate(
-        {
-          data: {
-            productName: productName.trim(),
-            brandName: brandName.trim() || undefined,
-            category: category || undefined,
-            productDescription: productDescription.trim() || undefined,
-            title: syntheticTitle,
-            bulletPoints: syntheticBullets,
-            targetKeywords: syntheticKeywords,
-            imageUrls: uploadedImages,
-            contentMarketplaceId,
-          },
-        },
-        {
-          onSuccess: (data) => {
-            setIsCreating(false);
-            setGeneratedContent(data);
-            toast({ title: "Listing content ready!", description: "Your optimized content is ready." });
-            refreshCreditBalances(queryClient);
-          },
-          onError: (err) => {
-            setIsCreating(false);
-            toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
-          },
-        }
-      );
+      void generateListingFromUploadContext()
+        .then((data) => {
+          setIsCreating(false);
+          setGeneratedContent(data);
+          toast({ title: "Listing content ready!", description: "Your optimized content is ready." });
+          refreshCreditBalances(queryClient);
+        })
+        .catch((err) => {
+          setIsCreating(false);
+          toast({
+            title: "Failed",
+            description: err instanceof Error ? err.message : "Content generation failed",
+            variant: "destructive",
+          });
+        });
 
     } else if (activeStep === 4) {
       // Graphics
@@ -2218,7 +2215,8 @@ export default function AuditWorkflow() {
                 <div>
                   <p className="text-xs font-semibold text-orange-900">AI-Powered Optimization</p>
                   <p className="text-xs text-orange-700 mt-1">
-                    Our AI generates titles, bullet points, keywords, and descriptions using the rules configured for{" "}
+                    Our AI generates titles, bullet points, keywords, and descriptions using Upload-step product details,
+                    attributes, and reference research, plus rules for{" "}
                     <span className="font-medium">{selectedMarketplace?.name ?? "your selected marketplace"}</span>.
                   </p>
                 </div>
@@ -2239,89 +2237,24 @@ export default function AuditWorkflow() {
                   setCreatingStep(3);
                   setIsCreating(true);
 
-                  if (currentAuditId) {
-                    // Already have an audit: regenerate listing content
-                    fetch(`${basePath}/api/audits/${currentAuditId}/generate-content`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify({
-                        contentMarketplaceId,
-                      }),
-                    })
-                      .then(async (res) => {
-                        if (!res.ok) {
-                          const err = await res.json().catch(() => ({}));
-                          throw new Error((err as { error?: string }).error || "Content generation failed");
-                        }
-                        return res.json() as Promise<typeof generatedContent>;
-                      })
-                      .then((data) => {
-                        if (!data) return;
-                        setIsCreating(false);
-                        setGeneratedContent(data);
-                        toast({ title: "Listing content regenerated!", description: "Your optimized content is ready." });
-                        refreshCreditBalances(queryClient);
-                        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
-                      })
-                      .catch((err) => {
-                        setIsCreating(false);
-                        toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
+                  void generateListingFromUploadContext()
+                    .then((data) => {
+                      setIsCreating(false);
+                      setGeneratedContent(data);
+                      toast({
+                        title: generatedContent ? "Listing content regenerated!" : "Listing content ready!",
+                        description: "Your optimized content is ready.",
                       });
-                    return;
-                  }
-
-                  // Build synthetic listing from user inputs + images
-                  const syntheticTitle = brandName.trim()
-                    ? `${brandName.trim()} ${productName.trim()} — ${category}`
-                    : `${productName.trim()} — ${category}`;
-                  const syntheticBullets = [
-                    `High-quality ${productName.trim().toLowerCase()} designed for everyday use`,
-                    `Perfect for ${category.toLowerCase()} enthusiasts and professionals`,
-                    `Durable, reliable, and built to last`,
-                    `Easy to use and maintain — great value for money`,
-                    `Premium quality backed by customer satisfaction`,
-                  ];
-                  const syntheticKeywords = productName.trim().split(/\s+/).filter((w) => w.length > 2);
-                  if (category) {
-                    syntheticKeywords.push(...category.split(/\s+/).filter((w) => w.length > 2));
-                  }
-                  // Ensure at least 10 keywords
-                  const filler = [
-                    "premium", "best seller", "top rated", "quality", "durable", "reliable", "easy", "value",
-                    "professional", "home", "gift", "essential", "popular", "recommended", "trusted",
-                  ];
-                  while (syntheticKeywords.length < 10 && filler.length > 0) {
-                    syntheticKeywords.push(filler.shift()!);
-                  }
-
-                  generateContentDirect.mutate(
-                    {
-                      data: {
-                        productName: productName.trim(),
-                        brandName: brandName.trim() || undefined,
-                        category: category || undefined,
-                        productDescription: productDescription.trim() || undefined,
-                        title: syntheticTitle,
-                        bulletPoints: syntheticBullets,
-                        targetKeywords: syntheticKeywords.slice(0, 10),
-                        imageUrls: uploadedImages,
-                        contentMarketplaceId,
-                      },
-                    },
-                    {
-                      onSuccess: (data) => {
-                        setIsCreating(false);
-                        setGeneratedContent(data);
-                        toast({ title: "Listing content ready!", description: "Your optimized content is ready." });
-                        refreshCreditBalances(queryClient);
-                      },
-                      onError: (err) => {
-                        setIsCreating(false);
-                        toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
-                      },
-                    }
-                  );
+                      refreshCreditBalances(queryClient);
+                    })
+                    .catch((err) => {
+                      setIsCreating(false);
+                      toast({
+                        title: "Failed",
+                        description: err instanceof Error ? err.message : "Content generation failed",
+                        variant: "destructive",
+                      });
+                    });
                 }}
                 disabled={isCreating}
                 className="w-full flex items-center justify-center gap-2.5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm shadow-orange-200"

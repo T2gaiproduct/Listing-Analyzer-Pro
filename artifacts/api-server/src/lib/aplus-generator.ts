@@ -317,6 +317,7 @@ export function buildDefaultAplusPrompt(data: {
   bulletPoints: string[];
   targetKeywords: string[];
   summary?: string;
+  uploadReferenceContext?: string;
 }): string {
   const brand = data.brandName?.trim();
   const category = data.category?.trim();
@@ -327,6 +328,9 @@ export function buildDefaultAplusPrompt(data: {
     brand ? `Brand: ${brand}.` : "",
     category ? `Category: ${category}.` : "",
     data.productDescription?.trim() ? `Product description: ${data.productDescription.trim()}` : "",
+    data.uploadReferenceContext?.trim()
+      ? `Upload-step attributes & reference research: ${data.uploadReferenceContext.trim()}`
+      : "",
     bullets ? `Key benefits: ${bullets}.` : "",
     keywords ? `Keywords: ${keywords}.` : "",
     data.summary ? `Summary: ${data.summary}` : "",
@@ -356,10 +360,7 @@ export async function generateAplusModuleImages(data: {
   const specs = await getRuntimeAplusModuleSpecs(data.moduleIds);
   const total = specs.length;
   const globalImageDirection = data.imageCustomPrompt?.trim();
-  const globalRefUrls = [
-    ...(data.promptReferenceImageUrls ?? []),
-    ...data.imageUrls,
-  ];
+  const globalRefUrls = [...(data.promptReferenceImageUrls ?? [])];
   const sharedSourcePath = await resolveSourceImage(data.auditId, globalRefUrls);
   const sharedSourceValid = isValidSourcePath(sharedSourcePath);
   const perModuleSourceCache = new Map<string, string | null>();
@@ -382,8 +383,7 @@ export async function generateAplusModuleImages(data: {
       return perModuleSourceCache.get(cacheKey) ?? null;
     }
 
-    const merged = [...extraRefs, ...data.imageUrls];
-    const resolved = await resolveSourceImage(data.auditId, merged);
+    const resolved = await resolveSourceImage(data.auditId, [...extraRefs]);
     perModuleSourceCache.set(cacheKey, resolved);
     return isValidSourcePath(resolved) ? resolved : null;
   }

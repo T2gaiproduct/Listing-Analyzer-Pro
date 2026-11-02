@@ -1,7 +1,15 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { requireAuth } from "../lib/require-auth.js";
 import { eq, and, desc, or, inArray } from "drizzle-orm";
-import { db, graphicsProjectsTable, adminUsersTable, auditsTable } from "@workspace/db";
+import {
+  db,
+  graphicsProjectsTable,
+  adminUsersTable,
+  auditsTable,
+  normalizeReferenceResearchData,
+  type ReferenceResearchData,
+} from "@workspace/db";
+import { formatReferenceResearchForContentPrompt } from "../lib/reference-research-prompt.js";
 import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, insufficientCreditsMessage, type TeamAwareContext } from "../lib/credits";
@@ -233,11 +241,23 @@ async function countGraphicsTypesByBucket(
 async function loadAuditProductDescription(auditId: number | null | undefined): Promise<string | null> {
   if (!auditId) return null;
   const [row] = await db
-    .select({ productDescription: auditsTable.productDescription })
+    .select({
+      productDescription: auditsTable.productDescription,
+      referenceResearch: auditsTable.referenceResearch,
+    })
     .from(auditsTable)
     .where(eq(auditsTable.id, auditId))
     .limit(1);
-  return row?.productDescription?.trim() || null;
+  const parts: string[] = [];
+  const desc = row?.productDescription?.trim();
+  if (desc) parts.push(desc);
+  const refBlock = formatReferenceResearchForContentPrompt(
+    row?.referenceResearch
+      ? normalizeReferenceResearchData(row.referenceResearch as ReferenceResearchData)
+      : null,
+  );
+  if (refBlock) parts.push(refBlock);
+  return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
 async function buildNewImageSpecs(
@@ -459,13 +479,13 @@ async function generateNewImageTypes(
     projectId,
     dir,
     legacy?.promptReferenceImageUrls,
-    sourceImagePaths,
+    null,
   );
   const referencePathCache = new Map<string, string[]>();
 
   async function getReferencePaths(spec: GraphicsSpec): Promise<string[]> {
     const promptRefs = spec.promptReferenceImageUrls ?? legacy?.promptReferenceImageUrls;
-    if (!promptRefs?.length && !sourceImagePaths?.[0]) return [];
+    if (!promptRefs?.length) return [];
 
     const usesDefaultRefs = !spec.promptReferenceImageUrls
       && promptRefs === legacy?.promptReferenceImageUrls;
@@ -480,7 +500,7 @@ async function generateNewImageTypes(
       projectId,
       dir,
       promptRefs,
-      sourceImagePaths,
+      null,
     );
     referencePathCache.set(cacheKey, resolved);
     return resolved;

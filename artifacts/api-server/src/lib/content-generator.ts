@@ -44,6 +44,7 @@ function buildProductContextBlock(data: {
   currentKeywords: string[];
   auditSummary?: string;
   customPrompt?: string;
+  uploadReferenceContext?: string;
   marketplaceName: string;
 }): string {
   return `Product: ${data.productName}
@@ -51,7 +52,8 @@ ${data.brandName ? `Brand: ${data.brandName}` : ""}
 ${data.asin ? `ASIN: ${data.asin}` : ""}
 ${data.category ? `Category: ${data.category}` : ""}
 ${data.productDescription?.trim() ? `Product Description (from seller — use as factual source for benefits, materials, and use cases):\n${data.productDescription.trim()}` : ""}
-${data.imageUrls && data.imageUrls.length > 0 ? `Product Images: ${data.imageUrls.length} image(s) provided for reference` : ""}
+${data.uploadReferenceContext?.trim() ? `\n--- UPLOAD STEP REFERENCE (attributes & competitor research) ---\n${data.uploadReferenceContext.trim()}` : ""}
+${data.imageUrls && data.imageUrls.length > 0 ? `Product Images: ${data.imageUrls.length} product photo(s) uploaded on the Upload step` : ""}
 ${data.customPrompt?.trim() ? `\nSeller creative direction (incorporate where appropriate without violating ${data.marketplaceName} rules):\n${data.customPrompt.trim()}` : ""}
 
 Current Title: ${data.currentTitle}
@@ -73,6 +75,7 @@ export async function generateListingContent(data: {
   currentKeywords: string[];
   auditSummary?: string;
   customPrompt?: string;
+  uploadReferenceContext?: string;
   contentMarketplaceId?: number | null;
   contentMarketplaceSlug?: string | null;
 }): Promise<GeneratedContent> {
