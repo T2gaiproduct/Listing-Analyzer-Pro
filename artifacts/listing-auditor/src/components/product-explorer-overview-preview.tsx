@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import { formatHtmlDescriptionForPreview } from "@/lib/listing-content-format";
@@ -13,10 +12,7 @@ function stripHtmlToPlain(html: string): string {
 }
 
 const MAIN_IMAGE_FRAME =
-  "relative aspect-square w-full max-w-md mx-auto lg:mx-0 lg:max-w-full max-h-[min(420px,70vw)] lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden group/main-image";
-
-const SWEEPER_BTN_CLASS =
-  "absolute top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-900 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity";
+  "relative aspect-square w-full max-w-md mx-auto lg:mx-0 lg:max-w-full max-h-[min(420px,70vw)] lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden";
 
 export function ProductExplorerOverviewPreview({
   imageUrls,
@@ -44,10 +40,6 @@ export function ProductExplorerOverviewPreview({
   const plainDesc = descriptionHtml?.trim() ? stripHtmlToPlain(descriptionHtml) : "";
   const hasContent = Boolean(title.trim() || bullets.length || plainDesc);
   const hasAttributes = rows.length > 0;
-  const canStepGallery = images.length > 1;
-
-  const goPrev = () => setActiveImage((i) => (i - 1 + images.length) % images.length);
-  const goNext = () => setActiveImage((i) => (i + 1) % images.length);
 
   if (!hasContent && !hasAttributes && images.length === 0) {
     return (
@@ -75,24 +67,15 @@ export function ProductExplorerOverviewPreview({
           "lg:gap-5 xl:gap-6",
         )}
       >
-        {/* Amazon-style vertical thumbnails (horizontal on small screens) */}
-        <div className="flex flex-col items-center gap-1 order-2 lg:order-1 shrink-0">
-          {canStepGallery && (
-            <button
-              type="button"
-              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              onClick={goPrev}
-              aria-label="Previous image"
-            >
-              <ChevronUp className="w-4 h-4" />
-            </button>
-          )}
+        {/* Thumbnails — scroll only (no arrow controls) */}
+        <div className="flex flex-col items-center order-2 lg:order-1 shrink-0 w-full lg:w-auto">
           <div
             className={cn(
               "flex lg:flex-col gap-2 w-full overflow-x-auto pb-1 lg:pb-0",
               "lg:overflow-x-hidden lg:overflow-y-auto lg:max-h-[min(380px,65vw)]",
-              "[scrollbar-width:thin]",
+              "[scrollbar-width:thin] [scrollbar-color:rgb(148_163_184)_rgb(241_245_249)]",
             )}
+            aria-label="Product image thumbnails"
           >
             {images.length > 0 ? (
               images.slice(0, 9).map((url, idx) => (
@@ -116,70 +99,12 @@ export function ProductExplorerOverviewPreview({
               </div>
             )}
           </div>
-          {canStepGallery && (
-            <>
-              <button
-                type="button"
-                className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                onClick={goNext}
-                aria-label="Next image"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              <div className="hidden lg:flex gap-1 w-14">
-                <button
-                  type="button"
-                  className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  onClick={goPrev}
-                  aria-label="Previous image"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  onClick={goNext}
-                  aria-label="Next image"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </>
-          )}
         </div>
 
         {/* Main image — Amazon PDP square frame */}
         <div className={cn(MAIN_IMAGE_FRAME, "order-1 lg:order-2")}>
           {mainImage ? (
-            <>
-              <img src={mainImage} alt="" className="h-full w-full object-contain" />
-              {canStepGallery && (
-                <>
-                  <button
-                    type="button"
-                    className={cn(SWEEPER_BTN_CLASS, "left-1.5")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goPrev();
-                    }}
-                    aria-label="Previous image"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(SWEEPER_BTN_CLASS, "right-1.5")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goNext();
-                    }}
-                    aria-label="Next image"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </>
+            <img src={mainImage} alt="" className="h-full w-full object-contain" />
           ) : (
             <p className="text-[11px] text-slate-400">No images</p>
           )}
