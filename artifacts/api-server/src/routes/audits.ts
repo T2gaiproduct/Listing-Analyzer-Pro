@@ -35,6 +35,10 @@ import {
 } from "../lib/analyze-reference-intelligence.js";
 import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
 import {
+  persistAmazonImportExtras,
+  readImportAttributesFromBody,
+} from "../lib/amazon-import-extras.js";
+import {
   getAuditContentVariant,
   listAuditContentVariants,
   upsertAuditContentVariant,
@@ -262,6 +266,10 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
   }
 
   const { projectName, productName, productDescription, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
+  const importAttributes = readImportAttributesFromBody(req.body);
+  const sourceListingUrl = typeof (req.body as { sourceListingUrl?: unknown }).sourceListingUrl === "string"
+    ? (req.body as { sourceListingUrl: string }).sourceListingUrl.trim()
+    : "";
 
   const cost = await getCreditCost("audit");
   const creditCtx = getCreditCtx(req);
@@ -318,6 +326,14 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
       .select()
       .from(competitorsTable)
       .where(eq(competitorsTable.auditId, updatedAudit.id));
+
+    if (updatedAudit.asin?.trim() || importAttributes.length > 0 || sourceListingUrl) {
+      await persistAmazonImportExtras(updatedAudit.id, {
+        importAttributes,
+        sourceUrl: sourceListingUrl || null,
+        marketplaceNotes: "amazon",
+      });
+    }
 
     res.status(201).json(withCreditUsage({ ...updatedAudit, competitors }, auditDeduct));
   } catch (err) {
@@ -383,6 +399,11 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
       ? GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION
       : productDescription?.trim() || null;
 
+    const importAttributes = readImportAttributesFromBody(req.body);
+    const sourceListingUrl = typeof (req.body as { sourceListingUrl?: unknown }).sourceListingUrl === "string"
+      ? (req.body as { sourceListingUrl: string }).sourceListingUrl.trim()
+      : "";
+
     const [audit] = await db
       .insert(auditsTable)
       .values({
@@ -404,6 +425,14 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
         currentStep: 1,
       })
       .returning();
+
+    if (!forGraphicsAplus && (importAttributes.length > 0 || sourceListingUrl || asin?.trim())) {
+      await persistAmazonImportExtras(audit.id, {
+        importAttributes,
+        sourceUrl: sourceListingUrl || null,
+        marketplaceNotes: "amazon",
+      });
+    }
 
     res.status(201).json(audit);
   } catch (err) {

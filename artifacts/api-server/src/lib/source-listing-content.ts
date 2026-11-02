@@ -3,7 +3,17 @@ import { bulletsToHtmlDescription, resolveDescriptionHtml } from "./resolve-list
 import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 
 export function buildSourceListingSnapshot(
-  audit: Pick<Audit, "asin" | "title" | "productName" | "bulletPoints" | "targetKeywords" | "generatedContent" | "storeDescriptionHtml">,
+  audit: Pick<
+    Audit,
+    | "asin"
+    | "title"
+    | "productName"
+    | "productDescription"
+    | "bulletPoints"
+    | "targetKeywords"
+    | "generatedContent"
+    | "storeDescriptionHtml"
+  >,
 ): GeneratedContent {
   const isWooImport = isWooCommerceImportAsin(audit.asin);
   const bulletPoints = isWooImport

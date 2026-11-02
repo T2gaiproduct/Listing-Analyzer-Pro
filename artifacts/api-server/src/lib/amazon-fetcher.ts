@@ -1,5 +1,11 @@
 import * as cheerio from "cheerio";
 import { extractKeywordsFromListing } from "./listing-keyword-suggester.js";
+import {
+  cleanAmazonListingLine,
+  normalizeAmazonAttributes,
+  normalizeAmazonBulletPoints,
+  isJunkAmazonBullet,
+} from "./listing-text-normalize.js";
 
 export type FetchedListingAttribute = {
   attribute: string;
@@ -136,18 +142,14 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
 
   const bulletPoints: string[] = [];
   $("#feature-bullets ul li span.a-list-item").each((_, el) => {
-    const text = $(el).text().trim();
-    if (text && !text.toLowerCase().includes("make sure this fits")) {
-      bulletPoints.push(text);
-    }
+    const text = cleanAmazonListingLine($(el).text(), 400);
+    if (text && !isJunkAmazonBullet(text)) bulletPoints.push(text);
   });
 
   if (bulletPoints.length === 0) {
-    $(".a-unordered-list .a-list-item").each((_, el) => {
-      const text = $(el).text().trim();
-      if (text.length > 20 && text.length < 500) {
-        bulletPoints.push(text);
-      }
+    $("#feature-bullets .a-list-item").each((_, el) => {
+      const text = cleanAmazonListingLine($(el).text(), 400);
+      if (text && !isJunkAmazonBullet(text)) bulletPoints.push(text);
     });
   }
 
@@ -203,10 +205,18 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
     $("#wayfinding-breadcrumbs_feature_div .a-link-normal").last().text().trim() ||
     null;
 
-  const description =
-    $("#productDescription p").text().trim() ||
-    $("#aplus p").first().text().trim() ||
-    null;
+  const descriptionParts: string[] = [];
+  $("#productDescription, #productDescription_feature_div").each((_, el) => {
+    const text = cleanAmazonListingLine($(el).text(), 4000);
+    if (text.length > 30) descriptionParts.push(text);
+  });
+  if (descriptionParts.length === 0) {
+    const aplusText = cleanAmazonListingLine($("#aplus").text(), 4000);
+    if (aplusText.length > 30) descriptionParts.push(aplusText);
+  }
+  const description = descriptionParts.length > 0
+    ? descriptionParts.join("\n\n").slice(0, 8000)
+    : null;
 
   const attributes: FetchedListingAttribute[] = [];
   const pushAttr = (attribute: string, value: string) => {
@@ -217,14 +227,24 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
     attributes.push({ attribute: a, value: v });
   };
 
-  $("#productDetails_techSpec_section_1 tr, #productDetails_detailBullets_sections1 tr").each((_, row) => {
+  const attributeRowSelectors = [
+    "#productDetails_techSpec_section_1 tr",
+    "#productDetails_techSpec_section_2 tr",
+    "#productDetails_detailBullets_sections1 tr",
+    "#productDetails_db_sections tr",
+    "#productDetails_db_detailBullets_sections1 tr",
+    "#prodDetails table tr",
+    "#productOverview_feature_div tr",
+  ].join(", ");
+
+  $(attributeRowSelectors).each((_, row) => {
     const cells = $(row).find("th, td");
     if (cells.length >= 2) {
       pushAttr($(cells[0]).text(), $(cells[1]).text());
     }
   });
 
-  $("#detailBullets_feature_div li").each((_, el) => {
+  $("#detailBullets_feature_div li, #detailBulletsWrapper_feature_div li").each((_, el) => {
     const text = $(el).text().replace(/\s+/g, " ").trim();
     const colon = text.indexOf(":");
     if (colon > 0 && colon < 80) {
@@ -235,18 +255,23 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
   const keywords = extractKeywordsFromListing(title, bulletPoints);
   const productName = title.split(",")[0]?.trim() || title.slice(0, 60) || "Product";
 
+  const normalizedBullets = normalizeAmazonBulletPoints(bulletPoints);
+  const normalizedAttributes = normalizeAmazonAttributes(attributes);
+  const cleanTitle = cleanAmazonListingLine(title, 500);
+  const cleanProductName = cleanAmazonListingLine(productName, 120) || cleanTitle.slice(0, 60) || "Product";
+
   return {
-    productName,
+    productName: cleanProductName,
     asin,
-    category,
-    title,
-    bulletPoints: bulletPoints.slice(0, 7),
+    category: category ? cleanAmazonListingLine(category, 120) : null,
+    title: cleanTitle,
+    bulletPoints: normalizedBullets,
     imageUrls: imageUrls.slice(0, 9),
     targetKeywords: keywords,
-    description,
+    description: description ? cleanAmazonListingLine(description, 8000) : null,
     price,
     rating,
-    attributes: attributes.slice(0, 40),
+    attributes: normalizedAttributes,
   };
 }
 

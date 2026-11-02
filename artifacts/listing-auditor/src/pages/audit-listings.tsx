@@ -58,7 +58,10 @@ export default function AuditListings() {
                 bulletPoints: listing.bulletPoints,
                 imageUrls: listing.imageUrls,
                 targetKeywords: listing.targetKeywords,
-              },
+                productDescription: listing.description ?? undefined,
+                importAttributes: listing.attributes ?? [],
+                sourceListingUrl: trimmed.startsWith("http") ? trimmed : undefined,
+              } as Parameters<typeof createAudit.mutate>[0]["data"],
             },
             {
               onSuccess: (audit) => {

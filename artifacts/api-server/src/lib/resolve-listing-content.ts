@@ -62,6 +62,9 @@ export function resolveDescriptionHtml(audit: Audit): string {
   if (generated?.htmlDescription?.trim()) {
     return generated.htmlDescription.trim();
   }
+  if (audit.productDescription?.trim()) {
+    return audit.productDescription.trim();
+  }
   const bullets = (audit.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
   return bulletsToHtmlDescription(bullets);
 }

@@ -427,12 +427,14 @@ function resolveExistingListingContent(
         || "");
 
   const storeDesc = audit?.storeDescriptionHtml?.trim() || product?.descriptionHtml?.trim() || "";
+  const importedDesc = audit?.productDescription?.trim() || "";
   const generatedDesc = audit?.generatedContent?.htmlDescription?.trim();
   const htmlDescription = isWooImport
     ? storeDesc
     : overwritten
       ? bulletsToHtmlDescription(bulletPoints)
       : (storeDesc
+        || importedDesc
         || (generatedDesc && !isBulletDerivedDescription(generatedDesc, bulletPoints)
           ? generatedDesc
           : bulletsToHtmlDescription(bulletPoints)));
@@ -1218,14 +1220,20 @@ export default function ProductDetailPage({ id }: { id: number }) {
       ?? effectiveAudit?.bulletPoints
       ?? [];
     const descriptionHtml =
-      existingListingContent?.htmlDescription?.trim()
+      (effectiveAudit as { productDescription?: string | null } | undefined)?.productDescription?.trim()
+      || existingListingContent?.htmlDescription?.trim()
       || listingProduct?.descriptionHtml?.trim()
       || listingProduct?.description?.trim()
       || (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml?.trim()
       || null;
-    const attributes = referenceResearch?.productDetails?.filter(
-      (row) => row.attribute?.trim() && row.value?.trim(),
-    ) ?? [];
+    const snapshotAttrs =
+      (effectiveAudit?.sourceListingContent as { attributes?: Array<{ attribute: string; value: string }> } | null | undefined)
+        ?.attributes ?? [];
+    const attributes = (
+      referenceResearch?.productDetails?.length
+        ? referenceResearch.productDetails
+        : snapshotAttrs
+    ).filter((row) => row.attribute?.trim() && row.value?.trim());
     return {
       imageUrls: productImageUrls,
       title,
@@ -1242,6 +1250,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     product?.name,
     productImageUrls,
     referenceResearch?.productDetails,
+    effectiveAudit?.sourceListingContent,
   ]);
 
   /** Listing Preview: only marketplaces with generated optimized content on this audit. */

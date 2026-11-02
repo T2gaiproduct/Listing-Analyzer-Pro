@@ -23,7 +23,6 @@ import {
   type ImportLinkMarketplace,
 } from "@/lib/import-link-marketplace";
 import { parseListingFetchInput } from "@/lib/listing-input";
-import { fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { getGetAuditQueryKey } from "@workspace/api-client-react";
 
@@ -105,20 +104,10 @@ export default function AuditImportFromLinkPage() {
           category: listing.category ?? undefined,
           asin: listing.asin || undefined,
           productDescription: listing.description ?? undefined,
-        },
+          importAttributes: (listing.attributes ?? []).slice(0, 40),
+          sourceListingUrl: sourceUrl.trim() || undefined,
+        } as Parameters<typeof createAuditDraft.mutateAsync>[0]["data"],
       });
-
-      const productDetails = (listing.attributes ?? []).slice(0, 24);
-      if (productDetails.length > 0 || sourceUrl.trim()) {
-        await fetchJson(`${basePath}/api/audits/${audit.id}/reference-research`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slots: sourceUrl.trim() ? [{ url: sourceUrl.trim(), notes: marketplace }] : [],
-            productDetails,
-          }),
-        });
-      }
 
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(audit.id) });

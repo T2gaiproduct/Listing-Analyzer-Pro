@@ -3,6 +3,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import { formatHtmlDescriptionForPreview } from "@/lib/listing-content-format";
+import { cleanListingDisplayText } from "@/lib/listing-display-sanitize";
 import type { SellerProductDetail } from "@/lib/reference-research";
 import { SpecificationsFeaturesSection } from "@/components/specifications-features-section";
 
@@ -34,7 +35,9 @@ export function ProductExplorerOverviewPreview({
 }) {
   const images = imageUrls.filter((u) => u?.trim());
   const [activeImage, setActiveImage] = useState(0);
-  const bullets = bulletPoints.filter((b) => b?.trim());
+  const bullets = bulletPoints
+    .map((b) => cleanListingDisplayText(b ?? ""))
+    .filter(Boolean);
   const rows = attributes.filter((r) => r.attribute?.trim() && r.value?.trim());
   const safeIndex = images.length > 0 ? activeImage % images.length : 0;
   const mainImage = images[safeIndex];
@@ -165,7 +168,7 @@ export function ProductExplorerOverviewPreview({
         {/* Listing copy + attributes */}
         <div className="min-w-0 space-y-3 order-3 lg:order-3">
           {title.trim() ? (
-            <h3 className="text-sm font-semibold text-slate-900 leading-snug">{title}</h3>
+            <h3 className="text-sm font-semibold text-slate-900 leading-snug">{cleanListingDisplayText(title)}</h3>
           ) : (
             <p className="text-[11px] text-slate-400 italic">No title yet</p>
           )}
