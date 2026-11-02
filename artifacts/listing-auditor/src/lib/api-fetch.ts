@@ -181,8 +181,12 @@ export async function readApiJson<T>(res: Response): Promise<T> {
       let message = res.status === 401 && (!raw || raw === "Unauthorized")
         ? "Your session could not be verified. Sign out and sign in again on this site."
         : raw;
-      if (data.apiBuildId) {
+      if (data.apiBuildId && res.status !== 401) {
         message = `${message} (API build ${data.apiBuildId})`;
+      }
+      if (data.staleProcess === true) {
+        message =
+          "The API server is running an older build. Ask your agent to run bash scripts/dev-stack-reload.sh, then hard-refresh this page and sign in again.";
       }
       if (data.hint?.trim()) {
         message = `${message} ${data.hint.trim()}`;
