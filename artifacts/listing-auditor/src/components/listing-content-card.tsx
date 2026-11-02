@@ -5,7 +5,6 @@ import type {
   ListingContentFieldSource,
   ListingContentFieldSources,
 } from "@/lib/listing-content-field-merge";
-import { mergeListingContentByFieldSources } from "@/lib/listing-content-field-merge";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
@@ -472,71 +471,6 @@ export function listingViewToGenerated(view: ListingContentView | null): Generat
   };
 }
 
-function SelectedMergedListingSummary({
-  existing,
-  optimized,
-  fieldSources,
-}: {
-  existing: ListingContentView | null;
-  optimized: ListingContentView | null;
-  fieldSources: ListingContentFieldSources;
-}) {
-  const merged = useMemo(
-    () => mergeListingContentByFieldSources(
-      listingViewToGenerated(existing),
-      listingViewToGenerated(optimized),
-      fieldSources,
-    ),
-    [existing, optimized, fieldSources],
-  );
-  const bullets = normalizeBulletPoints(merged.bulletPoints ?? []);
-  const keywords = (merged.keywords ?? []).filter(Boolean);
-  const hasCopy = Boolean(
-    merged.title?.trim()
-    || bullets.length
-    || keywords.length
-    || merged.htmlDescription?.trim()
-    || (merged.attributes?.length ?? 0) > 0,
-  );
-  if (!hasCopy) return null;
-
-  return (
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50/25 overflow-hidden">
-      <div className="px-3 py-2 border-b border-emerald-100 bg-emerald-50/60">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900">
-          Selected listing copy
-        </p>
-        <p className="text-[9px] text-emerald-800/80 mt-0.5">
-          Your ✓ / ✕ choices combined — matches Listing Preview after you click Save
-        </p>
-      </div>
-      <div className="px-3 py-3 space-y-2.5 text-[11px] text-slate-800">
-        {merged.title?.trim() && (
-          <p className="font-medium leading-snug">{merged.title}</p>
-        )}
-        {bullets.length > 0 && (
-          <ul className="list-disc pl-4 space-y-1 text-slate-700">
-            {bullets.map((b, i) => (
-              <li key={`${i}-${b.slice(0, 16)}`}>{b}</li>
-            ))}
-          </ul>
-        )}
-        {keywords.length > 0 && (
-          <p className="text-slate-600">
-            <span className="font-semibold text-slate-700">Keywords: </span>
-            {keywords.join(", ")}
-          </p>
-        )}
-        {(merged.attributes?.length ?? 0) > 0 && (
-          <p className="text-slate-600 leading-relaxed">
-            {(merged.attributes ?? []).map((row) => `${row.attribute}: ${row.value}`).join(" · ")}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function ListingMarketplaceContentCompare({
   existing,
   optimized,
@@ -776,14 +710,6 @@ export function ListingMarketplaceContentCompare({
         <p className="text-[10px] text-slate-500 text-center pt-1">
           Click Generate to create optimized copy for this marketplace tab.
         </p>
-      )}
-
-      {hasOptimized && fieldSources && onFieldSourceChange && (
-        <SelectedMergedListingSummary
-          existing={existing}
-          optimized={optimized}
-          fieldSources={fieldSources}
-        />
       )}
     </div>
   );
