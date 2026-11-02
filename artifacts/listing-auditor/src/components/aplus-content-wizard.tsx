@@ -100,7 +100,7 @@ export function AplusContentWizard({
   /** Product Explorer split view: create/optimize on the right; gallery on the left. */
   createOnly?: boolean;
 }) {
-  const { modules: APLUS_MODULE_CARDS } = useAplusModuleCards();
+  const { modules: APLUS_MODULE_CARDS, isLoading: aplusModulesLoading, modulesUnavailable } = useAplusModuleCards();
   const allAplusModuleIds = useMemo(() => APLUS_MODULE_CARDS.map((m) => m.id), [APLUS_MODULE_CARDS]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -273,6 +273,14 @@ export function AplusContentWizard({
       });
       return;
     }
+    if (modulesUnavailable) {
+      toast({
+        title: "A+ modules unavailable",
+        description: "Could not load A+ module configuration. Refresh the page or ask an admin to enable A+ modules in Settings.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (selectedAplusModules.length === 0) {
       toast({
         title: "Select modules",
@@ -316,10 +324,19 @@ export function AplusContentWizard({
       </div>
       )}
 
+      {modulesUnavailable && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          A+ module templates are not available yet. Refresh the page; if this persists, an admin must enable A+ modules under Settings → Image prompts.
+        </p>
+      )}
+
       <div className={cn(
         "grid gap-4",
         createOnly ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
       )}>
+        {(aplusModulesLoading && APLUS_MODULE_CARDS.length === 0) ? (
+          <p className="text-xs text-slate-500 col-span-full py-4 text-center">Loading A+ modules…</p>
+        ) : null}
         {APLUS_MODULE_CARDS.map((module) => {
           const isSelected = selectedAplusModules.includes(module.id);
           const generated = aplusModules.find((m) => m.id === module.id);
@@ -328,11 +345,12 @@ export function AplusContentWizard({
               key={module.id}
               type="button"
               onClick={() => {
-                if (isGenerating) return;
-                if (!selectedAplusModules.includes(module.id)) {
-                  setSelectedAplusModules((prev) => [...prev, module.id]);
-                }
-                setAplusCustomizeModuleId(module.id);
+                if (isGenerating || modulesUnavailable) return;
+                setSelectedAplusModules((prev) => (
+                  prev.includes(module.id)
+                    ? prev.filter((id) => id !== module.id)
+                    : [...prev, module.id]
+                ));
               }}
               disabled={isGenerating}
               className={cn(
@@ -413,6 +431,8 @@ export function AplusContentWizard({
         )}
         disabled={
           isGenerating
+          || modulesUnavailable
+          || aplusModulesLoading
           || selectedAplusModules.length === 0
           || (isTeamMember && (memberCredits?.imageCredits ?? 0) < aplusImageCostPerModule * selectedAplusModules.length)
         }

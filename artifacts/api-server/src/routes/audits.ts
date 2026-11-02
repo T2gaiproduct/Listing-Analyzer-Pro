@@ -48,6 +48,7 @@ import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refre
 import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-product-listing-refresh.js";
 import { listProductMarketplacesSafe } from "../lib/product-marketplaces.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
+import { ensureImagePromptTemplatesReady } from "../lib/ensure-image-prompt-templates.js";
 import { isEnabledAplusModuleSlug } from "../lib/image-prompt-template-service.js";
 import {
   buildDefaultAplusPrompt,
@@ -1015,6 +1016,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
 
   let moduleIds: AplusModule["id"][];
   try {
+    await ensureImagePromptTemplatesReady();
     moduleIds = await parseAplusModuleIds(rawModuleIds);
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Invalid module selection" });

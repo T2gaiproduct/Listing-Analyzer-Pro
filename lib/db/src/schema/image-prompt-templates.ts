@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -15,22 +15,31 @@ export const imagePromptTemplateMetadataSchema = z.object({
 
 export type ImagePromptTemplateMetadata = z.infer<typeof imagePromptTemplateMetadataSchema>;
 
-export const imagePromptTemplatesTable = pgTable("image_prompt_templates", {
-  id: serial("id").primaryKey(),
-  slug: text("slug").notNull().unique(),
-  category: text("category").notNull().$type<ImagePromptTemplateCategory>(),
-  name: text("name").notNull(),
-  description: text("description"),
-  enabled: integer("enabled").notNull().default(1),
-  isSystem: integer("is_system").notNull().default(0),
-  sortOrder: integer("sort_order").notNull().default(0),
-  promptTemplate: text("prompt_template").notNull(),
-  headlineTemplate: text("headline_template"),
-  bodyTemplate: text("body_template"),
-  metadata: jsonb("metadata").$type<ImagePromptTemplateMetadata>(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+export const imagePromptTemplatesTable = pgTable(
+  "image_prompt_templates",
+  {
+    id: serial("id").primaryKey(),
+    slug: text("slug").notNull(),
+    category: text("category").notNull().$type<ImagePromptTemplateCategory>(),
+    name: text("name").notNull(),
+    description: text("description"),
+    enabled: integer("enabled").notNull().default(1),
+    isSystem: integer("is_system").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+    promptTemplate: text("prompt_template").notNull(),
+    headlineTemplate: text("headline_template"),
+    bodyTemplate: text("body_template"),
+    metadata: jsonb("metadata").$type<ImagePromptTemplateMetadata>(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    slugCategoryUnique: uniqueIndex("image_prompt_templates_slug_category_uidx").on(
+      table.slug,
+      table.category,
+    ),
+  }),
+);
 
 export const insertImagePromptTemplateSchema = createInsertSchema(imagePromptTemplatesTable).omit({
   id: true,

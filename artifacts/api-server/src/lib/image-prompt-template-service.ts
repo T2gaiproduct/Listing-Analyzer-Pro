@@ -163,9 +163,14 @@ export async function isEnabledAplusModuleSlug(slug: string): Promise<boolean> {
 }
 
 export async function parseAplusModuleIds(moduleIds: unknown): Promise<string[]> {
-  const allEnabled = await getEnabledAplusModuleSlugs();
+  let allEnabled = await getEnabledAplusModuleSlugs();
   if (allEnabled.length === 0) {
-    throw new Error("No A+ modules are configured");
+    const { ensureImagePromptTemplatesReady } = await import("./ensure-image-prompt-templates.js");
+    await ensureImagePromptTemplatesReady();
+    allEnabled = await getEnabledAplusModuleSlugs();
+  }
+  if (allEnabled.length === 0) {
+    throw new Error("No A+ modules are configured. Ask an admin to enable A+ modules under Settings → Image prompts.");
   }
   if (!Array.isArray(moduleIds) || moduleIds.length === 0) {
     return [...allEnabled];

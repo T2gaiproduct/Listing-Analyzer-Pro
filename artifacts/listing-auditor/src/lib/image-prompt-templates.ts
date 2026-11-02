@@ -90,19 +90,26 @@ const FALLBACK_APLUS_MODULES: AplusModuleCard[] = [
   { id: "brand_story", label: "Brand Story", desc: "Connect with customers through your brand's mission", icon: "📖" },
 ];
 
-export function useAplusModuleCards(): { modules: AplusModuleCard[]; isLoading: boolean } {
-  const { data, isLoading } = useImagePromptTemplates("aplus");
+export function useAplusModuleCards(): {
+  modules: AplusModuleCard[];
+  isLoading: boolean;
+  /** True when the API returned no enabled modules (generation would fail). */
+  modulesUnavailable: boolean;
+} {
+  const { data, isLoading, isFetched } = useImagePromptTemplates("aplus");
   const modules = useMemo(() => {
     const templates = data?.templates;
-    if (!templates?.length) return FALLBACK_APLUS_MODULES;
+    if (!isFetched || isLoading) return FALLBACK_APLUS_MODULES;
+    if (!templates?.length) return [];
     return templates.map((t) => ({
       id: t.slug,
       label: t.name,
       desc: t.description ?? "",
       icon: t.icon ?? "🖼️",
     }));
-  }, [data]);
-  return { modules, isLoading };
+  }, [data, isFetched, isLoading]);
+  const modulesUnavailable = isFetched && !isLoading && !(data?.templates?.length);
+  return { modules, isLoading, modulesUnavailable };
 }
 
 export function useAdminImagePromptTemplates(category?: ImagePromptTemplateCategory) {

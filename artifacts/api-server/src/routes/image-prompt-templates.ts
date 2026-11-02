@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { requireAuth, type AuthedRequest } from "../lib/require-auth.js";
 
+import { ensureImagePromptTemplatesReady } from "../lib/ensure-image-prompt-templates.js";
 import {
   listEnabledImagePromptTemplates,
   serializeImagePromptTemplatePublic,
@@ -21,6 +22,7 @@ router.get("/image-prompt-templates", requireAuth, async (req, res): Promise<voi
     return;
   }
 
+  await ensureImagePromptTemplatesReady();
   const rows = await listEnabledImagePromptTemplates(category);
   res.json({
     templates: rows.map(serializeImagePromptTemplatePublic),

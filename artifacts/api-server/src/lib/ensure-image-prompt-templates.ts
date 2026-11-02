@@ -3,6 +3,19 @@ import { db, imagePromptTemplatesTable } from "@workspace/db";
 import { DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS } from "./image-prompt-template-defaults.js";
 
 let migrated = false;
+let constraintMigrated = false;
+let readyPromise: Promise<void> | null = null;
+
+/** Idempotent: schema + default rows (graphics + A+). Safe to await before listing or generating. */
+export function ensureImagePromptTemplatesReady(): Promise<void> {
+  if (!readyPromise) {
+    readyPromise = ensureDefaultImagePromptTemplatesSeeded().catch((err) => {
+      readyPromise = null;
+      throw err;
+    });
+  }
+  return readyPromise;
+}
 
 export async function ensureImagePromptTemplatesSchemaMigrated(): Promise<void> {
   if (migrated) return;
@@ -30,8 +43,26 @@ export async function ensureImagePromptTemplatesSchemaMigrated(): Promise<void> 
   migrated = true;
 }
 
+/** Older DBs used UNIQUE(slug) only, which blocks A+ rows that share slugs with graphics (e.g. hero). */
+async function ensureImagePromptTemplatesSlugCategoryUnique(): Promise<void> {
+  if (constraintMigrated) return;
+  await ensureImagePromptTemplatesSchemaMigrated();
+
+  await db.execute(sql`
+    ALTER TABLE image_prompt_templates
+    DROP CONSTRAINT IF EXISTS image_prompt_templates_slug_unique
+  `);
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS image_prompt_templates_slug_category_uidx
+    ON image_prompt_templates (slug, category)
+  `);
+
+  constraintMigrated = true;
+}
+
 export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
   await ensureImagePromptTemplatesSchemaMigrated();
+  await ensureImagePromptTemplatesSlugCategoryUnique();
 
   for (const seed of DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS) {
     const existing = await db
