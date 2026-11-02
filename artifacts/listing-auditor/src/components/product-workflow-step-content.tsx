@@ -13,8 +13,6 @@ import {
 import { canExportListingSource } from "@/components/listing-export-button";
 import { ProductListingPreview } from "@/components/product-listing-preview";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
-import { ProductOrdersTab } from "@/components/product-orders-tab";
-import { ProductSalesTab } from "@/components/product-sales-tab";
 import { ProductMiscellaneousTab } from "@/components/product-miscellaneous-tab";
 import type { ReferenceResearchData } from "@/lib/reference-research";
 
@@ -262,8 +260,6 @@ export function ProductWorkflowStepContent({
   const showContinueFooter = hasNextStep
     && !listingEditorContent
     && Boolean(onSaveAndContinue)
-    && step !== 7
-    && step !== 8
     && step !== 3;
   const showStoreSyncOnStep = Boolean(
     showStoreSync && !listingEditorContent && step >= 1 && step <= 4,
@@ -378,11 +374,12 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 6 && productId) {
+  if (step === 6 && productId && productSource) {
     return (
-      <WorkflowStepShell {...shellProps}>
+      <WorkflowStepShell showSaveAndContinue={false}>
         <ProductMiscellaneousTab
           productId={productId}
+          productSource={productSource}
           productName={productName}
           sku={productSku}
           asin={productAsin}
@@ -392,22 +389,6 @@ export function ProductWorkflowStepContent({
           targetKeywords={targetKeywords}
         />
       </WorkflowStepShell>
-    );
-  }
-
-  if (step === 7 && productId && productSource) {
-    return (
-      <WorkflowStepShell showSaveAndContinue={false}>
-        <ProductOrdersTab productId={productId} source={productSource} enabled />
-      </WorkflowStepShell>
-    );
-  }
-
-  if (step === 8 && productId && productSource) {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <ProductSalesTab productId={productId} source={productSource} enabled />
-      </div>
     );
   }
 
