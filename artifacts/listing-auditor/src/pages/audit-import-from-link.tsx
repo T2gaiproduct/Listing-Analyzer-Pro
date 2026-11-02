@@ -141,25 +141,24 @@ export default function AuditImportFromLinkPage() {
 
   return (
     <div className="min-h-full bg-background">
-      <div className="mx-auto w-full max-w-[min(96rem,calc(100vw-2rem))] space-y-5 px-4 py-5 sm:px-6 sm:py-6">
-        <div className="flex flex-wrap items-center gap-2 min-h-[44px] rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-2 sm:px-3">
+      <div className="mx-auto w-full max-w-[min(96rem,calc(100vw-2rem))] space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="space-y-4">
           <Button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 shrink-0 px-2 text-[11px] font-semibold"
+            variant="link"
+            className="h-auto p-0 text-sm font-semibold text-muted-foreground hover:text-foreground"
             onClick={() => nav("/audits/new")}
           >
-            <ArrowLeft className="mr-1 h-3.5 w-3.5" />
-            Back
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Back to Build Your Brand
           </Button>
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100">
-              <Link2 className="h-4 w-4 text-orange-600" aria-hidden />
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100">
+              <Link2 className="h-5 w-5 text-orange-600" aria-hidden />
             </div>
             <div className="min-w-0">
-              <h1 className="text-sm font-semibold text-foreground sm:text-base">Import from link</h1>
-              <p className="text-[11px] text-muted-foreground sm:text-xs">
+              <h1 className="text-xl font-semibold text-foreground sm:text-2xl">Import from link</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Fetch a listing, preview it, then save to Product Explorer
               </p>
             </div>

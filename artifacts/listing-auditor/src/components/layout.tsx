@@ -121,6 +121,7 @@ function getPageTitle(location: string, appName: string): string {
   if (location.startsWith("/products/")) return "Product Details";
   if (location === "/recent-projects") return "Recent Projects";
   if (location === "/audits/new") return "Create Listing";
+  if (location === "/audits/import-from-link") return "Import from link";
   if (location === "/audits/workflow") return "Create Listing";
   if (location.startsWith("/audits/") && location.includes("/competitors/")) return "Add Competitor";
   if (location.startsWith("/audits/")) return "Audit Details";
@@ -153,6 +154,7 @@ function isRibbonVisible(location: string): boolean {
   if (location === "/products") return false;
   if (location.startsWith("/products/")) return false;
   if (location === "/audits/new") return false;
+  if (location === "/audits/import-from-link") return false;
   if (location === "/projects") return false;
   if (location === "/videos") return false;
   if (location === "/ads" || location.startsWith("/ads/")) return false;
