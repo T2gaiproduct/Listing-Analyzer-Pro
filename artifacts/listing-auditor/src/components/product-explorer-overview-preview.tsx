@@ -14,7 +14,7 @@ const MAIN_IMAGE_FRAME =
   "relative aspect-square w-full max-w-md mx-auto lg:mx-0 lg:max-w-full max-h-[min(420px,70vw)] lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden group/main-image";
 
 const SWEEPER_BTN_CLASS =
-  "absolute top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full border border-orange-200 bg-orange-500 text-white shadow-sm flex items-center justify-center hover:bg-orange-600 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 transition-opacity";
+  "absolute top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-900 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity";
 
 export function ProductExplorerOverviewPreview({
   imageUrls,
@@ -76,7 +76,7 @@ export function ProductExplorerOverviewPreview({
           {canStepGallery && (
             <button
               type="button"
-              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-orange-600 hover:bg-orange-50"
+              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
               onClick={goPrev}
               aria-label="Previous image"
             >
@@ -99,7 +99,7 @@ export function ProductExplorerOverviewPreview({
                   className={cn(
                     "relative shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50",
                     safeIndex === idx
-                      ? "border-orange-500 ring-1 ring-orange-300"
+                      ? "border-slate-900"
                       : "border-slate-200 hover:border-slate-300",
                   )}
                 >
@@ -115,7 +115,7 @@ export function ProductExplorerOverviewPreview({
           {canStepGallery && (
             <button
               type="button"
-              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-orange-600 hover:bg-orange-50"
+              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
               onClick={goNext}
               aria-label="Next image"
             >
