@@ -433,8 +433,20 @@ function useOnboardingSummary() {
       if (error instanceof ApiFetchError && error.status === 401) {
         return failureCount < (onPreview ? 8 : 3);
       }
+      if (
+        error instanceof ApiFetchError
+        && (error.status === 502 || error.status === 503 || error.status === 504)
+      ) {
+        return failureCount < (onPreview ? 12 : 4);
+      }
       if (error instanceof Error && /session could not be verified/i.test(error.message)) {
         return failureCount < (onPreview ? 8 : 5);
+      }
+      if (
+        error instanceof TypeError
+        || (error instanceof Error && /failed to fetch|network|load failed|context canceled/i.test(error.message))
+      ) {
+        return failureCount < (onPreview ? 12 : 4);
       }
       return failureCount < 3;
     },
@@ -454,6 +466,7 @@ function HomeRedirect() {
   const {
     data: summary,
     isFetched: summaryFetched,
+    isFetching: summaryFetching,
     isError: summaryError,
     refetch: refetchSummary,
   } = useOnboardingSummary();
@@ -462,8 +475,12 @@ function HomeRedirect() {
   if (envAdmin && !adminLoaded) return <AuthLoading />;
   if ((envAdmin || (adminLoaded && isAdmin)) && !permLoaded) return <AuthLoading />;
   if (envAdmin || (adminLoaded && isAdmin)) return <Redirect to={defaultRoute} />;
-  if (!summaryFetched) return <AuthLoading />;
+  if (!summaryFetched || (summaryFetching && !summary)) return <AuthLoading />;
   if (summaryError || !summary) {
+    // Match ProtectedRoute: on quick tunnel, enter the app and surface auth issues in-layout.
+    if (isCloudflareQuickPreviewHost()) {
+      return <Redirect to="/dashboard" />;
+    }
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
   }
   const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
