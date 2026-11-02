@@ -99,8 +99,8 @@ export function ProductExplorerOverviewPreview({
         )}
       >
         <p className="text-[11px] text-slate-500">
-          No listing preview yet. Add images and details in Build Your Brand Upload, import from a link, or generate
-          listing content on the Listing tab.
+          No existing listing to show yet. Import a product or sync store data. Optimized copy appears on Listing Preview
+          after you generate on Optimize Listing.
         </p>
       </div>
     );

@@ -73,6 +73,7 @@ import {
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
+import type { ContentVariantWithMeta } from "@/lib/listing-content-field-merge";
 import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
@@ -1139,37 +1140,31 @@ export default function ProductDetailPage({ id }: { id: number }) {
     return urls;
   }, [product?.imageUrls, product?.imageUrl, effectiveAudit?.imageUrls]);
 
+  /** Overview tab: imported / live listing only — never AI-optimized or merged variant copy. */
   const overviewPreview = useMemo(() => {
-    const variantGc = contentMarketplaceId != null
-      ? contentVariants.find((v) => v.contentMarketplaceId === contentMarketplaceId)?.generatedContent
-      : undefined;
-    const gc = variantGc ?? effectiveAudit?.generatedContent;
     const title =
-      gc?.title?.trim()
-      || existingListingContent?.title?.trim()
+      existingListingContent?.title?.trim()
       || listingProduct?.listingTitle?.trim()
       || listingProduct?.title?.trim()
+      || effectiveAudit?.title?.trim()
       || product?.name
       || "";
     const bulletPoints =
-      (gc?.bulletPoints?.length ? gc.bulletPoints : null)
-      ?? existingListingContent?.bulletPoints
+      (existingListingContent?.bulletPoints?.length
+        ? existingListingContent.bulletPoints
+        : null)
       ?? listingProduct?.bulletPoints
       ?? effectiveAudit?.bulletPoints
       ?? [];
     const descriptionHtml =
-      gc?.htmlDescription
-      ?? existingListingContent?.htmlDescription
-      ?? listingProduct?.htmlDescription
-      ?? listingProduct?.description
-      ?? null;
-    const generatedAttributes =
-      gc?.attributes?.filter((row) => row.attribute?.trim() && row.value?.trim()) ?? [];
-    const attributes = generatedAttributes.length > 0
-      ? generatedAttributes
-      : referenceResearch?.productDetails?.filter(
-          (row) => row.attribute?.trim() && row.value?.trim(),
-        ) ?? [];
+      existingListingContent?.htmlDescription?.trim()
+      || listingProduct?.descriptionHtml?.trim()
+      || listingProduct?.description?.trim()
+      || (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml?.trim()
+      || null;
+    const attributes = referenceResearch?.productDetails?.filter(
+      (row) => row.attribute?.trim() && row.value?.trim(),
+    ) ?? [];
     return {
       imageUrls: productImageUrls,
       title,
@@ -1178,16 +1173,38 @@ export default function ProductDetailPage({ id }: { id: number }) {
       attributes,
     };
   }, [
-    contentMarketplaceId,
-    contentVariants,
-    effectiveAudit?.generatedContent,
-    effectiveAudit?.bulletPoints,
     existingListingContent,
     listingProduct,
+    effectiveAudit?.title,
+    effectiveAudit?.bulletPoints,
+    effectiveAudit,
     product?.name,
     productImageUrls,
     referenceResearch?.productDetails,
   ]);
+
+  /** Listing Preview tab: merged optimized copy for the active content marketplace (user field picks). */
+  const listingPreviewGeneratedContent = useMemo((): GeneratedContent | null => {
+    const pickVariant = (raw: ContentVariantWithMeta | undefined): GeneratedContent | null => {
+      if (!raw?.title?.trim()) return null;
+      const { fieldSources: _fs, aiSnapshot: _ai, ...merged } = raw;
+      return merged;
+    };
+    if (contentMarketplaceId != null) {
+      const fromTab = contentVariants.find((v) => v.contentMarketplaceId === contentMarketplaceId)
+        ?.generatedContent as ContentVariantWithMeta | undefined;
+      const tabContent = pickVariant(fromTab);
+      if (tabContent) return tabContent;
+    }
+    const legacyId = (effectiveAudit as { contentMarketplaceId?: number | null })?.contentMarketplaceId;
+    if (legacyId != null) {
+      const fromLegacy = contentVariants.find((v) => v.contentMarketplaceId === legacyId)
+        ?.generatedContent as ContentVariantWithMeta | undefined;
+      const legacyContent = pickVariant(fromLegacy);
+      if (legacyContent) return legacyContent;
+    }
+    return effectiveAudit?.generatedContent ?? null;
+  }, [contentMarketplaceId, contentVariants, effectiveAudit?.generatedContent, effectiveAudit]);
 
   useEffect(() => {
     if (productImageUrls.length === 0) return;
@@ -2019,7 +2036,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           category={product.category}
           productImageUrl={product.imageUrl}
           audit={effectiveAudit}
-          generatedContent={effectiveAudit?.generatedContent ?? null}
+          generatedContent={listingPreviewGeneratedContent}
           existingContent={existingListingContent}
           suggestions={listingSuggestions}
           hasGeneratedContent={hasGeneratedListing}
