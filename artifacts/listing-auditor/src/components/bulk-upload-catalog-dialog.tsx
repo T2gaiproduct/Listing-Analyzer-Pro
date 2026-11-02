@@ -173,8 +173,8 @@ export function BulkUploadCatalogDialog({
                   <div
                     className={cn(
                       "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                      active && "border-blue-500 bg-blue-50 text-blue-600",
-                      done && !active && "border-blue-200 bg-blue-50/80 text-blue-500",
+                      active && "border-orange-500 bg-orange-50 text-orange-600",
+                      done && !active && "border-orange-200 bg-orange-50/80 text-orange-500",
                       !active && !done && "border-border bg-card text-muted-foreground",
                     )}
                   >
@@ -200,7 +200,7 @@ export function BulkUploadCatalogDialog({
         <div className="px-6 py-6 min-h-[280px]">
           {step === "category" && (
             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 mb-4">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 mb-4">
                 <FolderTree className="h-7 w-7" />
               </div>
               <h3 className="text-center text-sm font-semibold text-foreground">
@@ -225,7 +225,7 @@ export function BulkUploadCatalogDialog({
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white h-9"
+                  className="bg-orange-500 hover:bg-orange-600 text-white h-9"
                   disabled={!category}
                   onClick={() => setStep("file")}
                 >
@@ -238,17 +238,17 @@ export function BulkUploadCatalogDialog({
 
           {step === "file" && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-2 text-xs text-muted-foreground">
-                Category: <span className="font-medium text-foreground">{category}</span>
+              <div className="rounded-lg border border-dashed border-orange-200/80 bg-orange-50/40 px-3 py-2 text-xs text-muted-foreground">
+                Category: <span className="font-medium text-orange-900">{category}</span>
               </div>
               <button
                 type="button"
                 disabled={parsing}
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full rounded-xl border-2 border-dashed border-border hover:border-blue-400/60 bg-card p-8 text-center transition-colors disabled:opacity-60"
+                className="w-full rounded-xl border-2 border-dashed border-border hover:border-orange-400/60 bg-card p-8 text-center transition-colors disabled:opacity-60"
               >
                 {parsing ? (
-                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-blue-600" />
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-orange-600" />
                 ) : (
                   <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
                 )}
@@ -286,7 +286,7 @@ export function BulkUploadCatalogDialog({
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs"
+                    className="bg-orange-500 hover:bg-orange-600 text-white h-8 text-xs"
                     disabled={!fileName || rows.length === 0 || Boolean(parseError)}
                     onClick={() => setStep("structure")}
                   >
@@ -368,7 +368,7 @@ export function BulkUploadCatalogDialog({
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs"
+                  className="bg-orange-500 hover:bg-orange-600 text-white h-8 text-xs"
                   disabled={
                     importing
                     || !mappingCoversRequiredFields(mapping)
