@@ -220,7 +220,7 @@ export function DashboardTopbar({
           onChange={(e) => onSearchQueryChange(e.target.value)}
           onFocus={() => setSearchFocused(true)}
           placeholder={searchPlaceholder}
-          className="w-full h-9 pl-9 pr-3 rounded-lg text-xs bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200 focus-visible:ring-orange-200 focus:border-orange-400 focus-visible:border-orange-400"
+          className="w-full h-9 pl-9 pr-3 rounded-md text-xs bg-muted/40 border-0 shadow-none text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200/80 focus-visible:ring-orange-200/80"
         />
       </div>
       {showSearchResults && (
@@ -276,7 +276,7 @@ export function DashboardTopbar({
           <Search className="w-5 h-5" />
         </button>
         {mobileSearchOpen && (
-          <div className="sm:hidden fixed inset-x-0 top-14 z-50 bg-card border-b border-border p-4 shadow-md">
+          <div className="sm:hidden fixed inset-x-0 top-14 z-50 bg-card border-b border-border p-4 shadow-none">
             {searchInput}
           </div>
         )}
@@ -286,7 +286,7 @@ export function DashboardTopbar({
       {showWorkspaceSwitcher && <TopbarWorkspaceSwitcher />}
       {showStaticWorkspaceLabel && (
         <div
-          className="hidden sm:flex items-center gap-2 h-10 pl-2.5 pr-2 rounded-lg border border-border bg-card flex-shrink-0 max-w-[min(100%,20rem)]"
+          className="hidden sm:flex items-center gap-2 h-10 pl-2.5 pr-2 rounded-md flex-shrink-0 max-w-[min(100%,20rem)] hover:bg-muted/40 transition-colors"
           title={upgradeShort || `Upgrade to ${includedPlansLabel} to enable multiple workspaces`}
         >
           <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -297,7 +297,7 @@ export function DashboardTopbar({
           {workspacesPlanLocked && isAccountOwner && (
             <Link
               href="/billing"
-              className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-orange-600 hover:text-orange-700 px-2 py-1 rounded-md border border-orange-200 bg-orange-50 hover:bg-orange-100 transition-colors"
+              className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-orange-600 hover:text-orange-700 px-2 py-1 rounded-md bg-orange-50/80 hover:bg-orange-100/90 transition-colors"
             >
               Upgrade
             </Link>
@@ -336,7 +336,7 @@ export function DashboardTopbar({
           <button
             type="button"
             onClick={() => { setCreditsOpen((o) => !o); setProfileOpen(false); }}
-            className="flex items-center gap-2 h-9 pl-2 sm:pl-2.5 pr-2 rounded-lg bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/15 transition-colors touch-target"
+            className="flex items-center gap-2 h-9 pl-2 sm:pl-2.5 pr-2 rounded-md hover:bg-muted/45 transition-colors touch-target border-0 shadow-none bg-transparent"
             aria-label={`${creditBalanceHeadline} credits`}
           >
             <Coins className="w-4 h-4 text-amber-500 flex-shrink-0" />

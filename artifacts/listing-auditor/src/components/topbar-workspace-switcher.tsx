@@ -262,16 +262,14 @@ export function TopbarWorkspaceSwitcher() {
       <div ref={rootRef} className="relative flex-shrink-0 hidden lg:flex items-center">
         <div
           className={cn(
-            "flex items-center h-10 rounded-lg border bg-card transition-colors",
-            open
-              ? "border-orange-500 ring-2 ring-orange-200 bg-orange-50/30"
-              : "border-border hover:border-orange-400 hover:bg-orange-50/40 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-200",
+            "flex items-center h-10 rounded-md border-0 shadow-none bg-transparent transition-colors",
+            open ? "bg-muted/60" : "hover:bg-muted/45",
           )}
         >
           <button
             type="button"
             onClick={openActiveWorkspace}
-            className="flex items-center gap-2 pl-2.5 pr-1 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-lg focus:outline-none focus-visible:outline-none hover:bg-orange-50/50 transition-colors"
+            className="flex items-center gap-2 pl-2.5 pr-1 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-md focus:outline-none focus-visible:outline-none transition-colors"
             aria-label={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? `, ${pillSubtitle}` : ""}`}
             title={isAccountOwner ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? ` (${pillSubtitle})` : ""}`}
           >
@@ -297,7 +295,7 @@ export function TopbarWorkspaceSwitcher() {
           <button
             type="button"
             onClick={toggleDropdown}
-            className="flex items-center justify-center w-8 h-full hover:bg-orange-50/50 transition-colors focus:outline-none focus-visible:outline-none"
+            className="flex items-center justify-center w-8 h-full transition-colors focus:outline-none focus-visible:outline-none"
             aria-expanded={open}
             aria-haspopup="listbox"
             aria-label="Switch workspace"
@@ -306,7 +304,7 @@ export function TopbarWorkspaceSwitcher() {
           </button>
           {canCreate ? (
             <>
-              <div className="w-px h-5 bg-slate-200 flex-shrink-0" />
+              <div className="w-px h-5 bg-border/80 flex-shrink-0" />
               <button
                 type="button"
                 title="Create workspace"
@@ -322,7 +320,7 @@ export function TopbarWorkspaceSwitcher() {
             </>
           ) : workspacesLocked ? (
             <>
-              <div className="w-px h-5 bg-slate-200 flex-shrink-0" />
+              <div className="w-px h-5 bg-border/80 flex-shrink-0" />
               <button
                 type="button"
                 title={upgradeShort}
@@ -406,7 +404,7 @@ export function TopbarWorkspaceSwitcher() {
       {/* Mobile: compact with label */}
       <button
         type="button"
-        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-border bg-card text-muted-foreground flex-shrink-0 hover:border-orange-400 hover:bg-orange-50/40 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
+        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-md border-0 shadow-none bg-transparent text-muted-foreground flex-shrink-0 hover:bg-muted/45 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200/80"
         onClick={() => {
           if (isAccountOwner && onWorkspaceDashboard) {
             navigate(WORKSPACES_HUB_PATH);
