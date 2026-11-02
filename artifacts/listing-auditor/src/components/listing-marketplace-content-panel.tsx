@@ -74,7 +74,6 @@ export function ListingMarketplaceContentPanel({
     });
   }, [contentMarketplaceId]);
 
-  const activeMarketplace = contentMarketplaces.find((m) => m.id === contentMarketplaceId);
   const activeContent = contentMarketplaceId != null ? variantMap.get(contentMarketplaceId) : undefined;
   const activeView = generatedContentToListingView(activeContent);
   const hasActiveContent = Boolean(activeView?.title?.trim());
@@ -148,16 +147,6 @@ export function ListingMarketplaceContentPanel({
               })}
             </div>
           </div>
-
-          {activeMarketplace?.description ? (
-            <p className="text-[11px] text-slate-500">{activeMarketplace.description}</p>
-          ) : null}
-          {activeMarketplace ? (
-            <p className="text-[11px] text-slate-500">
-              Content follows <span className="font-medium text-slate-700">{activeMarketplace.name}</span> rules
-              configured in Admin.
-            </p>
-          ) : null}
 
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 shrink-0">
