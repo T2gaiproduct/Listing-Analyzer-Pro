@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { ShoppingCart, TrendingUp } from "lucide-react";
+import { Calculator, ShoppingCart, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
+import { ProductRevenueCalculatorPanel } from "@/components/product-revenue-calculator-panel";
 
-type MiscPanel = "orders" | "sales";
+type MiscPanel = "orders" | "sales" | "revenue";
 
 function MiscSubTabs({
   active,
@@ -16,6 +17,7 @@ function MiscSubTabs({
   const tabs: { id: MiscPanel; label: string; icon: typeof ShoppingCart }[] = [
     { id: "orders", label: "Orders", icon: ShoppingCart },
     { id: "sales", label: "Sales", icon: TrendingUp },
+    { id: "revenue", label: "Revenue calculator", icon: Calculator },
   ];
   return (
     <div className="flex gap-0 border-b border-slate-200 overflow-x-auto">
@@ -45,9 +47,17 @@ function MiscSubTabs({
 export function ProductMiscellaneousTab({
   productId,
   productSource,
+  productName,
+  category,
+  listingPrice,
+  listingCurrency,
 }: {
   productId: number;
   productSource: string;
+  productName?: string;
+  category?: string | null;
+  listingPrice?: number | null;
+  listingCurrency?: string | null;
 }) {
   const [panel, setPanel] = useState<MiscPanel>("orders");
 
@@ -64,6 +74,17 @@ export function ProductMiscellaneousTab({
       {panel === "sales" && (
         <div className="min-w-0 pt-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <ProductSalesTab productId={productId} source={productSource} enabled />
+        </div>
+      )}
+
+      {panel === "revenue" && (
+        <div className="min-w-0 pt-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <ProductRevenueCalculatorPanel
+            productName={productName}
+            category={category}
+            initialSellingPrice={listingPrice}
+            currency={listingCurrency?.trim() || "INR"}
+          />
         </div>
       )}
     </div>
