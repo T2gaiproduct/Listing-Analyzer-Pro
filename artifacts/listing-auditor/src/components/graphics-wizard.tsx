@@ -313,10 +313,15 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   const totalImages = (project?.lifestyleCount ?? 0) + (project?.featureCount ?? 0);
   const creditsRefreshedRef = useRef(false);
+  const generationInFlightRef = useRef(false);
+  const completionToastShownRef = useRef(false);
+  const failureToastShownRef = useRef(false);
 
   useEffect(() => {
     if (!project) return;
     if (project.status === "completed") {
+      const celebrateCompletion = createOnly && generationInFlightRef.current;
+      generationInFlightRef.current = false;
       setIsGenerating(false);
       setProgress(100);
       setEtaSeconds(0);
@@ -328,26 +333,32 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         setSelectedImageTypes([]);
         setImageTypePromptConfigs({});
         startTimeRef.current = 0;
-        void (async () => {
-          await queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
-          await refetchProject();
+        void queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
+        void refetchProject();
+        if (celebrateCompletion && !completionToastShownRef.current) {
+          completionToastShownRef.current = true;
           toast({
             title: "Graphics generated",
             description: "Your new graphics appear below.",
           });
-        })();
+        }
       }
       return;
     }
     if (project.status === "failed") {
+      const showFailureToast = generationInFlightRef.current && !failureToastShownRef.current;
+      generationInFlightRef.current = false;
       setIsGenerating(false);
       if (project.errorMessage?.trim()) {
         setLastGraphicsError(project.errorMessage.trim());
-        toast({
-          title: "Generation failed",
-          description: project.errorMessage.trim(),
-          variant: "destructive",
-        });
+        if (showFailureToast) {
+          failureToastShownRef.current = true;
+          toast({
+            title: "Generation failed",
+            description: project.errorMessage.trim(),
+            variant: "destructive",
+          });
+        }
       }
       void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
       return;
@@ -419,9 +430,13 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           throw new Error(await readApiErrorMessage(res, "Graphics generation failed"));
         }
         setLastGraphicsError(null);
+        generationInFlightRef.current = true;
+        completionToastShownRef.current = false;
+        failureToastShownRef.current = false;
         setIsGenerating(true);
         startTimeRef.current = Date.now();
       } catch (err) {
+        generationInFlightRef.current = false;
         setIsGenerating(false);
         const description = err instanceof Error ? err.message : "Please try again";
         setLastGraphicsError(description);
@@ -528,6 +543,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     onSuccess: () => {
       setLastGraphicsError(null);
       creditsRefreshedRef.current = false;
+      generationInFlightRef.current = true;
+      completionToastShownRef.current = false;
+      failureToastShownRef.current = false;
       toast({ title: "Additional generation started" });
       setIsGenerating(true);
       startTimeRef.current = Date.now();

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Download, Loader2, Maximize2, Sparkles, Wand2 } from "lucide-react";
+import { Check, Download, Loader2, Maximize2, Sparkles, Wand2, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { downloadAppImage } from "@/lib/download-app-image";
+import { resolveAppImageUrl } from "@/lib/protected-app-image";
 import { getGetAuditQueryKey, useGetAudit } from "@workspace/api-client-react";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { Button } from "@/components/ui/button";
@@ -110,6 +111,7 @@ export function AplusContentWizard({
   const { isTeamMember, memberCredits } = useTeam();
   const apiAuthReady = useApiAuthReady();
   const completionToastShownRef = useRef(false);
+  const failureToastShownRef = useRef(false);
 
   const { data: auditData } = useGetAudit(auditId, {
     query: { queryKey: getGetAuditQueryKey(auditId), enabled: auditId > 0 && apiAuthReady },
@@ -204,6 +206,7 @@ export function AplusContentWizard({
         setAplusStatus("generating");
         setAplusProgress({ done: 0, total: selectedAplusModules.length || 4 });
         completionToastShownRef.current = false;
+        failureToastShownRef.current = false;
         refreshCreditBalances(queryClient);
         void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
         return;
@@ -212,7 +215,10 @@ export function AplusContentWizard({
         setAplusModules(data.modules);
         setAplusStatus("completed");
         refreshCreditBalances(queryClient);
-        toast({ title: "A+ content generated!", description: "Copy and module images are ready." });
+        if (!completionToastShownRef.current) {
+          completionToastShownRef.current = true;
+          toast({ title: "A+ content generated!", description: "Copy and module images are ready." });
+        }
         void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
       }
     },
@@ -251,7 +257,8 @@ export function AplusContentWizard({
             description: `${aplus.modules.length} module images are ready.`,
           });
           void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
-        } else if (aplus.status === "failed") {
+        } else if (aplus.status === "failed" && !failureToastShownRef.current) {
+          failureToastShownRef.current = true;
           toast({
             title: "A+ generation failed",
             description: aplus.errorMessage ?? "Please try again",
@@ -591,37 +598,37 @@ export function AplusContentWizard({
                 </Button>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {aplusModules.map((module) => (
                 <div key={module.id} className="group relative rounded-lg border overflow-hidden bg-white">
-                  <div className="aspect-square relative overflow-hidden bg-slate-50">
+                  <button
+                    type="button"
+                    className="w-full aspect-[970/300] relative overflow-hidden bg-slate-100 block cursor-zoom-in"
+                    onClick={() => setFullscreenUrl(module.imageUrl)}
+                    aria-label={`View ${module.title} full screen`}
+                  >
                     <ProtectedAppImage
                       src={module.imageUrl}
                       alt={module.title}
                       className="w-full h-full object-contain"
                     />
-                    <div className="absolute inset-0 bg-black/55 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        title="View full screen"
-                        className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm"
-                        onClick={() => setFullscreenUrl(module.imageUrl)}
-                      >
+                    <div className="absolute inset-0 bg-black/55 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                      <span className="p-2 rounded-full bg-white/90 text-slate-800 shadow-sm">
                         <Maximize2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Download"
-                        className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm"
-                        onClick={() => void downloadAppImage(module.imageUrl, `aplus-${module.id}.png`)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
+                      </span>
                     </div>
+                  </button>
+                  <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-slate-100 bg-slate-50/80">
+                    <p className="text-[10px] font-medium text-slate-600 truncate">{module.title}</p>
+                    <button
+                      type="button"
+                      title="Download"
+                      className="p-1.5 rounded-md hover:bg-white text-slate-600 shrink-0"
+                      onClick={() => void downloadAppImage(module.imageUrl, `aplus-${module.id}.png`)}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <p className="text-[10px] font-medium text-slate-600 px-2 py-1.5 truncate border-t border-slate-100">
-                    {module.title}
-                  </p>
                 </div>
               ))}
             </div>
@@ -633,13 +640,23 @@ export function AplusContentWizard({
         </div>
 
         <Dialog open={fullscreenUrl !== null} onOpenChange={(open) => { if (!open) setFullscreenUrl(null); }}>
-          <DialogContent className="max-w-5xl p-2 sm:p-4 border-0 bg-transparent shadow-none">
+          <DialogContent className="max-w-[min(96vw,1200px)] w-full p-2 sm:p-4 border-0 bg-slate-950/95 shadow-none">
             {fullscreenUrl && (
-              <ProtectedAppImage
-                src={fullscreenUrl}
-                alt="A+ module"
-                className="w-full max-h-[85vh] object-contain rounded-xl bg-black/20 mx-auto"
-              />
+              <div className="relative">
+                <img
+                  src={resolveAppImageUrl(fullscreenUrl)}
+                  alt="A+ module full size"
+                  className="w-full max-h-[88vh] object-contain rounded-lg mx-auto"
+                />
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white text-slate-800 flex items-center justify-center shadow-lg hover:bg-slate-100"
+                  onClick={() => setFullscreenUrl(null)}
+                  aria-label="Close full screen preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </DialogContent>
         </Dialog>
