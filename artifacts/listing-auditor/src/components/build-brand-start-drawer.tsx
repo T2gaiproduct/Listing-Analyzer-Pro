@@ -31,7 +31,7 @@ const options: Option[] = [
   },
   {
     entry: "import-link",
-    title: "Import from links",
+    title: "Import from link",
     description: "Paste a marketplace product URL or ASIN to pull listing details.",
     icon: Link2,
     iconWrap: "bg-amber-100",
