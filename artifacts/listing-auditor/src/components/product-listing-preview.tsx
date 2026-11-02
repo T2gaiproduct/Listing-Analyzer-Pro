@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   Eye,
   Link2,
   RefreshCw,
@@ -325,7 +323,11 @@ export function ProductListingPreview({
   }, [imageCount, selectedIndex]);
 
   useEffect(() => {
-    thumbRefs.current[safeSelectedIndex]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    thumbRefs.current[safeSelectedIndex]?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: "smooth",
+    });
   }, [safeSelectedIndex]);
 
   const lightboxRawUrl = useMemo(() => {
@@ -486,150 +488,85 @@ export function ProductListingPreview({
         <div
           className={cn(
             "grid grid-cols-1 gap-4 items-start px-4 pt-4 pb-2 lg:gap-6 lg:px-5 lg:pt-5 lg:pb-3",
-            "lg:grid-cols-[auto_minmax(0,min(36rem,42vw))_minmax(0,1fr)]",
-            "xl:grid-cols-[auto_minmax(0,min(40rem,38vw))_minmax(0,1fr)]",
+            "lg:grid-cols-[minmax(0,min(36rem,42vw))_minmax(0,1fr)]",
+            "xl:grid-cols-[minmax(0,min(40rem,38vw))_minmax(0,1fr)]",
           )}
         >
-          {/* Thumbnails */}
-          <div className="flex flex-col items-center gap-1 order-2 lg:order-1 shrink-0">
-            {canStepGallery && (
-              <button
-                type="button"
-                className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                onClick={goPrevImage}
-                aria-label="Previous image"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </button>
-            )}
-            <div
-              className={cn(
-                "flex lg:flex-col gap-2 w-full",
-                "overflow-x-auto pb-1 lg:pb-0",
-                "lg:overflow-x-hidden lg:overflow-y-auto lg:pr-0.5",
-                "lg:max-h-[min(380px,65vw)]",
-                "[scrollbar-width:thin]",
-              )}
-            >
-            {hasImages ? (
-              galleryImages.map((img, index) => (
-                <button
-                  key={`${img.url}-${index}`}
-                  ref={(el) => {
-                    thumbRefs.current[index] = el;
-                  }}
-                  type="button"
-                  onClick={() => openGalleryLightbox(index)}
-                  className={cn(
-                    "relative shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50 cursor-zoom-in",
-                    safeSelectedIndex === index ? "border-blue-500" : "border-slate-200 hover:border-slate-300",
-                  )}
-                >
-                  <ProtectedAppImage
-                    src={img.url}
-                    alt={img.label}
-                    className="w-full h-full object-cover"
-                  />
-                  {img.label.startsWith("A+") && (
-                    <span className="absolute bottom-0 left-0 right-0 bg-orange-600/90 text-white text-[8px] font-bold uppercase tracking-wide py-0.5 truncate px-0.5">
-                      A+
+          {/* Main image + horizontal thumbnail scroller (no arrow controls) */}
+          <div className="min-w-0 space-y-2 order-1">
+            <div className="relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden">
+              {selected ? (
+                <>
+                  <button
+                    type="button"
+                    className="w-full h-full flex items-center justify-center cursor-zoom-in"
+                    onClick={() => openGalleryLightbox(safeSelectedIndex)}
+                    aria-label="View full size image"
+                  >
+                    <ProtectedAppImage
+                      src={selected.url}
+                      alt={selected.label}
+                      className="w-full h-full object-contain"
+                    />
+                  </button>
+                  {canStepGallery && (
+                    <span className="absolute bottom-2 right-2 rounded-md bg-black/55 text-white text-[10px] px-1.5 py-0.5 tabular-nums pointer-events-none">
+                      {safeSelectedIndex + 1} / {imageCount}
                     </span>
                   )}
-                </button>
-              ))
-            ) : (
-              <div className="w-14 h-14 rounded-md border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-[9px] text-slate-400 text-center px-1">
-                No images
-              </div>
-            )}
+                </>
+              ) : (
+                <span className="text-[11px] text-slate-400">Main image</span>
+              )}
             </div>
-            {canStepGallery && (
-              <>
-                <button
-                  type="button"
-                  className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  onClick={goNextImage}
-                  aria-label="Next image"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-                <div className="hidden lg:flex gap-1 w-14">
-                  <button
-                    type="button"
-                    className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                    onClick={goPrevImage}
-                    aria-label="Previous image"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                    onClick={goNextImage}
-                    aria-label="Next image"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
 
-          {/* Main image */}
-          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] lg:justify-self-stretch rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden group/main-image">
-            {selected ? (
-              <>
-                {canStepGallery && (
-                  <>
-                    <button
-                      type="button"
-                      className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goPrevImage();
-                      }}
-                      aria-label="Previous image"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goNextImage();
-                      }}
-                      aria-label="Next image"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </>
+            {hasImages ? (
+              <div
+                className={cn(
+                  "w-full max-w-md mx-auto lg:mx-0 lg:max-w-full overflow-x-auto overscroll-x-contain",
+                  "pb-1 [scrollbar-width:thin] [scrollbar-color:rgb(148_163_184)_rgb(241_245_249)]",
                 )}
-                <button
-                  type="button"
-                  className="w-full h-full flex items-center justify-center cursor-zoom-in"
-                  onClick={() => openGalleryLightbox(safeSelectedIndex)}
-                  aria-label="View full size image"
-                >
-                  <ProtectedAppImage
-                    src={selected.url}
-                    alt={selected.label}
-                    className="w-full h-full object-contain"
-                  />
-                </button>
-                {canStepGallery && (
-                  <span className="absolute bottom-2 right-2 rounded-md bg-black/55 text-white text-[10px] px-1.5 py-0.5 tabular-nums">
-                    {safeSelectedIndex + 1} / {imageCount}
-                  </span>
-                )}
-              </>
+                aria-label="Product image thumbnails"
+              >
+                <div className="flex flex-row gap-2 w-max min-h-[3.75rem] px-0.5">
+                  {galleryImages.map((img, index) => (
+                    <button
+                      key={`${img.url}-${index}`}
+                      ref={(el) => {
+                        thumbRefs.current[index] = el;
+                      }}
+                      type="button"
+                      onClick={() => goToGalleryIndex(index)}
+                      className={cn(
+                        "relative shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50",
+                        safeSelectedIndex === index ? "border-blue-500" : "border-slate-200 hover:border-slate-300",
+                      )}
+                    >
+                      <ProtectedAppImage
+                        src={img.url}
+                        alt={img.label}
+                        className="w-full h-full object-cover"
+                      />
+                      {img.label.startsWith("A+") && (
+                        <span className="absolute bottom-0 left-0 right-0 bg-orange-600/90 text-white text-[8px] font-bold uppercase tracking-wide py-0.5 truncate px-0.5">
+                          A+
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ) : (
-              <span className="text-[11px] text-slate-400">Main image</span>
+              <div className="w-full max-w-md mx-auto lg:mx-0 lg:max-w-full">
+                <div className="w-14 h-14 rounded-md border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-[9px] text-slate-400 text-center px-1">
+                  No images
+                </div>
+              </div>
             )}
           </div>
 
           {/* Product details */}
-          <div className="order-3 space-y-3 min-w-0 w-full max-w-none">
+          <div className="order-2 space-y-3 min-w-0 w-full max-w-none">
             <h4 className="text-base sm:text-lg font-semibold text-slate-900 leading-snug">{title}</h4>
 
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
