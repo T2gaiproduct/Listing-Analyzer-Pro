@@ -330,7 +330,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         startTimeRef.current = 0;
         toast({
           title: "Graphics generated",
-          description: "New graphics appear in Existing Graphics on the left.",
+          description: "Your new graphics are saved to this product.",
         });
       }
       return;

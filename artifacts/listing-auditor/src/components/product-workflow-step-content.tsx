@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { AplusContentWizard } from "@/components/aplus-content-wizard";
 import { ExistingAplusPanel } from "@/components/existing-aplus-panel";
-import { ExistingGraphicsPanel } from "@/components/existing-graphics-panel";
 import { GraphicsWizard } from "@/components/graphics-wizard";
 import {
   nextProductExplorerWorkflowStep,
@@ -262,29 +261,22 @@ export function ProductWorkflowStepContent({
           <ImageIcon className="w-3.5 h-3.5 text-orange-500" />
           <h3 className="text-xs font-semibold text-slate-900">Product graphics</h3>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <ExistingGraphicsPanel
-            auditId={auditId}
-            audit={audit}
-            fallbackImageUrls={productImageUrls}
-          />
-          <div className="space-y-2 min-w-0">
-            <div className="flex items-center gap-1.5 px-1">
-              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-                Create Graphics
-              </p>
-            </div>
-            <GraphicsWizard
-              embedded
-              createOnly
-              auditId={auditId}
-              productName={productName}
-              imageUrls={imageUrls}
-              category={audit?.category ?? null}
-              targetKeywords={audit?.targetKeywords ?? null}
-            />
+        <div className="space-y-2 min-w-0">
+          <div className="flex items-center gap-1.5 px-1">
+            <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+              Create Graphics
+            </p>
           </div>
+          <GraphicsWizard
+            embedded
+            createOnly
+            auditId={auditId}
+            productName={productName}
+            imageUrls={imageUrls}
+            category={audit?.category ?? null}
+            targetKeywords={audit?.targetKeywords ?? null}
+          />
         </div>
       </WorkflowStepShell>
     );
