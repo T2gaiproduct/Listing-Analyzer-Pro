@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import { formatHtmlDescriptionForPreview } from "@/lib/listing-content-format";
 import type { SellerProductDetail } from "@/lib/reference-research";
@@ -11,8 +10,11 @@ function stripHtmlToPlain(html: string): string {
   return safe.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+const MAIN_IMAGE_FRAME =
+  "relative aspect-square w-full max-w-md mx-auto lg:mx-0 lg:max-w-full max-h-[min(420px,70vw)] lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden group/main-image";
+
 const SWEEPER_BTN_CLASS =
-  "absolute top-1/2 h-7 w-7 -translate-y-1/2 rounded-full border-0 bg-orange-500 text-white shadow-md hover:bg-orange-600 opacity-95";
+  "absolute top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full border border-orange-200 bg-orange-500 text-white shadow-sm flex items-center justify-center hover:bg-orange-600 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 transition-opacity";
 
 export function ProductExplorerOverviewPreview({
   imageUrls,
@@ -33,10 +35,15 @@ export function ProductExplorerOverviewPreview({
   const [activeImage, setActiveImage] = useState(0);
   const bullets = bulletPoints.filter((b) => b?.trim());
   const rows = attributes.filter((r) => r.attribute?.trim() && r.value?.trim());
-  const mainImage = images[activeImage] ?? images[0];
+  const safeIndex = images.length > 0 ? activeImage % images.length : 0;
+  const mainImage = images[safeIndex];
   const plainDesc = descriptionHtml?.trim() ? stripHtmlToPlain(descriptionHtml) : "";
   const hasContent = Boolean(title.trim() || bullets.length || plainDesc);
   const hasAttributes = rows.length > 0;
+  const canStepGallery = images.length > 1;
+
+  const goPrev = () => setActiveImage((i) => (i - 1 + images.length) % images.length);
+  const goNext = () => setActiveImage((i) => (i + 1) % images.length);
 
   if (!hasContent && !hasAttributes && images.length === 0) {
     return (
@@ -56,61 +63,106 @@ export function ProductExplorerOverviewPreview({
 
   return (
     <div className={cn("rounded-lg border border-slate-200 bg-slate-50/30 p-3 sm:p-4", className)}>
-      <div className="grid gap-4 md:grid-cols-[minmax(0,200px)_1fr] lg:grid-cols-[minmax(0,240px)_1fr]">
-        <div className="space-y-2">
-          <div className="relative aspect-square w-full max-h-[280px] overflow-hidden rounded-lg border border-slate-200 bg-white">
-            {mainImage ? (
-              <img src={mainImage} alt="" className="h-full w-full object-contain" />
-            ) : (
-              <div className="flex h-full min-h-[120px] items-center justify-center text-[11px] text-slate-400">
-                No images
-              </div>
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-4 items-start",
+          "lg:grid-cols-[auto_minmax(0,min(36rem,42vw))_minmax(0,1fr)]",
+          "xl:grid-cols-[auto_minmax(0,min(40rem,38vw))_minmax(0,1fr)]",
+          "lg:gap-5 xl:gap-6",
+        )}
+      >
+        {/* Amazon-style vertical thumbnails (horizontal on small screens) */}
+        <div className="flex flex-col items-center gap-1 order-2 lg:order-1 shrink-0">
+          {canStepGallery && (
+            <button
+              type="button"
+              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-orange-600 hover:bg-orange-50"
+              onClick={goPrev}
+              aria-label="Previous image"
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+          )}
+          <div
+            className={cn(
+              "flex lg:flex-col gap-2 w-full overflow-x-auto pb-1 lg:pb-0",
+              "lg:overflow-x-hidden lg:overflow-y-auto lg:max-h-[min(380px,65vw)]",
+              "[scrollbar-width:thin]",
             )}
-            {images.length > 1 && (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(SWEEPER_BTN_CLASS, "left-1")}
-                  onClick={() => setActiveImage((i) => (i - 1 + images.length) % images.length)}
-                  aria-label="Previous image"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(SWEEPER_BTN_CLASS, "right-1")}
-                  onClick={() => setActiveImage((i) => (i + 1) % images.length)}
-                  aria-label="Next image"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            )}
-          </div>
-          {images.length > 1 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {images.slice(0, 8).map((url, idx) => (
+          >
+            {images.length > 0 ? (
+              images.slice(0, 9).map((url, idx) => (
                 <button
                   key={`${url}-${idx}`}
                   type="button"
                   onClick={() => setActiveImage(idx)}
                   className={cn(
-                    "h-10 w-10 shrink-0 overflow-hidden rounded border",
-                    idx === activeImage ? "border-orange-500 ring-1 ring-orange-300" : "border-slate-200",
+                    "relative shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50",
+                    safeIndex === idx
+                      ? "border-orange-500 ring-1 ring-orange-300"
+                      : "border-slate-200 hover:border-slate-300",
                   )}
                 >
                   <img src={url} alt="" className="h-full w-full object-cover" />
                 </button>
-              ))}
-            </div>
+              ))
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-[9px] text-slate-400">
+                No img
+              </div>
+            )}
+          </div>
+          {canStepGallery && (
+            <button
+              type="button"
+              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-orange-600 hover:bg-orange-50"
+              onClick={goNext}
+              aria-label="Next image"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
           )}
         </div>
 
-        <div className="min-w-0 space-y-3">
+        {/* Main image — Amazon PDP square frame */}
+        <div className={cn(MAIN_IMAGE_FRAME, "order-1 lg:order-2")}>
+          {mainImage ? (
+            <>
+              <img src={mainImage} alt="" className="h-full w-full object-contain" />
+              {canStepGallery && (
+                <>
+                  <button
+                    type="button"
+                    className={cn(SWEEPER_BTN_CLASS, "left-1.5")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goPrev();
+                    }}
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(SWEEPER_BTN_CLASS, "right-1.5")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goNext();
+                    }}
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </>
+          ) : (
+            <p className="text-[11px] text-slate-400">No images</p>
+          )}
+        </div>
+
+        {/* Listing copy + attributes */}
+        <div className="min-w-0 space-y-3 order-3 lg:order-3">
           {title.trim() ? (
             <h3 className="text-sm font-semibold text-slate-900 leading-snug">{title}</h3>
           ) : (
