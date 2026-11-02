@@ -4,7 +4,9 @@ import {
   cleanAmazonListingLine,
   normalizeAmazonAttributes,
   normalizeAmazonBulletPoints,
+  normalizeAmazonDescription,
   isJunkAmazonBullet,
+  isJunkAmazonDescription,
 } from "./listing-text-normalize.js";
 
 export type FetchedListingAttribute = {
@@ -121,6 +123,60 @@ async function fetchAmazonPage(asin: string, cookies: string, domain = "amazon.c
   return html;
 }
 
+function extractAmazonDescription($: cheerio.CheerioAPI): string | null {
+  const parts: string[] = [];
+  const seen = new Set<string>();
+
+  const pushPart = (raw: string) => {
+    const text = cleanAmazonListingLine(raw, 2000);
+    if (text.length < 15 || isJunkAmazonDescription(text)) return;
+    const key = text.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    parts.push(text);
+  };
+
+  const proseSelectors = [
+    "#productDescription p",
+    "#productDescription li",
+    "#productDescription_feature_div p",
+    "#productDescription_feature_div li",
+    "#productDescription .a-expander-content p",
+    "#productDescription .a-expander-content li",
+  ];
+  for (const selector of proseSelectors) {
+    $(selector).each((_, el) => pushPart($(el).text()));
+  }
+
+  if (parts.length === 0) {
+    const block = $("#productDescription, #productDescription_feature_div").first().clone();
+    block.find("#aplus, #aplus_feature_div, style, script, noscript, iframe").remove();
+    pushPart(block.text());
+  }
+
+  if (parts.length === 0) {
+    const aplusSelectors = [
+      "#aplus .aplus-module p",
+      "#aplus .aplus-module li",
+      "#aplus .premium-aplus-module p",
+      "#aplus .premium-aplus-module li",
+      "#aplus_feature_div .aplus-module p",
+      "#aplus_feature_div .premium-aplus-module p",
+    ];
+    for (const selector of aplusSelectors) {
+      $(selector).each((_, el) => pushPart($(el).text()));
+    }
+  }
+
+  if (parts.length === 0) {
+    const metaDesc = $('meta[name="description"]').attr("content")?.trim();
+    if (metaDesc) pushPart(metaDesc);
+  }
+
+  const joined = parts.join("\n\n").slice(0, 8000);
+  return normalizeAmazonDescription(joined);
+}
+
 function isCaptchaPage(html: string): boolean {
   return (
     html.includes("validateCaptcha") ||
@@ -148,6 +204,13 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
 
   if (bulletPoints.length === 0) {
     $("#feature-bullets .a-list-item").each((_, el) => {
+      const text = cleanAmazonListingLine($(el).text(), 400);
+      if (text && !isJunkAmazonBullet(text)) bulletPoints.push(text);
+    });
+  }
+
+  if (bulletPoints.length === 0) {
+    $("span.a-list-item").each((_, el) => {
       const text = cleanAmazonListingLine($(el).text(), 400);
       if (text && !isJunkAmazonBullet(text)) bulletPoints.push(text);
     });
@@ -205,19 +268,6 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
     $("#wayfinding-breadcrumbs_feature_div .a-link-normal").last().text().trim() ||
     null;
 
-  const descriptionParts: string[] = [];
-  $("#productDescription, #productDescription_feature_div").each((_, el) => {
-    const text = cleanAmazonListingLine($(el).text(), 4000);
-    if (text.length > 30) descriptionParts.push(text);
-  });
-  if (descriptionParts.length === 0) {
-    const aplusText = cleanAmazonListingLine($("#aplus").text(), 4000);
-    if (aplusText.length > 30) descriptionParts.push(aplusText);
-  }
-  const description = descriptionParts.length > 0
-    ? descriptionParts.join("\n\n").slice(0, 8000)
-    : null;
-
   const attributes: FetchedListingAttribute[] = [];
   const pushAttr = (attribute: string, value: string) => {
     const a = attribute.replace(/\s+/g, " ").trim();
@@ -260,6 +310,11 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
   const cleanTitle = cleanAmazonListingLine(title, 500);
   const cleanProductName = cleanAmazonListingLine(productName, 120) || cleanTitle.slice(0, 60) || "Product";
 
+  let description = extractAmazonDescription($);
+  if (!description && normalizedBullets.length > 0) {
+    description = normalizeAmazonDescription(normalizedBullets.join("\n"));
+  }
+
   return {
     productName: cleanProductName,
     asin,
@@ -268,7 +323,7 @@ function parseAmazonHtml(html: string, asin: string): FetchedListing {
     bulletPoints: normalizedBullets,
     imageUrls: imageUrls.slice(0, 9),
     targetKeywords: keywords,
-    description: description ? cleanAmazonListingLine(description, 8000) : null,
+    description,
     price,
     rating,
     attributes: normalizedAttributes,

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { FetchedListing } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { displayListingDescription } from "@/lib/listing-display-sanitize";
 import { Button } from "@/components/ui/button";
 
 type PreviewTab = "content" | "attributes";
@@ -18,6 +19,9 @@ export function BuildBrandFetchedListingPreview({
   const [activeImage, setActiveImage] = useState(0);
   const bullets = listing.bulletPoints?.filter(Boolean) ?? [];
   const attributes = listing.attributes?.filter((r) => r.attribute?.trim() && r.value?.trim()) ?? [];
+  const descriptionText =
+    displayListingDescription(listing.description) ??
+    (bullets.length > 0 ? bullets.join("\n\n") : null);
 
   const mainImage = images[activeImage] ?? images[0];
 
@@ -111,7 +115,7 @@ export function BuildBrandFetchedListingPreview({
                     Description
                   </p>
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {listing.description?.trim() || "No description provided."}
+                    {descriptionText || "No description provided."}
                   </p>
                 </section>
                 <section className="rounded-xl border border-border bg-card p-4">

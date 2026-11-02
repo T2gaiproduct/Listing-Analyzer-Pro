@@ -4,6 +4,7 @@ const JUNK_BULLET_PATTERNS = [
   /image not available/i,
   /image unavailable/i,
   /^\s*<\s*img\b/i,
+  /\bbrand deals\b/i,
   /make sure this fits/i,
   /^see more/i,
   /^click to open/i,
@@ -66,6 +67,31 @@ export function normalizeAmazonBulletPoints(bullets: string[]): string[] {
     out.push(line);
   }
   return out.slice(0, 7);
+}
+
+/** Reject Amazon A+ embedded CSS/JS and other non-prose scraped into description fields. */
+export function isJunkAmazonDescription(text: string): boolean {
+  const line = text.trim();
+  if (line.length < 20) return true;
+  if (/\.aplus-v2\b|\.premium-aplus-module\b|\.aplus-module\b/i.test(line)) return true;
+  if (/function\s*\(\s*\)/i.test(line) || /\bfunction\s+logShoppableMetrics/i.test(line)) return true;
+  if (/\bwindow\.(ue|Amazon)\b/i.test(line)) return true;
+  if (/\{\s*position\s*:/i.test(line) && /overflow\s*:/i.test(line)) return true;
+  const braces = (line.match(/[{}]/g) ?? []).length;
+  if (braces >= 6 && braces / Math.max(line.length, 1) > 0.015) return true;
+  const semicolons = (line.match(/;/g) ?? []).length;
+  const colons = (line.match(/:/g) ?? []).length;
+  if (semicolons > 12 && colons > 15 && line.length > 400) return true;
+  const words = line.match(/[a-zA-Z]{3,}/g) ?? [];
+  if (words.length < 6 && line.length > 250) return true;
+  return false;
+}
+
+export function normalizeAmazonDescription(text: string | null | undefined): string | null {
+  if (!text?.trim()) return null;
+  const cleaned = cleanAmazonListingLine(text, 8000);
+  if (!cleaned || isJunkAmazonDescription(cleaned)) return null;
+  return cleaned;
 }
 
 export function normalizeAmazonAttributes(
