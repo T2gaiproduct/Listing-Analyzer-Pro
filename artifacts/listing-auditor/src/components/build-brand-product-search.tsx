@@ -131,7 +131,7 @@ export function BuildBrandProductSearch({
           <PackageSearch className="w-4 h-4 text-orange-500" />
         </div>
         <div>
-          <h2 className="text-base font-semibold text-slate-900">Select Existing Product</h2>
+          <h2 className="text-base font-semibold text-slate-900">Select existing listing</h2>
           <p className="text-xs text-slate-500">
             Search Build Your Brand, Audit Listing, or Create Graphics projects — or start a new product
           </p>

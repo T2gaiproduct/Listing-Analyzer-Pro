@@ -1931,22 +1931,28 @@ export default function AuditWorkflow() {
 
   const canSaveToProductExplorer = productExplorerSaveBlocker === null;
 
+  const hideWorkflowStepper = workflowEntry === "existing" && activeStep === 1;
+  const hideSelectStepInStepper =
+    workflowEntry === "scratch" || workflowEntry === "existing";
+
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
 
       {/* ── Top Progress Stepper ─────────────────────────────────────────── */}
-      <div className="border-b border-border bg-card py-0 flex-shrink-0 px-4 sm:px-6 lg:px-8">
-        <div className="w-full lg:max-w-6xl lg:mx-auto min-w-0">
-          <BuildBrandWorkflowStepper
-            className="border-0 rounded-none"
-            activeStep={activeStep}
-            stepCompleted={stepCompleted}
-            onStepClick={handleStepClick}
-            hideSelectStep={workflowEntry === "scratch"}
-          />
+      {!hideWorkflowStepper && (
+        <div className="border-b border-border bg-card py-0 flex-shrink-0 px-4 sm:px-6 lg:px-8">
+          <div className="w-full lg:max-w-6xl lg:mx-auto min-w-0">
+            <BuildBrandWorkflowStepper
+              className="border-0 rounded-none"
+              activeStep={activeStep}
+              stepCompleted={stepCompleted}
+              onStepClick={handleStepClick}
+              hideSelectStep={hideSelectStepInStepper}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Content area (relative for panel positioning) ─────────────────── */}
       <div className="flex-1 overflow-y-auto relative">
