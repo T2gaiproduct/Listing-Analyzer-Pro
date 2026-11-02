@@ -52,7 +52,6 @@ function WorkflowStepShell({
   children,
   showSaveAndContinue,
   onSaveAndContinue,
-  continueButtonLabel = "Save & Continue",
   isSaving,
   showStoreSync,
   storePlatformLabel,
@@ -62,7 +61,6 @@ function WorkflowStepShell({
   children: ReactNode;
   showSaveAndContinue: boolean;
   onSaveAndContinue?: () => void;
-  continueButtonLabel?: string;
   isSaving?: boolean;
   showStoreSync?: boolean;
   storePlatformLabel?: string;
@@ -111,7 +109,7 @@ function WorkflowStepShell({
                 </>
               ) : (
                 <>
-                  {continueButtonLabel}
+                  Save &amp; Continue
                   <ArrowRight className="w-3 h-3" />
                 </>
               )}
@@ -121,11 +119,6 @@ function WorkflowStepShell({
       )}
     </div>
   );
-}
-
-function workflowContinueButtonLabel(step: ProductExplorerWorkflowStepId): string {
-  if (step === 3) return "A+ Content";
-  return "Save & Continue";
 }
 
 export function ProductWorkflowStepContent({
@@ -220,7 +213,6 @@ export function ProductWorkflowStepContent({
   const shellProps = {
     showSaveAndContinue: showContinueFooter,
     onSaveAndContinue,
-    continueButtonLabel: workflowContinueButtonLabel(step),
     isSaving: isSavingContinue,
     showStoreSync: showStoreSyncOnStep,
     storePlatformLabel,
