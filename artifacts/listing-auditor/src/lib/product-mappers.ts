@@ -288,7 +288,7 @@ export function isBuildBrandAudit(audit: AuditLike): boolean {
   return !audit.asin?.trim() || isShopifyImportAsin(audit.asin) || isWooCommerceImportAsin(audit.asin);
 }
 
-function inferAuditSourceType(audit: AuditLike): "listing" | "audit" {
+export function inferAuditSourceType(audit: AuditLike): "listing" | "audit" {
   const trimmed = audit.asin?.trim();
   if (!trimmed) return "listing";
   if (!isShopifyImportAsin(trimmed) && !isWooCommerceImportAsin(trimmed)) return "audit";
