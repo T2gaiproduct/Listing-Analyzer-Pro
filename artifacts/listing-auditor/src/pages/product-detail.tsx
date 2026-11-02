@@ -78,6 +78,7 @@ import {
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
+import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -723,23 +724,6 @@ function CompactStatChip({
         {value}
       </p>
     </div>
-  );
-}
-
-function LiveBadge({ label }: { label?: string | null }) {
-  const text = label?.trim() || "Draft";
-  const isLive = text.toLowerCase() === "live" || text.toLowerCase() === "active";
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
-        isLive
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-          : "bg-amber-50 text-amber-700 border-amber-200",
-      )}
-    >
-      {text}
-    </span>
   );
 }
 
@@ -1529,21 +1513,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const referenceResearch = (effectiveAudit as { referenceResearch?: ReferenceResearchData | null } | null)
     ?.referenceResearch ?? null;
 
-  const { data: creditRules = [] } = useQuery({
-    queryKey: ["credit-rules"],
-    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((res) => res.json()) as Promise<
-      Array<{ featureType: string; creditsRequired: number; creditType: string }>
-    >,
-    staleTime: 60_000,
-  });
-
-  const referenceCreditLabel = useMemo(() => {
-    const rule = creditRules.find((r) => r.featureType === "reference_research");
-    const count = rule?.creditsRequired ?? 1;
-    const typeLabel = rule?.creditType === "audit" ? "audit" : "AI";
-    return `${count} ${typeLabel} credit${count === 1 ? "" : "s"}`;
-  }, [creditRules]);
-
   const workflowStepCompleted = useMemo(
     () => productExplorerStepCompletedFromData({
       imageUrls: effectiveAudit?.imageUrls,
@@ -1557,7 +1526,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
       marketplaceActiveCount: marketplaceData?.activeCount ?? 0,
       totalOrders: product?.stats.totalOrders,
       totalRevenue: product?.stats.revenue,
-      referenceResearchAnalyzedAt: referenceResearch?.analyzedAt,
     }),
     [
       effectiveAudit?.imageUrls,
@@ -1571,7 +1539,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
       product?.stats.revenue,
       liveMarketplaces.length,
       marketplaceData?.activeCount,
-      referenceResearch?.analyzedAt,
     ],
   );
 
@@ -1656,6 +1623,48 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (urls.length === 0) add(product?.imageUrl);
     return urls;
   }, [product?.imageUrls, product?.imageUrl, effectiveAudit?.imageUrls]);
+
+  const overviewPreview = useMemo(() => {
+    const gc = effectiveAudit?.generatedContent;
+    const title =
+      gc?.title?.trim()
+      || existingListingContent?.title?.trim()
+      || listingProduct?.listingTitle?.trim()
+      || listingProduct?.title?.trim()
+      || product?.name
+      || "";
+    const bulletPoints =
+      (gc?.bulletPoints?.length ? gc.bulletPoints : null)
+      ?? existingListingContent?.bulletPoints
+      ?? listingProduct?.bulletPoints
+      ?? effectiveAudit?.bulletPoints
+      ?? [];
+    const descriptionHtml =
+      gc?.htmlDescription
+      ?? existingListingContent?.htmlDescription
+      ?? listingProduct?.htmlDescription
+      ?? listingProduct?.description
+      ?? null;
+    const attributes =
+      referenceResearch?.productDetails?.filter(
+        (row) => row.attribute?.trim() && row.value?.trim(),
+      ) ?? [];
+    return {
+      imageUrls: productImageUrls,
+      title,
+      bulletPoints: Array.isArray(bulletPoints) ? bulletPoints : [],
+      descriptionHtml,
+      attributes,
+    };
+  }, [
+    effectiveAudit?.generatedContent,
+    effectiveAudit?.bulletPoints,
+    existingListingContent,
+    listingProduct,
+    product?.name,
+    productImageUrls,
+    referenceResearch?.productDetails,
+  ]);
 
   useEffect(() => {
     if (productImageUrls.length === 0) return;
@@ -2004,7 +2013,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (workflowProductIdRef.current === product.id) return;
     workflowProductIdRef.current = product.id;
     if (urlWorkflowIntent.openListingStep) {
-      setSelectedWorkflowStep(3);
+      setSelectedWorkflowStep(2);
       return;
     }
     setSelectedWorkflowStep(
@@ -2378,21 +2387,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
 
-  function handleReferenceResearchUpdated(data: ReferenceResearchData) {
-    const auditId = optimizeAuditId ?? id;
-    queryClient.setQueryData<GetAuditQueryResult>(
-      productAuditQueryKey(auditId),
-      (current) => (current ? { ...current, referenceResearch: data } as GetAuditQueryResult : current),
-    );
-    if (auditId !== id) {
-      queryClient.setQueryData<GetAuditQueryResult>(
-        productAuditQueryKey(id),
-        (current) => (current ? { ...current, referenceResearch: data } as GetAuditQueryResult : current),
-      );
-    }
-    refreshCreditBalances(queryClient);
-  }
-
   function handleOptimizeContent() {
     if (!optimizeAuditId) {
       toast({
@@ -2509,9 +2503,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
           onSyncToStore={() => syncToStoreMutation.mutate()}
           isSyncingStore={syncToStoreMutation.isPending}
           referenceResearch={referenceResearch}
-          canEditReferences={canOptimizeContent}
-          referenceCreditLabel={referenceCreditLabel}
-          onReferenceResearchUpdated={handleReferenceResearchUpdated}
           OptimizedContentPanel={(panelProps) => (
             <OptimizedContentPanel
               {...panelProps}
@@ -2526,8 +2517,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
           )}
           overviewContent={
             <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[11px] font-semibold text-slate-900">Overview</h2>
+              <ProductExplorerOverviewPreview
+                imageUrls={overviewPreview.imageUrls}
+                title={overviewPreview.title}
+                bulletPoints={overviewPreview.bulletPoints}
+                descriptionHtml={overviewPreview.descriptionHtml}
+                attributes={overviewPreview.attributes}
+              />
+              <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                <h2 className="text-[11px] font-semibold text-slate-900">Details &amp; stats</h2>
                 {canEditProduct && !isEditingListing && (
                   <Button
                     type="button"

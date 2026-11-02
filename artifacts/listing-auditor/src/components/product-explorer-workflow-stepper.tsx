@@ -1,6 +1,5 @@
 import type { ElementType } from "react";
 import {
-  BookOpen,
   Eye,
   FileText,
   Image as ImageIcon,
@@ -12,7 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   id: ProductExplorerWorkflowStepId;
@@ -22,38 +21,37 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   icon: ElementType;
 }[] = [
   { id: 1, key: "overview", label: "OVERVIEW", sub: "Product summary", icon: LayoutDashboard },
-  { id: 2, key: "references", label: "REFERENCES", sub: "Sources, intelligence & verify", icon: BookOpen },
-  { id: 3, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
-  { id: 4, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
-  { id: 5, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
-  { id: 6, key: "listing_preview", label: "LISTING PREVIEW", sub: "Amazon-style preview", icon: Eye },
-  { id: 7, key: "marketplaces", label: "MARKETPLACES", sub: "List & publish", icon: Store },
-  { id: 8, key: "orders", label: "ORDERS", sub: "Order history", icon: ShoppingCart },
-  { id: 9, key: "sales", label: "SALES", sub: "Sales performance", icon: TrendingUp },
+  { id: 2, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
+  { id: 3, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
+  { id: 4, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
+  { id: 5, key: "listing_preview", label: "LISTING PREVIEW", sub: "Amazon-style preview", icon: Eye },
+  { id: 6, key: "marketplaces", label: "MARKETPLACES", sub: "List & publish", icon: Store },
+  { id: 7, key: "orders", label: "ORDERS", sub: "Order history", icon: ShoppingCart },
+  { id: 8, key: "sales", label: "SALES", sub: "Sales performance", icon: TrendingUp },
 ];
 
-/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–9). */
+/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–8). */
 export function apiStepToProductExplorerStep(
   currentStep: number | null | undefined,
 ): ProductExplorerWorkflowStepId {
   const apiStep = Math.min(5, Math.max(1, currentStep ?? 1));
   if (apiStep === 1) return 1;
-  if (apiStep === 2) return 3;
-  if (apiStep === 3) return 4;
-  if (apiStep === 4) return 5;
-  return 6;
+  if (apiStep === 2) return 2;
+  if (apiStep === 3) return 3;
+  if (apiStep === 4) return 4;
+  return 5;
 }
 
-/** Returns API step to persist, or null for local-only steps (Overview, References, Listing preview, Marketplaces+). */
+/** Returns API step to persist, or null for local-only steps (Overview, Listing preview, Marketplaces+). */
 export function productExplorerStepToApiStep(
   peStep: ProductExplorerWorkflowStepId,
 ): number | null {
-  if (peStep === 1 || peStep === 2) return null;
-  if (peStep >= 7) return null;
-  if (peStep === 6) return null;
-  if (peStep === 3) return 2;
-  if (peStep === 4) return 3;
-  if (peStep === 5) return 4;
+  if (peStep === 1) return null;
+  if (peStep >= 6) return null;
+  if (peStep === 5) return null;
+  if (peStep === 2) return 2;
+  if (peStep === 3) return 3;
+  if (peStep === 4) return 4;
   return null;
 }
 
@@ -61,17 +59,17 @@ export function productExplorerStepToApiStep(
 export function productExplorerSaveContinueApiStep(
   fromStep: ProductExplorerWorkflowStepId,
 ): number | null {
-  const nextStep = Math.min(9, fromStep + 1) as ProductExplorerWorkflowStepId;
+  const nextStep = Math.min(8, fromStep + 1) as ProductExplorerWorkflowStepId;
   const nextApi = productExplorerStepToApiStep(nextStep);
   if (nextApi != null) return nextApi;
-  if (fromStep === 5) return 5;
+  if (fromStep === 4) return 5;
   return productExplorerStepToApiStep(fromStep);
 }
 
 export function nextProductExplorerWorkflowStep(
   step: ProductExplorerWorkflowStepId,
 ): ProductExplorerWorkflowStepId | null {
-  if (step >= 9) return null;
+  if (step >= 8) return null;
   return (step + 1) as ProductExplorerWorkflowStepId;
 }
 
@@ -91,6 +89,7 @@ export type ProductExplorerStepCompletionInput = {
   marketplaceActiveCount?: number;
   totalOrders?: number;
   totalRevenue?: number | null;
+  /** @deprecated References tab removed; attributes live on Overview / Upload. */
   referenceResearchAnalyzedAt?: string | null;
 };
 
@@ -142,22 +141,20 @@ export function productExplorerStepCompletedFromData(
   const graphicsDone = hasGeneratedGraphics(input);
   const aplusDone = hasAplusContent(input.generatedImages);
   const previewReady = listingDone && (graphicsDone || uploadDone || Boolean(input.productImageUrl?.trim()));
-  const referencesDone = Boolean(input.referenceResearchAnalyzedAt?.trim());
   const marketplacesDone = (input.liveMarketplaceCount ?? 0) > 0
     || (input.marketplaceActiveCount ?? 0) > 0;
   const ordersDone = (input.totalOrders ?? 0) > 0;
   const salesDone = (input.totalRevenue ?? 0) > 0;
 
   return {
-    1: uploadDone && listingDone,
-    2: referencesDone,
-    3: listingDone,
-    4: graphicsDone,
-    5: aplusDone,
-    6: previewReady,
-    7: marketplacesDone,
-    8: ordersDone,
-    9: salesDone,
+    1: uploadDone || listingDone || Boolean(input.productImageUrl?.trim()),
+    2: listingDone,
+    3: graphicsDone,
+    4: aplusDone,
+    5: previewReady,
+    6: marketplacesDone,
+    7: ordersDone,
+    8: salesDone,
   };
 }
 
@@ -179,14 +176,13 @@ export function productExplorerStepCompletedFromCurrentStep(
   const complete = status === "complete";
   return {
     1: complete || apiStep > 1,
-    2: complete || apiStep > 1,
-    3: complete || apiStep > 2,
-    4: complete || apiStep > 3,
-    5: complete || apiStep > 4,
+    2: complete || apiStep > 2,
+    3: complete || apiStep > 3,
+    4: complete || apiStep > 4,
+    5: complete || apiStep >= 5,
     6: complete || apiStep >= 5,
     7: complete || apiStep >= 5,
-    8: complete || apiStep >= 5,
-    9: complete,
+    8: complete,
   };
 }
 
@@ -210,7 +206,7 @@ export function ProductExplorerWorkflowStepper({
         className,
       )}
     >
-      <div className="flex items-stretch min-w-[36rem] w-full">
+      <div className="flex items-stretch min-w-[32rem] w-full">
         {PRODUCT_EXPLORER_WORKFLOW_STEPS.map((s) => {
           const isActive = activeStep === s.id;
           const clickable = Boolean(onStepClick);
