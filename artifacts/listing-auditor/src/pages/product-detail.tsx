@@ -1305,7 +1305,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }, [id, isEditingListing, editForm]);
 
   useEffect(() => {
-    if (!product?.sourceType) return;
+    if (!validId || !product?.sourceType) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("source") === product.sourceType) return;
     const preserved = new URLSearchParams();
@@ -1315,9 +1315,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (step) preserved.set("step", step);
     if (edit) preserved.set("edit", edit);
     navigate(`/products/${id}?${preserved.toString()}`, { replace: true });
-  }, [product?.sourceType, id, navigate]);
+  }, [product?.sourceType, id, navigate, validId]);
 
-  const isLoading = queryEnabled && !product && (apiLoading || (shouldFetchAudit && auditLoading));
+  const waitingForWorkspaceScope = validId
+    && clerkLoaded
+    && !!user
+    && (workspaceLoading || (!workspaceScopeReady && !showAccountProducts));
+
+  const isLoading = waitingForWorkspaceScope
+    || (queryEnabled && !product && (apiLoading || (shouldFetchAudit && auditLoading)));
 
   const { data: shopifyStatus } = useQuery({
     queryKey: ["shopify-status"],
@@ -1660,6 +1666,28 @@ export default function ProductDetailPage({ id }: { id: number }) {
     id,
   ]);
 
+  if (!validId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+        <Package className="w-10 h-10 text-slate-300 mb-3" />
+        <h2 className="text-base font-semibold text-slate-900">Invalid product link</h2>
+        <p className="text-xs text-slate-500 mt-2 max-w-md">
+          This URL is missing a product id (for example{" "}
+          <span className="font-mono text-slate-600">/products/123?source=audit</span>
+          ). Open the product again from Product Explorer or the dashboard.
+        </p>
+        <div className="flex gap-2 mt-5">
+          <Button asChild size="sm" variant="outline" className="h-8 text-xs">
+            <Link href="/products">Product Explorer</Link>
+          </Button>
+          <Button asChild size="sm" className="h-8 text-xs bg-orange-500 hover:bg-orange-600">
+            <Link href="/dashboard">Dashboard</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4 animate-in fade-in">
@@ -1670,6 +1698,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
           <Skeleton className="h-80 lg:col-span-2 rounded-xl" />
           <Skeleton className="h-80 rounded-xl" />
         </div>
+        {waitingForWorkspaceScope && (
+          <p className="text-[11px] text-slate-500 text-center max-w-md mx-auto">
+            Loading workspace context… If this stays blank, pick a workspace in the top bar or sign out and sign in again on the Cloudflare preview link.
+          </p>
+        )}
       </div>
     );
   }

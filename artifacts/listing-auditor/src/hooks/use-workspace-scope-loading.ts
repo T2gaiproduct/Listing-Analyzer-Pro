@@ -26,5 +26,6 @@ export function useWorkspaceScopeLoading(
     }
   }, [pending, query.isEnabled, query.isFetching, query.isLoading]);
 
-  return pending;
+  // If scope changed but the query cannot run (no workspace yet), do not block the UI forever.
+  return pending && query.isEnabled;
 }
