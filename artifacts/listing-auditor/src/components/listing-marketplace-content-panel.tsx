@@ -201,8 +201,8 @@ export function ListingMarketplaceContentPanel({
         </>
       )}
 
-      <div className="rounded-lg border border-orange-200/80 bg-orange-50/20 overflow-hidden shadow-sm">
-        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-orange-100/80 bg-white/60">
+      <div className="rounded-lg border border-orange-200/80 bg-white overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-orange-100 bg-orange-50/80">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-orange-500" />
             <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
@@ -233,28 +233,30 @@ export function ListingMarketplaceContentPanel({
           ) : null}
         </div>
 
-        <div className="p-3 sm:p-4 space-y-3 min-w-0">
+        <div className="min-w-0">
           {isOptimizing && !hasActiveContent ? (
-            <div className="rounded-lg border border-dashed border-orange-200/60 bg-white/80 px-4 py-8 text-center">
+            <div className="px-4 py-8 text-center">
               <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
               <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
             </div>
           ) : !hasActiveContent ? (
-            <>
+            <div className="px-4 py-4 space-y-3">
               <ListingSuggestionsCard suggestions={suggestions} />
               {!suggestions.length && (
                 <ListingContentCard
                   content={null}
                   emptyMessage="No optimized content for this marketplace yet. Select marketplaces above and click Generate."
                   accent="orange"
+                  embedded
                 />
               )}
-            </>
+            </div>
           ) : (
             <ListingContentCard
               content={activeView}
               emptyMessage="No optimized content yet."
               accent="orange"
+              embedded
             />
           )}
         </div>

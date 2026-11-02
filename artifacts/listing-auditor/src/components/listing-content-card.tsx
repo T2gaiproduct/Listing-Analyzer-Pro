@@ -35,11 +35,14 @@ export function ListingContentCard({
   emptyMessage,
   accent = "slate",
   hideBulletPoints = false,
+  embedded = false,
 }: {
   content: ListingContentView | null | undefined;
   emptyMessage: string;
   accent?: "slate" | "orange";
   hideBulletPoints?: boolean;
+  /** Render inside a parent card (no outer border or shadow). */
+  embedded?: boolean;
 }) {
   const { toast } = useToast();
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
@@ -89,18 +92,20 @@ export function ListingContentCard({
     ? "bg-orange-50 text-orange-700 border-orange-100"
     : "bg-slate-50 text-slate-700 border-slate-200";
 
-  return (
-    <div className={cn("rounded-lg border bg-white overflow-hidden shadow-sm", borderClass)}>
-      <div className={cn("border-b px-4 py-2.5 flex items-center gap-2", headerClass)}>
-        {accent === "orange" ? (
-          <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-        ) : (
-          <FileText className="w-3.5 h-3.5 text-slate-500" />
-        )}
-        <p className={cn("text-[10px] font-semibold", headerTextClass)}>
-          {accent === "orange" ? "Generated Content" : "Current Listing"}
-        </p>
-      </div>
+  const header = (
+    <div className={cn("border-b px-4 py-2.5 flex items-center gap-2", headerClass)}>
+      {accent === "orange" ? (
+        <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+      ) : (
+        <FileText className="w-3.5 h-3.5 text-slate-500" />
+      )}
+      <p className={cn("text-[10px] font-semibold", headerTextClass)}>
+        {accent === "orange" ? "Generated Content" : "Current Listing"}
+      </p>
+    </div>
+  );
+
+  const body = (
       <div className="px-4 py-4 space-y-4">
         {content?.title?.trim() && (
           <div>
@@ -257,6 +262,21 @@ export function ListingContentCard({
           </div>
         )}
       </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="min-w-0">
+        {header}
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("rounded-lg border bg-white overflow-hidden", borderClass)}>
+      {header}
+      {body}
     </div>
   );
 }
