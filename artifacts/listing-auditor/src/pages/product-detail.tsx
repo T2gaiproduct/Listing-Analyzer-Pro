@@ -2037,7 +2037,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
           onSyncToStore={() => syncToStoreMutation.mutate()}
           isSyncingStore={syncToStoreMutation.isPending}
           referenceResearch={referenceResearch}
-          onWorkflowStepChange={goToWorkflowStep}
           OptimizedContentPanel={(panelProps) => (
             <ListingMarketplaceContentPanel
               contentMarketplaces={contentMarketplaces}
