@@ -80,7 +80,7 @@ export function ProductExplorerOverviewPreview({
           {canStepGallery && (
             <button
               type="button"
-              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
+              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               onClick={goPrev}
               aria-label="Previous image"
             >
@@ -117,14 +117,34 @@ export function ProductExplorerOverviewPreview({
             )}
           </div>
           {canStepGallery && (
-            <button
-              type="button"
-              className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
-              onClick={goNext}
-              aria-label="Next image"
-            >
-              <ChevronDown className="w-4 h-4" />
-            </button>
+            <>
+              <button
+                type="button"
+                className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                onClick={goNext}
+                aria-label="Next image"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              <div className="hidden lg:flex gap-1 w-14">
+                <button
+                  type="button"
+                  className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  onClick={goPrev}
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  onClick={goNext}
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </>
           )}
         </div>
 
