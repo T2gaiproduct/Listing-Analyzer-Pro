@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Check, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import type { GeneratedContent } from "@workspace/api-client-react";
@@ -56,8 +55,6 @@ export function ListingMarketplaceContentPanel({
     return map;
   }, [contentVariants, legacyGeneratedContent, legacyMarketplaceId]);
 
-  const [batchSelected, setBatchSelected] = useState<Set<number>>(() => new Set());
-
   useEffect(() => {
     if (!contentMarketplaces.length) return;
     if (contentMarketplaceId != null && contentMarketplaces.some((m) => m.id === contentMarketplaceId)) {
@@ -66,45 +63,15 @@ export function ListingMarketplaceContentPanel({
     onContentMarketplaceChange(contentMarketplaces[0].id);
   }, [contentMarketplaces, contentMarketplaceId, onContentMarketplaceChange]);
 
-  useEffect(() => {
-    if (contentMarketplaceId == null) return;
-    setBatchSelected((prev) => {
-      if (prev.size > 0) return prev;
-      return new Set([contentMarketplaceId]);
-    });
-  }, [contentMarketplaceId]);
-
   const activeContent = contentMarketplaceId != null ? variantMap.get(contentMarketplaceId) : undefined;
   const activeView = generatedContentToListingView(activeContent);
   const hasActiveContent = Boolean(activeView?.title?.trim());
 
-  function toggleBatch(id: number) {
-    setBatchSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function selectAllBatch() {
-    setBatchSelected(new Set(contentMarketplaces.map((m) => m.id)));
-  }
-
-  const batchIds = [...batchSelected];
-  const generateCount = batchIds.length > 0 ? batchIds.length : 1;
-  const generateTargets =
-    batchIds.length > 0
-      ? batchIds
-      : contentMarketplaceId != null
-        ? [contentMarketplaceId]
-        : contentMarketplaces[0]
-          ? [contentMarketplaces[0].id]
-          : [];
-
-  const regenerateActive = () => {
+  const generateActive = () => {
     if (contentMarketplaceId != null) {
       onGenerate([contentMarketplaceId]);
+    } else if (contentMarketplaces[0]) {
+      onGenerate([contentMarketplaces[0].id]);
     }
   };
 
@@ -118,8 +85,8 @@ export function ListingMarketplaceContentPanel({
       ) : contentMarketplaces.length === 0 ? (
         <p className="text-[11px] text-slate-500">No content marketplaces configured. Add them in Admin.</p>
       ) : (
-        <>
-          <div className="border-b border-slate-200 overflow-x-auto [scrollbar-width:thin]">
+        <div className="flex items-end justify-between gap-3 border-b border-slate-200">
+          <div className="overflow-x-auto flex-1 min-w-0 [scrollbar-width:thin]">
             <div className="flex gap-0 min-w-max">
               {contentMarketplaces.map((m) => {
                 const isActive = m.id === contentMarketplaceId;
@@ -130,7 +97,7 @@ export function ListingMarketplaceContentPanel({
                     type="button"
                     onClick={() => onContentMarketplaceChange(m.id)}
                     className={cn(
-                      "relative px-4 py-2.5 text-left border-b-2 transition-colors shrink-0",
+                      "relative px-4 py-2.5 text-left border-b-2 transition-colors shrink-0 -mb-px",
                       isActive
                         ? "border-slate-900 text-slate-900"
                         : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-200",
@@ -147,90 +114,39 @@ export function ListingMarketplaceContentPanel({
               })}
             </div>
           </div>
-
-          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 shrink-0">
-              Generate for
-            </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-2 flex-1">
-              {contentMarketplaces.map((m) => (
-                <label key={m.id} className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer">
-                  <Checkbox
-                    checked={batchSelected.has(m.id)}
-                    onCheckedChange={() => toggleBatch(m.id)}
-                    disabled={isOptimizing || optimizeDisabled}
-                  />
-                  {m.name}
-                </label>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2 shrink-0">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[10px]"
-                onClick={selectAllBatch}
-                disabled={isOptimizing || optimizeDisabled}
-              >
-                Select all
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 text-[11px]"
-                onClick={() => onGenerate(generateTargets)}
-                disabled={optimizeDisabled || isOptimizing || generateTargets.length === 0}
-              >
-                {isOptimizing ? (
-                  <>
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                    Generate
-                    {generateCount > 1 ? ` (${generateCount})` : ""}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-[11px] shrink-0 mb-1.5"
+            onClick={generateActive}
+            disabled={
+              optimizeDisabled
+              || isOptimizing
+              || (contentMarketplaceId == null && contentMarketplaces.length === 0)
+            }
+          >
+            {isOptimizing ? (
+              <>
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                Generating…
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3 mr-1 opacity-70" />
+                {hasActiveContent ? "Regenerate" : "Generate"}
+              </>
+            )}
+          </Button>
+        </div>
       )}
 
       <div className="rounded-lg border border-orange-200/80 bg-white overflow-hidden">
-        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-orange-100 bg-orange-50/80">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-              Optimized content
-            </p>
-          </div>
-          {hasActiveContent && contentMarketplaceId != null ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-[11px] border-orange-200 hover:bg-orange-50"
-              onClick={regenerateActive}
-              disabled={optimizeDisabled || isOptimizing}
-            >
-              {isOptimizing ? (
-                <>
-                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  Regenerating…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3 h-3 mr-1 text-orange-500" />
-                  Regenerate
-                </>
-              )}
-            </Button>
-          ) : null}
+        <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-orange-100 bg-orange-50/80">
+          <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+            Optimized content
+          </p>
         </div>
 
         <div className="min-w-0">
@@ -245,7 +161,7 @@ export function ListingMarketplaceContentPanel({
               {!suggestions.length && (
                 <ListingContentCard
                   content={null}
-                  emptyMessage="No optimized content for this marketplace yet. Select marketplaces above and click Generate."
+                  emptyMessage="No optimized content for this marketplace yet. Choose a marketplace above and click Generate."
                   accent="orange"
                   embedded
                 />

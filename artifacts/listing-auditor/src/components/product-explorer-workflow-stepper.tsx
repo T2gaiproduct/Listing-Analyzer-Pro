@@ -21,7 +21,7 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   icon: ElementType;
 }[] = [
   { id: 1, key: "overview", label: "OVERVIEW", sub: "Product summary", icon: LayoutDashboard },
-  { id: 2, key: "listing", label: "LISTING", sub: "Create optimized content", icon: FileText },
+  { id: 2, key: "listing", label: "OPTIMIZE LISTING", sub: "Create optimized content", icon: FileText },
   { id: 3, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
   { id: 4, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
   { id: 5, key: "listing_preview", label: "LISTING PREVIEW", sub: "Amazon-style preview", icon: Eye },
