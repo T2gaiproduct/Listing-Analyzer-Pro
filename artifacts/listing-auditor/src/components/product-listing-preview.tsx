@@ -495,7 +495,7 @@ export function ProductListingPreview({
             {canStepGallery && (
               <button
                 type="button"
-                className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
                 onClick={goPrevImage}
                 aria-label="Previous image"
               >
@@ -504,10 +504,8 @@ export function ProductListingPreview({
             )}
             <div
               className={cn(
-                "flex lg:flex-col gap-2 w-full",
-                "overflow-x-auto pb-1 lg:pb-0",
-                "lg:overflow-x-hidden lg:overflow-y-auto lg:pr-0.5",
-                "lg:max-h-[min(380px,65vw)]",
+                "flex lg:flex-col gap-2 w-full overflow-x-auto pb-1 lg:pb-0",
+                "lg:overflow-x-hidden lg:overflow-y-auto lg:max-h-[min(380px,65vw)]",
                 "[scrollbar-width:thin]",
               )}
             >
@@ -519,10 +517,10 @@ export function ProductListingPreview({
                     thumbRefs.current[index] = el;
                   }}
                   type="button"
-                  onClick={() => openGalleryLightbox(index)}
+                  onClick={() => goToGalleryIndex(index)}
                   className={cn(
-                    "relative shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50 cursor-zoom-in",
-                    safeSelectedIndex === index ? "border-blue-500" : "border-slate-200 hover:border-slate-300",
+                    "relative shrink-0 w-14 h-14 rounded-md border-2 overflow-hidden bg-slate-50",
+                    safeSelectedIndex === index ? "border-slate-900" : "border-slate-200 hover:border-slate-300",
                   )}
                 >
                   <ProtectedAppImage
@@ -544,46 +542,26 @@ export function ProductListingPreview({
             )}
             </div>
             {canStepGallery && (
-              <>
-                <button
-                  type="button"
-                  className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  onClick={goNextImage}
-                  aria-label="Next image"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-                <div className="hidden lg:flex gap-1 w-14">
-                  <button
-                    type="button"
-                    className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                    onClick={goPrevImage}
-                    aria-label="Previous image"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 h-7 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                    onClick={goNextImage}
-                    aria-label="Next image"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </>
+              <button
+                type="button"
+                className="hidden lg:flex w-14 h-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
+                onClick={goNextImage}
+                aria-label="Next image"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
             )}
           </div>
 
           {/* Main image */}
-          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] lg:justify-self-stretch rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden group/main-image">
+          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] lg:justify-self-stretch rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden group/main-image">
             {selected ? (
               <>
                 {canStepGallery && (
                   <>
                     <button
                       type="button"
-                      className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity"
+                      className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-900 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity"
                       onClick={(e) => {
                         e.stopPropagation();
                         goPrevImage();
@@ -594,7 +572,7 @@ export function ProductListingPreview({
                     </button>
                     <button
                       type="button"
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-900 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity"
                       onClick={(e) => {
                         e.stopPropagation();
                         goNextImage();
@@ -617,11 +595,6 @@ export function ProductListingPreview({
                     className="w-full h-full object-contain"
                   />
                 </button>
-                {canStepGallery && (
-                  <span className="absolute bottom-2 right-2 rounded-md bg-black/55 text-white text-[10px] px-1.5 py-0.5 tabular-nums">
-                    {safeSelectedIndex + 1} / {imageCount}
-                  </span>
-                )}
               </>
             ) : (
               <span className="text-[11px] text-slate-400">Main image</span>
