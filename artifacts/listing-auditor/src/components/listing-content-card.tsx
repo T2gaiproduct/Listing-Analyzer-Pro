@@ -265,12 +265,7 @@ export function ListingContentCard({
   );
 
   if (embedded) {
-    return (
-      <div className="min-w-0">
-        {header}
-        {body}
-      </div>
-    );
+    return <div className="min-w-0">{body}</div>;
   }
 
   return (
