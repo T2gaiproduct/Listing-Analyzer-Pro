@@ -1801,6 +1801,22 @@ export default function AuditWorkflow() {
     });
   }, [autoSave, currentAuditId, generatedContent, nav, persistWorkflowStep, queryClient, toast]);
 
+  const handleSaveSelectedProductToExplorer = useCallback(() => {
+    if (!selectedProduct || selectedProduct.sourceType === "graphics") return;
+    const source = selectedProduct.sourceType === "audit" ? "audit" : "listing";
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    nav(`${basePath}/products/${selectedProduct.id}?source=${source}`);
+    toast({
+      title: "Saved to Product Explorer",
+      description: "Continue editing, publishing, and marketplace sync from Product Explorer.",
+    });
+  }, [nav, queryClient, selectedProduct, toast]);
+
+  const step1PrimaryOpensProductExplorer =
+    activeStep === 1
+    && selectedProduct !== null
+    && selectedProduct.sourceType !== "graphics";
+
   const handleStepClick = useCallback((step: StepId) => {
     setIsCreating(false);
     if (step >= 4) {
@@ -1853,9 +1869,7 @@ export default function AuditWorkflow() {
           nav(selectedProduct.workflowUrl);
           return;
         }
-        forceUploadStepRef.current = true;
-        setCurrentAuditId(selectedProduct.id);
-        setActiveStep(2);
+        handleSaveSelectedProductToExplorer();
         return;
       }
       toast({
@@ -2825,12 +2839,17 @@ export default function AuditWorkflow() {
             <Button
               className="w-full sm:w-auto rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2 h-11"
               onClick={handleNextStep}
-              disabled={isCreating}
+              disabled={isCreating || (activeStep === 1 && selectedProduct === null)}
             >
               {isCreating && activeStep === 2 ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Saving…
+                </>
+              ) : step1PrimaryOpensProductExplorer ? (
+                <>
+                  <Package className="w-4 h-4" />
+                  Save to Product Explorer
                 </>
               ) : (
                 <>

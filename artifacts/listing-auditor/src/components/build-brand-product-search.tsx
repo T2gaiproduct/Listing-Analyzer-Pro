@@ -251,7 +251,7 @@ export function BuildBrandProductSearch({
           {selectedProduct
             ? selectedProduct.sourceType === "graphics"
               ? "Opens your graphics project when you continue."
-              : "Selected project will load on the next step so you can continue where you left off."
+              : "Opens this project in Product Explorer so you can continue where you left off."
             : "Optional — skip this step to create a brand-new product."}
         </p>
         <Button
