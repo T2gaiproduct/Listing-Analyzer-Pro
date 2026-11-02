@@ -144,17 +144,73 @@ export async function fetchJson<T>(
   return readApiJson<T>(res);
 }
 
+type HealthzPayload = {
+  staleProcess?: boolean;
+  clerkKeyPair?: string;
+  clerkProxySecret?: string;
+  apiBuildId?: string;
+};
+
+async function authFailureHint(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  let health: HealthzPayload | null = null;
+  try {
+    const res = await fetch(`${basePath}/api/healthz`, { cache: "no-store" });
+    if (res.ok) health = (await res.json()) as HealthzPayload;
+  } catch {
+    /* ignore */
+  }
+
+  if (health?.staleProcess === true) {
+    return "The API server is running an older build. Hard-refresh this page (Ctrl+Shift+R). On Cloud Agent, run bash scripts/dev-stack-reload.sh, then sign in again.";
+  }
+  if (health?.clerkKeyPair === "mismatch") {
+    return "Server Clerk keys do not match (jwk-kid-mismatch). Update CLERK_SECRET_KEY and VITE_CLERK_PUBLISHABLE_KEY to the same Clerk app, restart the dev stack, then sign in again.";
+  }
+  if (health?.clerkProxySecret === "invalid" || health?.clerkProxySecret === "missing") {
+    return "The server CLERK_SECRET_KEY is missing or invalid. Fix environment secrets, restart the dev stack, then sign in again.";
+  }
+
+  const localBuild = (import.meta.env.VITE_APP_BUILD_ID as string | undefined)?.trim();
+  if (localBuild && localBuild !== "dev") {
+    try {
+      const res = await fetch(`${basePath}/build-id.json`, { cache: "no-store" });
+      if (res.ok) {
+        const remote = ((await res.json()) as { buildId?: string }).buildId?.trim();
+        if (remote && remote !== localBuild) {
+          return "Your browser is on an older app build. Hard-refresh (Ctrl+Shift+R) or wait for the automatic refresh, then sign in again.";
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (isCloudflareQuickPreviewHost()) {
+    return "On Cloudflare preview links, sign out and sign in again on the same hostname shown in the address bar.";
+  }
+
+  return null;
+}
+
+async function sessionVerificationMessage(): Promise<string> {
+  const hint = await authFailureHint();
+  if (hint) return hint;
+  return "Your session could not be verified. Sign out and sign in again on this site.";
+}
+
 /** Parse a fetch Response as JSON; surfaces HTML/error-page responses clearly. */
 export async function readApiJson<T>(res: Response): Promise<T> {
   const text = await res.text();
   if (!text.trim()) {
     if (!res.ok) {
-      throw new ApiFetchError(
+      const message =
         res.status === 401
-          ? "Your session could not be verified. Sign out and sign in again on this site."
-          : `Server error (${res.status}). Restart the API server after deploying the latest code.`,
-        res.status,
-      );
+          ? await sessionVerificationMessage()
+          : `Server error (${res.status}). Restart the API server after deploying the latest code.`;
+      throw new ApiFetchError(message, res.status);
     }
     return {} as T;
   }
@@ -178,9 +234,10 @@ export async function readApiJson<T>(res: Response): Promise<T> {
     };
     if (!res.ok) {
       const raw = data.error ?? data.message ?? `Server error (${res.status})`;
-      let message = res.status === 401 && (!raw || raw === "Unauthorized")
-        ? "Your session could not be verified. Sign out and sign in again on this site."
-        : raw;
+      let message =
+        res.status === 401 && (!raw || raw === "Unauthorized")
+          ? await sessionVerificationMessage()
+          : raw;
       if (data.apiBuildId && res.status !== 401) {
         message = `${message} (API build ${data.apiBuildId})`;
       }
