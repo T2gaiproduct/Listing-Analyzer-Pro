@@ -1125,6 +1125,29 @@ export default function ProductDetailPage({ id }: { id: number }) {
     return { ...content, bulletPoints: [] };
   }, [listingProduct, effectiveAudit]);
 
+  /** Same baseline as PATCH /content-variants field merge (source snapshot, not UI-trimmed existing). */
+  const sourceListingForPreviewMerge = useMemo((): GeneratedContent => {
+    const snap = (effectiveAudit as { sourceListingContent?: GeneratedContent | null } | undefined)
+      ?.sourceListingContent;
+    if (snap) {
+      return {
+        title: snap.title ?? "",
+        bulletPoints: snap.bulletPoints ?? [],
+        keywords: snap.keywords ?? [],
+        htmlDescription: snap.htmlDescription ?? "",
+        attributes: snap.attributes,
+      };
+    }
+    const view = resolveExistingListingContent(listingProduct, effectiveAudit);
+    return {
+      title: view?.title ?? "",
+      bulletPoints: view?.bulletPoints ?? [],
+      keywords: view?.keywords ?? [],
+      htmlDescription: view?.htmlDescription ?? "",
+      attributes: view?.attributes,
+    };
+  }, [effectiveAudit, listingProduct]);
+
   const listingSuggestions = useMemo(
     () => collectListingSuggestions(effectiveAudit?.result, product?.aiSuggestions),
     [effectiveAudit?.result, product?.aiSuggestions],
@@ -1196,6 +1219,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     for (const row of contentVariants) {
       const preview = variantToPreviewGeneratedContent(
         row.generatedContent as ContentVariantWithMeta,
+        sourceListingForPreviewMerge,
       );
       if (preview) generatedIds.add(row.contentMarketplaceId);
     }
@@ -1210,7 +1234,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       if (legacyMeta) return [legacyMeta];
     }
     return [];
-  }, [contentVariants, contentMarketplaces, effectiveAudit?.generatedContent, effectiveAudit]);
+  }, [contentVariants, contentMarketplaces, effectiveAudit?.generatedContent, effectiveAudit, sourceListingForPreviewMerge]);
 
   useEffect(() => {
     if (listingPreviewMarketplaces.length === 0) {
@@ -1229,7 +1253,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (listingPreviewMarketplaceId != null) {
       const fromTab = contentVariants.find((v) => v.contentMarketplaceId === listingPreviewMarketplaceId)
         ?.generatedContent as ContentVariantWithMeta | undefined;
-      const tabContent = variantToPreviewGeneratedContent(fromTab);
+      const tabContent = variantToPreviewGeneratedContent(fromTab, sourceListingForPreviewMerge);
       if (tabContent) return tabContent;
     }
     const legacyId = (effectiveAudit as { contentMarketplaceId?: number | null })?.contentMarketplaceId;
@@ -1246,6 +1270,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     effectiveAudit?.generatedContent,
     effectiveAudit,
     listingPreviewMarketplaces.length,
+    sourceListingForPreviewMerge,
   ]);
 
   useEffect(() => {

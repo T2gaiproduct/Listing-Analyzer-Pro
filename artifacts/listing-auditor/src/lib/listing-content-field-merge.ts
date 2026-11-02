@@ -44,9 +44,26 @@ export function resolveAiSnapshot(variant: ContentVariantWithMeta): GeneratedCon
 /** User-approved merged copy for listing preview (after ✓/✕ field picks). */
 export function variantToPreviewGeneratedContent(
   raw: ContentVariantWithMeta | undefined | null,
+  existing: GeneratedContent | null | undefined,
 ): GeneratedContent | null {
-  if (!raw?.title?.trim()) return null;
-  const { fieldSources: _fs, aiSnapshot: _ai, ...merged } = raw;
+  if (!raw) return null;
+  const ai = resolveAiSnapshot(raw);
+  const fieldSources = raw.fieldSources ?? defaultFieldSourcesAi();
+  const existingGc: GeneratedContent = existing ?? {
+    title: "",
+    bulletPoints: [],
+    keywords: [],
+    htmlDescription: "",
+  };
+  const merged = mergeListingContentByFieldSources(existingGc, ai, fieldSources);
+  const hasCopy = Boolean(
+    merged.title?.trim()
+    || (merged.bulletPoints?.some((b) => b.trim()))
+    || (merged.keywords?.some((k) => k.trim()))
+    || merged.htmlDescription?.trim()
+    || (merged.attributes?.length ?? 0) > 0,
+  );
+  if (!hasCopy) return null;
   return merged;
 }
 
