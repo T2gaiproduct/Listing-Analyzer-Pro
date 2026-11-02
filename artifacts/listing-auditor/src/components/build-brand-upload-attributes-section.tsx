@@ -15,6 +15,10 @@ import {
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/** Flat inputs on Build Your Brand Upload — no shadow, full width, orange focus ring. */
+export const UPLOAD_TAB_FIELD_CLASS =
+  "w-full max-w-none border-border rounded-xl shadow-none focus-visible:shadow-none focus-visible:ring-2 focus-visible:ring-orange-200/80 focus-visible:border-orange-400";
+
 function normalizeAttributeRows(rows: SellerProductDetail[] | undefined): SellerProductDetail[] {
   if (!rows?.length) return [{ attribute: "", value: "" }];
   return rows.map((row) => ({
@@ -179,7 +183,7 @@ export function BuildBrandUploadAttributesSection({
   };
 
   return (
-    <div className="space-y-4 pt-2 border-t border-border">
+    <div className="w-full max-w-none space-y-4 pt-2 border-t border-border">
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
           <Link2 className="w-4 h-4 text-orange-500" />
@@ -192,18 +196,18 @@ export function BuildBrandUploadAttributesSection({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="w-full space-y-3">
         {productDetails.map((row, index) => (
           <div
             key={`attr-${index}`}
-            className="grid grid-cols-1 sm:grid-cols-[minmax(0,34%)_minmax(0,1fr)_auto] gap-2 items-start rounded-xl border border-border bg-muted/30 p-3"
+            className="grid w-full grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.75fr)_auto] gap-3 items-start rounded-xl border border-border bg-muted/20 p-3 sm:p-4"
           >
             <label className="block space-y-1 min-w-0">
               <span className="text-xs font-medium text-foreground">Attribute name</span>
               <Input
                 value={row.attribute}
                 placeholder="e.g. Material, Item dimensions"
-                className="border-border rounded-xl h-10 text-sm"
+                className={`${UPLOAD_TAB_FIELD_CLASS} h-10 sm:h-11 text-sm`}
                 onChange={(e) =>
                   setProductDetails((prev) =>
                     prev.map((r, i) => (i === index ? { ...r, attribute: e.target.value } : r)),
@@ -212,12 +216,12 @@ export function BuildBrandUploadAttributesSection({
                 onBlur={() => void persist()}
               />
             </label>
-            <label className="block space-y-1 min-w-0">
+            <label className="block space-y-1 min-w-0 md:col-span-2 xl:col-span-1">
               <span className="text-xs font-medium text-foreground">Value</span>
               <Input
                 value={row.value}
                 placeholder="e.g. ABS plastic; 24 × 18 × 5 cm"
-                className="border-border rounded-xl h-10 text-sm"
+                className={`${UPLOAD_TAB_FIELD_CLASS} h-10 sm:h-11 text-sm`}
                 onChange={(e) =>
                   setProductDetails((prev) =>
                     prev.map((r, i) => (i === index ? { ...r, value: e.target.value } : r)),
@@ -230,7 +234,7 @@ export function BuildBrandUploadAttributesSection({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-10 w-10 shrink-0 text-muted-foreground hover:text-red-600 sm:mt-6"
+              className="h-10 w-10 shrink-0 text-muted-foreground hover:text-red-600 md:col-span-2 xl:col-span-1 md:justify-self-end xl:justify-self-auto sm:mt-6"
               disabled={productDetails.length <= 1}
               onClick={() => {
                 const next = productDetails.filter((_, i) => i !== index);
@@ -262,14 +266,14 @@ export function BuildBrandUploadAttributesSection({
         <span className="font-semibold"> Analyze uses {creditLabel}.</span>
       </div>
 
-      <div className="space-y-2">
+      <div className="w-full space-y-3">
         {referenceSlots.length === 0 ? (
           <p className="text-xs text-muted-foreground px-1">No reference listings yet.</p>
         ) : (
           referenceSlots.map((slot, index) => (
             <div
               key={`ref-${index}`}
-              className="rounded-xl border border-border bg-card p-3 space-y-2"
+              className="w-full rounded-xl border border-border bg-muted/10 p-3 sm:p-4 space-y-3"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -291,7 +295,7 @@ export function BuildBrandUploadAttributesSection({
                 <Input
                   value={slot.url}
                   placeholder="Product page URL or Amazon ASIN…"
-                  className="border-border rounded-xl h-10 text-sm"
+                  className={`${UPLOAD_TAB_FIELD_CLASS} h-10 sm:h-11 text-sm`}
                   onChange={(e) => updateReference(index, { url: e.target.value })}
                   onBlur={() => void persist()}
                 />
@@ -301,7 +305,7 @@ export function BuildBrandUploadAttributesSection({
                 <Textarea
                   value={slot.notes}
                   placeholder="Observed attributes or keywords — not copied verbatim."
-                  className="border-border rounded-xl min-h-[72px] text-sm resize-y"
+                  className={`${UPLOAD_TAB_FIELD_CLASS} min-h-[80px] sm:min-h-[96px] text-sm resize-y`}
                   onChange={(e) => updateReference(index, { notes: e.target.value })}
                   onBlur={() => void persist()}
                 />

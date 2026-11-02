@@ -42,7 +42,10 @@ import {
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
 import { BuildBrandProductSearch, type BuildBrandProductPick } from "@/components/build-brand-product-search";
-import { BuildBrandUploadAttributesSection } from "@/components/build-brand-upload-attributes-section";
+import {
+  BuildBrandUploadAttributesSection,
+  UPLOAD_TAB_FIELD_CLASS,
+} from "@/components/build-brand-upload-attributes-section";
 import type { BuildBrandStartEntry } from "@/components/build-brand-start-drawer";
 import { BuildBrandExportStep } from "@/components/build-brand-export-step";
 import { ProductListingPreview } from "@/components/product-listing-preview";
@@ -1942,7 +1945,14 @@ export default function AuditWorkflow() {
           />
         )}
 
-        <div className="py-4 sm:py-5 w-full min-w-0 px-4 sm:px-6 lg:max-w-6xl lg:mx-auto lg:px-8">
+        <div
+          className={cn(
+            "py-4 sm:py-5 w-full min-w-0 px-4 sm:px-6 lg:px-8 mx-auto",
+            activeStep === 2
+              ? "max-w-[min(100rem,100%)] xl:max-w-[min(96rem,calc(100vw-3rem))] 2xl:max-w-[min(100rem,calc(100vw-4rem))]"
+              : "lg:max-w-6xl",
+          )}
+        >
 
           {/* STEP 1: Select existing product ── */}
           {activeStep === 1 && (
@@ -1955,7 +1965,7 @@ export default function AuditWorkflow() {
 
           {/* STEP 2: Upload ── */}
           {activeStep === 2 && (
-            <div className="space-y-4">
+            <div className="w-full max-w-none space-y-5 sm:space-y-6">
               {/* Header */}
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
@@ -1968,7 +1978,7 @@ export default function AuditWorkflow() {
               </div>
 
               {/* Two-column: upload zone + preview */}
-              <div className="border border-border rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="w-full border border-border rounded-2xl p-4 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                 {/* Left: upload zone */}
                 <div
                   className="border-2 border-dashed border-orange-200 rounded-xl bg-orange-500/5 p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-orange-500/10 transition-colors"
@@ -2034,7 +2044,7 @@ export default function AuditWorkflow() {
                           <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden bg-card">
                             <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
                             <button
-                              className="absolute top-1 right-1 w-5 h-5 bg-card/90 rounded-full shadow flex items-center justify-center text-muted-foreground hover:text-red-500 transition-colors"
+                              className="absolute top-1 right-1 w-5 h-5 bg-card/90 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 transition-colors"
                               onClick={() => setUploadedImages((p) => p.filter((_, i) => i !== idx))}
                             >
                               <X className="w-3 h-3" />
@@ -2056,7 +2066,7 @@ export default function AuditWorkflow() {
               </div>
 
               {/* Product Details */}
-              <div className="space-y-1">
+              <div className="w-full max-w-none space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
                     <FileText className="w-4 h-4 text-orange-500" />
@@ -2072,30 +2082,30 @@ export default function AuditWorkflow() {
                     value={projectName}
                     onChange={(e) => { setProjectName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                     placeholder="e.g. Summer Launch 2025"
-                    className="border-border rounded-xl h-11"
+                    className={cn(UPLOAD_TAB_FIELD_CLASS, "h-11 sm:h-12 text-sm")}
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+                  <div className="space-y-1.5 min-w-0">
                     <label className="text-xs font-medium text-foreground">Brand Name</label>
                     <Input
                       value={brandName}
                       onChange={(e) => { setBrandName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                       placeholder={egPlaceholderCompanyWithPrefix()}
-                      className="border-border rounded-xl h-11"
+                      className={cn(UPLOAD_TAB_FIELD_CLASS, "h-11 sm:h-12 text-sm")}
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 min-w-0">
                     <label className="text-xs font-medium text-foreground">Product Name <span className="text-red-500">*</span></label>
                     <Input
                       value={productName}
                       onChange={(e) => { setProductName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                       placeholder="Enter product name"
-                      className="border-border rounded-xl h-11"
+                      className={cn(UPLOAD_TAB_FIELD_CLASS, "h-11 sm:h-12 text-sm")}
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 w-full">
                   <label className="text-xs font-medium text-foreground">Product Description</label>
                   <Textarea
                     value={productDescription}
@@ -2105,7 +2115,7 @@ export default function AuditWorkflow() {
                       if (currentAuditId) setIsDirty(true);
                     }}
                     placeholder="Materials, key features, who it's for, sizing, care instructions — used for optimized content, graphics, and A+ modules."
-                    className="border-border rounded-xl min-h-[100px] resize-y"
+                    className={cn(UPLOAD_TAB_FIELD_CLASS, "min-h-[100px] sm:min-h-[120px] resize-y text-sm")}
                     rows={4}
                   />
                   <p className="text-[11px] text-muted-foreground">Optional. Combined with your uploaded images and product name for AI generation.</p>
@@ -2130,7 +2140,7 @@ export default function AuditWorkflow() {
                         }
                         setCatOpen((o) => !o);
                       }}
-                      className="w-full h-9 pl-3 pr-9 rounded-xl border border-border text-sm bg-card focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
+                      className="w-full h-11 sm:h-12 pl-3 pr-9 rounded-xl border border-border text-sm bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
                     >
                       <span className={category ? "text-foreground" : "text-muted-foreground"}>
                         {category || "Search or select category"}
