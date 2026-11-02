@@ -1,4 +1,5 @@
 import { db, auditsTable, productProfilesTable, productMarketplaceListingsTable } from "@workspace/db";
+import type { GeneratedContent } from "@workspace/db";
 
 const DEFAULT_WORKFLOW_TEMPLATE = "build-brand-standard";
 
@@ -26,6 +27,9 @@ export interface CreateProductBody {
   title?: string;
   bulletPoints?: string[];
   targetKeywords?: string[];
+  productDescription?: string;
+  imageUrls?: string[];
+  listingAttributes?: Array<{ attribute: string; value: string }>;
 }
 
 export function parseCreateProductBody(body: unknown):
@@ -35,9 +39,10 @@ export function parseCreateProductBody(body: unknown):
     return { success: false, error: "Invalid request body" };
   }
   const raw = body as Record<string, unknown>;
-  const productName = typeof raw.productName === "string" ? raw.productName.trim() : "";
+  const titleRaw = typeof raw.title === "string" ? raw.title.trim() : "";
+  const productName = typeof raw.productName === "string" ? raw.productName.trim() : titleRaw;
   const sku = typeof raw.sku === "string" ? raw.sku.trim() : "";
-  if (!productName) return { success: false, error: "Product name is required" };
+  if (!productName) return { success: false, error: "Product name or title is required" };
   if (!sku) return { success: false, error: "SKU is required" };
 
   const priorityRaw = typeof raw.priority === "string" ? raw.priority : "medium";
@@ -48,7 +53,25 @@ export function parseCreateProductBody(body: unknown):
 
   const category = typeof raw.category === "string" && raw.category.trim() ? raw.category.trim() : undefined;
   const brandName = typeof raw.brandName === "string" && raw.brandName.trim() ? raw.brandName.trim() : undefined;
-  const title = typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : undefined;
+  const title = titleRaw || productName;
+  const productDescription =
+    typeof raw.productDescription === "string" && raw.productDescription.trim()
+      ? raw.productDescription.trim()
+      : undefined;
+  const imageUrls = Array.isArray(raw.imageUrls)
+    ? raw.imageUrls.filter((u): u is string => typeof u === "string" && u.trim()).map((u) => u.trim())
+    : undefined;
+  const listingAttributes = Array.isArray(raw.listingAttributes)
+    ? raw.listingAttributes.filter(
+        (a): a is { attribute: string; value: string } =>
+          Boolean(a)
+          && typeof a === "object"
+          && typeof (a as { attribute?: unknown }).attribute === "string"
+          && typeof (a as { value?: unknown }).value === "string"
+          && (a as { attribute: string }).attribute.trim()
+          && (a as { value: string }).value.trim(),
+      ).map((a) => ({ attribute: a.attribute.trim(), value: a.value.trim() }))
+    : undefined;
   const bulletPoints = Array.isArray(raw.bulletPoints)
     ? raw.bulletPoints.filter((b): b is string => typeof b === "string" && b.trim()).map((b) => b.trim())
     : undefined;
@@ -71,6 +94,9 @@ export function parseCreateProductBody(body: unknown):
       title,
       bulletPoints: bulletPoints?.length ? bulletPoints : undefined,
       targetKeywords: targetKeywords?.length ? targetKeywords : undefined,
+      productDescription,
+      imageUrls: imageUrls?.length ? imageUrls : undefined,
+      listingAttributes: listingAttributes?.length ? listingAttributes : undefined,
     },
   };
 }
@@ -88,6 +114,24 @@ export async function createProductRecord(input: {
   const title = body.title?.trim() || body.productName.trim();
   const bulletPoints = body.bulletPoints?.length ? body.bulletPoints : [];
   const targetKeywords = body.targetKeywords?.length ? body.targetKeywords : [];
+  const imageUrls = body.imageUrls?.length ? body.imageUrls : [];
+  const productDescription = body.productDescription?.trim() || null;
+
+  let sourceListingContent: GeneratedContent | undefined;
+  if (
+    body.listingAttributes?.length
+    || productDescription
+    || bulletPoints.length > 0
+    || title
+  ) {
+    sourceListingContent = {
+      title,
+      bulletPoints,
+      keywords: targetKeywords,
+      htmlDescription: productDescription ?? "",
+      attributes: body.listingAttributes?.length ? body.listingAttributes : undefined,
+    };
+  }
 
   const [audit] = await db
     .insert(auditsTable)
@@ -97,13 +141,15 @@ export async function createProductRecord(input: {
       workspaceId,
       projectName: body.productName.trim(),
       productName: body.productName.trim(),
+      productDescription,
       asin: null,
       brandName,
       category,
       title,
       bulletPoints,
-      imageUrls: [],
+      imageUrls,
       targetKeywords,
+      sourceListingContent,
       overallScore: 0,
       status: "draft",
       currentStep: 1,

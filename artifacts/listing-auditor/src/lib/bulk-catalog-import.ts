@@ -1,15 +1,23 @@
 import * as XLSX from "xlsx";
 
 export type BulkCatalogFieldKey =
-  | "productName"
   | "sku"
-  | "brandName"
   | "title"
+  | "description"
   | "bullet1"
   | "bullet2"
   | "bullet3"
   | "bullet4"
   | "bullet5"
+  | "mainImageUrl"
+  | "otherImageUrl1"
+  | "otherImageUrl2"
+  | "brandName"
+  | "color"
+  | "size"
+  | "material"
+  | "countryOfOrigin"
+  | "productName"
   | "keywords"
   | "priority"
   | "assignedManager"
@@ -22,62 +30,205 @@ export interface BulkCatalogFieldDef {
   label: string;
   required: boolean;
   aliases: string[];
+  /** Preferred column order in template (lower first). */
+  templateOrder?: number;
 }
 
+export const BULK_CATALOG_TEMPLATE_HEADERS = [
+  "SKU",
+  "Title",
+  "Description",
+  "Bullet Point 1",
+  "Bullet Point 2",
+  "Bullet Point 3",
+  "Bullet Point 4",
+  "Bullet Point 5",
+  "Main Image URL",
+  "Other Image URL 1",
+  "Other Image URL 2",
+  "Brand Name",
+  "Color",
+  "Size",
+  "Material",
+  "Country of Origin",
+] as const;
+
+/** Sample rows matching the bulk import Excel reference layout. */
+export const BULK_CATALOG_TEMPLATE_SAMPLE_ROWS: string[][] = [
+  [
+    "WATCH-001",
+    "Titan Neo Analog Blue Dial Men's Watch",
+    "Premium analog watch with sunray blue dial and stainless steel case.",
+    "Sunray blue dial with luminous hands",
+    "Scratch-resistant mineral crystal",
+    "Water resistant for daily wear",
+    "Stainless steel case and bracelet",
+    "2-year manufacturer warranty",
+    "https://example.com/images/watch-main.jpg",
+    "https://example.com/images/watch-alt1.jpg",
+    "https://example.com/images/watch-alt2.jpg",
+    "Titan",
+    "Blue",
+    "42 mm",
+    "Stainless Steel",
+    "India",
+  ],
+  [
+    "LIP-114",
+    "Velvet Matte Lipstick",
+    "Long-wear matte lipstick with rich color payoff.",
+    "One-stroke bold color",
+    "Transfer-proof matte finish",
+    "Enriched with vitamin E",
+    "Paraben free formula",
+    "Suitable for all skin tones",
+    "https://example.com/images/lipstick-main.jpg",
+    "https://example.com/images/lipstick-alt1.jpg",
+    "",
+    "Glowveda",
+    "Ruby Red",
+    "4.2 g",
+    "Wax blend",
+    "India",
+  ],
+  [
+    "SHOE-887",
+    "Men's Running Shoes",
+    "Lightweight running shoes built for comfort and grip.",
+    "Breathable mesh upper",
+    "Cushioned midsole for impact support",
+    "High-grip rubber outsole",
+    "Padded collar and tongue",
+    "Ideal for road and treadmill",
+    "https://example.com/images/shoe-main.jpg",
+    "https://example.com/images/shoe-alt1.jpg",
+    "https://example.com/images/shoe-alt2.jpg",
+    "Stridefit",
+    "Charcoal",
+    "UK 9",
+    "Mesh",
+    "Vietnam",
+  ],
+];
+
 export const BULK_CATALOG_FIELDS: BulkCatalogFieldDef[] = [
-  {
-    key: "productName",
-    label: "Product name",
-    required: true,
-    aliases: ["product_name", "product name", "name", "product"],
-  },
   {
     key: "sku",
     label: "SKU",
     required: true,
+    templateOrder: 1,
     aliases: ["product_sku", "seller_sku", "item_sku"],
   },
   {
-    key: "brandName",
-    label: "Brand",
-    required: false,
-    aliases: ["brand", "brand_name"],
+    key: "title",
+    label: "Title",
+    required: true,
+    templateOrder: 2,
+    aliases: ["listing_title", "item_name", "product_title", "product title"],
   },
   {
-    key: "title",
-    label: "Listing title",
+    key: "description",
+    label: "Description",
     required: false,
-    aliases: ["listing_title", "item_name", "product_title"],
+    templateOrder: 3,
+    aliases: ["product_description", "desc", "listing_description", "html_description"],
   },
   {
     key: "bullet1",
-    label: "Bullet 1",
+    label: "Bullet Point 1",
     required: false,
-    aliases: ["bullet_1", "bullet point 1", "bp1"],
+    templateOrder: 4,
+    aliases: ["bullet_1", "bullet 1", "bp1"],
   },
   {
     key: "bullet2",
-    label: "Bullet 2",
+    label: "Bullet Point 2",
     required: false,
-    aliases: ["bullet_2", "bullet point 2", "bp2"],
+    templateOrder: 5,
+    aliases: ["bullet_2", "bullet 2", "bp2"],
   },
   {
     key: "bullet3",
-    label: "Bullet 3",
+    label: "Bullet Point 3",
     required: false,
-    aliases: ["bullet_3", "bullet point 3", "bp3"],
+    templateOrder: 6,
+    aliases: ["bullet_3", "bullet 3", "bp3"],
   },
   {
     key: "bullet4",
-    label: "Bullet 4",
+    label: "Bullet Point 4",
     required: false,
-    aliases: ["bullet_4", "bullet point 4", "bp4"],
+    templateOrder: 7,
+    aliases: ["bullet_4", "bullet 4", "bp4"],
   },
   {
     key: "bullet5",
-    label: "Bullet 5",
+    label: "Bullet Point 5",
     required: false,
-    aliases: ["bullet_5", "bullet point 5", "bp5"],
+    templateOrder: 8,
+    aliases: ["bullet_5", "bullet 5", "bp5"],
+  },
+  {
+    key: "mainImageUrl",
+    label: "Main Image URL",
+    required: false,
+    templateOrder: 9,
+    aliases: ["main_image", "main image", "primary_image_url", "image_url"],
+  },
+  {
+    key: "otherImageUrl1",
+    label: "Other Image URL 1",
+    required: false,
+    templateOrder: 10,
+    aliases: ["other_image_1", "other image 1", "image_url_2", "gallery_image_1"],
+  },
+  {
+    key: "otherImageUrl2",
+    label: "Other Image URL 2",
+    required: false,
+    templateOrder: 11,
+    aliases: ["other_image_2", "other image 2", "image_url_3", "gallery_image_2"],
+  },
+  {
+    key: "brandName",
+    label: "Brand Name",
+    required: false,
+    templateOrder: 12,
+    aliases: ["brand", "brand_name"],
+  },
+  {
+    key: "color",
+    label: "Color",
+    required: false,
+    templateOrder: 13,
+    aliases: ["colour", "color_name"],
+  },
+  {
+    key: "size",
+    label: "Size",
+    required: false,
+    templateOrder: 14,
+    aliases: ["item_size", "product_size"],
+  },
+  {
+    key: "material",
+    label: "Material",
+    required: false,
+    templateOrder: 15,
+    aliases: ["material_type", "fabric"],
+  },
+  {
+    key: "countryOfOrigin",
+    label: "Country of Origin",
+    required: false,
+    templateOrder: 16,
+    aliases: ["country", "country_of_origin", "origin_country", "made_in"],
+  },
+  {
+    key: "productName",
+    label: "Product name",
+    required: false,
+    aliases: ["product_name", "name", "product"],
   },
   {
     key: "keywords",
@@ -117,6 +268,14 @@ export const BULK_CATALOG_FIELDS: BulkCatalogFieldDef[] = [
   },
 ];
 
+/** Fields shown first in the Structure step (template columns). */
+export const BULK_CATALOG_FIELDS_FOR_UI = [...BULK_CATALOG_FIELDS].sort((a, b) => {
+  const ao = a.templateOrder ?? 999;
+  const bo = b.templateOrder ?? 999;
+  if (ao !== bo) return ao - bo;
+  return a.label.localeCompare(b.label);
+});
+
 export const BULK_CATALOG_SKIP = "__skip__";
 
 export type ColumnMapping = Record<string, BulkCatalogFieldKey | typeof BULK_CATALOG_SKIP>;
@@ -130,6 +289,12 @@ function normalizeHeader(value: string): string {
     .trim();
 }
 
+const FIELDS_BY_MATCH_SPECIFICITY = [...BULK_CATALOG_FIELDS].sort((a, b) => {
+  const maxA = Math.max(a.label.length, ...a.aliases.map((x) => x.length));
+  const maxB = Math.max(b.label.length, ...b.aliases.map((x) => x.length));
+  return maxB - maxA;
+});
+
 export function autoMapColumns(headers: string[]): ColumnMapping {
   const mapping: ColumnMapping = {};
   for (const header of headers) {
@@ -139,9 +304,9 @@ export function autoMapColumns(headers: string[]): ColumnMapping {
       continue;
     }
     let matched: BulkCatalogFieldKey | typeof BULK_CATALOG_SKIP = BULK_CATALOG_SKIP;
-    for (const field of BULK_CATALOG_FIELDS) {
+    for (const field of FIELDS_BY_MATCH_SPECIFICITY) {
       const candidates = [field.key, field.label, ...field.aliases].map(normalizeHeader);
-      if (candidates.some((c) => c === norm || norm.includes(c) || c.includes(norm))) {
+      if (candidates.some((c) => c === norm || (c.length >= 4 && (norm.includes(c) || c.includes(norm))))) {
         matched = field.key;
         break;
       }
@@ -153,7 +318,9 @@ export function autoMapColumns(headers: string[]): ColumnMapping {
 
 export function mappingCoversRequiredFields(mapping: ColumnMapping): boolean {
   const mapped = new Set(Object.values(mapping));
-  return BULK_CATALOG_FIELDS.filter((f) => f.required).every((f) => mapped.has(f.key));
+  const hasSku = mapped.has("sku");
+  const hasTitle = mapped.has("title") || mapped.has("productName");
+  return hasSku && hasTitle;
 }
 
 export interface ParsedCatalogFile {
@@ -256,31 +423,18 @@ function splitCsvLine(line: string): string[] {
   return out;
 }
 
-export function buildCatalogTemplateCsv(): string {
-  const headers = BULK_CATALOG_FIELDS.map((f) => f.label);
-  const sample = [
-    "Example Watch",
-    "SKU-001",
-    "Example Brand",
-    "Example Watch — Premium Dial",
-    "Bullet one",
-    "Bullet two",
-    "",
-    "",
-    "",
-    "watch, chronograph",
-    "medium",
-    "Alex",
-    "https://example.com/ref",
-    "",
-    "Amazon, Shopify",
-  ];
-  return `${headers.join(",")}\n${sample.map(escapeCsvCell).join(",")}\n`;
+export function buildCatalogTemplateWorkbook(): XLSX.WorkBook {
+  const wb = XLSX.utils.book_new();
+  const rows = [Array.from(BULK_CATALOG_TEMPLATE_HEADERS), ...BULK_CATALOG_TEMPLATE_SAMPLE_ROWS];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = BULK_CATALOG_TEMPLATE_HEADERS.map((h) => ({ wch: Math.max(h.length + 2, 14) }));
+  XLSX.utils.book_append_sheet(wb, ws, "Import");
+  return wb;
 }
 
-function escapeCsvCell(value: string): string {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
+export interface CatalogListingAttribute {
+  attribute: string;
+  value: string;
 }
 
 export interface CatalogImportProductPayload {
@@ -294,8 +448,11 @@ export interface CatalogImportProductPayload {
   targetMarketplaces?: string[];
   brandName?: string;
   title?: string;
+  productDescription?: string;
   bulletPoints?: string[];
   targetKeywords?: string[];
+  imageUrls?: string[];
+  listingAttributes?: CatalogListingAttribute[];
 }
 
 export function rowsToImportProducts(
@@ -311,13 +468,26 @@ export function rowsToImportProducts(
       const cell = row[header]?.trim() ?? "";
       if (cell) values[fieldKey] = cell;
     }
-    const productName = values.productName?.trim();
     const sku = values.sku?.trim();
+    const title = values.title?.trim();
+    const productName = values.productName?.trim() || title;
     if (!productName || !sku) continue;
 
     const bullets = [values.bullet1, values.bullet2, values.bullet3, values.bullet4, values.bullet5]
       .map((b) => b?.trim())
       .filter((b): b is string => Boolean(b));
+
+    const imageUrls = [values.mainImageUrl, values.otherImageUrl1, values.otherImageUrl2]
+      .map((u) => u?.trim())
+      .filter((u): u is string => Boolean(u));
+
+    const listingAttributes: CatalogListingAttribute[] = [];
+    if (values.color?.trim()) listingAttributes.push({ attribute: "Color", value: values.color.trim() });
+    if (values.size?.trim()) listingAttributes.push({ attribute: "Size", value: values.size.trim() });
+    if (values.material?.trim()) listingAttributes.push({ attribute: "Material", value: values.material.trim() });
+    if (values.countryOfOrigin?.trim()) {
+      listingAttributes.push({ attribute: "Country of Origin", value: values.countryOfOrigin.trim() });
+    }
 
     const keywordsRaw = values.keywords?.trim();
     const targetKeywords = keywordsRaw
@@ -340,21 +510,19 @@ export function rowsToImportProducts(
       driveFolderUrl: values.driveFolderUrl,
       targetMarketplaces,
       brandName: values.brandName,
-      title: values.title,
+      title: title || productName,
+      productDescription: values.description?.trim() || undefined,
       bulletPoints: bullets.length > 0 ? bullets : undefined,
       targetKeywords,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+      listingAttributes: listingAttributes.length > 0 ? listingAttributes : undefined,
     });
   }
   return products;
 }
 
 export function downloadCatalogTemplate(filename: string): void {
-  const csv = buildCatalogTemplateCsv();
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  const wb = buildCatalogTemplateWorkbook();
+  const safeName = filename.toLowerCase().endsWith(".xlsx") ? filename : `${filename.replace(/\.csv$/i, "")}.xlsx`;
+  XLSX.writeFile(wb, safeName);
 }

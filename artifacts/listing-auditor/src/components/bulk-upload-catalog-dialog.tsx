@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AMAZON_CATEGORIES } from "@/lib/amazon-categories";
 import {
-  BULK_CATALOG_FIELDS,
+  BULK_CATALOG_FIELDS_FOR_UI,
   BULK_CATALOG_SKIP,
   type BulkCatalogFieldKey,
   type ColumnMapping,
@@ -121,7 +121,7 @@ export function BulkUploadCatalogDialog({
     if (!category || !mappingCoversRequiredFields(mapping)) return;
     const products = rowsToImportProducts(rows, mapping, category);
     if (products.length === 0) {
-      setImportError("No valid rows. Map Product name and SKU columns with at least one filled row.");
+      setImportError("No valid rows. Map SKU and Title columns with at least one filled row.");
       return;
     }
     setImportError(null);
@@ -275,7 +275,7 @@ export function BulkUploadCatalogDialog({
                   variant="outline"
                   size="sm"
                   className="h-8 text-xs"
-                  onClick={() => downloadCatalogTemplate(`catalog-template-${category.replace(/\s+/g, "-").toLowerCase()}.csv`)}
+                  onClick={() => downloadCatalogTemplate(`catalog-import-${category.replace(/\s+/g, "-").toLowerCase()}.xlsx`)}
                 >
                   Download template
                 </Button>
@@ -309,7 +309,7 @@ export function BulkUploadCatalogDialog({
           {step === "structure" && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Match your file columns to catalog fields. Product name and SKU are required.
+                Match your file columns to catalog fields. SKU and Title are required.
               </p>
               <div className="max-h-52 overflow-y-auto rounded-lg border border-border">
                 <table className="w-full text-xs">
@@ -333,7 +333,7 @@ export function BulkUploadCatalogDialog({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value={BULK_CATALOG_SKIP}>Skip column</SelectItem>
-                              {BULK_CATALOG_FIELDS.map((field) => (
+                              {BULK_CATALOG_FIELDS_FOR_UI.map((field) => (
                                 <SelectItem key={field.key} value={field.key}>
                                   {field.label}
                                   {field.required ? " *" : ""}
@@ -349,7 +349,7 @@ export function BulkUploadCatalogDialog({
               </div>
               {!mappingCoversRequiredFields(mapping) && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
-                  Map columns to <strong>Product name</strong> and <strong>SKU</strong> to continue.
+                  Map columns to <strong>SKU</strong> and <strong>Title</strong> to continue.
                 </p>
               )}
               {previewProducts.length > 0 && (

@@ -28,7 +28,44 @@ function normalizeImportRow(raw: unknown, rowIndex: number):
   const category = pickString(row, ["category", "product_category"]);
   const brandName = pickString(row, ["brandName", "brand_name", "brand"]);
   const title = pickString(row, ["title", "listing_title", "listingTitle"]);
+  const productDescription = pickString(row, ["productDescription", "product_description", "description"]);
   const keywordsRaw = pickString(row, ["targetKeywords", "target_keywords", "keywords", "search_terms"]);
+
+  const imageUrls: string[] = [];
+  for (const key of ["mainImageUrl", "main_image_url", "otherImageUrl1", "other_image_url_1", "otherImageUrl2", "other_image_url_2"]) {
+    const url = pickString(row, [key]);
+    if (url) imageUrls.push(url);
+  }
+  if (imageUrls.length === 0 && Array.isArray(row.imageUrls)) {
+    for (const u of row.imageUrls) {
+      if (typeof u === "string" && u.trim()) imageUrls.push(u.trim());
+    }
+  }
+
+  const listingAttributes: Array<{ attribute: string; value: string }> = [];
+  const color = pickString(row, ["color", "colour"]);
+  const size = pickString(row, ["size"]);
+  const material = pickString(row, ["material"]);
+  const country = pickString(row, ["countryOfOrigin", "country_of_origin", "country"]);
+  if (color) listingAttributes.push({ attribute: "Color", value: color });
+  if (size) listingAttributes.push({ attribute: "Size", value: size });
+  if (material) listingAttributes.push({ attribute: "Material", value: material });
+  if (country) listingAttributes.push({ attribute: "Country of Origin", value: country });
+  if (Array.isArray(row.listingAttributes)) {
+    for (const a of row.listingAttributes) {
+      if (
+        a
+        && typeof a === "object"
+        && typeof (a as { attribute?: unknown }).attribute === "string"
+        && typeof (a as { value?: unknown }).value === "string"
+      ) {
+        listingAttributes.push({
+          attribute: (a as { attribute: string }).attribute.trim(),
+          value: (a as { value: string }).value.trim(),
+        });
+      }
+    }
+  }
 
   const bulletPoints: string[] = [];
   for (let i = 1; i <= 5; i++) {
@@ -75,6 +112,9 @@ function normalizeImportRow(raw: unknown, rowIndex: number):
     title: title || undefined,
     bulletPoints: bulletPoints.length > 0 ? bulletPoints : undefined,
     targetKeywords,
+    productDescription: productDescription || undefined,
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    listingAttributes: listingAttributes.length > 0 ? listingAttributes : undefined,
   });
 }
 
