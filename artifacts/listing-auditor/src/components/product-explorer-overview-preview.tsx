@@ -16,6 +16,51 @@ const MAIN_IMAGE_FRAME =
 const SWEEPER_BTN_CLASS =
   "absolute top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full bg-white/95 border border-slate-200 shadow-sm flex items-center justify-center text-slate-900 opacity-100 sm:opacity-0 sm:group-hover/main-image:opacity-100 hover:bg-white transition-opacity";
 
+function SpecificationsFeaturesSection({
+  rows,
+}: {
+  rows: SellerProductDetail[];
+}) {
+  if (rows.length === 0) return null;
+  const splitAt = Math.ceil(rows.length / 2);
+  const columns = [rows.slice(0, splitAt), rows.slice(splitAt)];
+
+  return (
+    <div className="mt-5 pt-5 border-t border-slate-200 space-y-4">
+      <h4 className="text-center text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+        Specifications &amp; Features
+      </h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+        {columns.map((columnRows, colIndex) => (
+          columnRows.length > 0 ? (
+            <div
+              key={colIndex}
+              className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm"
+            >
+              {columnRows.map((row, rowIndex) => (
+                <div
+                  key={`${colIndex}-${row.attribute}-${rowIndex}`}
+                  className={cn(
+                    "flex items-start justify-between gap-6 px-4 py-2.5 sm:py-3",
+                    rowIndex < columnRows.length - 1 && "border-b border-slate-100",
+                  )}
+                >
+                  <span className="text-[11px] sm:text-xs font-bold text-slate-900 shrink-0 max-w-[45%] leading-snug">
+                    {row.attribute}
+                  </span>
+                  <span className="text-[11px] sm:text-xs text-slate-700 text-right leading-snug break-words min-w-0 flex-1">
+                    {row.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ProductExplorerOverviewPreview({
   imageUrls,
   title,
@@ -181,29 +226,10 @@ export function ProductExplorerOverviewPreview({
           {!hasContent && images.length > 0 && (
             <p className="text-[11px] text-slate-400">Images only — generate or import listing copy to preview text.</p>
           )}
-
-          {hasAttributes ? (
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white pt-1">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
-                    <th className="px-3 py-2 font-semibold text-slate-600">Attribute</th>
-                    <th className="px-3 py-2 font-semibold text-slate-600">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={i} className="border-b border-slate-50 last:border-0">
-                      <td className="px-3 py-2 font-medium text-slate-800 align-top">{row.attribute}</td>
-                      <td className="px-3 py-2 text-slate-600 align-top">{row.value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
         </div>
       </div>
+
+      {hasAttributes ? <SpecificationsFeaturesSection rows={rows} /> : null}
     </div>
   );
 }
