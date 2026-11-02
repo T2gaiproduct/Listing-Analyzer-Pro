@@ -5,6 +5,7 @@ import {
   Archive,
   ArrowLeft,
   MoreHorizontal,
+  Package,
   PenLine,
   Pin,
   Trash2,
@@ -20,12 +21,37 @@ import { ProjectShareMenu } from "@/components/project-share-menu";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const PROJECT_TYPE = "listing";
 
+function ProductStatusBadge({ label }: { label?: string | null }) {
+  const text = label?.trim() || "Draft";
+  const isLive = text.toLowerCase() === "live" || text.toLowerCase() === "active";
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
+        isLive
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-amber-50 text-amber-700 border-amber-200",
+      )}
+    >
+      {text}
+    </span>
+  );
+}
+
 export function ProductDetailRibbon({
   productId,
   productName,
+  displayName,
+  statusLabel,
+  imageUrl,
+  onImageError,
 }: {
   productId: number;
   productName: string;
+  displayName: string;
+  statusLabel?: string | null;
+  imageUrl?: string | null;
+  onImageError?: () => void;
 }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -228,16 +254,37 @@ export function ProductDetailRibbon({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 sm:gap-0 min-h-[34px] py-1 px-2.5 sm:px-3 bg-slate-50/80 border border-slate-200 rounded-lg">
+      <div className="flex flex-wrap items-center gap-2 min-h-[40px] py-1.5 px-2.5 sm:px-3 bg-slate-50/80 border border-slate-200 rounded-lg">
         <Link
           href="/products"
-          className="flex items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900 hover:bg-white rounded-md px-1.5 py-1 transition-colors z-10"
+          className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900 hover:bg-white rounded-md px-1.5 py-1 transition-colors z-10"
         >
           <ArrowLeft className="w-3 h-3" />
           <span className="hidden sm:inline">Back</span>
         </Link>
 
-        <div className="flex items-center gap-1 ml-auto z-10 flex-1 justify-end">
+        <div className="flex min-w-0 flex-1 items-center gap-2 px-1 sm:px-2">
+          <div className="w-9 h-9 shrink-0 rounded-md border border-slate-100 bg-amber-50 flex items-center justify-center overflow-hidden">
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={onImageError}
+              />
+            ) : (
+              <Package className="w-4 h-4 text-amber-600/70" aria-hidden />
+            )}
+          </div>
+          <div className="min-w-0 flex flex-wrap items-center gap-1.5">
+            <h1 className="text-sm font-semibold text-slate-900 truncate max-w-[min(100%,14rem)] sm:max-w-md">
+              {displayName}
+            </h1>
+            <ProductStatusBadge label={statusLabel} />
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1 ml-auto z-10">
           <ProjectShareMenu
             projectCtx={projectCtx}
             projectTitle={productName}

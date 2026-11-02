@@ -2458,64 +2458,21 @@ export default function ProductDetailPage({ id }: { id: number }) {
     );
   }
 
+  const ribbonDisplayName =
+    product.isShopifyImport || product.isWooCommerceImport
+      ? (listingProduct?.listingTitle ?? listingProduct?.title ?? product.name)
+      : product.name;
+
   return (
     <div className="space-y-3 animate-in fade-in duration-300 pb-6">
-      <ProductDetailRibbon productId={product.id} productName={product.name} />
-
-      {/* Header card */}
-      <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-2.5 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-md border border-slate-100 bg-amber-50 flex items-center justify-center overflow-hidden shrink-0">
-              {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                  onError={() => setImageFailed(true)}
-                />
-              ) : (
-                <Package className="w-4 h-4 text-amber-600/70" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <h1 className="text-sm font-semibold text-slate-900 truncate">
-                  {product.isShopifyImport || product.isWooCommerceImport
-                    ? (listingProduct?.listingTitle ?? listingProduct?.title ?? product.name)
-                    : product.name}
-                </h1>
-                <LiveBadge label={product.statusLabel} />
-              </div>
-              <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-                <span className="font-medium text-slate-600">SKU:</span> {product.sku}
-                <span className="mx-1.5 text-slate-300">|</span>
-                <span className="font-medium text-slate-600">Brand:</span> {product.brandName || "—"}
-                <span className="mx-1.5 text-slate-300">|</span>
-                <span className="font-medium text-slate-600">Category:</span> {product.category || "—"}
-              </p>
-              {liveMarketplaces.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                  <span className="text-[9px] font-medium uppercase tracking-wide text-slate-400">
-                    Listed on
-                  </span>
-                  {liveMarketplaces.map((marketplace) => (
-                    <button
-                      key={marketplace}
-                      type="button"
-                      onClick={() => goToWorkflowStep(7)}
-                      className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50/60 px-1.5 py-0.5 hover:bg-emerald-50 transition-colors"
-                      title={`View ${marketplace} listing`}
-                    >
-                      <MarketplaceLogo marketplace={marketplace} className="h-2.5 w-12" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <ProductDetailRibbon
+        productId={product.id}
+        productName={product.name}
+        displayName={ribbonDisplayName}
+        statusLabel={product.statusLabel}
+        imageUrl={imageSrc}
+        onImageError={() => setImageFailed(true)}
+      />
 
       {showBuildBrandWorkflow && (
         <ProductExplorerWorkflowStepper
