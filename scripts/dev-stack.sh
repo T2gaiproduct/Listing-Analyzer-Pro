@@ -114,15 +114,30 @@ use_preview_frontend_for_tunnel() {
   ! should_skip_cloudflare_tunnel
 }
 
+# Bake the same build id into the SPA as the running API (avoids stale-build toasts on preview).
+sync_frontend_build_id_from_api() {
+  local id=""
+  local meta_file="$ROOT/artifacts/api-server/dist/build-meta.json"
+  if [[ -f "$meta_file" ]]; then
+    id=$(python3 -c "import json; print(json.load(open('$meta_file')).get('buildId',''))" 2>/dev/null || true)
+  fi
+  if [[ -n "$id" && "$id" != "unknown" ]]; then
+    export VITE_APP_BUILD_ID="$id"
+    echo "==> Frontend VITE_APP_BUILD_ID synced to API: $VITE_APP_BUILD_ID" >&2
+  fi
+}
+
 build_listing_auditor_preview() {
   local clerk_proxy_export="${1:-}"
   echo "==> Building frontend bundle for Cloudflare tunnel (vite preview — no dev/HMR)"
+  sync_frontend_build_id_from_api
   (
     cd "$ROOT"
     export PORT=19145
     export BASE_PATH=/
     export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
     export VITE_ADMIN_USER_IDS="$ADMIN_IDS_FOR_STACK"
+    export VITE_APP_BUILD_ID="${VITE_APP_BUILD_ID:-}"
     if using_cloud_agent_quick_tunnel; then
       export VITE_CLOUD_AGENT_PREVIEW=true
     fi
@@ -533,9 +548,8 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
     pnpm --filter @workspace/api-server run dev
   "
 
-  start_frontend_live ""
-
   wait_for_url "http://127.0.0.1:8080/api/healthz" "API server" 45
+  start_frontend_live ""
   wait_for_url "http://127.0.0.1:19145/" "Frontend" 60
 
   tmux_cmd kill-session -t dev-proxy 2>/dev/null || true
