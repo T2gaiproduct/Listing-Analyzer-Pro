@@ -121,6 +121,11 @@ function isBuildYourBrandNavActive(location: string): boolean {
   return false;
 }
 
+/** Create Graphics landing, create wizard, generating screen, and project gallery. */
+function isCreateGraphicsNavActive(location: string): boolean {
+  return location === "/projects" || location.startsWith("/projects/");
+}
+
 // --- Page title map ---------------------------------------------------------
 function getPageTitle(location: string, appName: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
@@ -820,7 +825,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 location === href ||
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                 (href === "/audits/new" && isBuildYourBrandNavActive(location)) ||
-                (href === "/projects" && location === "/projects") ||
+                (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                 (href === "/videos" && location === "/videos");
               if (collapsed) {
                 return (
@@ -996,7 +1001,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   location === href ||
                   (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                   (href === "/audits/new" && isBuildYourBrandNavActive(location)) ||
-                  (href === "/projects" && location === "/projects") ||
+                  (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                   (href === "/videos" && location === "/videos");
                 return (
                   <button
