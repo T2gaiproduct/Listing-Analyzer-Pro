@@ -30,6 +30,7 @@ import {
 import {
   applyListingFieldsToAudit,
   findReusableListingAudit,
+  originFieldsPatchOnReuse,
 } from "../lib/audit-listing-dedupe.js";
 import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
@@ -313,10 +314,11 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
 
   let audit: typeof auditsTable.$inferSelect;
   if (existingAudit) {
-    const updated = await applyListingFieldsToAudit(existingAudit.id, listingFields, {
-      projectOrigin: originFields.projectOrigin,
-      importMarketplace: originFields.importMarketplace,
-    });
+    const updated = await applyListingFieldsToAudit(
+      existingAudit.id,
+      listingFields,
+      originFieldsPatchOnReuse(existingAudit, originFields),
+    );
     if (!updated) {
       res.status(500).json({ error: "Could not update existing listing audit" });
       return;
@@ -473,7 +475,11 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
         sourceListingUrl,
       });
       if (existingAudit) {
-        const updated = await applyListingFieldsToAudit(existingAudit.id, listingFields);
+        const updated = await applyListingFieldsToAudit(
+          existingAudit.id,
+          listingFields,
+          originFieldsPatchOnReuse(existingAudit, originFields),
+        );
         if (!updated) {
           res.status(500).json({ error: "Could not update existing project" });
           return;
