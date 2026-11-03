@@ -66,14 +66,14 @@ function AuditListingHistory() {
 
   if (isError) {
     return (
-      <div className="max-w-4xl mx-auto rounded-xl border border-border/60 bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+      <div className="w-full min-w-0 rounded-xl border border-border/60 bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
         Could not load audit history. Refresh the page to try again.
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
+    <div className="w-full min-w-0 space-y-4">
       <div className="flex items-center gap-2 justify-center sm:justify-start">
         <History className="w-4 h-4 text-orange-500" />
         <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
@@ -81,7 +81,7 @@ function AuditListingHistory() {
         </h2>
       </div>
 
-      <Card className="border border-border/60 shadow-sm overflow-hidden">
+      <Card className="border border-border/60 shadow-none overflow-hidden">
         {isLoading ? (
           <CardContent className="p-0 divide-y divide-border/60">
             {Array.from({ length: 4 }).map((_, i) => (
