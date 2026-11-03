@@ -63,7 +63,7 @@ export function ImageTypeCustomizeDialog({
   return (
     <Dialog open={open && Boolean(type)} onOpenChange={onOpenChange}>
       {!type ? null : (
-      <DialogContent className="max-w-3xl w-[min(100vw-2rem,48rem)] max-h-[min(92vh,880px)] overflow-y-auto gap-5 p-5 sm:p-6">
+      <DialogContent className="max-w-3xl w-[min(100vw-2rem,48rem)] max-h-[min(92vh,880px)] overflow-y-auto gap-5 p-5 sm:p-6 shadow-none border-slate-200">
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <span className="text-xl leading-none">{type.icon}</span>

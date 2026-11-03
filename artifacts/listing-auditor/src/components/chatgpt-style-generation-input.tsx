@@ -29,6 +29,8 @@ type ChatGptStyleGenerationInputProps = {
   hideAspectRatio?: boolean;
   placeholder?: string;
   className?: string;
+  /** Flat border only — no drop shadow (module customize dialog). */
+  flatSurface?: boolean;
 };
 
 function ToolbarPill({
@@ -64,6 +66,7 @@ export function ChatGptStyleGenerationInput({
   hideAspectRatio = false,
   placeholder = "Describe scene, lighting, composition, and mood…",
   className,
+  flatSurface = false,
 }: ChatGptStyleGenerationInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
@@ -89,8 +92,10 @@ export function ChatGptStyleGenerationInput({
     <div className={cn("w-full", className)}>
       <div
         className={cn(
-          "rounded-[26px] border border-slate-200/90 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.08)]",
-          "focus-within:border-slate-300 focus-within:shadow-[0_4px_20px_rgba(15,23,42,0.1)] transition-shadow",
+          "rounded-[26px] border border-slate-200/90 bg-white transition-colors",
+          flatSurface
+            ? "shadow-none focus-within:border-slate-300"
+            : "shadow-[0_2px_12px_rgba(15,23,42,0.08)] focus-within:border-slate-300 focus-within:shadow-[0_4px_20px_rgba(15,23,42,0.1)]",
         )}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {

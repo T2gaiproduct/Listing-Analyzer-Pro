@@ -81,6 +81,7 @@ export function CustomPromptGenerationPanel({
       promptMaxChars={promptMaxChars}
       hideAspectRatio={hideAspectRatio}
       placeholder="Optional — scene, lighting, composition, and mood…"
+      flatSurface
     />
   ) : null;
 

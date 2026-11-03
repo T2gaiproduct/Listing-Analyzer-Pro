@@ -83,22 +83,14 @@ export function GraphicsStudioReferencePicker({
         </p>
       ) : null}
 
-      <p className="text-xs text-slate-600">
-        Tap examples your admin uploaded to include them as optional style references for this graphic (along with
-        your own uploads below).
-      </p>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 min-h-[120px]">
+      <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 min-h-[120px] shadow-none">
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-slate-500 py-8 justify-center">
             <Loader2 className="w-4 h-4 animate-spin" />
             Loading examples…
           </div>
         ) : images.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-8 px-4">
-            No studio examples for this module yet. Your admin can add several in Image generation prompts → Product
-            / gallery graphics.
-          </p>
+          <p className="text-xs text-slate-400 text-center py-8 px-4">No studio examples for this module yet.</p>
         ) : (
           <>
             {images.length > 1 ? (
@@ -138,7 +130,7 @@ export function GraphicsStudioReferencePicker({
                     className={cn(
                       "relative aspect-square rounded-lg border-2 overflow-hidden bg-white transition-all text-left",
                       selected
-                        ? "border-orange-500 ring-2 ring-orange-200"
+                        ? "border-orange-500"
                         : "border-slate-200 hover:border-orange-300",
                       disabled && "opacity-50 cursor-not-allowed",
                     )}
@@ -156,7 +148,7 @@ export function GraphicsStudioReferencePicker({
                       className="w-full h-full object-contain"
                     />
                     {selected ? (
-                      <span className="absolute top-1.5 right-1.5 rounded-full bg-orange-500 text-white p-0.5 shadow">
+                      <span className="absolute top-1.5 right-1.5 rounded-full bg-orange-500 text-white p-0.5">
                         <Check className="w-3.5 h-3.5" />
                       </span>
                     ) : null}
