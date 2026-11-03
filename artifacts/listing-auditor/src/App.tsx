@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BrandingHead } from "@/components/branding-head";
+import { PreviewClerkEnvGate } from "@/components/preview-clerk-env-gate";
 import { HomepageCmsProvider } from "@/components/homepage-cms-context";
 import { AppVersionWatcher } from "@/components/app-version-watcher";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -1148,10 +1149,12 @@ function App() {
     <WouterRouter base={basePath}>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <HomepageCmsProvider>
-            <BrandingHead />
-            <ClerkProviderWithRoutes />
-          </HomepageCmsProvider>
+          <PreviewClerkEnvGate>
+            <HomepageCmsProvider>
+              <BrandingHead />
+              <ClerkProviderWithRoutes />
+            </HomepageCmsProvider>
+          </PreviewClerkEnvGate>
         </QueryClientProvider>
       </ThemeProvider>
     </WouterRouter>

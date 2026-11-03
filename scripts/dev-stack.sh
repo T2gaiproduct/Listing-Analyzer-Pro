@@ -541,7 +541,7 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
     export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
     export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
     export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL='${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}'
+    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL='true'
     export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
     export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
     export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
@@ -559,7 +559,7 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
   wait_for_url "http://127.0.0.1:3000/__devproxy/health" "Dev proxy" 20
 
   if using_cloud_agent_quick_tunnel; then
-    local saved_url=""
+    saved_url=""
     [[ -f "$PUBLIC_URL_FILE" ]] && saved_url=$(normalize_public_url "$(cat "$PUBLIC_URL_FILE")")
     if ! tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null || ! public_url_is_healthy "$saved_url"; then
       echo "==> Cloudflare quick tunnel missing or unhealthy — starting tunnel (hostname may change)" >&2
