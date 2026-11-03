@@ -558,9 +558,22 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
   "
   wait_for_url "http://127.0.0.1:3000/__devproxy/health" "Dev proxy" 20
 
+  if using_cloud_agent_quick_tunnel; then
+    local saved_url=""
+    [[ -f "$PUBLIC_URL_FILE" ]] && saved_url=$(normalize_public_url "$(cat "$PUBLIC_URL_FILE")")
+    if ! tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null || ! public_url_is_healthy "$saved_url"; then
+      echo "==> Cloudflare quick tunnel missing or unhealthy — starting tunnel (hostname may change)" >&2
+      start_cloudflare_tunnel
+      if public_url=$(wait_for_public_url); then
+        printf '%s\n' "$public_url" >"$PUBLIC_URL_FILE"
+        saved_url="$public_url"
+      fi
+    fi
+  fi
+
   if [[ -f "$PUBLIC_URL_FILE" ]]; then
     echo ""
-    echo "Reload complete — Cloudflare URL unchanged:"
+    echo "Reload complete — Cloudflare preview:"
     echo "  $(cat "$PUBLIC_URL_FILE")"
     echo "  Import from link: $(cat "$PUBLIC_URL_FILE")/audits/import-from-link"
   else
