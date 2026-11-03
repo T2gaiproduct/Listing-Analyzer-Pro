@@ -53,7 +53,7 @@ sync_clerk_publishable_to_secret_instance() {
   domains_json=$(curl -sf -H "Authorization: Bearer $CLERK_SEC_FOR_STACK" "https://api.clerk.com/v1/domains" 2>/dev/null || true)
   [[ -n "$domains_json" ]] || return 0
 
-  fapi_host=$(python3 -c "
+  read -r fapi_host portal_clerk_host < <(python3 -c "
 import json, sys
 from urllib.parse import urlparse
 data = json.loads(sys.stdin.read()).get('data', [])
@@ -61,25 +61,29 @@ for d in data:
     if d.get('is_satellite'):
         continue
     fe = (d.get('frontend_api_url') or '').strip()
-    if fe:
-        print(urlparse(fe).hostname or '')
-        break
+    fapi = urlparse(fe).hostname if fe else ''
     portal = (d.get('accounts_portal_url') or '').strip()
+    portal_host = ''
     if portal:
         slug = (urlparse(portal).hostname or '').split('.')[0]
         if slug:
-            print(f'{slug}.clerk.accounts.dev')
-            break
+            portal_host = f'{slug}.clerk.accounts.dev'
+    print(fapi, portal_host)
+    break
 " <<<"$domains_json")
-  [[ -n "$fapi_host" ]] || return 0
+  [[ -n "$fapi_host" || -n "$portal_clerk_host" ]] || return 0
 
   pub_host="$(clerk_instance_from_publishable_key "${CLERK_PUB_FOR_STACK:-}")"
   if [[ -n "$pub_host" && "$pub_host" == "$fapi_host" ]]; then
     return 0
   fi
+  if [[ -n "$pub_host" && -n "$portal_clerk_host" && "$pub_host" == "$portal_clerk_host" ]]; then
+    return 0
+  fi
 
-  fixed_pk="$(clerk_pk_test_from_fapi_host "$fapi_host")"
-  echo "==> Clerk publishable key did not match CLERK_SECRET_KEY (expected $fapi_host); using derived pk_test for this VM only" >&2
+  local derive_host="${portal_clerk_host:-$fapi_host}"
+  fixed_pk="$(clerk_pk_test_from_fapi_host "$derive_host")"
+  echo "==> Clerk publishable key did not match CLERK_SECRET_KEY (expected $derive_host); using derived pk_test for this VM only" >&2
   echo "    Update VITE_CLERK_PUBLISHABLE_KEY in Cursor Cloud → Environment to match your secret's Clerk app." >&2
   CLERK_PUB_FOR_STACK="$fixed_pk"
   export VITE_CLERK_PUBLISHABLE_KEY="$fixed_pk"

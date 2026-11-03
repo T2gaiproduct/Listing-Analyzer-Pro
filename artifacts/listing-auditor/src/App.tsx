@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useRef, useMemo } from "react";
+import { Suspense, useEffect, useRef, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useClerk, useUser } from "@clerk/react";
+import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useAuth, useClerk, useUser } from "@clerk/react";
 import { useWsNotifications } from "@/hooks/use-ws-notifications";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -365,6 +365,19 @@ function OnboardingSignUpRedirect() {
 }
 
 function SignInPage() {
+  const { isLoaded: clerkLoaded } = useAuth();
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const onPreview = isCloudflareQuickPreviewHost();
+
+  useEffect(() => {
+    if (clerkLoaded) {
+      setLoadTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setLoadTimedOut(true), 12_000);
+    return () => window.clearTimeout(t);
+  }, [clerkLoaded]);
+
   const params = new URLSearchParams(window.location.search);
   const redirectParam = params.get("redirect_url");
   const email = params.get("email") ?? undefined;
@@ -377,6 +390,21 @@ function SignInPage() {
 
   const resetSuccess = params.get("reset") === "success";
 
+  const productionSignInHref = useMemo(() => {
+    const qs = new URLSearchParams();
+    if (redirectParam?.startsWith("/")) {
+      qs.set(
+        "redirect_url",
+        `${window.location.origin}${basePath}${redirectParam}`,
+      );
+    }
+    if (email) qs.set("email", email);
+    const q = qs.toString();
+    return q ? `https://sellerlens.io/sign-in?${q}` : "https://sellerlens.io/sign-in";
+  }, [redirectParam, email]);
+
+  const showClerkSpinner = !clerkLoaded && !loadTimedOut;
+
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-10">
       {resetSuccess && (
@@ -384,14 +412,42 @@ function SignInPage() {
           Password updated. Sign in with your new password.
         </p>
       )}
-      <SignIn
-        routing="path"
-        path={`${basePath}/sign-in`}
-        signUpUrl={signUpUrl}
-        fallbackRedirectUrl={redirectUrl}
-        forceRedirectUrl={redirectUrl}
-        initialValues={email ? { emailAddress: email } : undefined}
-      />
+      {onPreview && (
+        <p className="mb-4 max-w-[440px] text-center text-xs text-slate-500">
+          Preview sign-in uses Clerk through this hostname. If the form stays blank,{" "}
+          <a href={productionSignInHref} className="font-medium text-orange-600 hover:underline">
+            sign in on sellerlens.io
+          </a>{" "}
+          instead.
+        </p>
+      )}
+      {showClerkSpinner && (
+        <div className="flex flex-col items-center gap-3 py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-500" aria-hidden />
+          <p className="text-sm text-slate-600">Loading sign-in…</p>
+        </div>
+      )}
+      {loadTimedOut && !clerkLoaded && (
+        <div className="mb-4 w-full max-w-[440px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950 space-y-3">
+          <p className="font-semibold">Sign-in did not load on this preview link</p>
+          <a
+            href={productionSignInHref}
+            className="inline-flex rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-700"
+          >
+            Open sign-in on sellerlens.io
+          </a>
+        </div>
+      )}
+      {(clerkLoaded || loadTimedOut) && (
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={signUpUrl}
+          fallbackRedirectUrl={redirectUrl}
+          forceRedirectUrl={redirectUrl}
+          initialValues={email ? { emailAddress: email } : undefined}
+        />
+      )}
     </div>
   );
 }

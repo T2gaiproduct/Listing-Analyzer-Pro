@@ -25,9 +25,9 @@ export function isSellerLensAppHostname(hostname: string): boolean {
 export function shouldUseSameOriginClerkProxy(hostname: string, publishableKey: string): boolean {
   if (isSellerLensAppHostname(hostname)) return false;
 
-  // Quick tunnels: Clerk CDN (no same-origin proxy). Proxy + CAPTCHA often hang on random trycloudflare hosts.
+  // Cloud Agent preview: same-origin FAPI proxy (sellerlens.io uses /api/__clerk on the preview host).
   if (hostname.endsWith(".trycloudflare.com")) {
-    return false;
+    return import.meta.env.VITE_CLOUD_AGENT_PREVIEW === "true";
   }
 
   if (publishableKey.startsWith("pk_live_") && isIpv4Hostname(hostname)) {
