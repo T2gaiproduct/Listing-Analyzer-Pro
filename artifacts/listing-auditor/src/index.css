@@ -62,20 +62,6 @@
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
 
-  /* ChatGPT-aligned type scale (px at 16px root) */
-  --text-xs: 12px;
-  --text-xs--line-height: 1.45;
-  --text-sm: 14px;
-  --text-sm--line-height: 1.45;
-  --text-base: 16px;
-  --text-base--line-height: 1.5;
-  --text-lg: 24px;
-  --text-lg--line-height: 1.25;
-  --text-xl: 24px;
-  --text-xl--line-height: 1.25;
-  --text-2xl: 24px;
-  --text-2xl--line-height: 1.25;
-
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -129,24 +115,9 @@
   --chart-4: 340 84% 60%;
   --chart-5: 45 100% 50%;
 
-  --app-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --app-font-sans: 'Plus Jakarta Sans', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-  --typo-logo-size: 15px;
-  --typo-logo-weight: 600;
-  --typo-nav-size: 14px;
-  --typo-nav-weight: 400;
-  --typo-page-heading-size: 24px;
-  --typo-page-heading-weight: 400;
-  --typo-input-size: 16px;
-  --typo-input-weight: 400;
-  --typo-button-size: 14px;
-  --typo-button-weight: 500;
-  --typo-caption-size: 12px;
-  --typo-caption-weight: 400;
-  --typo-sidebar-heading-size: 16px;
-  --typo-sidebar-heading-weight: 600;
   
   --radius: 0.5rem;
 }
@@ -201,29 +172,14 @@
 
 @layer base {
   html {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   * {
     @apply border-border;
   }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
-    font-size: var(--typo-nav-size);
-    font-weight: var(--typo-nav-weight);
-    line-height: 1.45;
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    font-size: var(--typo-input-size);
-    font-weight: var(--typo-input-weight);
-  }
-
-  button,
-  [role="button"] {
-    font-size: var(--typo-button-size);
-    font-weight: var(--typo-button-weight);
+    @apply font-sans antialiased bg-background text-foreground text-[11px] leading-snug;
   }
 
   button:focus-visible,
@@ -310,42 +266,9 @@
     @apply w-full min-w-0 max-w-[1440px] mx-auto 2xl:max-w-none 2xl:mx-0;
   }
 
-  /** Body copy — same 14px / 400 as sidebar nav */
+  /** Body copy aligned with sidebar nav (11px, dark foreground) */
   .app-copy {
-    @apply text-sm font-normal text-foreground leading-relaxed;
-  }
-
-  .typo-logo {
-    font-size: var(--typo-logo-size);
-    font-weight: var(--typo-logo-weight);
-  }
-
-  .typo-sidebar-nav {
-    font-size: var(--typo-nav-size);
-    font-weight: var(--typo-nav-weight);
-  }
-
-  .typo-caption {
-    font-size: var(--typo-caption-size);
-    font-weight: var(--typo-caption-weight);
-  }
-
-  .typo-sidebar-heading {
-    font-size: var(--typo-sidebar-heading-size);
-    font-weight: var(--typo-sidebar-heading-weight);
-  }
-
-  /* Legacy micro sizes → unified scale (avoids 11px/10px drift) */
-  .text-\[11px\] {
-    font-size: var(--typo-nav-size);
-  }
-
-  .text-\[10px\] {
-    font-size: var(--typo-caption-size);
-  }
-
-  .text-\[9px\] {
-    font-size: var(--typo-caption-size);
+    @apply text-[11px] text-foreground leading-relaxed;
   }
 
   .table-responsive {
@@ -363,9 +286,8 @@
   }
 
   .page-title {
-    font-size: var(--typo-page-heading-size);
-    font-weight: var(--typo-page-heading-weight);
-    line-height: 1.25;
+    font-size: clamp(1.25rem, 2.5vw + 0.5rem, 1.875rem);
+    line-height: 1.2;
   }
 
   .page-hero-title {

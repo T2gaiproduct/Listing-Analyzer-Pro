@@ -19,7 +19,7 @@ export const clerkAppearance = {
     colorInput: "#f0f5fa",
     colorInputForeground: "#0e1929",
     colorNeutral: "#dce6f0",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     borderRadius: "0.5rem",
   },
   elements: {
