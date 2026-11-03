@@ -1,8 +1,10 @@
 import { useRef, useState } from "react";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, Plus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import type { GraphicsModuleExampleItem } from "@/lib/graphics-module-examples";
+
+const MAX_EXAMPLES_HINT = 12;
 
 type ViewProps = {
   mode: "view";
@@ -19,7 +21,8 @@ type AdminProps = {
   isLoading?: boolean;
   savingSlug?: string | null;
   onUpload: (templateSlug: string, dataUrl: string) => void | Promise<void>;
-  onClear: (templateSlug: string) => void | Promise<void>;
+  onRemoveExample: (templateSlug: string, exampleId: number) => void | Promise<void>;
+  onClearAll: (templateSlug: string) => void | Promise<void>;
 };
 
 export type GraphicsModuleExamplesGridProps = ViewProps | AdminProps;
@@ -33,9 +36,15 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+function exampleImagesFor(item: GraphicsModuleExampleItem) {
+  if (item.exampleImages?.length) return item.exampleImages;
+  if (item.exampleImageUrl) return [{ id: 0, url: item.exampleImageUrl }];
+  return [];
+}
+
 export function GraphicsModuleExamplesGrid(props: GraphicsModuleExamplesGridProps) {
   const { examples, resolvedCategory, isLoading } = props;
-  const withImages = examples.filter((e) => e.exampleImageUrl);
+  const withImages = examples.filter((e) => exampleImagesFor(e).length > 0);
   const showGrid = isLoading || withImages.length > 0 || props.mode === "admin";
 
   if (!showGrid) return null;
@@ -50,6 +59,12 @@ export function GraphicsModuleExamplesGrid(props: GraphicsModuleExamplesGridProp
           <p className="text-sm text-slate-700">
             Category: <span className="font-medium">{resolvedCategory}</span>
           </p>
+          {props.mode === "admin" ? (
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Upload multiple reference images per module (up to {MAX_EXAMPLES_HINT}). Sellers see them
+              when customizing that graphics type.
+            </p>
+          ) : null}
         </div>
         {props.mode === "view" && props.usedDefaultFallback ? (
           <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
@@ -86,6 +101,9 @@ function ExampleCard(
   const { item } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const [localBusy, setLocalBusy] = useState(false);
+  const images = exampleImagesFor(item);
+  const hasImages = images.length > 0;
+  const atMax = images.length >= MAX_EXAMPLES_HINT;
 
   const isSaving =
     props.mode === "admin" &&
@@ -102,15 +120,25 @@ function ExampleCard(
     }
   }
 
+  const heroUrl = images[0]?.url ?? null;
+  const extraCount = images.length > 1 ? images.length - 1 : 0;
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden flex flex-col">
       <div className="aspect-square relative bg-slate-100 flex items-center justify-center">
-        {item.exampleImageUrl ? (
-          <ProtectedAppImage
-            src={item.exampleImageUrl}
-            alt={`${item.name} example`}
-            className="w-full h-full object-contain"
-          />
+        {hasImages ? (
+          <>
+            <ProtectedAppImage
+              src={heroUrl!}
+              alt={`${item.name} example`}
+              className="w-full h-full object-contain"
+            />
+            {props.mode === "view" && extraCount > 0 ? (
+              <span className="absolute top-2 right-2 rounded-full bg-black/60 text-white text-[10px] font-medium px-2 py-0.5">
+                +{extraCount} more
+              </span>
+            ) : null}
+          </>
         ) : (
           <span className="text-2xl opacity-40">{item.icon ?? "🖼️"}</span>
         )}
@@ -133,32 +161,67 @@ function ExampleCard(
                 size="sm"
                 variant="secondary"
                 className="h-7 text-[10px] flex-1 gap-1"
-                disabled={isSaving}
+                disabled={isSaving || atMax}
                 onClick={() => inputRef.current?.click()}
               >
-                {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                {item.exampleImageUrl ? "Replace" : "Upload"}
+                {isSaving ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : hasImages ? (
+                  <Plus className="w-3 h-3" />
+                ) : (
+                  <Upload className="w-3 h-3" />
+                )}
+                {hasImages ? "Add another" : "Upload"}
               </Button>
-              {item.exampleImageUrl ? (
+              {hasImages ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
-                  className="h-7 w-7 p-0"
+                  className="h-7 text-[10px] px-2"
                   disabled={isSaving}
-                  onClick={() => void props.onClear(item.templateSlug)}
+                  title="Remove all examples for this module"
+                  onClick={() => void props.onClearAll(item.templateSlug)}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  Clear all
                 </Button>
               ) : null}
             </div>
           </>
         ) : null}
       </div>
+
+      {props.mode === "admin" && hasImages ? (
+        <div className="flex flex-wrap gap-1.5 p-2 border-t bg-slate-50/80">
+          {images.map((img, idx) => (
+            <div
+              key={img.id > 0 ? img.id : `${img.url}-${idx}`}
+              className="relative w-12 h-12 rounded border border-slate-200 overflow-hidden bg-white"
+            >
+              <ProtectedAppImage src={img.url} alt="" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                className="absolute top-0.5 right-0.5 rounded bg-black/50 text-white p-0.5 hover:bg-red-600 disabled:opacity-50"
+                disabled={isSaving || img.id <= 0}
+                title={img.id <= 0 ? "Refresh the page to remove" : "Remove this image"}
+                onClick={() => {
+                  if (img.id > 0) void props.onRemoveExample(item.templateSlug, img.id);
+                }}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="px-2 py-2 border-t">
         <p className="text-xs font-medium text-slate-800 truncate" title={item.name}>
           {item.icon ? `${item.icon} ` : ""}
           {item.name}
+          {props.mode === "admin" && hasImages ? (
+            <span className="text-slate-400 font-normal"> ({images.length})</span>
+          ) : null}
         </p>
         {item.description ? (
           <p className="text-[10px] text-slate-400 line-clamp-2 mt-0.5">{item.description}</p>

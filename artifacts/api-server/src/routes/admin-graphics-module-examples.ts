@@ -3,12 +3,13 @@ import { requireAdmin, requireAdminPermission } from "../lib/admin-auth.js";
 import { ensureGraphicsProductCategoriesReady } from "../lib/ensure-graphics-product-categories.js";
 import { ensureImagePromptTemplatesReady } from "../lib/ensure-image-prompt-templates.js";
 import {
+  addGraphicsModuleExample,
   addProductCategory,
   deleteCustomProductCategory,
-  deleteGraphicsModuleExample,
+  deleteGraphicsModuleExampleById,
+  deleteGraphicsModuleExamplesForSlug,
   getGraphicsModuleExamplesForCategory,
   listProductCategoriesAdmin,
-  upsertGraphicsModuleExample,
 } from "../lib/graphics-module-examples-service.js";
 import { saveGraphicsExampleImageFromDataUrl } from "../lib/graphics-example-image-storage.js";
 
@@ -88,14 +89,44 @@ router.put(
     const productCategoryName = typeof b.productCategoryName === "string" ? b.productCategoryName : "";
     const templateSlug = typeof b.templateSlug === "string" ? b.templateSlug : "";
     const exampleImageUrl = typeof b.exampleImageUrl === "string" ? b.exampleImageUrl : "";
+    const exampleIdRaw = b.exampleId;
+    const exampleId =
+      typeof exampleIdRaw === "number"
+        ? exampleIdRaw
+        : typeof exampleIdRaw === "string"
+          ? parseInt(exampleIdRaw, 10)
+          : NaN;
 
     try {
       if (!exampleImageUrl.trim()) {
-        await deleteGraphicsModuleExample(productCategoryName, templateSlug);
+        if (Number.isFinite(exampleId) && exampleId > 0) {
+          await deleteGraphicsModuleExampleById(exampleId);
+        } else {
+          await deleteGraphicsModuleExamplesForSlug(productCategoryName, templateSlug);
+        }
         res.json({ ok: true });
         return;
       }
-      await upsertGraphicsModuleExample(productCategoryName, templateSlug, exampleImageUrl);
+      const { id } = await addGraphicsModuleExample(productCategoryName, templateSlug, exampleImageUrl);
+      res.json({ ok: true, id });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+);
+
+router.delete(
+  "/admin/graphics-module-examples/:id",
+  requireAdmin,
+  requireAdminPermission("manage_settings"),
+  async (req, res): Promise<void> => {
+    const id = parseInt(String(req.params.id ?? ""), 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    try {
+      await deleteGraphicsModuleExampleById(id);
       res.json({ ok: true });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });

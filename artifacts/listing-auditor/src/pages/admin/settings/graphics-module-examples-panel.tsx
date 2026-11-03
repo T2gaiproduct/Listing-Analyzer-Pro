@@ -24,18 +24,18 @@ export function AdminGraphicsModuleExamplesPanel() {
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
 
   const { data: examplesData, isLoading } = useAdminGraphicsModuleExamples(selectedCategory);
-  const { createCategory, removeCategory, saveExample } = useAdminProductCategoryMutations();
+  const { createCategory, removeCategory, addExample, removeExample } = useAdminProductCategoryMutations();
 
   async function handleUpload(templateSlug: string, dataUrl: string) {
     setSavingSlug(templateSlug);
     try {
       const url = await uploadAdminGraphicsExampleImage(dataUrl);
-      await saveExample.mutateAsync({
+      await addExample.mutateAsync({
         productCategoryName: selectedCategory,
         templateSlug,
         exampleImageUrl: url,
       });
-      toast({ title: "Example saved", description: `Updated ${templateSlug} for ${selectedCategory}.` });
+      toast({ title: "Example added", description: `Added image for ${templateSlug} (${selectedCategory}).` });
     } catch (err) {
       toast({
         title: "Upload failed",
@@ -47,19 +47,39 @@ export function AdminGraphicsModuleExamplesPanel() {
     }
   }
 
-  async function handleClear(templateSlug: string) {
+  async function handleRemoveExample(templateSlug: string, exampleId: number) {
     setSavingSlug(templateSlug);
     try {
-      await saveExample.mutateAsync({
+      await removeExample.mutateAsync({
         productCategoryName: selectedCategory,
         templateSlug,
-        exampleImageUrl: "",
+        exampleId,
       });
       toast({ title: "Example removed" });
     } catch (err) {
       toast({
         title: "Remove failed",
         description: err instanceof Error ? err.message : "Could not remove example.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSlug(null);
+    }
+  }
+
+  async function handleClearAll(templateSlug: string) {
+    if (!window.confirm(`Remove all studio examples for “${templateSlug}” in ${selectedCategory}?`)) return;
+    setSavingSlug(templateSlug);
+    try {
+      await removeExample.mutateAsync({
+        productCategoryName: selectedCategory,
+        templateSlug,
+      });
+      toast({ title: "All examples removed" });
+    } catch (err) {
+      toast({
+        title: "Remove failed",
+        description: err instanceof Error ? err.message : "Could not remove examples.",
         variant: "destructive",
       });
     } finally {
@@ -167,7 +187,8 @@ export function AdminGraphicsModuleExamplesPanel() {
           isLoading={isLoading}
           savingSlug={savingSlug}
           onUpload={handleUpload}
-          onClear={handleClear}
+          onRemoveExample={handleRemoveExample}
+          onClearAll={handleClearAll}
         />
       </CardContent>
     </Card>

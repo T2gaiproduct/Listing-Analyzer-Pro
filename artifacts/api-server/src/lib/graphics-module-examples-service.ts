@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import {
   db,
   graphicsModuleExamplesTable,
@@ -7,12 +7,21 @@ import {
 import { DEFAULT_GRAPHICS_PRODUCT_CATEGORY } from "./amazon-category-seeds.js";
 import { listEnabledImagePromptTemplates } from "./image-prompt-template-service.js";
 
+export const MAX_GRAPHICS_MODULE_EXAMPLES_PER_TYPE = 12;
+
+export type GraphicsModuleExampleImage = {
+  id: number;
+  url: string;
+};
+
 export type GraphicsModuleExampleRow = {
   templateSlug: string;
   name: string;
   description: string | null;
   icon: string | null;
+  /** First image — backward compatible with single-image clients. */
   exampleImageUrl: string | null;
+  exampleImages: GraphicsModuleExampleImage[];
   sortOrder: number;
 };
 
@@ -46,6 +55,19 @@ function resolveCategoryName(requested: string | null | undefined, knownNames: S
   return trimmed || DEFAULT_GRAPHICS_PRODUCT_CATEGORY;
 }
 
+function groupExampleImages(
+  rows: { id: number; templateSlug: string; exampleImageUrl: string; displayOrder: number }[],
+): Map<string, GraphicsModuleExampleImage[]> {
+  const bySlug = new Map<string, GraphicsModuleExampleImage[]>();
+  for (const row of rows) {
+    const slug = row.templateSlug;
+    const list = bySlug.get(slug) ?? [];
+    list.push({ id: row.id, url: row.exampleImageUrl });
+    bySlug.set(slug, list);
+  }
+  return bySlug;
+}
+
 export async function getGraphicsModuleExamplesForCategory(
   requestedCategory: string | null | undefined,
 ): Promise<{
@@ -62,22 +84,36 @@ export async function getGraphicsModuleExamplesForCategory(
 
   const templates = await listEnabledImagePromptTemplates("graphics");
   const exampleRows = await db
-    .select()
+    .select({
+      id: graphicsModuleExamplesTable.id,
+      templateSlug: graphicsModuleExamplesTable.templateSlug,
+      exampleImageUrl: graphicsModuleExamplesTable.exampleImageUrl,
+      displayOrder: graphicsModuleExamplesTable.displayOrder,
+    })
     .from(graphicsModuleExamplesTable)
-    .where(eq(graphicsModuleExamplesTable.productCategoryName, resolvedCategory));
+    .where(eq(graphicsModuleExamplesTable.productCategoryName, resolvedCategory))
+    .orderBy(
+      asc(graphicsModuleExamplesTable.templateSlug),
+      asc(graphicsModuleExamplesTable.displayOrder),
+      asc(graphicsModuleExamplesTable.id),
+    );
 
-  const bySlug = new Map(exampleRows.map((r) => [r.templateSlug, r.exampleImageUrl]));
+  const bySlug = groupExampleImages(exampleRows);
 
   const examples: GraphicsModuleExampleRow[] = templates
     .filter((t) => t.slug !== "custom")
-    .map((t) => ({
-      templateSlug: t.slug,
-      name: t.name,
-      description: t.description,
-      icon: (t.metadata as { icon?: string } | null)?.icon ?? null,
-      exampleImageUrl: bySlug.get(t.slug) ?? null,
-      sortOrder: t.sortOrder,
-    }));
+    .map((t) => {
+      const exampleImages = bySlug.get(t.slug) ?? [];
+      return {
+        templateSlug: t.slug,
+        name: t.name,
+        description: t.description,
+        icon: (t.metadata as { icon?: string } | null)?.icon ?? null,
+        exampleImages,
+        exampleImageUrl: exampleImages[0]?.url ?? null,
+        sortOrder: t.sortOrder,
+      };
+    });
 
   return {
     requestedCategory: requested,
@@ -87,11 +123,12 @@ export async function getGraphicsModuleExamplesForCategory(
   };
 }
 
-export async function upsertGraphicsModuleExample(
+/** Append a new example image for a category + graphics type (does not replace existing). */
+export async function addGraphicsModuleExample(
   productCategoryName: string,
   templateSlug: string,
   exampleImageUrl: string,
-): Promise<void> {
+): Promise<{ id: number }> {
   const category = productCategoryName.trim();
   const slug = templateSlug.trim().toLowerCase();
   const url = exampleImageUrl.trim();
@@ -99,33 +136,58 @@ export async function upsertGraphicsModuleExample(
     throw new Error("Category, template slug, and image URL are required.");
   }
 
-  const existing = await db
-    .select({ id: graphicsModuleExamplesTable.id })
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
     .from(graphicsModuleExamplesTable)
     .where(
       and(
         eq(graphicsModuleExamplesTable.productCategoryName, category),
         eq(graphicsModuleExamplesTable.templateSlug, slug),
       ),
-    )
-    .limit(1);
+    );
 
-  if (existing.length > 0) {
-    await db
-      .update(graphicsModuleExamplesTable)
-      .set({ exampleImageUrl: url, updatedAt: new Date() })
-      .where(eq(graphicsModuleExamplesTable.id, existing[0].id));
-    return;
+  if (count >= MAX_GRAPHICS_MODULE_EXAMPLES_PER_TYPE) {
+    throw new Error(`At most ${MAX_GRAPHICS_MODULE_EXAMPLES_PER_TYPE} example images per module for this category.`);
   }
 
-  await db.insert(graphicsModuleExamplesTable).values({
-    productCategoryName: category,
-    templateSlug: slug,
-    exampleImageUrl: url,
-  });
+  const [maxOrder] = await db
+    .select({ max: sql<number>`coalesce(max(${graphicsModuleExamplesTable.displayOrder}), -1)` })
+    .from(graphicsModuleExamplesTable)
+    .where(
+      and(
+        eq(graphicsModuleExamplesTable.productCategoryName, category),
+        eq(graphicsModuleExamplesTable.templateSlug, slug),
+      ),
+    );
+
+  const [inserted] = await db
+    .insert(graphicsModuleExamplesTable)
+    .values({
+      productCategoryName: category,
+      templateSlug: slug,
+      exampleImageUrl: url,
+      displayOrder: (maxOrder?.max ?? -1) + 1,
+    })
+    .returning({ id: graphicsModuleExamplesTable.id });
+
+  return { id: inserted!.id };
 }
 
-export async function deleteGraphicsModuleExample(
+/** @deprecated Use addGraphicsModuleExample — kept for callers that replace the only row. */
+export async function upsertGraphicsModuleExample(
+  productCategoryName: string,
+  templateSlug: string,
+  exampleImageUrl: string,
+): Promise<void> {
+  await addGraphicsModuleExample(productCategoryName, templateSlug, exampleImageUrl);
+}
+
+export async function deleteGraphicsModuleExampleById(id: number): Promise<void> {
+  if (!Number.isFinite(id) || id <= 0) throw new Error("Invalid example id.");
+  await db.delete(graphicsModuleExamplesTable).where(eq(graphicsModuleExamplesTable.id, id));
+}
+
+export async function deleteGraphicsModuleExamplesForSlug(
   productCategoryName: string,
   templateSlug: string,
 ): Promise<void> {
@@ -137,6 +199,14 @@ export async function deleteGraphicsModuleExample(
         eq(graphicsModuleExamplesTable.templateSlug, templateSlug.trim().toLowerCase()),
       ),
     );
+}
+
+/** @deprecated Removes all examples for category + slug. */
+export async function deleteGraphicsModuleExample(
+  productCategoryName: string,
+  templateSlug: string,
+): Promise<void> {
+  await deleteGraphicsModuleExamplesForSlug(productCategoryName, templateSlug);
 }
 
 export async function addProductCategory(name: string): Promise<{ id: number; name: string }> {

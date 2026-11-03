@@ -46,7 +46,8 @@ export function ImageTypeCustomizeDialog({
   showStudioExample = true,
 }: ImageTypeCustomizeDialogProps) {
   const categoryKey = productCategory?.trim() || "";
-  const fetchExamples = open && showStudioExample && Boolean(type) && type.id !== "custom" && Boolean(categoryKey);
+  const fetchExamples =
+    open && showStudioExample && type != null && type.id !== "custom" && Boolean(categoryKey);
   const { data: examplesPayload, isLoading: examplesLoading } = useGraphicsModuleExamples(
     fetchExamples ? categoryKey : null,
   );
@@ -77,6 +78,7 @@ export function ImageTypeCustomizeDialog({
             resolvedCategory={examplesPayload?.resolvedCategory ?? categoryKey}
             usedDefaultFallback={examplesPayload?.usedDefaultFallback ?? false}
             exampleImageUrl={moduleExample?.exampleImageUrl ?? null}
+            exampleImages={moduleExample?.exampleImages}
             isLoading={examplesLoading}
           />
         ) : null}

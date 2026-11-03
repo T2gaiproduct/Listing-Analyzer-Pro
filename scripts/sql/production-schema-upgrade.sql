@@ -446,9 +446,17 @@ CREATE TABLE IF NOT EXISTS graphics_module_examples (
   product_category_name text NOT NULL,
   template_slug text NOT NULL,
   example_image_url text NOT NULL,
-  updated_at timestamp NOT NULL DEFAULT now(),
-  UNIQUE (product_category_name, template_slug)
+  display_order integer NOT NULL DEFAULT 0,
+  updated_at timestamp NOT NULL DEFAULT now()
 );
+
+ALTER TABLE graphics_module_examples
+  ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0;
+ALTER TABLE graphics_module_examples
+  DROP CONSTRAINT IF EXISTS graphics_module_examples_product_category_name_template_slug_key;
+ALTER TABLE graphics_module_examples
+  DROP CONSTRAINT IF EXISTS graphics_module_examples_product_category_name_template_slu_key;
+DROP INDEX IF EXISTS graphics_module_examples_category_slug_uidx;
 
 -- ─── Native auth (Clerk migration; dual-mode until cutover) ─────────────────
 CREATE TABLE IF NOT EXISTS auth_credentials (

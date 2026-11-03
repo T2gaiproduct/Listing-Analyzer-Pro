@@ -38,9 +38,25 @@ export async function ensureGraphicsProductCategoriesSchemaMigrated(): Promise<v
       product_category_name text NOT NULL,
       template_slug text NOT NULL,
       example_image_url text NOT NULL,
-      updated_at timestamp NOT NULL DEFAULT now(),
-      UNIQUE (product_category_name, template_slug)
+      display_order integer NOT NULL DEFAULT 0,
+      updated_at timestamp NOT NULL DEFAULT now()
     )
+  `);
+
+  await db.execute(sql`
+    ALTER TABLE graphics_module_examples
+    ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0
+  `);
+  await db.execute(sql`
+    ALTER TABLE graphics_module_examples
+    DROP CONSTRAINT IF EXISTS graphics_module_examples_product_category_name_template_slug_key
+  `);
+  await db.execute(sql`
+    ALTER TABLE graphics_module_examples
+    DROP CONSTRAINT IF EXISTS graphics_module_examples_product_category_name_template_slu_key
+  `);
+  await db.execute(sql`
+    DROP INDEX IF EXISTS graphics_module_examples_category_slug_uidx
   `);
 
   migrated = true;

@@ -2,12 +2,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+export type GraphicsModuleExampleImage = {
+  id: number;
+  url: string;
+};
+
 export type GraphicsModuleExampleItem = {
   templateSlug: string;
   name: string;
   description: string | null;
   icon: string | null;
+  /** First image — backward compatible with single-image clients. */
   exampleImageUrl: string | null;
+  exampleImages: GraphicsModuleExampleImage[];
   sortOrder: number;
 };
 
@@ -78,16 +85,39 @@ export async function uploadAdminGraphicsExampleImage(dataUrl: string): Promise<
   return url;
 }
 
-export async function saveAdminGraphicsModuleExample(payload: {
+/** Append a studio example image (PUT with a non-empty URL). */
+export async function addAdminGraphicsModuleExample(payload: {
   productCategoryName: string;
   templateSlug: string;
   exampleImageUrl: string;
-}): Promise<void> {
-  await fetchJson(`${basePath}/api/admin/graphics-module-examples`, {
+}): Promise<{ id: number }> {
+  return fetchJson<{ ok: true; id: number }>(`${basePath}/api/admin/graphics-module-examples`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+/** Remove one example by row id, or all examples for category + slug when exampleId is omitted. */
+export async function deleteAdminGraphicsModuleExample(payload: {
+  productCategoryName: string;
+  templateSlug: string;
+  exampleId?: number;
+}): Promise<void> {
+  await fetchJson(`${basePath}/api/admin/graphics-module-examples`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      productCategoryName: payload.productCategoryName,
+      templateSlug: payload.templateSlug,
+      exampleImageUrl: "",
+      ...(payload.exampleId != null ? { exampleId: payload.exampleId } : {}),
+    }),
+  });
+}
+
+export async function deleteAdminGraphicsModuleExampleById(id: number): Promise<void> {
+  await fetchJson(`${basePath}/api/admin/graphics-module-examples/${id}`, { method: "DELETE" });
 }
 
 export async function createAdminProductCategory(name: string): Promise<void> {
@@ -119,10 +149,18 @@ export function useAdminProductCategoryMutations() {
     mutationFn: deleteAdminProductCategory,
     onSuccess: invalidate,
   });
-  const saveExample = useMutation({
-    mutationFn: saveAdminGraphicsModuleExample,
+  const addExample = useMutation({
+    mutationFn: addAdminGraphicsModuleExample,
+    onSuccess: invalidate,
+  });
+  const removeExample = useMutation({
+    mutationFn: deleteAdminGraphicsModuleExample,
+    onSuccess: invalidate,
+  });
+  const removeExampleById = useMutation({
+    mutationFn: deleteAdminGraphicsModuleExampleById,
     onSuccess: invalidate,
   });
 
-  return { createCategory, removeCategory, saveExample, invalidate };
+  return { createCategory, removeCategory, addExample, removeExample, removeExampleById, invalidate };
 }
