@@ -6,14 +6,10 @@ import {
   TrendingUp,
   Trophy,
   Star,
-  Check,
   ArrowUpRight,
   Link as LinkIcon,
-  Users,
   Target,
   Sparkles,
-  Wrench,
-  Zap,
   History,
   ChevronRight,
   FileSearch,
@@ -37,7 +33,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MarketplaceLogos } from "@/components/marketplace-logos";
 import { cn } from "@/lib/utils";
 
 const AUDIT_HISTORY_LIMIT = 25;
@@ -423,129 +418,6 @@ export default function AuditListings() {
       </div>
 
       <AuditListingHistory />
-
-      {/* Supported channels */}
-      <div className="space-y-5">
-        <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-          Supported Channels
-        </p>
-        <MarketplaceLogos variant="pill" />
-      </div>
-
-      {/* What You Get */}
-      <div className="space-y-5">
-        <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-          What You Get
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Listing Score */}
-          <Card className="border border-border/60">
-            <CardContent className="p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
-                  <Star className="w-4 h-4 text-violet-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Listing Score</p>
-                  <p className="text-xs text-muted-foreground">Overall quality rating from 1-100</p>
-                </div>
-              </div>
-              <div className="h-16 relative">
-                <svg className="w-full h-full" viewBox="0 0 200 60">
-                  <polyline
-                    points="10,45 50,40 90,25 130,20 170,15"
-                    fill="none"
-                    stroke="#8b5cf6"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx="10" cy="45" r="3" fill="#8b5cf6" />
-                  <circle cx="50" cy="40" r="3" fill="#8b5cf6" />
-                  <circle cx="90" cy="25" r="3" fill="#8b5cf6" />
-                  <circle cx="130" cy="20" r="3" fill="#8b5cf6" />
-                  <circle cx="170" cy="15" r="3" fill="#8b5cf6" />
-                  <text x="165" y="12" fontSize="10" fill="#8b5cf6" fontWeight="bold">82</text>
-                </svg>
-                <div className="absolute left-0 bottom-0 text-[10px] text-muted-foreground">65</div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Fixes */}
-          <Card className="border border-border/60">
-            <CardContent className="p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Wrench className="w-4 h-4 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Top Fixes</p>
-                  <p className="text-xs text-muted-foreground">Personalized, high-impact improvements</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {["Optimize your title", "Improve main images", "Enhance bullet points", "Strengthen description"].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="w-4 h-4 rounded-full bg-orange-100 flex items-center justify-center">
-                      <Check className="w-3 h-3 text-orange-600" />
-                    </div>
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Competitor Intel */}
-          <Card className="border border-border/60">
-            <CardContent className="p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Users className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Competitor Intel</p>
-                  <p className="text-xs text-muted-foreground">Benchmark against top-performing sellers</p>
-                </div>
-              </div>
-              <div className="flex items-end gap-1 h-16">
-                <div className="w-1/6 h-6 bg-slate-100 rounded-t" />
-                <div className="w-1/6 h-10 bg-slate-100 rounded-t" />
-                <div className="w-1/6 h-5 bg-slate-100 rounded-t" />
-                <div className="w-1/6 h-14 bg-orange-500 rounded-t" />
-                <div className="w-1/6 h-8 bg-slate-100 rounded-t" />
-                <div className="w-1/6 h-4 bg-slate-100 rounded-t" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Action Plan */}
-          <Card className="border border-border/60">
-            <CardContent className="p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Action Plan</p>
-                  <p className="text-xs text-muted-foreground">Step-by-step roadmap to grow your sales</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {["Prioritize high-impact fixes", "Implement changes", "Track performance & grow"].map((step, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">
-                      {i + 1}
-                    </span>
-                    <span>{step}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
     </div>
   );
 }
