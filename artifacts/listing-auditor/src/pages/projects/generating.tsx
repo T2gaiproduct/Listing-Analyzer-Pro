@@ -59,6 +59,7 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
   useEffect(() => {
     if (!generationFailed) return;
     void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: ["graphics-projects-list"] });
   }, [generationFailed, queryClient]);
 
   const totalImages = (project?.lifestyleCount ?? 0) + (project?.featureCount ?? 0);
@@ -69,6 +70,8 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
       if (!creditsRefreshedRef.current) {
         creditsRefreshedRef.current = true;
         refreshCreditBalances(queryClient);
+        void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: ["graphics-projects-list"] });
       }
       const returnTo = encodeURIComponent("/projects");
       setTimeout(

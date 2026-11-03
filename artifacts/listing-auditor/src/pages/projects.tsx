@@ -1,12 +1,13 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Wand2, Image as ImageIcon, Sparkles, Shield, Zap, Clock, Crown, TrendingUp, ArrowRight } from "lucide-react";
+import { GraphicsProjectHistory } from "@/components/graphics-project-history";
+import { Wand2, Image as ImageIcon, Sparkles, Shield, Zap, Clock, Crown, TrendingUp } from "lucide-react";
 
 export default function ProjectsPage() {
   const [, nav] = useLocation();
 
   return (
-    <div className="w-full min-w-0 space-y-6 sm:space-y-8">
+    <div className="w-full min-w-0 space-y-6 sm:space-y-8 pb-8 animate-in fade-in duration-500">
       {/* Hero Section */}
       <div className="relative bg-card rounded-2xl sm:rounded-3xl p-5 sm:p-6 md:p-8 border border-border overflow-hidden">
         <div
@@ -213,6 +214,8 @@ export default function ProjectsPage() {
           </div>
         </div>
       </div>
+
+      <GraphicsProjectHistory />
     </div>
   );
 }

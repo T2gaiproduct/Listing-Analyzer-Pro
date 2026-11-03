@@ -266,6 +266,7 @@ export default function CreateProject() {
     },
     onSuccess: ({ project, flow }) => {
       refreshCreditBalances(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ["graphics-projects-list"] });
       const returnTo = encodeURIComponent("/projects");
       if (flow === "aplus") {
         toast({
