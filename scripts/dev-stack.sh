@@ -300,8 +300,24 @@ should_skip_cloudflare_tunnel() {
   [[ "$SKIP_CLOUDFLARE_TUNNEL" == "true" || "$SKIP_CLOUDFLARE_TUNNEL" == "1" ]]
 }
 
+resolved_named_tunnel_public_url() {
+  local raw="${CLOUDFLARE_TUNNEL_PUBLIC_URL:-${CLOUDFLARE_STABLE_PUBLIC_URL:-}}"
+  if [[ -z "$raw" && -f "$ROOT/.cloud-agent-stable-public-url" ]]; then
+    raw=$(head -1 "$ROOT/.cloud-agent-stable-public-url" | tr -d '\r\n')
+  fi
+  normalize_stable_public_url "$raw"
+}
+
 using_named_cloudflare_tunnel() {
-  [[ -n "$CLOUDFLARE_TUNNEL_TOKEN" && -n "$CLOUDFLARE_TUNNEL_PUBLIC_URL" ]]
+  [[ -n "$CLOUDFLARE_TUNNEL_TOKEN" ]] && [[ -n "$(resolved_named_tunnel_public_url)" ]]
+}
+
+warn_if_named_tunnel_token_without_public_url() {
+  if [[ -n "$CLOUDFLARE_TUNNEL_TOKEN" ]] && [[ -z "$(resolved_named_tunnel_public_url)" ]]; then
+    echo "==> CLOUDFLARE_TUNNEL_TOKEN is set but CLOUDFLARE_TUNNEL_PUBLIC_URL is missing." >&2
+    echo "    Using random *.trycloudflare.com (URL changes when the tunnel restarts)." >&2
+    echo "    Add CLOUDFLARE_TUNNEL_PUBLIC_URL (e.g. https://dev-preview.sellerlens.io) for a stable link." >&2
+  fi
 }
 
 using_cloud_agent_quick_tunnel() {
@@ -349,7 +365,7 @@ print(primary.get('id', '') if primary else '', primary.get('proxy_url', '') if 
 start_named_cloudflare_tunnel() {
   ensure_cloudflared
   local public_url
-  public_url=$(normalize_stable_public_url "$CLOUDFLARE_TUNNEL_PUBLIC_URL")
+  public_url=$(resolved_named_tunnel_public_url)
 
   echo "==> Starting named Cloudflare tunnel (stable URL: $public_url)" >&2
   tmux_cmd kill-session -t cloudflare-tunnel 2>/dev/null || true
@@ -364,7 +380,7 @@ start_named_cloudflare_tunnel() {
 
 wait_for_named_public_url() {
   local public_url
-  public_url=$(normalize_stable_public_url "$CLOUDFLARE_TUNNEL_PUBLIC_URL")
+  public_url=$(resolved_named_tunnel_public_url)
   [[ -n "$public_url" ]] || return 1
 
   for _ in {1..60}; do
@@ -380,7 +396,7 @@ wait_for_named_public_url() {
 ensure_cloudflare_tunnel() {
   if using_named_cloudflare_tunnel; then
     local stable_url
-    stable_url=$(normalize_stable_public_url "$CLOUDFLARE_TUNNEL_PUBLIC_URL")
+    stable_url=$(resolved_named_tunnel_public_url)
     if tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null; then
       if public_url_is_healthy "$stable_url"; then
         echo "$stable_url"
@@ -526,6 +542,7 @@ kill_port() {
 # Rebuild/restart API + frontend + proxy only — leaves cloudflare-tunnel running so *.trycloudflare.com URL stays the same.
 if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
   echo "==> Dev stack reload (keeping Cloudflare tunnel — URL unchanged)" >&2
+  warn_if_named_tunnel_token_without_public_url
   apply_cloud_agent_quick_tunnel_env
   for port in 8080 19145 3000; do
     kill_port "$port"
@@ -558,16 +575,31 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
   "
   wait_for_url "http://127.0.0.1:3000/__devproxy/health" "Dev proxy" 20
 
-  if using_cloud_agent_quick_tunnel; then
-    saved_url=""
-    [[ -f "$PUBLIC_URL_FILE" ]] && saved_url=$(normalize_public_url "$(cat "$PUBLIC_URL_FILE")")
-    if ! tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null || ! public_url_is_healthy "$saved_url"; then
-      echo "==> Cloudflare quick tunnel missing or unhealthy — starting tunnel (hostname may change)" >&2
+  if using_named_cloudflare_tunnel; then
+    stable_url=$(resolved_named_tunnel_public_url)
+    printf '%s\n' "$stable_url" >"$PUBLIC_URL_FILE"
+    if ! tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null; then
+      echo "==> Named Cloudflare tunnel not running — starting ($stable_url)" >&2
+      start_named_cloudflare_tunnel
+      wait_for_named_public_url >/dev/null || true
+    else
+      echo "==> Keeping named Cloudflare tunnel ($stable_url)" >&2
+    fi
+  elif using_cloud_agent_quick_tunnel; then
+    if ! tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null; then
+      echo "==> Cloudflare quick tunnel not running — starting (new random hostname)" >&2
       start_cloudflare_tunnel
       if public_url=$(wait_for_public_url); then
         printf '%s\n' "$public_url" >"$PUBLIC_URL_FILE"
-        saved_url="$public_url"
       fi
+    else
+      saved_url=""
+      [[ -f "$PUBLIC_URL_FILE" ]] && saved_url=$(normalize_public_url "$(cat "$PUBLIC_URL_FILE")")
+      if [[ -z "$saved_url" ]]; then
+        saved_url=$(tunnel_url_from_log)
+        [[ -n "$saved_url" ]] && printf '%s\n' "$saved_url" >"$PUBLIC_URL_FILE"
+      fi
+      echo "==> Keeping existing quick tunnel (same URL): ${saved_url:-see $TUNNEL_LOG}" >&2
     fi
   fi
 
@@ -595,6 +627,7 @@ for port in 8080 19145 3000; do
   fi
 done
 
+warn_if_named_tunnel_token_without_public_url
 apply_cloud_agent_quick_tunnel_env
 
 echo "==> Applying database schema (local sync)"
