@@ -201,6 +201,17 @@ async function sessionVerificationMessage(): Promise<string> {
   return "Your session could not be verified. Sign out and sign in again on this site.";
 }
 
+/** User-facing message for failed API calls (including Orval ApiError 401). */
+export async function describeApiError(err: unknown): Promise<string> {
+  if (err instanceof ApiFetchError) return err.message;
+  const status = typeof err === "object" && err !== null && "status" in err
+    ? Number((err as { status: unknown }).status)
+    : NaN;
+  if (status === 401) return sessionVerificationMessage();
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return "Please try again.";
+}
+
 /** Parse a fetch Response as JSON; surfaces HTML/error-page responses clearly. */
 export async function readApiJson<T>(res: Response): Promise<T> {
   const text = await res.text();

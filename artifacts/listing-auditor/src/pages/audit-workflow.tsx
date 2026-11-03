@@ -57,7 +57,8 @@ import {
   formatHtmlDescriptionForPreview,
   normalizeBulletPoints,
 } from "@/lib/listing-content-format";
-import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
+import { ApiFetchError, describeApiError, fetchJson } from "@/lib/api-fetch";
+import { postAuditDraft } from "@/lib/create-audit-draft";
 import { useApiAuthReady } from "@/components/api-token-bridge";
 import type {
   ReferenceIntelligenceRow,
@@ -89,7 +90,6 @@ import { useAplusModuleCards, useGraphicsImageTypesFromApi } from "@/lib/image-p
 import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import {
-  useCreateAuditDraft,
   usePatchAudit,
   useGetAudit,
   getGetAuditStatsQueryKey,
@@ -649,7 +649,6 @@ export default function AuditWorkflow() {
     [generatedContent],
   );
   const [isDirty, setIsDirty] = useState(false);
-  const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
   const persistWorkflowStep = useCallback((step: StepId) => {
     if (!currentAuditId || step === 1) return;
@@ -679,6 +678,14 @@ export default function AuditWorkflow() {
     graphicsImageCount?: number;
     aplusModuleCount?: number;
   }): Promise<number | null> => {
+    if (!apiAuthReady) {
+      toast({
+        title: "Session loading",
+        description: "Wait a moment for sign-in to finish, then try again.",
+        variant: "destructive",
+      });
+      return null;
+    }
     if (currentAuditId) return currentAuditId;
     const data = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages, productDescription);
     if (!data) {
@@ -699,7 +706,7 @@ export default function AuditWorkflow() {
         : {}),
     };
     try {
-      const audit = await createAuditDraft.mutateAsync({ data: draftPayload });
+      const audit = await postAuditDraft(draftPayload);
       setCurrentAuditId(audit.id);
       void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
@@ -709,12 +716,13 @@ export default function AuditWorkflow() {
     } catch (err) {
       toast({
         title: "Failed to save project",
-        description: err instanceof Error ? err.message : "Please try again",
+        description: await describeApiError(err),
         variant: "destructive",
       });
       return null;
     }
   }, [
+    apiAuthReady,
     currentAuditId,
     projectName,
     productName,
@@ -722,7 +730,6 @@ export default function AuditWorkflow() {
     category,
     uploadedImages,
     productDescription,
-    createAuditDraft,
     queryClient,
     toast,
   ]);
@@ -1528,24 +1535,33 @@ export default function AuditWorkflow() {
         setIsCreating(false);
         return;
       }
-      createAuditDraft.mutate(
-        { data: draftBody },
-        {
-          onSuccess: (audit) => {
-            setIsCreating(false);
-            setCurrentAuditId(audit.id);
-            toast({ title: "Project created!", description: `Saved as "${audit.projectName || audit.productName}"` });
-            setActiveStep(3);
-            queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
-            void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
-            void queryClient.invalidateQueries({ queryKey: ["products"] });
-          },
-          onError: (err) => {
-            setIsCreating(false);
-            toast({ title: "Failed to create project", description: err instanceof Error ? err.message : "Please try again", variant: "destructive" });
-          },
-        }
-      );
+      if (!apiAuthReady) {
+        setIsCreating(false);
+        toast({
+          title: "Session loading",
+          description: "Wait a moment for sign-in to finish, then try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      void postAuditDraft(draftBody)
+        .then((audit) => {
+          setIsCreating(false);
+          setCurrentAuditId(audit.id);
+          toast({ title: "Project created!", description: `Saved as "${audit.projectName || audit.productName}"` });
+          setActiveStep(3);
+          queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: ["products"] });
+        })
+        .catch(async (err) => {
+          setIsCreating(false);
+          toast({
+            title: "Failed to create project",
+            description: await describeApiError(err),
+            variant: "destructive",
+          });
+        });
 
     } else if (activeStep === 3) {
       // Listing: generate content directly (no audit)

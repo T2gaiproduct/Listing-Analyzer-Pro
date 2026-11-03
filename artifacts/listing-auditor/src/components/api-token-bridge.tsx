@@ -1,5 +1,6 @@
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@clerk/react";
+import { setAuthTokenGetter as setOrvalAuthTokenGetter } from "@workspace/api-client-react";
 import { setApiAuthReady, setApiTokenGetter } from "@/lib/api-fetch";
 import { showCreditUsageToast, CREDIT_USAGE_EVENT, type CreditUsagePayload } from "@/lib/credit-usage-toast";
 
@@ -30,19 +31,22 @@ export function ApiTokenBridge({ children }: { children?: ReactNode }) {
   }, []);
 
   useLayoutEffect(() => {
-    if (!isLoaded) {
+    const clearAuth = () => {
       setApiTokenGetter(null);
+      setOrvalAuthTokenGetter(null);
       setApiAuthReady(false);
       setAuthReady(false);
+    };
+
+    if (!isLoaded) {
+      clearAuth();
       return;
     }
     if (!isSignedIn) {
-      setApiTokenGetter(null);
-      setApiAuthReady(false);
-      setAuthReady(false);
+      clearAuth();
       return;
     }
-    setApiTokenGetter(async () => {
+    const resolveToken = async () => {
       const getToken = getTokenRef.current;
       if (!getToken) return null;
       try {
@@ -52,13 +56,13 @@ export function ApiTokenBridge({ children }: { children?: ReactNode }) {
       } catch {
         return null;
       }
-    });
+    };
+    setApiTokenGetter(resolveToken);
+    setOrvalAuthTokenGetter(resolveToken);
     setApiAuthReady(true);
     setAuthReady(true);
     return () => {
-      setApiTokenGetter(null);
-      setApiAuthReady(false);
-      setAuthReady(false);
+      clearAuth();
     };
   }, [isLoaded, isSignedIn]);
 
