@@ -86,6 +86,7 @@ import {
   SelectedGraphicsTypesSummary,
 } from "@/components/graphics-type-customize-ui";
 import { useAplusModuleCards, useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
+import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import {
   useCreateAuditDraft,
@@ -387,66 +388,6 @@ const LOADING_MESSAGES: Record<StepId, string[]> = {
   ],
 };
 
-/* ── Amazon categories (real top-level browse nodes + popular sub-categories) ── */
-const AMAZON_CATEGORIES = [
-  "Appliances", "Arts, Crafts & Sewing", "Automotive", "Baby", "Beauty & Personal Care",
-  "Books", "CDs & Vinyl", "Camera & Photo", "Cell Phones & Accessories",
-  "Clothing, Shoes & Jewelry", "Collectibles & Fine Art", "Computers & Accessories",
-  "Electronics", "Garden & Outdoor", "Grocery & Gourmet Food", "Handmade", "Health & Household",
-  "Home & Kitchen", "Industrial & Scientific", "Kindle Store", "Kitchen & Dining",
-  "Luggage & Travel Gear", "Luxury Beauty", "Magazine Subscriptions", "Movies & TV",
-  "Musical Instruments", "Office Products", "Pet Supplies", "Prime Video", "Software",
-  "Sports & Outdoors", "Tools & Home Improvement", "Toys & Games", "Video Games",
-  "Watches", "Music", "Gift Cards", "Amazon Pharmacy", "Amazon Launchpad",
-  "Subscribe & Save", "Climate Pledge Friendly", "Smart Home", "Amazon Renewed",
-  "Baby Registry", "Wedding Registry", "Gift Registry", "International Shopping",
-  "Trade-In", "School Supplies", "College Textbooks", "Books for Kids",
-  "Women's Fashion", "Men's Fashion", "Girls' Fashion", "Boys' Fashion",
-  "Baby Clothing", "Maternity", "Big & Tall", "Uniforms, Work & Safety",
-  "Activewear", "Contemporary & Designer", "Luggage & Bags", "Travel Accessories",
-  "Wedding & Engagement", "Fashion Jewelry", "Fine Jewelry", "Wedding Bands",
-  "Engagement Rings", "Athletic Shoes", "Boots", "Fashion Sneakers", "Outdoor Shoes",
-  "Slippers", "Work & Safety Shoes", "Shoe Care & Accessories", "Costumes & Accessories",
-  "Handbags & Wallets", "Backpacks", "Diaper Bags", "Kids' Backpacks",
-  "Laptop Bags", "Briefcases", "Messenger Bags", "Tote Bags", "Crossbody Bags",
-  "Clutches & Evening Bags", "Wallets, Card Cases & Money Organizers", "Luggage Sets",
-  "Carry-Ons", "Garment Bags", "Luggage Carts", "Packing Organizers", "Travel Duffels",
-  "Travel Totes", "Umbrellas", "Women's Sunglasses", "Men's Sunglasses",
-  "Unisex Sunglasses", "Sunglasses Accessories", "Jewelry Boxes & Organizers",
-  "Women's Rings", "Women's Necklaces", "Women's Bracelets", "Women's Earrings",
-  "Women's Body Jewelry", "Men's Rings", "Men's Necklaces", "Men's Bracelets",
-  "Men's Earrings & Body Jewelry", "Men's Tie Clips & Tacks", "Men's Cuff Links",
-  "Men's Tie Pins, Clips & Bars", "Men's Collar Stays", "Men's Tie Sets",
-  "Women's Anklets", "Women's Brooches & Pins", "Women's Charms & Charm Bracelets",
-  "Women's Hair Jewelry", "Women's Jewelry Sets", "Women's Pendants & Coins",
-  "Women's Piercing Jewelry", "Women's Watches", "Women's Smartwatches",
-  "Women's Pocket Watches", "Women's Watch Bands", "Men's Watches", "Men's Smartwatches",
-  "Men's Pocket Watches", "Men's Watch Bands", "Women's Athletic Shoes",
-  "Women's Boots", "Women's Fashion Sneakers", "Women's Flats", "Women's Loafers",
-  "Women's Mules & Clogs", "Women's Outdoor Shoes", "Women's Pumps",
-  "Women's Sandals", "Women's Slippers", "Women's Walking Shoes", "Women's Work & Safety",
-  "Men's Athletic Shoes", "Men's Boots", "Men's Fashion Sneakers", "Men's Loafers",
-  "Men's Outdoor Shoes", "Men's Oxfords", "Men's Sandals", "Men's Slippers",
-  "Men's Walking Shoes", "Men's Work & Safety", "Girls' Athletic Shoes",
-  "Girls' Boots", "Girls' Fashion Sneakers", "Girls' Flats", "Girls' Outdoor Shoes",
-  "Girls' Sandals", "Girls' School Shoes", "Girls' Slippers", "Boys' Athletic Shoes",
-  "Boys' Boots", "Boys' Fashion Sneakers", "Boys' Outdoor Shoes", "Boys' Sandals",
-  "Boys' School Shoes", "Boys' Slippers", "Boys' Sneakers", "Baby Shoes", "Baby Boots",
-  "Baby Outdoor Shoes", "Baby Sneakers", "Baby Athletic", "Baby Sandals",
-  "Baby Slippers", "Baby Walking Shoes", "Baby Accessories", "Baby Girls", "Baby Boys",
-  "Unisex Baby", "Baby Jewelry", "Hair Accessories", "Women's Belts", "Women's Earmuffs",
-  "Women's Eyewear & Accessories", "Women's Gloves & Mittens", "Women's Hats & Caps",
-  "Women's Scarves & Wraps", "Women's Sleep & Lounge", "Women's Socks & Hosiery",
-  "Women's Suiting & Blazers", "Women's Underwear", "Men's Belts", "Men's Earmuffs",
-  "Men's Eyewear & Accessories", "Men's Gloves & Mittens", "Men's Hats & Caps",
-  "Men's Scarves", "Men's Sleep & Lounge", "Men's Socks", "Men's Underwear",
-  "Men's Suiting & Blazers", "Girls' Belts", "Girls' Earmuffs", "Girls' Eyewear & Accessories",
-  "Girls' Gloves & Mittens", "Girls' Hats & Caps", "Girls' Scarves & Wraps",
-  "Girls' Socks & Tights", "Girls' Underwear", "Boys' Belts", "Boys' Earmuffs",
-  "Boys' Eyewear & Accessories", "Boys' Gloves & Mittens", "Boys' Hats & Caps",
-  "Boys' Scarves", "Boys' Socks", "Boys' Underwear",
-];
-
 /* ═══════════════════════════════════════════════════════════════════════════
    Loading Panel Component
 ═══════════════════════════════════════════════════════════════════════════ */
@@ -612,6 +553,7 @@ function CreatingPanel({
 ═══════════════════════════════════════════════════════════════════════════ */
 export default function AuditWorkflow() {
   const { imageTypes: IMAGE_TYPES } = useGraphicsImageTypesFromApi();
+  const { categories: productCategories } = useProductCategories();
   const { modules: APLUS_MODULE_CARDS } = useAplusModuleCards();
   const allAplusModuleIds = useMemo(() => APLUS_MODULE_CARDS.map((m) => m.id), [APLUS_MODULE_CARDS]);
   const [, nav]         = useLocation();
@@ -1907,9 +1849,7 @@ export default function AuditWorkflow() {
     toast({ title: "Product saved", description: "Your listing package is saved to this project." });
   }, [autoSave, currentAuditId, toast]);
 
-  const filteredCats = AMAZON_CATEGORIES.filter((c) =>
-    c.toLowerCase().includes(catSearch.toLowerCase())
-  );
+  const filteredCats = filterProductCategories(productCategories, catSearch);
 
   const stepCompleted = useMemo((): Record<StepId, boolean> => ({
     1: activeStep > 1 || currentAuditId !== null,

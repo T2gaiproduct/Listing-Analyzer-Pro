@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { AMAZON_CATEGORIES } from "@/lib/amazon-categories";
+import { useProductCategories } from "@/lib/product-categories";
 import {
   BULK_CATALOG_FIELDS_FOR_UI,
   BULK_CATALOG_SKIP,
@@ -57,6 +57,7 @@ export function BulkUploadCatalogDialog({
   onImported,
   disabled,
 }: BulkUploadCatalogDialogProps) {
+  const { categories: productCategories } = useProductCategories();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<WizardStep>("category");
   const [category, setCategory] = useState("");
@@ -214,7 +215,7 @@ export function BulkUploadCatalogDialog({
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  {AMAZON_CATEGORIES.map((cat) => (
+                  {productCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
                     </SelectItem>

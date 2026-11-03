@@ -21,6 +21,10 @@ import {
   ensureImagePromptTemplatesSchemaMigrated,
   ensureDefaultImagePromptTemplatesSeeded,
 } from "./lib/ensure-image-prompt-templates.js";
+import {
+  ensureGraphicsProductCategoriesSchemaMigrated,
+  seedGraphicsProductCategories,
+} from "./lib/ensure-graphics-product-categories.js";
 import { ensureNativeAuthSchemaMigrated } from "./lib/ensure-native-auth-schema.js";
 import { isNativeAuthEnabled } from "./lib/native-auth/config.js";
 import type Stripe from "stripe";
@@ -130,6 +134,11 @@ ensureImagePromptTemplatesSchemaMigrated()
   .then(() => ensureDefaultImagePromptTemplatesSeeded())
   .then(() => logger.info("Image prompt templates schema and seed ready"))
   .catch((err) => logger.error({ err }, "Image prompt templates migration failed"));
+
+ensureGraphicsProductCategoriesSchemaMigrated()
+  .then(() => seedGraphicsProductCategories())
+  .then(() => logger.info("Graphics product categories schema and seed ready"))
+  .catch((err) => logger.error({ err }, "Graphics product categories migration failed"));
 
 if (isNativeAuthEnabled()) {
   ensureNativeAuthSchemaMigrated()

@@ -432,6 +432,24 @@ CREATE TABLE IF NOT EXISTS image_prompt_templates (
   UNIQUE (slug, category)
 );
 
+-- ─── Graphics studio example images (per product category × module) ───────
+CREATE TABLE IF NOT EXISTS graphics_product_categories (
+  id serial PRIMARY KEY,
+  name text NOT NULL UNIQUE,
+  is_system integer NOT NULL DEFAULT 0,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS graphics_module_examples (
+  id serial PRIMARY KEY,
+  product_category_name text NOT NULL,
+  template_slug text NOT NULL,
+  example_image_url text NOT NULL,
+  updated_at timestamp NOT NULL DEFAULT now(),
+  UNIQUE (product_category_name, template_slug)
+);
+
 -- ─── Native auth (Clerk migration; dual-mode until cutover) ─────────────────
 CREATE TABLE IF NOT EXISTS auth_credentials (
   user_id text PRIMARY KEY,

@@ -30,6 +30,9 @@ import {
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
+import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
+import { useGraphicsModuleExamples } from "@/lib/graphics-module-examples";
+import { GraphicsModuleExamplesGrid } from "@/components/graphics-module-examples-grid";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { ProtectedAppImage } from "@/components/protected-app-image";
@@ -141,6 +144,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { imageTypes: IMAGE_TYPES } = useGraphicsImageTypesFromApi();
+  const { categories: productCategories } = useProductCategories();
   const { canEditGraphics, isTeamMember, memberCredits } = useTeam();
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
     queryKey: ["credit-rules"],
@@ -176,6 +180,11 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [wizardCategory, setWizardCategory] = useState(category ?? "");
   const [categorySearch, setCategorySearch] = useState(category ?? "");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  const effectiveCategory = wizardCategory.trim() || category?.trim() || "";
+  const { data: moduleExamples, isLoading: moduleExamplesLoading } = useGraphicsModuleExamples(
+    step === 2 ? effectiveCategory : null,
+  );
   const [uploadedImages, setUploadedImages] = useState<string[]>(imageUrls ?? []);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -1281,10 +1290,10 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     />
                     {showCategoryDropdown && (
                       <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-y-auto overscroll-contain">
-                        {AMAZON_CATEGORIES.filter((c) => c.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
+                        {filterProductCategories(productCategories, categorySearch).length === 0 && (
                           <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
                         )}
-                        {AMAZON_CATEGORIES.filter((c) => c.toLowerCase().includes(categorySearch.toLowerCase())).map((c) => (
+                        {filterProductCategories(productCategories, categorySearch).map((c) => (
                           <div
                             key={c}
                             className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-orange-50 ${wizardCategory === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
@@ -1315,6 +1324,14 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               <p className="text-xs text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
             </div>
           </div>
+
+          <GraphicsModuleExamplesGrid
+            mode="view"
+            examples={moduleExamples?.examples ?? []}
+            resolvedCategory={moduleExamples?.resolvedCategory ?? (effectiveCategory || "Default")}
+            usedDefaultFallback={moduleExamples?.usedDefaultFallback ?? false}
+            isLoading={moduleExamplesLoading}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
             {IMAGE_TYPES.map((type) => {
@@ -1527,20 +1544,3 @@ function ImageCard({ record, imageTypes, isLoading, onRegenerate, onEdit, onHist
     </div>
   );
 }
-
-/* ─── Category list (shared from create.tsx) ─── */
-const AMAZON_CATEGORIES = [
-  "Alexa Skills", "Amazon Pharmacy", "Amazon Subscribe & Save", "Appliances", "Apps & Games",
-  "Arts, Crafts & Sewing", "Automotive", "Baby", "Beauty & Personal Care", "Books", "CDs & Vinyl",
-  "Camera & Photo", "Cell Phones & Accessories", "Clothing, Shoes & Jewelry", "Collectible Coins",
-  "Computers & Accessories", "Costumes & Accessories", "Digital Educational Resources", "Digital Music",
-  "Electronics", "Entertainment Collectibles", "Fine Art", "Food & Beverage", "Furniture & Décor",
-  "Gift Cards", "Grocery & Gourmet Food", "Handmade", "Health & Household", "Health, Fitness & Dieting",
-  "Home & Business Services", "Home & Kitchen", "Home & Garden", "Industrial & Scientific", "Jewelry & Watches",
-  "Kindle Store", "Kitchen & Dining", "Luggage & Travel Gear", "Magazines & Newspapers", "Medical Supplies & Equipment",
-  "Movies & TV", "Musical Instruments", "Office Products", "Outdoor Recreation", "Pet Supplies", "Premium Beauty",
-  "Professional Dental Supplies", "Shoes", "Software", "Sports & Outdoors", "Sports Collectibles",
-  "Tools & Home Improvement", "Toys & Games", "Video Games", "Watches", "Wine",
-];
-
-// category filtering is computed inline in the component

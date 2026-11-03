@@ -18,6 +18,7 @@ import {
   slugifyImagePromptTemplateName,
   useAdminImagePromptTemplates,
 } from "@/lib/image-prompt-templates";
+import { AdminGraphicsModuleExamplesPanel } from "@/pages/admin/settings/graphics-module-examples-panel";
 
 function blankTemplate(category: ImagePromptTemplateCategory): ImagePromptTemplateAdmin {
   return {
@@ -168,6 +169,10 @@ export default function AdminSettingsImagePromptTemplates() {
           A+ image modules
         </Button>
       </div>
+
+      {tab === "graphics" ? (
+        <AdminGraphicsModuleExamplesPanel />
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
         <Card>

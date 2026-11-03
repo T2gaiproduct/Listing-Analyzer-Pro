@@ -27,7 +27,7 @@ import {
   GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
-import { AMAZON_CATEGORIES } from "@/lib/amazon-categories";
+import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -171,9 +171,8 @@ export default function CreateProject() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredCategories = AMAZON_CATEGORIES.filter((c) =>
-    c.toLowerCase().includes(categorySearch.toLowerCase())
-  );
+  const { categories: productCategories } = useProductCategories();
+  const filteredCategories = filterProductCategories(productCategories, categorySearch);
 
   const createProject = useMutation({
     mutationFn: async (input: {

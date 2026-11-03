@@ -28,6 +28,9 @@ import contentGenerationMarketplacesRouter from "./content-generation-marketplac
 import adminContentMarketplacesRouter from "./admin-content-marketplaces";
 import imagePromptTemplatesRouter from "./image-prompt-templates";
 import adminImagePromptTemplatesRouter from "./admin-image-prompt-templates";
+import productCategoriesRouter from "./product-categories";
+import graphicsModuleExamplesRouter from "./graphics-module-examples";
+import adminGraphicsModuleExamplesRouter from "./admin-graphics-module-examples";
 import supportTicketsRouter from "./support-tickets";
 import nativeAuthRouter from "./native-auth";
 
@@ -39,8 +42,11 @@ router.use(fetchListingRouter);
 router.use(adminRouter);
 router.use(adminContentMarketplacesRouter);
 router.use(adminImagePromptTemplatesRouter);
+router.use(adminGraphicsModuleExamplesRouter);
 router.use(contentGenerationMarketplacesRouter);
 router.use(imagePromptTemplatesRouter);
+router.use(productCategoriesRouter);
+router.use(graphicsModuleExamplesRouter);
 router.use(publicRouter);
 router.use(supportTicketsRouter);
 router.use(teamRouter);

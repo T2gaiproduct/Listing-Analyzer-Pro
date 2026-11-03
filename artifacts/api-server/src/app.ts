@@ -15,6 +15,7 @@ import { IMAGES_DIR } from "./lib/image-storage";
 import { HERO_IMAGES_DIR } from "./lib/hero-image-storage";
 import { handleHeroVideoUpload } from "./lib/hero-video-upload";
 import { PORTFOLIO_IMAGES_DIR } from "./lib/portfolio-image-storage";
+import { GRAPHICS_EXAMPLE_IMAGES_DIR } from "./lib/graphics-example-image-storage.js";
 import { WORKFLOW_IMAGES_DIR } from "./lib/workflow-image-storage";
 import { BLOG_IMAGES_DIR } from "./lib/blog-image-storage";
 import { sendAuditImage, sendGraphicsImage } from "./lib/protected-images";
@@ -102,6 +103,7 @@ app.use("/api/images/avatars", express.static(path.join(IMAGES_DIR, "avatars")))
 app.use("/api/images/branding", express.static(path.join(IMAGES_DIR, "branding")));
 app.use("/api/images/heroes", express.static(HERO_IMAGES_DIR));
 app.use("/api/images/portfolio", express.static(PORTFOLIO_IMAGES_DIR));
+app.use("/api/images/graphics-examples", express.static(GRAPHICS_EXAMPLE_IMAGES_DIR));
 app.use("/api/images/workflow", express.static(WORKFLOW_IMAGES_DIR));
 app.use("/api/images/blog", express.static(BLOG_IMAGES_DIR));
 
