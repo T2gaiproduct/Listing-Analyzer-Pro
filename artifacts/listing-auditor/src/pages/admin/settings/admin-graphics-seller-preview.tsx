@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { GraphicsStudioReferencePicker } from "@/components/graphics-studio-reference-picker";
@@ -22,6 +22,10 @@ export function AdminGraphicsSellerPreview({ productCategory, template }: Props)
   }, [examplesPayload?.examples, template]);
 
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    setReferenceImages([]);
+  }, [template?.slug, categoryKey]);
 
   if (!template) {
     return (
