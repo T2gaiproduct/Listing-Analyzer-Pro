@@ -11,6 +11,7 @@ import {
   Loader2,
   Package,
   Trash2,
+  Plus,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,10 @@ import { canExportListingSource } from "@/components/listing-export-button";
 import { downloadAuditExport } from "@/lib/amazon-export";
 import { BULK_PRODUCTS_EXPORT_MAX, downloadBulkProductsExcel } from "@/lib/bulk-products-export";
 import { BulkUploadCatalogTrigger } from "@/components/bulk-upload-catalog-dialog";
+import {
+  BuildBrandStartDrawer,
+  type BuildBrandStartEntry,
+} from "@/components/build-brand-start-drawer";
 import { fetchAccountOverviewProducts, fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
@@ -434,7 +439,17 @@ export default function ProductsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [bulkExporting, setBulkExporting] = useState(false);
+  const [addProductDrawerOpen, setAddProductDrawerOpen] = useState(false);
   const { trigger: triggerDeleteDialog, dialog: deleteDialog } = useActionDialog();
+
+  function handleAddProductChoice(entry: BuildBrandStartEntry) {
+    setAddProductDrawerOpen(false);
+    if (entry === "import-link") {
+      navigate("/audits/import-from-link");
+      return;
+    }
+    navigate(`/audits/workflow?entry=${entry}`);
+  }
 
   const productsQueryScope = showAccountProducts ? "owner-account" : featureWorkspaceId;
   const productsQueryEnabled =
@@ -755,20 +770,32 @@ export default function ProductsPage() {
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-xl sm:justify-end">
           {!showAccountProducts && featureWorkspaceId && (
-            <BulkUploadCatalogTrigger
-              disabled={needsWorkspaceSelection}
-              onImported={({ imported, failed }) => {
-                void queryClient.invalidateQueries({ queryKey: ["products"] });
-                void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
-                toast({
-                  title: failed > 0 ? "Import completed with errors" : "Catalog imported",
-                  description:
-                    failed > 0
-                      ? `${imported} product${imported === 1 ? "" : "s"} added, ${failed} row${failed === 1 ? "" : "s"} failed.`
-                      : `${imported} product${imported === 1 ? "" : "s"} added to Product Explorer.`,
-                });
-              }}
-            />
+            <>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 shrink-0 rounded-full bg-orange-500 px-3.5 text-xs font-semibold text-white hover:bg-orange-600 shadow-sm"
+                disabled={needsWorkspaceSelection}
+                onClick={() => setAddProductDrawerOpen(true)}
+              >
+                <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />
+                Add product
+              </Button>
+              <BulkUploadCatalogTrigger
+                disabled={needsWorkspaceSelection}
+                onImported={({ imported, failed }) => {
+                  void queryClient.invalidateQueries({ queryKey: ["products"] });
+                  void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
+                  toast({
+                    title: failed > 0 ? "Import completed with errors" : "Catalog imported",
+                    description:
+                      failed > 0
+                        ? `${imported} product${imported === 1 ? "" : "s"} added, ${failed} row${failed === 1 ? "" : "s"} failed.`
+                        : `${imported} product${imported === 1 ? "" : "s"} added to Product Explorer.`,
+                  });
+                }}
+              />
+            </>
           )}
           {filtered.length > 0 && (
             <Tooltip>
@@ -1141,6 +1168,11 @@ export default function ProductsPage() {
         </p>
       )}
       {deleteDialog}
+      <BuildBrandStartDrawer
+        open={addProductDrawerOpen}
+        onOpenChange={setAddProductDrawerOpen}
+        onChoose={handleAddProductChoice}
+      />
     </div>
   );
 }
