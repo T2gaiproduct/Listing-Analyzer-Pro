@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Search,
   Eye,
   Pencil,
   Upload,
@@ -15,7 +14,6 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -433,7 +431,6 @@ export default function ProductsPage() {
     isAgencyAccountOverview,
   );
   const [, navigate] = useLocation();
-  const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -538,7 +535,7 @@ export default function ProductsPage() {
     if (items.length > BULK_PRODUCTS_EXPORT_MAX) {
       toast({
         title: "Too many listings",
-        description: `Export up to ${BULK_PRODUCTS_EXPORT_MAX} at a time. Narrow your search or use row selection.`,
+        description: `Export up to ${BULK_PRODUCTS_EXPORT_MAX} at a time. Narrow filters or use row selection.`,
         variant: "destructive",
       });
       return;
@@ -674,12 +671,7 @@ export default function ProductsPage() {
   }, [dynamicChannelFilters, channelFilter]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     return products.filter((p) => {
-      if (q) {
-        const hay = `${p.name} ${p.sku}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
       if (typeFilter !== "all" && productTypeLabel(p) !== typeFilter) return false;
       if (channelFilter !== "all") {
         const channels = productChannelTags(p);
@@ -687,7 +679,7 @@ export default function ProductsPage() {
       }
       return true;
     });
-  }, [products, search, typeFilter, channelFilter]);
+  }, [products, typeFilter, channelFilter]);
 
   const activeFilterSummary = useMemo(() => {
     const parts: string[] = [];
@@ -768,34 +760,22 @@ export default function ProductsPage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-xl sm:justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
           {!showAccountProducts && featureWorkspaceId && (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 shrink-0 rounded-full bg-orange-500 px-3.5 text-xs font-semibold text-white hover:bg-orange-600 shadow-sm"
-                disabled={needsWorkspaceSelection}
-                onClick={() => setAddProductDrawerOpen(true)}
-              >
-                <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />
-                Add product
-              </Button>
-              <BulkUploadCatalogTrigger
-                disabled={needsWorkspaceSelection}
-                onImported={({ imported, failed }) => {
-                  void queryClient.invalidateQueries({ queryKey: ["products"] });
-                  void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
-                  toast({
-                    title: failed > 0 ? "Import completed with errors" : "Catalog imported",
-                    description:
-                      failed > 0
-                        ? `${imported} product${imported === 1 ? "" : "s"} added, ${failed} row${failed === 1 ? "" : "s"} failed.`
-                        : `${imported} product${imported === 1 ? "" : "s"} added to Product Explorer.`,
-                  });
-                }}
-              />
-            </>
+            <BulkUploadCatalogTrigger
+              disabled={needsWorkspaceSelection}
+              onImported={({ imported, failed }) => {
+                void queryClient.invalidateQueries({ queryKey: ["products"] });
+                void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
+                toast({
+                  title: failed > 0 ? "Import completed with errors" : "Catalog imported",
+                  description:
+                    failed > 0
+                      ? `${imported} product${imported === 1 ? "" : "s"} added, ${failed} row${failed === 1 ? "" : "s"} failed.`
+                      : `${imported} product${imported === 1 ? "" : "s"} added to Product Explorer.`,
+                });
+              }}
+            />
           )}
           {filtered.length > 0 && (
             <Tooltip>
@@ -825,15 +805,18 @@ export default function ProductsPage() {
               </TooltipContent>
             </Tooltip>
           )}
-          <div className="relative flex-1 sm:max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products..."
-              className="h-8 pl-8 text-xs border-border bg-card rounded-lg"
-            />
-          </div>
+          {!showAccountProducts && featureWorkspaceId && (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0 rounded-md border border-orange-600 bg-orange-500 px-3 text-xs font-medium text-white shadow-none hover:bg-orange-600"
+              disabled={needsWorkspaceSelection}
+              onClick={() => setAddProductDrawerOpen(true)}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              Add product
+            </Button>
+          )}
         </div>
       </div>
 
