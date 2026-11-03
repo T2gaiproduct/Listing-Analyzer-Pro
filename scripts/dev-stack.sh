@@ -49,7 +49,14 @@ ensure_dev_native_login_if_needed() {
     # shellcheck disable=SC1090
     source "$DEV_STACK_NATIVE_ENV_FILE"
     set +a
-    ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-$ADMIN_IDS_FOR_STACK}"
+    # Dev test user is a normal customer — not Super Admin (unless you set DEV_STACK_ADMIN_USER_IDS).
+    if [[ -n "${DEV_STACK_ADMIN_USER_IDS:-}" ]]; then
+      ADMIN_IDS_FOR_STACK="$DEV_STACK_ADMIN_USER_IDS"
+    elif [[ "${ADMIN_USER_IDS:-}" == "${DEV_NATIVE_USER_ID:-}" ]]; then
+      ADMIN_IDS_FOR_STACK=""
+    else
+      ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-$ADMIN_IDS_FOR_STACK}"
+    fi
   fi
 }
 
