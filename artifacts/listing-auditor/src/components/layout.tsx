@@ -851,10 +851,10 @@ export function Layout({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => handleFeatureNav(href, comingSoon)}
                   className={cn(
-                    "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[11px] transition-colors text-left",
+                    "typo-sidebar-nav w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors text-left",
                     isActive
                       ? "bg-orange-500 text-white font-medium shadow-sm"
-                      : "text-sidebar-foreground font-normal hover:bg-sidebar-accent/50"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/50"
                   )}
                 >
                   <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/75")} />
@@ -917,10 +917,10 @@ export function Layout({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => handleFeatureNav(href, comingSoon)}
                   className={cn(
-                    "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[11px] transition-colors text-left",
+                    "typo-sidebar-nav w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors text-left",
                     isActive
                       ? "bg-orange-500 text-white font-medium shadow-sm"
-                      : "text-sidebar-foreground font-normal hover:bg-sidebar-accent/50"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/50"
                   )}
                 >
                   <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/75")} />
@@ -1009,10 +1009,10 @@ export function Layout({ children }: { children: ReactNode }) {
                     type="button"
                     onClick={() => handleFeatureNav(href, comingSoon)}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs transition-colors text-left min-h-9",
+                      "typo-sidebar-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors text-left min-h-9",
                       isActive
                         ? "bg-orange-500 text-white font-medium shadow-sm"
-                        : "text-slate-600 font-normal hover:bg-slate-100"
+                        : "text-slate-600 hover:bg-slate-100"
                     )}
                   >
                     <Icon className="w-4 h-4 flex-shrink-0" />
@@ -1047,10 +1047,10 @@ export function Layout({ children }: { children: ReactNode }) {
                     type="button"
                     onClick={() => handleFeatureNav(href, comingSoon)}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs transition-colors text-left min-h-9",
+                      "typo-sidebar-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors text-left min-h-9",
                       isActive
                         ? "bg-orange-500 text-white font-medium shadow-sm"
-                        : "text-slate-600 font-normal hover:bg-slate-100"
+                        : "text-slate-600 hover:bg-slate-100"
                     )}
                   >
                     <Icon className="w-4 h-4 flex-shrink-0" />

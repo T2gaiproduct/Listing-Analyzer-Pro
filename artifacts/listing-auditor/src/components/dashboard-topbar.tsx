@@ -220,7 +220,7 @@ export function DashboardTopbar({
           onChange={(e) => onSearchQueryChange(e.target.value)}
           onFocus={() => setSearchFocused(true)}
           placeholder={searchPlaceholder}
-          className="w-full h-9 pl-9 pr-3 rounded-md text-xs bg-muted/40 border-0 shadow-none text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200/80 focus-visible:ring-orange-200/80"
+          className="w-full h-9 pl-9 pr-3 rounded-md text-sm font-normal bg-muted/40 border-0 shadow-none text-foreground placeholder:text-base placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200/80 focus-visible:ring-orange-200/80"
         />
       </div>
       {showSearchResults && (
