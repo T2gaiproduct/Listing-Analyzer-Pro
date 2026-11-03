@@ -266,6 +266,7 @@ export function ProductListingPreview({
   }, [generatedContent?.attributes, audit?.generatedContent?.attributes, previewDetailRows]);
 
   const hasSpecificationRows = specificationRows.length > 0;
+  const hasPreviewProductDetails = hasSpecificationRows;
 
   const hasListingCopy = Boolean(
     title.trim() || bullets.length > 0 || descriptionPreviewHtml.length > 0,
