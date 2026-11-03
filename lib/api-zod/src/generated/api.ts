@@ -29,8 +29,6 @@ export const GenerateContentDirectBody = zod.object({
   imageUrls: zod.array(zod.string()).optional(),
   customPrompt: zod.string().optional(),
   promptReferenceImageUrls: zod.array(zod.string()).optional(),
-  contentMarketplaceId: zod.number().int().positive().optional(),
-  contentMarketplaceSlug: zod.string().optional(),
 });
 
 export const GenerateContentDirectResponse = zod.object({
@@ -38,6 +36,14 @@ export const GenerateContentDirectResponse = zod.object({
   bulletPoints: zod.array(zod.string()),
   keywords: zod.array(zod.string()),
   htmlDescription: zod.string(),
+  attributes: zod
+    .array(
+      zod.object({
+        attribute: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -75,6 +81,14 @@ export const FetchListingResponse = zod.object({
   description: zod.string().nullish(),
   price: zod.string().nullish(),
   rating: zod.string().nullish(),
+  attributes: zod
+    .array(
+      zod.object({
+        attribute: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -88,6 +102,8 @@ export const ListAuditsResponseItem = zod.object({
   category: zod.string().nullish(),
   overallScore: zod.number(),
   status: zod.enum(["pending", "complete", "failed", "draft"]),
+  projectOrigin: zod.string().optional(),
+  importMarketplace: zod.string().optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -96,6 +112,10 @@ export const ListAuditsResponse = zod.array(ListAuditsResponseItem);
 /**
  * @summary Create and run a new listing audit
  */
+export const createAuditBodyAplusModuleCountMin = 0;
+
+export const createAuditBodyGraphicsImageCountMin = 0;
+
 export const CreateAuditBody = zod.object({
   projectName: zod.string().optional(),
   productName: zod.string(),
@@ -107,14 +127,41 @@ export const CreateAuditBody = zod.object({
   bulletPoints: zod.array(zod.string()),
   imageUrls: zod.array(zod.string()),
   targetKeywords: zod.array(zod.string()),
-  forGraphicsAplus: zod.boolean().optional(),
-  aplusModuleCount: zod.number().int().min(0).optional(),
-  graphicsImageCount: zod.number().int().min(0).optional(),
+  forGraphicsAplus: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Create Graphics A+ shell audit (not a Product Explorer listing)",
+    ),
+  aplusModuleCount: zod
+    .number()
+    .min(createAuditBodyAplusModuleCountMin)
+    .optional()
+    .describe("Preflight image credits for imminent A+ modules"),
+  graphicsImageCount: zod
+    .number()
+    .min(createAuditBodyGraphicsImageCountMin)
+    .optional()
+    .describe("Preflight image credits for imminent gallery images"),
+  projectOrigin: zod
+    .string()
+    .optional()
+    .describe("audit_listing | build_brand_scratch | build_brand_import"),
+  importMarketplace: zod
+    .string()
+    .optional()
+    .describe(
+      "When projectOrigin is build_brand_import — amazon, shopify, woocommerce, ebay, walmart",
+    ),
 });
 
 /**
  * @summary Create a Build Your Brand draft project without charging credits or running audit analysis
  */
+export const createAuditDraftBodyAplusModuleCountMin = 0;
+
+export const createAuditDraftBodyGraphicsImageCountMin = 0;
+
 export const CreateAuditDraftBody = zod.object({
   projectName: zod.string().optional(),
   productName: zod.string(),
@@ -126,12 +173,32 @@ export const CreateAuditDraftBody = zod.object({
   bulletPoints: zod.array(zod.string()),
   imageUrls: zod.array(zod.string()),
   targetKeywords: zod.array(zod.string()),
-  /** Create Graphics A+ path — not a Build Your Brand / Product Explorer listing. */
-  forGraphicsAplus: zod.boolean().optional(),
-  /** Imminent A+ modules — preflight image credits before creating shell audit. */
-  aplusModuleCount: zod.number().int().min(0).optional(),
-  /** Imminent gallery images — preflight image credits before creating BYB draft. */
-  graphicsImageCount: zod.number().int().min(0).optional(),
+  forGraphicsAplus: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Create Graphics A+ shell audit (not a Product Explorer listing)",
+    ),
+  aplusModuleCount: zod
+    .number()
+    .min(createAuditDraftBodyAplusModuleCountMin)
+    .optional()
+    .describe("Preflight image credits for imminent A+ modules"),
+  graphicsImageCount: zod
+    .number()
+    .min(createAuditDraftBodyGraphicsImageCountMin)
+    .optional()
+    .describe("Preflight image credits for imminent gallery images"),
+  projectOrigin: zod
+    .string()
+    .optional()
+    .describe("audit_listing | build_brand_scratch | build_brand_import"),
+  importMarketplace: zod
+    .string()
+    .optional()
+    .describe(
+      "When projectOrigin is build_brand_import — amazon, shopify, woocommerce, ebay, walmart",
+    ),
 });
 
 /**
@@ -151,6 +218,8 @@ export const GetAuditStatsResponse = zod.object({
       category: zod.string().nullish(),
       overallScore: zod.number(),
       status: zod.enum(["pending", "complete", "failed", "draft"]),
+      projectOrigin: zod.string().optional(),
+      importMarketplace: zod.string().optional(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
@@ -224,6 +293,14 @@ export const GetAuditResponse = zod.object({
       bulletPoints: zod.array(zod.string()),
       keywords: zod.array(zod.string()),
       htmlDescription: zod.string(),
+      attributes: zod
+        .array(
+          zod.object({
+            attribute: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional(),
     })
     .optional(),
   sourceListingContent: zod
@@ -232,6 +309,14 @@ export const GetAuditResponse = zod.object({
       bulletPoints: zod.array(zod.string()),
       keywords: zod.array(zod.string()),
       htmlDescription: zod.string(),
+      attributes: zod
+        .array(
+          zod.object({
+            attribute: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional(),
     })
     .optional(),
   generatedImages: zod
@@ -324,6 +409,8 @@ export const PatchAuditResponse = zod.object({
   category: zod.string().nullish(),
   overallScore: zod.number(),
   status: zod.enum(["pending", "complete", "failed", "draft"]),
+  projectOrigin: zod.string().optional(),
+  importMarketplace: zod.string().optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -340,6 +427,14 @@ export const GenerateContentResponse = zod.object({
   bulletPoints: zod.array(zod.string()),
   keywords: zod.array(zod.string()),
   htmlDescription: zod.string(),
+  attributes: zod
+    .array(
+      zod.object({
+        attribute: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional(),
 });
 
 /**

@@ -503,6 +503,12 @@ CREATE TABLE IF NOT EXISTS audit_content_variants (
 CREATE UNIQUE INDEX IF NOT EXISTS audit_content_variants_audit_marketplace_uidx
   ON audit_content_variants (audit_id, content_marketplace_id);
 
+ALTER TABLE audits
+  ADD COLUMN IF NOT EXISTS project_origin text;
+
+ALTER TABLE audits
+  ADD COLUMN IF NOT EXISTS import_marketplace text;
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

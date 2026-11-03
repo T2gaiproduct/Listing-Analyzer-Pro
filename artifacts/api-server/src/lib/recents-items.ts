@@ -12,7 +12,7 @@ import {
   getMemberWorkedProjects,
   type MemberWorkedProjects,
 } from "./member-projects";
-import { classifyAuditProductSource } from "./audit-product-source.js";
+import { classifyAuditForProductExplorer } from "./audit-project-origin.js";
 
 export function activitySortTime(
   worked: MemberWorkedProjects | null,
@@ -42,10 +42,17 @@ export function recentsTypeLabel(type: string): string {
 }
 
 export function classifyAuditRecentsItem(
-  a: { id: number; asin?: string | null },
+  a: {
+    id: number;
+    asin?: string | null;
+    projectOrigin?: string | null;
+    importMarketplace?: string | null;
+  },
   opts?: { hasProductProfile?: boolean },
 ): { type: "audit" | "listing"; url: string; typeLabel: string } {
-  const classified = classifyAuditProductSource({
+  const classified = classifyAuditForProductExplorer({
+    projectOrigin: a.projectOrigin,
+    importMarketplace: a.importMarketplace,
     asin: a.asin,
     hasProductProfile: opts?.hasProductProfile === true,
   });
@@ -53,13 +60,7 @@ export function classifyAuditRecentsItem(
   return {
     type,
     url: classified.isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
-    typeLabel: classified.isShopifyImport
-      ? "Shopify Import"
-      : classified.isWooCommerceImport
-        ? "WooCommerce Import"
-        : classified.isEbayImport
-          ? "eBay Import"
-          : recentsTypeLabel(type),
+    typeLabel: classified.sourceTypeLabel,
   };
 }
 

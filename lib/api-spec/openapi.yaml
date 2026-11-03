@@ -928,6 +928,10 @@ components:
         status:
           type: string
           enum: [pending, complete, failed, draft]
+        projectOrigin:
+          type: string
+        importMarketplace:
+          type: string
         createdAt:
           type: string
           format: date-time
@@ -1056,6 +1060,12 @@ components:
           type: integer
           minimum: 0
           description: Preflight image credits for imminent gallery images
+        projectOrigin:
+          type: string
+          description: audit_listing | build_brand_scratch | build_brand_import
+        importMarketplace:
+          type: string
+          description: When projectOrigin is build_brand_import — amazon, shopify, woocommerce, ebay, walmart
       required:
         - productName
         - title

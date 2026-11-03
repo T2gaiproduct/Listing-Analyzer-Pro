@@ -23,10 +23,10 @@ export interface FetchListingBody {
   url?: string;
 }
 
-export interface FetchedListingAttribute {
+export type FetchedListingAttributesItem = {
   attribute: string;
   value: string;
-}
+};
 
 export interface FetchedListing {
   productName: string;
@@ -44,7 +44,7 @@ export interface FetchedListing {
   price?: string | null;
   /** @nullable */
   rating?: string | null;
-  attributes?: FetchedListingAttribute[];
+  attributes?: FetchedListingAttributesItem[];
 }
 
 export interface GenerateContentDirectBody {
@@ -58,8 +58,6 @@ export interface GenerateContentDirectBody {
   imageUrls?: string[];
   customPrompt?: string;
   promptReferenceImageUrls?: string[];
-  contentMarketplaceId?: number;
-  contentMarketplaceSlug?: string;
 }
 
 export interface GeneratedListingAttribute {
@@ -223,6 +221,8 @@ export interface Audit {
   category?: string | null;
   overallScore: number;
   status: AuditStatus;
+  projectOrigin?: string;
+  importMarketplace?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -294,8 +294,22 @@ export interface CreateAuditBody {
   bulletPoints: string[];
   imageUrls: string[];
   targetKeywords: string[];
-  /** Create Graphics A+ backing audit — not a Product Explorer BYB listing. */
+  /** Create Graphics A+ shell audit (not a Product Explorer listing) */
   forGraphicsAplus?: boolean;
+  /**
+   * Preflight image credits for imminent A+ modules
+   * @minimum 0
+   */
+  aplusModuleCount?: number;
+  /**
+   * Preflight image credits for imminent gallery images
+   * @minimum 0
+   */
+  graphicsImageCount?: number;
+  /** audit_listing | build_brand_scratch | build_brand_import */
+  projectOrigin?: string;
+  /** When projectOrigin is build_brand_import — amazon, shopify, woocommerce, ebay, walmart */
+  importMarketplace?: string;
 }
 
 export type PatchAuditBodyGeneratedContent = { [key: string]: unknown };

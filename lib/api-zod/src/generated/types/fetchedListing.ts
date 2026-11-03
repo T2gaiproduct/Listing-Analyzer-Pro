@@ -5,6 +5,7 @@
  * Amazon Listing Auditor API
  * OpenAPI spec version: 0.1.0
  */
+import type { FetchedListingAttributesItem } from "./fetchedListingAttributesItem";
 
 export interface FetchedListing {
   productName: string;
@@ -22,4 +23,5 @@ export interface FetchedListing {
   price?: string | null;
   /** @nullable */
   rating?: string | null;
+  attributes?: FetchedListingAttributesItem[];
 }

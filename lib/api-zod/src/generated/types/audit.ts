@@ -17,6 +17,8 @@ export interface Audit {
   category?: string | null;
   overallScore: number;
   status: AuditStatus;
+  projectOrigin?: string;
+  importMarketplace?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -102,6 +102,10 @@ export const auditsTable = pgTable("audits", {
   referenceResearch: jsonb("reference_research").$type<ReferenceResearchData>(),
   /** Marketplace used for AI listing content generation (content_marketplaces.id). */
   contentMarketplaceId: integer("content_marketplace_id"),
+  /** How the audit was started (Product Explorer type / workflow routing). */
+  projectOrigin: text("project_origin"),
+  /** When projectOrigin is build_brand_import: amazon | shopify | woocommerce | ebay | walmart */
+  importMarketplace: text("import_marketplace"),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

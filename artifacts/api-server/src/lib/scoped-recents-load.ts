@@ -134,6 +134,8 @@ export async function loadScopedRecents(
         createdAt: auditsTable.createdAt,
         updatedAt: auditsTable.updatedAt,
         workspaceId: auditsTable.workspaceId,
+        projectOrigin: auditsTable.projectOrigin,
+        importMarketplace: auditsTable.importMarketplace,
       })
       .from(auditsTable)
       .where(

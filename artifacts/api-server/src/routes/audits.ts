@@ -22,6 +22,11 @@ import { generateChatCompletion } from "../lib/ai-provider";
 import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
 import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
+import {
+  PROJECT_ORIGIN_AUDIT_LISTING,
+  PROJECT_ORIGIN_BUILD_BRAND_SCRATCH,
+  projectOriginInsertFields,
+} from "../lib/audit-project-origin.js";
 import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
 import { formatReferenceResearchForContentPrompt } from "../lib/reference-research-prompt.js";
@@ -247,6 +252,8 @@ router.get("/audits", requireAuth, resolveTeamAndWorkspace, async (req, res): Pr
       category: auditsTable.category,
       overallScore: auditsTable.overallScore,
       status: auditsTable.status,
+      projectOrigin: auditsTable.projectOrigin,
+      importMarketplace: auditsTable.importMarketplace,
       createdAt: auditsTable.createdAt,
       updatedAt: auditsTable.updatedAt,
     })
@@ -279,6 +286,8 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
     return;
   }
 
+  const originFields = projectOriginInsertFields(req.body, PROJECT_ORIGIN_AUDIT_LISTING);
+
   const [audit] = await db
     .insert(auditsTable)
     .values({
@@ -297,6 +306,8 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
       targetKeywords,
       overallScore: 0,
       status: "pending",
+      projectOrigin: originFields.projectOrigin,
+      importMarketplace: originFields.importMarketplace,
     })
     .returning();
 
@@ -404,6 +415,10 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
       ? (req.body as { sourceListingUrl: string }).sourceListingUrl.trim()
       : "";
 
+    const originFields = forGraphicsAplus
+      ? { projectOrigin: null, importMarketplace: null }
+      : projectOriginInsertFields(req.body, PROJECT_ORIGIN_BUILD_BRAND_SCRATCH);
+
     const [audit] = await db
       .insert(auditsTable)
       .values({
@@ -423,14 +438,17 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
         overallScore: 0,
         status: "draft",
         currentStep: 1,
+        projectOrigin: originFields.projectOrigin,
+        importMarketplace: originFields.importMarketplace,
       })
       .returning();
 
     if (!forGraphicsAplus && (importAttributes.length > 0 || sourceListingUrl || asin?.trim())) {
+      const marketplaceNotes = originFields.importMarketplace ?? "amazon";
       await persistAmazonImportExtras(audit.id, {
         importAttributes,
         sourceUrl: sourceListingUrl || null,
-        marketplaceNotes: "amazon",
+        marketplaceNotes,
       });
     }
 

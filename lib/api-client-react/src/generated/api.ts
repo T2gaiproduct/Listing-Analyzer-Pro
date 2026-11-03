@@ -888,24 +888,13 @@ export const getGenerateContentUrl = (id: number) => {
   return `/api/audits/${id}/generate-content`;
 };
 
-export type GenerateContentBody = {
-  customPrompt?: string;
-  promptReferenceImageUrls?: string[];
-  contentMarketplaceId?: number;
-  contentMarketplaceSlug?: string;
-  contentMarketplaceIds?: number[];
-};
-
 export const generateContent = async (
   id: number,
-  data?: GenerateContentBody,
   options?: RequestInit,
 ): Promise<GeneratedContent> => {
   return customFetch<GeneratedContent>(getGenerateContentUrl(id), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
-    body: JSON.stringify(data ?? {}),
   });
 };
 
@@ -916,14 +905,14 @@ export const getGenerateContentMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof generateContent>>,
     TError,
-    { id: number; data?: GenerateContentBody },
+    { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof generateContent>>,
   TError,
-  { id: number; data?: GenerateContentBody },
+  { id: number },
   TContext
 > => {
   const mutationKey = ["generateContent"];
@@ -937,11 +926,11 @@ export const getGenerateContentMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof generateContent>>,
-    { id: number; data?: GenerateContentBody }
+    { id: number }
   > = (props) => {
-    const { id, data } = props ?? {};
+    const { id } = props ?? {};
 
-    return generateContent(id, data, requestOptions);
+    return generateContent(id, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -963,14 +952,14 @@ export const useGenerateContent = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof generateContent>>,
     TError,
-    { id: number; data?: GenerateContentBody },
+    { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof generateContent>>,
   TError,
-  { id: number; data?: GenerateContentBody },
+  { id: number },
   TContext
 > => {
   return useMutation(getGenerateContentMutationOptions(options));

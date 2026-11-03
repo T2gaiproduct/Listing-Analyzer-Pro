@@ -17,4 +17,20 @@ export interface CreateAuditBody {
   bulletPoints: string[];
   imageUrls: string[];
   targetKeywords: string[];
+  /** Create Graphics A+ shell audit (not a Product Explorer listing) */
+  forGraphicsAplus?: boolean;
+  /**
+   * Preflight image credits for imminent A+ modules
+   * @minimum 0
+   */
+  aplusModuleCount?: number;
+  /**
+   * Preflight image credits for imminent gallery images
+   * @minimum 0
+   */
+  graphicsImageCount?: number;
+  /** audit_listing | build_brand_scratch | build_brand_import */
+  projectOrigin?: string;
+  /** When projectOrigin is build_brand_import — amazon, shopify, woocommerce, ebay, walmart */
+  importMarketplace?: string;
 }

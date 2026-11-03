@@ -5,10 +5,12 @@
  * Amazon Listing Auditor API
  * OpenAPI spec version: 0.1.0
  */
+import type { GeneratedListingAttribute } from "./generatedListingAttribute";
 
 export interface GeneratedContent {
   title: string;
   bulletPoints: string[];
   keywords: string[];
   htmlDescription: string;
+  attributes?: GeneratedListingAttribute[];
 }

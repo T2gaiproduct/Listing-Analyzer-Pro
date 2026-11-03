@@ -7,10 +7,8 @@ import { getAccountOwnerId, getListScopeWorkspaceId, getWorkspaceCtx } from "./w
 import { resolveTeamContext } from "../middlewares/team-auth";
 import { requireWorkspacePerm } from "./workspace-context";
 import { listLiveChannelsForAudits, loadAuditCatalogExtras } from "./product-marketplaces.js";
-import {
-  classifyAuditProductSource,
-  loadAuditIdsWithProductProfiles,
-} from "./audit-product-source.js";
+import { classifyAuditForProductExplorer } from "./audit-project-origin.js";
+import { loadAuditIdsWithProductProfiles } from "./audit-product-source.js";
 
 export type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -184,7 +182,12 @@ export async function loadUnifiedProductList(
       continue;
     }
     const hasProductProfile = profileAuditIds.has(a.id);
-    const classified = classifyAuditProductSource({ asin: a.asin, hasProductProfile });
+    const classified = classifyAuditForProductExplorer({
+      projectOrigin: a.projectOrigin,
+      importMarketplace: a.importMarketplace,
+      asin: a.asin,
+      hasProductProfile,
+    });
     const { isShopifyImport, isWooCommerceImport, isEbayImport, isAuditListing } = classified;
     const sourceType: ProductSourceType = classified.sourceType;
     const name = a.name?.trim() || a.productName?.trim() || "Untitled Project";
@@ -216,13 +219,7 @@ export async function loadUnifiedProductList(
       workflowUrl,
       detailUrl,
       sourceType,
-      sourceTypeLabel: isShopifyImport
-        ? "Shopify Import"
-        : isWooCommerceImport
-          ? "WooCommerce Import"
-          : isEbayImport
-            ? "eBay Import"
-            : sourceTypeLabel(sourceType),
+      sourceTypeLabel: classified.sourceTypeLabel,
       isShopifyImport,
       isWooCommerceImport,
       referenceUrl: null,
@@ -321,14 +318,15 @@ export async function loadUnifiedProductList(
           item.inStock = true;
         }
       }
-      if (extras?.isShopifyImport) {
+      const importFromMarketplaceLabel = item.sourceTypeLabel.startsWith("Import from ");
+      if (extras?.isShopifyImport && !importFromMarketplaceLabel) {
         item.isShopifyImport = true;
         item.sourceType = "listing";
         item.sourceTypeLabel = "Shopify Import";
         item.workflowUrl = `/audits/workflow?resume=${item.id}`;
         item.detailUrl = `/products/${item.id}?source=listing`;
       }
-      if (extras?.isWooCommerceImport) {
+      if (extras?.isWooCommerceImport && !importFromMarketplaceLabel) {
         item.isWooCommerceImport = true;
         item.sourceType = "listing";
         item.sourceTypeLabel = "WooCommerce Import";
