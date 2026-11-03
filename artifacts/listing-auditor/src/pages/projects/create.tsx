@@ -796,6 +796,7 @@ export default function CreateProject() {
             }}
             promptMaxChars={PROMPT_MAX_CHARS}
             examplePrompts={GRAPHICS_CUSTOM_PROMPT_EXAMPLES}
+            productCategory={category}
           />
         </div>
       )}
@@ -879,6 +880,7 @@ export default function CreateProject() {
               if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
             }}
             hideAspectRatio
+            showStudioExample={false}
           />
 
           <p className="text-xs text-slate-500">

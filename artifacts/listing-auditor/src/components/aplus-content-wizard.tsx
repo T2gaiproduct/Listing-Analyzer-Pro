@@ -522,6 +522,7 @@ export function AplusContentWizard({
         if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
       }}
       hideAspectRatio
+      showStudioExample={false}
     />
   );
 

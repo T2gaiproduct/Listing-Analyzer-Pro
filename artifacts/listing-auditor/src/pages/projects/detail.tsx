@@ -783,6 +783,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
               }}
               promptMaxChars={GRAPHICS_PROMPT_MAX_CHARS}
               examplePrompts={moreCustomizeTypeId === "custom" ? GRAPHICS_CUSTOM_PROMPT_EXAMPLES : undefined}
+              productCategory={project?.category ?? null}
             />
 
             <div className="flex items-center justify-end gap-3 pt-4 border-t">

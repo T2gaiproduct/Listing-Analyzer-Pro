@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,6 +8,8 @@ import {
   GRAPHICS_QUALITY_OPTIONS,
   type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
+import { GraphicsModuleExamplePreview } from "@/components/graphics-module-example-preview";
+import { useGraphicsModuleExamples } from "@/lib/graphics-module-examples";
 
 export type GraphicsImageTypeOption = {
   id: string;
@@ -24,6 +27,10 @@ type ImageTypeCustomizeDialogProps = {
   promptMaxChars?: number;
   examplePrompts?: string[];
   hideAspectRatio?: boolean;
+  /** Product category for admin studio example (graphics modules only). */
+  productCategory?: string | null;
+  /** When false, skips studio example block (e.g. A+ modules). */
+  showStudioExample?: boolean;
 };
 
 export function ImageTypeCustomizeDialog({
@@ -35,11 +42,27 @@ export function ImageTypeCustomizeDialog({
   promptMaxChars,
   examplePrompts,
   hideAspectRatio = false,
+  productCategory,
+  showStudioExample = true,
 }: ImageTypeCustomizeDialogProps) {
+  const categoryKey = productCategory?.trim() || "";
+  const fetchExamples = open && showStudioExample && Boolean(type) && type.id !== "custom" && Boolean(categoryKey);
+  const { data: examplesPayload, isLoading: examplesLoading } = useGraphicsModuleExamples(
+    fetchExamples ? categoryKey : null,
+  );
+
+  const moduleExample = useMemo(() => {
+    if (!type || type.id === "custom") return null;
+    return examplesPayload?.examples.find((e) => e.templateSlug === type.id) ?? null;
+  }, [examplesPayload?.examples, type]);
+
+  const showAdminBlock =
+    showStudioExample && type != null && type.id !== "custom" && Boolean(categoryKey);
+
   return (
     <Dialog open={open && Boolean(type)} onOpenChange={onOpenChange}>
       {!type ? null : (
-      <DialogContent className="max-w-lg max-h-[min(90vh,720px)] overflow-y-auto gap-4">
+      <DialogContent className="max-w-3xl w-[min(100vw-2rem,48rem)] max-h-[min(92vh,880px)] overflow-y-auto gap-5 p-5 sm:p-6">
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <span className="text-xl leading-none">{type.icon}</span>
@@ -48,8 +71,20 @@ export function ImageTypeCustomizeDialog({
           <p className="text-sm text-muted-foreground">{type.desc}</p>
         </DialogHeader>
 
+        {showAdminBlock ? (
+          <GraphicsModuleExamplePreview
+            moduleLabel={type.label}
+            resolvedCategory={examplesPayload?.resolvedCategory ?? categoryKey}
+            usedDefaultFallback={examplesPayload?.usedDefaultFallback ?? false}
+            exampleImageUrl={moduleExample?.exampleImageUrl ?? null}
+            isLoading={examplesLoading}
+          />
+        ) : null}
+
         <CustomPromptGenerationPanel
           variant="embedded"
+          compactOutput
+          referenceBeforePrompt
           customPrompt={config.customPrompt}
           onCustomPromptChange={(value) => onConfigChange({ customPrompt: value })}
           referenceImages={config.referenceImages}
@@ -63,10 +98,10 @@ export function ImageTypeCustomizeDialog({
           hideAspectRatio={hideAspectRatio}
         />
 
-        <DialogFooter className="sm:justify-end gap-2">
+        <DialogFooter className="sm:justify-end gap-2 pt-1">
           <Button
             type="button"
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-orange-500 hover:bg-orange-600 text-white min-w-[7rem]"
             onClick={() => onOpenChange(false)}
           >
             Done

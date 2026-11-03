@@ -1061,6 +1061,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   }}
                   promptMaxChars={PROMPT_MAX_CHARS}
                   examplePrompts={moreCustomizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+                  productCategory={effectiveCategory || category}
                 />
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t">
@@ -1417,6 +1418,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             }}
             promptMaxChars={PROMPT_MAX_CHARS}
             examplePrompts={customizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+            productCategory={effectiveCategory || category}
           />
         </div>
       )}

@@ -2425,6 +2425,7 @@ export default function AuditWorkflow() {
                     if (currentAuditId) setIsDirty(true);
                   }
                 }}
+                productCategory={category}
               />
 
               {/* Generate Graphics button */}
@@ -2648,6 +2649,7 @@ export default function AuditWorkflow() {
                   }
                 }}
                 hideAspectRatio
+                showStudioExample={false}
               />
 
               <Button

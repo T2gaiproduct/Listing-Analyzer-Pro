@@ -61,6 +61,10 @@ export interface CustomPromptGenerationPanelProps {
   subtitle?: string;
   variant?: "card" | "embedded";
   hideAspectRatio?: boolean;
+  /** Tighter aspect/quality row for customize dialog (embedded). */
+  compactOutput?: boolean;
+  /** Reference upload above prompt (customize dialog). */
+  referenceBeforePrompt?: boolean;
 }
 
 export function CustomPromptGenerationPanel({
@@ -79,9 +83,37 @@ export function CustomPromptGenerationPanel({
   subtitle,
   variant = "card",
   hideAspectRatio = false,
+  compactOutput = false,
+  referenceBeforePrompt = false,
 }: CustomPromptGenerationPanelProps) {
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
+
+  const promptField = (
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <textarea
+        value={customPrompt}
+        onChange={(e) => onCustomPromptChange(e.target.value)}
+        placeholder="Optional — added on top of the admin image prompt. Describe scene, lighting, composition, and mood."
+        rows={compactOutput ? 3 : 4}
+        maxLength={promptMaxChars}
+        className={cn(
+          "w-full resize-none text-sm sm:text-base bg-transparent border-0 p-4 focus:outline-none focus:ring-0 placeholder:text-slate-400",
+          compactOutput ? "min-h-[5.5rem]" : "min-h-[7rem]",
+        )}
+      />
+    </div>
+  );
+
+  const referenceField = compactOutput ? (
+    <ReferenceImageUploadField
+      images={referenceImages}
+      onImagesChange={onReferenceImagesChange}
+      maxImages={MAX_REFERENCE_IMAGES}
+      label="Reference upload"
+      hint="Optional images to guide style or composition for this shot."
+    />
+  ) : null;
 
   const content = (
     <>
@@ -92,80 +124,128 @@ export function CustomPromptGenerationPanel({
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <textarea
-          value={customPrompt}
-          onChange={(e) => onCustomPromptChange(e.target.value)}
-          placeholder="Optional — added on top of the admin image prompt. Describe scene, lighting, composition, and mood."
-          rows={4}
-          maxLength={promptMaxChars}
-          className="w-full resize-none text-sm sm:text-base bg-transparent border-0 p-4 min-h-[7rem] focus:outline-none focus:ring-0 placeholder:text-slate-400"
-        />
-      </div>
+      {compactOutput && referenceBeforePrompt ? referenceField : null}
+      {!compactOutput || !referenceBeforePrompt ? promptField : null}
+      {compactOutput && referenceBeforePrompt ? promptField : null}
+      {compactOutput && !referenceBeforePrompt ? referenceField : null}
 
-      <div className={cn("grid grid-cols-1 gap-3", !hideAspectRatio && "sm:grid-cols-2")}>
-        <ReferenceImageUploadField
-          images={referenceImages}
-          onImagesChange={onReferenceImagesChange}
-          maxImages={MAX_REFERENCE_IMAGES}
-          label="Reference upload"
-        />
-
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Output settings</Label>
-          <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
-            {!hideAspectRatio && (
-              <>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-500">Aspect ratio</Label>
-                  <Select value={aspectRatio} onValueChange={(v) => onAspectRatioChange(v as GraphicsAspectRatio)}>
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
-                        <SelectItem key={ratio.value} value={ratio.value}>
-                          {ratio.symbol} {ratio.label} ({ratio.value})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-500">Size</Label>
-                  <div className="h-9 px-3 rounded-md border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-700">
-                    {selectedRatio.size}
-                  </div>
-                </div>
-              </>
-            )}
-
+      {compactOutput ? (
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-3",
+            !hideAspectRatio && "sm:grid-cols-3",
+            hideAspectRatio && "sm:grid-cols-1 max-w-xs",
+          )}
+        >
+          {!hideAspectRatio ? (
             <div className="space-y-1.5">
-              <Label className="text-xs text-slate-500">Quality</Label>
-              <Select value={quality} onValueChange={(v) => onQualityChange(v as GraphicsQuality)}>
-                <SelectTrigger className="h-9 text-sm">
+              <Label className="text-xs text-slate-500">Aspect ratio</Label>
+              <Select value={aspectRatio} onValueChange={(v) => onAspectRatioChange(v as GraphicsAspectRatio)}>
+                <SelectTrigger className="h-9 text-sm w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {GRAPHICS_QUALITY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      <span className="inline-flex items-center gap-2">
-                        {opt.value === "hd" ? (
-                          <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-                        ) : (
-                          <Zap className="w-3.5 h-3.5 text-slate-500" />
-                        )}
-                        {opt.label} — {opt.desc}
-                      </span>
+                  {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
+                    <SelectItem key={ratio.value} value={ratio.value}>
+                      {ratio.symbol} {ratio.label} ({ratio.value})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          ) : null}
+          {!hideAspectRatio ? (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500">Output size</Label>
+              <InputLikeReadonly value={selectedRatio.size} />
+            </div>
+          ) : null}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-slate-500">Quality</Label>
+            <Select value={quality} onValueChange={(v) => onQualityChange(v as GraphicsQuality)}>
+              <SelectTrigger className="h-9 text-sm w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GRAPHICS_QUALITY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <span className="inline-flex items-center gap-2">
+                      {opt.value === "hd" ? (
+                        <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+                      ) : (
+                        <Zap className="w-3.5 h-3.5 text-slate-500" />
+                      )}
+                      {opt.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className={cn("grid grid-cols-1 gap-3", !hideAspectRatio && "sm:grid-cols-2")}>
+          <ReferenceImageUploadField
+            images={referenceImages}
+            onImagesChange={onReferenceImagesChange}
+            maxImages={MAX_REFERENCE_IMAGES}
+            label="Reference upload"
+          />
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Output settings</Label>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+              {!hideAspectRatio && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-500">Aspect ratio</Label>
+                    <Select value={aspectRatio} onValueChange={(v) => onAspectRatioChange(v as GraphicsAspectRatio)}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
+                          <SelectItem key={ratio.value} value={ratio.value}>
+                            {ratio.symbol} {ratio.label} ({ratio.value})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-500">Size</Label>
+                    <InputLikeReadonly value={selectedRatio.size} />
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-500">Quality</Label>
+                <Select value={quality} onValueChange={(v) => onQualityChange(v as GraphicsQuality)}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GRAPHICS_QUALITY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <span className="inline-flex items-center gap-2">
+                          {opt.value === "hd" ? (
+                            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+                          ) : (
+                            <Zap className="w-3.5 h-3.5 text-slate-500" />
+                          )}
+                          {opt.label} — {opt.desc}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {referenceImages.length > 0 && (
@@ -217,6 +297,14 @@ export function CustomPromptGenerationPanel({
   return (
     <div className={cn("rounded-2xl border border-orange-200 bg-orange-50/30 p-4 space-y-4", className)}>
       {content}
+    </div>
+  );
+}
+
+function InputLikeReadonly({ value }: { value: string }) {
+  return (
+    <div className="h-9 px-3 rounded-md border border-input bg-muted/30 flex items-center text-sm text-slate-700">
+      {value}
     </div>
   );
 }
