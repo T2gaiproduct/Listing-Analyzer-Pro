@@ -21,10 +21,14 @@ export function isSellerLensAppHostname(hostname: string): boolean {
   return h === "sellerlens.io" || h === "www.sellerlens.io" || h.endsWith(".sellerlens.io");
 }
 
-/** Hosts that should use same-origin /api/__clerk (IP-only live deploys — not sellerlens.io or quick tunnels). */
+/** Hosts that should use same-origin /api/__clerk (IP-only live deploys — not sellerlens.io). */
 export function shouldUseSameOriginClerkProxy(hostname: string, publishableKey: string): boolean {
-  if (hostname.endsWith(".trycloudflare.com")) return false;
   if (isSellerLensAppHostname(hostname)) return false;
+
+  // Cloud Agent quick tunnel: Clerk FAPI on the preview hostname (matches dev-stack ENABLE_CLERK_PROXY).
+  if (hostname.endsWith(".trycloudflare.com")) {
+    return import.meta.env.VITE_CLOUD_AGENT_PREVIEW === "true";
+  }
 
   if (publishableKey.startsWith("pk_live_") && isIpv4Hostname(hostname)) {
     return true;

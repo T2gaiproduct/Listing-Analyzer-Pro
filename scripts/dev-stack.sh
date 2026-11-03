@@ -604,6 +604,16 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
   fi
 
   if [[ -f "$PUBLIC_URL_FILE" ]]; then
+    preview_url=$(normalize_public_url "$(cat "$PUBLIC_URL_FILE")")
+    if [[ -z "$preview_url" ]]; then
+      preview_url=$(head -1 "$PUBLIC_URL_FILE" | tr -d '\r\n')
+    fi
+    if [[ -n "$preview_url" && "$preview_url" == https://* ]]; then
+      configure_amazon_redirect_for_tunnel "$preview_url" || true
+    fi
+  fi
+
+  if [[ -f "$PUBLIC_URL_FILE" ]]; then
     echo ""
     echo "Reload complete — Cloudflare preview:"
     echo "  $(cat "$PUBLIC_URL_FILE")"
