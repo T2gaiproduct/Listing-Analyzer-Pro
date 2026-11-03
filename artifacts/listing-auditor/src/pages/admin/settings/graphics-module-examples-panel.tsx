@@ -106,16 +106,10 @@ export function AdminGraphicsModuleExamplesPanel() {
           <span className="font-semibold">{selectedCategory}</span>
           {selectedCategory === "Default" ? (
             <span className="block text-xs text-orange-900/80 mt-1">
-              Default is the fallback library merged into other categories on the seller dashboard when
-              they have fewer images for a module. For Alexa-only examples, choose{" "}
-              <strong>Alexa Skills</strong> first, then upload.
+              Default is used when a seller&apos;s category has no examples for a module. For
+              Alexa-only references, choose <strong>Alexa Skills</strong> first, then upload.
             </span>
-          ) : (
-            <span className="block text-xs text-orange-900/80 mt-1">
-              Sellers in Create Graphics also see Default examples for a module if this category has
-              fewer than Default.
-            </span>
-          )}
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
