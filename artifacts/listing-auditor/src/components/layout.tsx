@@ -58,6 +58,7 @@ import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { SidebarProjectsContext } from "@/contexts/sidebar-projects";
 import { AuthApiErrorBanner } from "@/components/auth-api-error-banner";
+import { ServerClerkConfigGate } from "@/components/server-clerk-config-gate";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -1214,7 +1215,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1 overflow-y-auto app-shell-padding">
           <div className="app-content-max">
             <AuthApiErrorBanner />
-            {children}
+            <ServerClerkConfigGate>{children}</ServerClerkConfigGate>
           </div>
         </div>
       </main>
