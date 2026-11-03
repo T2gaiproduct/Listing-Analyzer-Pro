@@ -837,9 +837,6 @@ function Router() {
         <AdminRoute><AdminSettingsEmail /></AdminRoute>
       </Route>
       <Route path="/admin/settings/image-prompt-templates">
-        {(params) => <AdminSettingsImagePromptTemplates />}
-      </Route>
-      <Route path="/admin/settings/image-prompt-templates">
         <AdminRoute><AdminSettingsImagePromptTemplates /></AdminRoute>
       </Route>
       <Route path="/admin/settings/content-marketplaces">
