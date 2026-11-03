@@ -7,7 +7,7 @@ import {
   resolveAiSnapshot,
 } from "./listing-content-field-merge.js";
 import { htmlForListingExport, slugify, stripHtml } from "./listing-export-shared.js";
-import { resolvePublishImageUrlsFromAudit } from "./materialize-audit-images-for-publish.js";
+import { resolveListingExportImageUrlsFromAudit } from "./materialize-audit-images-for-publish.js";
 
 const MARKETPLACE_SHEET_NAMES: Record<string, string> = {
   amazon: "amazon_3p",
@@ -142,12 +142,11 @@ export async function buildMultiMarketplaceExcelBuffer(opts: {
 
   const sku = `SL-${audit.id}`;
   const folder = folderSlug(audit, sku);
-  const publishUrls = resolvePublishImageUrlsFromAudit({
+  const publishUrls = await resolveListingExportImageUrlsFromAudit({
     audit,
     graphicsImageRecords: opts.graphicsImageRecords,
     graphicsProjectId: opts.graphicsProjectId ?? null,
     publicBaseUrl: opts.publicBaseUrl,
-    exportListing: true,
   });
 
   const imageRecords = opts.graphicsImageRecords ?? (audit.imageRecords as ImageRecord[] | null) ?? [];

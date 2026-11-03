@@ -13,6 +13,7 @@ import {
 } from "./listing-export-shared.js";
 import {
   resolvePublishImageCandidate,
+  resolveListingExportImageUrlsFromAudit,
   resolvePublishImageUrlsFromAudit,
 } from "./materialize-audit-images-for-publish.js";
 import { bulletsToHtmlDescription, resolveListingContentForExport } from "./resolve-listing-content.js";
@@ -65,27 +66,23 @@ const BULLET_MAX = 500;
 const KEYWORDS_MAX = 250;
 const DESCRIPTION_MAX = AMAZON_PRODUCT_DESCRIPTION_MAX;
 
-export function buildAuditExportBundle(opts: {
-  audit: Audit;
-  marketplaceId?: string | null;
-  graphicsImageRecords?: ImageRecord[];
-  graphicsProjectId?: number | null;
-  publicBaseUrl?: string;
-  profileSku?: string | null;
-}): AuditExportBundle {
+export function buildAuditExportBundleWithPublishUrls(
+  opts: {
+    audit: Audit;
+    marketplaceId?: string | null;
+    graphicsImageRecords?: ImageRecord[];
+    graphicsProjectId?: number | null;
+    publicBaseUrl?: string;
+    profileSku?: string | null;
+  },
+  publishUrls: string[],
+): AuditExportBundle {
   const content = resolveListingContentForExport(opts.audit);
   if (!content.title.trim()) {
     throw new Error("Listing title is required before exporting.");
   }
 
   const marketplace = resolveAmazonMarketplace(opts.marketplaceId);
-  const publishUrls = resolvePublishImageUrlsFromAudit({
-    audit: opts.audit,
-    graphicsImageRecords: opts.graphicsImageRecords,
-    graphicsProjectId: opts.graphicsProjectId ?? null,
-    publicBaseUrl: opts.publicBaseUrl,
-    exportListing: true,
-  });
 
   const productAssets: ExportImageAsset[] = publishUrls.map((absoluteUrl, index) => {
     const ext = ".jpg";
@@ -169,6 +166,42 @@ export function buildAuditExportBundle(opts: {
   const filenameBase = `${slugify(opts.audit.projectName || opts.audit.productName)}-amazon-${marketplace.id.toLowerCase()}`;
 
   return { marketplace, row, images, filenameBase, listingContent: content };
+}
+
+export function buildAuditExportBundle(opts: {
+  audit: Audit;
+  marketplaceId?: string | null;
+  graphicsImageRecords?: ImageRecord[];
+  graphicsProjectId?: number | null;
+  publicBaseUrl?: string;
+  profileSku?: string | null;
+}): AuditExportBundle {
+  const publishUrls = resolvePublishImageUrlsFromAudit({
+    audit: opts.audit,
+    graphicsImageRecords: opts.graphicsImageRecords,
+    graphicsProjectId: opts.graphicsProjectId ?? null,
+    publicBaseUrl: opts.publicBaseUrl,
+    exportListing: true,
+  });
+  return buildAuditExportBundleWithPublishUrls(opts, publishUrls);
+}
+
+/** Amazon flat-file / Excel — uses Dropbox image URLs when DROPBOX_ACCESS_TOKEN is set. */
+export async function buildAuditExportBundleForExcel(opts: {
+  audit: Audit;
+  marketplaceId?: string | null;
+  graphicsImageRecords?: ImageRecord[];
+  graphicsProjectId?: number | null;
+  publicBaseUrl?: string;
+  profileSku?: string | null;
+}): Promise<AuditExportBundle> {
+  const publishUrls = await resolveListingExportImageUrlsFromAudit({
+    audit: opts.audit,
+    graphicsImageRecords: opts.graphicsImageRecords,
+    graphicsProjectId: opts.graphicsProjectId ?? null,
+    publicBaseUrl: opts.publicBaseUrl,
+  });
+  return buildAuditExportBundleWithPublishUrls(opts, publishUrls);
 }
 
 function csvEscapeCell(value: string): string {

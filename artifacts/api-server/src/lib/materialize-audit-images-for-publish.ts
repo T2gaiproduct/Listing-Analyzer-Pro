@@ -2,6 +2,10 @@ import { eq } from "drizzle-orm";
 import type { Audit, ImageRecord } from "@workspace/db";
 import { db, auditsTable } from "@workspace/db";
 import { collectGeneratedProductImages } from "./listing-export-shared.js";
+import {
+  ensureDropboxExportUrlForSource,
+  isDropboxExcelExportEnabled,
+} from "./dropbox-export-images.js";
 import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
 import { extractEmbeddedDataImageUrl, persistDataUrlAsAuditImage, repairCorruptedImageUrl } from "./image-storage.js";
 
@@ -140,6 +144,61 @@ export function resolvePublishImageUrlsFromAudit(opts: {
       index,
       exportListing: opts.exportListing,
     });
+    const safe = sanitizeMarketplacePublishImageUrl(url);
+    if (safe && !seen.has(safe)) {
+      resolved.push(safe);
+      seen.add(safe);
+    }
+  }
+
+  return resolved;
+}
+
+function prepareExportSourceUrl(
+  auditId: number,
+  sourceUrl: string,
+  index: number,
+): string {
+  let source = repairCorruptedImageUrl(sourceUrl);
+  const embeddedDataUrl = extractEmbeddedDataImageUrl(source);
+  if (embeddedDataUrl) {
+    const persisted = persistDataUrlAsAuditImage(auditId, embeddedDataUrl, index);
+    if (persisted) source = persisted;
+  }
+  return source;
+}
+
+/** Excel/CSV export image columns — Dropbox when configured, else signed publish URLs. */
+export async function resolveListingExportImageUrlsFromAudit(opts: {
+  audit: Audit;
+  graphicsImageRecords?: ImageRecord[];
+  graphicsProjectId?: number | null;
+  publicBaseUrl?: string;
+  maxImages?: number;
+}): Promise<string[]> {
+  if (!isDropboxExcelExportEnabled()) {
+    return resolvePublishImageUrlsFromAudit({ ...opts, exportListing: true });
+  }
+
+  const productImages = collectGeneratedProductImages(opts.audit, opts.graphicsImageRecords);
+  const max = opts.maxImages ?? 9;
+  const resolved: string[] = [];
+  const seen = new Set<string>();
+
+  for (const [index, img] of productImages.entries()) {
+    if (resolved.length >= max) break;
+    const source = prepareExportSourceUrl(opts.audit.id, img.url, index);
+    const url = await ensureDropboxExportUrlForSource({
+      auditId: opts.audit.id,
+      sourceUrl: source,
+      graphicsProjectId: opts.graphicsProjectId ?? null,
+      index,
+    });
+    if (!url) {
+      throw new Error(
+        `Could not upload listing image ${index + 1} to Dropbox. Check DROPBOX_ACCESS_TOKEN, files.content.write, and sharing.write scopes.`,
+      );
+    }
     const safe = sanitizeMarketplacePublishImageUrl(url);
     if (safe && !seen.has(safe)) {
       resolved.push(safe);

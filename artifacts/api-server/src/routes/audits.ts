@@ -108,6 +108,7 @@ import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
 import {
   buildAmazonCsvBuffer,
   buildAuditExportBundle,
+  buildAuditExportBundleForExcel,
   buildExcelBuffer,
   buildZipBuffer,
   exportFilename,
@@ -664,7 +665,7 @@ router.get("/audits/:id/export/csv", requireAuth, resolveTeamAndWorkspace, async
 
   try {
     const prepared = await prepareAuditForAmazonExport(req, loaded);
-    const bundle = buildAuditExportBundle({
+    const bundle = await buildAuditExportBundleForExcel({
       audit: prepared.audit,
       marketplaceId: marketplace,
       graphicsImageRecords: prepared.graphicsImageRecords,
@@ -716,7 +717,7 @@ router.get("/audits/:id/export/excel", requireAuth, resolveTeamAndWorkspace, asy
 
     const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
     const prepared = await prepareAuditForAmazonExport(req, loaded);
-    const bundle = buildAuditExportBundle({
+    const bundle = await buildAuditExportBundleForExcel({
       audit: prepared.audit,
       marketplaceId: marketplace,
       graphicsImageRecords: prepared.graphicsImageRecords,
@@ -823,7 +824,7 @@ router.get("/audits/:id/export/zip", requireAuth, resolveTeamAndWorkspace, async
 
     const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
     const prepared = await prepareAuditForAmazonExport(req, loaded);
-    const bundle = buildAuditExportBundle({
+    const bundle = await buildAuditExportBundleForExcel({
       audit: prepared.audit,
       marketplaceId: marketplace,
       graphicsImageRecords: prepared.graphicsImageRecords,

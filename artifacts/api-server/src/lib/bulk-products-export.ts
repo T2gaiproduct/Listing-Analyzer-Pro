@@ -6,7 +6,7 @@ import { materializeAuditImagesForPublish } from "./materialize-audit-images-for
 import { resolveAmazonExportImageBaseUrl } from "./resolve-public-base-url.js";
 import { getAccountOwnerId } from "./workspace-route-helpers.js";
 import {
-  buildAuditExportBundle,
+  buildAuditExportBundleForExcel,
   buildBulkExcelBuffer,
   type AuditExportBundle,
 } from "./amazon-listing-export.js";
@@ -83,7 +83,7 @@ export async function buildBulkProductsExcelExport(
       const audit = await materializeAuditImagesForPublish(loaded.audit);
       const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
       const graphicsProjectId = loaded.graphicsProject?.id ?? null;
-      const bundle = buildAuditExportBundle({
+      const bundle = await buildAuditExportBundleForExcel({
         audit,
         marketplaceId,
         graphicsImageRecords,
