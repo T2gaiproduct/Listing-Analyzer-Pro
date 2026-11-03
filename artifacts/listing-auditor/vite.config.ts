@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import path from "path";
 import { fileURLToPath } from "node:url";
@@ -59,12 +60,26 @@ const apiProxyTarget =
 const disableHmr =
   process.env.VITE_DISABLE_HMR === "true" || Boolean(process.env.VITE_CLERK_PROXY_URL);
 
-const useNativeAuthProvider = process.env.VITE_AUTH_PROVIDER === "native";
+function devStackDefaultsToNativeAuth(): boolean {
+  if (process.env.DEV_STACK_USE_CLERK === "true") return false;
+  const explicit = process.env.VITE_AUTH_PROVIDER?.trim();
+  if (explicit === "clerk") return false;
+  if (explicit === "native") return true;
+  if (process.env.DEV_STACK_NATIVE_AUTH === "1") return true;
+  if (process.env.CURSOR_AGENT === "1") return true;
+  return existsSync("/tmp/dev-stack-native-auth.marker");
+}
+
+const useNativeAuthProvider =
+  process.env.VITE_AUTH_PROVIDER === "native" || devStackDefaultsToNativeAuth();
 
 export default defineConfig({
   base: basePath,
   define: {
     "import.meta.env.VITE_APP_BUILD_ID": JSON.stringify(appBuildId),
+    ...(useNativeAuthProvider
+      ? { "import.meta.env.VITE_AUTH_PROVIDER": JSON.stringify("native") }
+      : {}),
   },
   plugins: [
     appBuildIdPlugin(appBuildId),

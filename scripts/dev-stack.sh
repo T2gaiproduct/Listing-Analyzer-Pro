@@ -33,12 +33,21 @@ AUTH_SESSION_SECRET_FOR_STACK="${AUTH_SESSION_SECRET:-dev-native-auth-secret-cha
 DEV_STACK_NATIVE_ENV_FILE="/tmp/dev-stack-native-login.env"
 DEV_STACK_NATIVE_ADMIN_ENV_FILE="/tmp/dev-stack-native-admin.env"
 
+DEV_STACK_NATIVE_AUTH_MARKER="/tmp/dev-stack-native-auth.marker"
+
 # Local / Cloud Agent dev stack defaults to native auth (no Clerk CDN, proxy, or keys).
-# Opt back into Clerk with DEV_STACK_USE_CLERK=true or NATIVE_AUTH_ENABLED=false + Clerk env.
+# Opt back into Clerk only with DEV_STACK_USE_CLERK=true (production NATIVE_AUTH_ENABLED=false is ignored here).
 stack_use_native_auth() {
   case "${DEV_STACK_USE_CLERK:-}" in true|1|yes|TRUE) return 1;; esac
-  case "${NATIVE_AUTH_ENABLED:-}" in false|0|no|FALSE) return 1;; esac
   return 0
+}
+
+mark_dev_stack_native_auth() {
+  echo native >"$DEV_STACK_NATIVE_AUTH_MARKER"
+}
+
+clear_dev_stack_native_auth_marker() {
+  rm -f "$DEV_STACK_NATIVE_AUTH_MARKER"
 }
 
 ensure_dev_native_login_if_needed() {
@@ -133,8 +142,10 @@ for d in data:
 DEV_STACK_NATIVE_AUTH=0
 if stack_use_native_auth; then
   DEV_STACK_NATIVE_AUTH=1
+  mark_dev_stack_native_auth
   echo "==> Dev stack auth: native email/password (Clerk disabled). Set DEV_STACK_USE_CLERK=true for Clerk preview." >&2
 else
+  clear_dev_stack_native_auth_marker
   sync_clerk_publishable_to_secret_instance
   if [[ -n "$CLERK_PUB_FOR_STACK" ]]; then
     export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
@@ -185,6 +196,7 @@ build_listing_auditor_preview() {
     export BASE_PATH=/
     if stack_use_native_auth; then
       export VITE_AUTH_PROVIDER=native
+      unset VITE_CLERK_PUBLISHABLE_KEY VITE_CLERK_PROXY_URL VITE_CLOUD_AGENT_PREVIEW
     else
       export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
     fi

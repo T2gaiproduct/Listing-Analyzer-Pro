@@ -20,7 +20,7 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 ### Local / Cloud Agent auth (`bash scripts/dev-stack.sh`)
 - **`scripts/dev-stack.sh` and `dev-stack-reload.sh` default to native email/password auth** — no Clerk CDN, `/api/__clerk` proxy, or `CLERK_*` / `VITE_CLERK_*` keys required on the preview link.
 - API: `NATIVE_AUTH_ENABLED=true`, `AUTH_SESSION_SECRET` (defaults to a dev value if unset), `AUTH_COOKIE_SECURE=false` on the stack.
-- Frontend build: `VITE_AUTH_PROVIDER=native` (Vite aliases `@clerk/react` to the native sign-in UI).
+- Frontend build: `VITE_AUTH_PROVIDER=native` (Vite aliases `@clerk/react` to the native sign-in UI). **After editing frontend code, run `bash scripts/dev-stack-reload.sh`** — not bare `pnpm --filter @workspace/listing-auditor run build` (Cloud Agent injects `VITE_CLERK_*`, which otherwise rebakes Clerk sign-in until reload).
 - Dev user (created idempotently): **`dev@local.test`** / **`DevAudit!2026`** — override with `DEV_STACK_LOGIN_EMAIL` / `DEV_STACK_LOGIN_PASSWORD`. Sign up on the preview also works (no Clerk CAPTCHA).
 - Opt back into **Clerk** on local preview: `DEV_STACK_USE_CLERK=true bash scripts/dev-stack.sh` (requires valid Clerk keys in Environment).
 - Production / sellerlens.io stays on Clerk until you deploy with `VITE_AUTH_PROVIDER=native` (see `docs/AUTH-MIGRATION.md`).
