@@ -8,7 +8,7 @@ import {
   GRAPHICS_QUALITY_OPTIONS,
   type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
-import { GraphicsModuleExamplePreview } from "@/components/graphics-module-example-preview";
+import { GraphicsStudioReferencePicker } from "@/components/graphics-studio-reference-picker";
 import { useGraphicsModuleExamples } from "@/lib/graphics-module-examples";
 
 export type GraphicsImageTypeOption = {
@@ -73,12 +73,13 @@ export function ImageTypeCustomizeDialog({
         </DialogHeader>
 
         {showAdminBlock ? (
-          <GraphicsModuleExamplePreview
+          <GraphicsStudioReferencePicker
             moduleLabel={type.label}
             resolvedCategory={examplesPayload?.resolvedCategory ?? categoryKey}
             usedDefaultFallback={examplesPayload?.usedDefaultFallback ?? false}
-            exampleImageUrl={moduleExample?.exampleImageUrl ?? null}
-            exampleImages={moduleExample?.exampleImages}
+            exampleImages={moduleExample?.exampleImages ?? []}
+            referenceImages={config.referenceImages}
+            onReferenceImagesChange={(images) => onConfigChange({ referenceImages: images })}
             isLoading={examplesLoading}
           />
         ) : null}

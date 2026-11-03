@@ -92,8 +92,9 @@ export function AdminGraphicsModuleExamplesPanel() {
       <CardHeader>
         <CardTitle className="text-sm">Graphics studio examples (by product category)</CardTitle>
         <p className="text-xs text-muted-foreground font-normal mt-1">
-          Reference images only — global AI prompts above are unchanged. Sellers see this grid in Product Explorer
-          Graphics. Missing category-specific images fall back to Default.
+          Upload several reference images per module (use <strong>Add another</strong> on each card). Sellers can
+          pick which examples to use as AI references when customizing a graphics type. Missing category images fall
+          back to Default.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
