@@ -25,7 +25,7 @@ export function AuthApiErrorBanner() {
   const apiAuthReady = useApiAuthReady();
   const onPreview = isCloudflareQuickPreviewHost();
 
-  const { data, isError, error, isFetched, failureCount } = useQuery({
+  const { data, isError, error, isFetched, failureCount, isFetching } = useQuery({
     queryKey: ["auth-api-probe", "workspaces"],
     queryFn: () => fetchJson<{ workspaces: unknown[] }>(`${basePath}/api/workspaces`),
     enabled: isLoaded && isSignedIn && apiAuthReady,
@@ -56,8 +56,20 @@ export function AuthApiErrorBanner() {
     retry: false,
   });
 
-  if (!isLoaded || !isSignedIn || !apiAuthReady || !isFetched) return null;
-  if (!isError || !(error instanceof ApiFetchError) || error.status !== 401) {
+  const auth401 =
+    isError && error instanceof ApiFetchError && error.status === 401;
+  const stillRetrying401 = auth401 && isFetching;
+
+  if (!isLoaded || !isSignedIn || !apiAuthReady) return null;
+  if (stillRetrying401) {
+    return (
+      <div className="mx-4 mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+        Connecting your session to the API…
+      </div>
+    );
+  }
+  if (!isFetched) return null;
+  if (!auth401) {
     if (data) return null;
     return null;
   }

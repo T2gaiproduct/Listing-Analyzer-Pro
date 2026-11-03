@@ -10,7 +10,9 @@ import {
   type WorkspaceAction,
   type WorkspaceRolePermissions,
 } from "@workspace/workspace-permissions";
-import { fetchJson } from "@/lib/api-fetch";
+import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
+import { useApiAuthReady } from "@/components/api-token-bridge";
+import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { pathUsesAgencyAccountWideApiScope } from "@/lib/agency-dashboard-scope";
 import { setActiveWorkspaceId } from "@/lib/workspace-header";
@@ -62,6 +64,8 @@ interface WorkspaceContextValue {
   isWorkspaceAccountOwner: boolean;
   isTeamMemberAccount: boolean;
   isLoading: boolean;
+  /** True when GET /api/workspaces failed (often 401 — Clerk/API mismatch on preview). */
+  workspacesLoadFailed: boolean;
   /** Workspace role permissions still loading for the active workspace (members). */
   permissionsLoading: boolean;
   setActiveWorkspaceId: (id: number) => void;
@@ -106,7 +110,9 @@ function readStoredWorkspaceId(): number | null {
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { user, isLoaded } = useUser();
+  const apiAuthReady = useApiAuthReady();
   const qc = useQueryClient();
+  const authQueriesEnabled = isLoaded && !!user && apiAuthReady;
   const [selectedId, setSelectedId] = useState<number | null>(() => readStoredWorkspaceId());
   const [agencyAccountOverview, setAgencyOverviewState] = useState(readAgencyAccountOverview);
   const [workspaceScopeCommitted, setWorkspaceScopeCommitted] = useState(false);
@@ -117,9 +123,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { data: listData, isLoading: listLoading, isError: listError, refetch: refetchList } = useQuery({
     queryKey: ["workspaces"],
     queryFn: () => fetchJson<{ workspaces: WorkspaceSummary[] }>(`${basePath}/api/workspaces`),
-    enabled: isLoaded && !!user,
+    enabled: authQueriesEnabled,
     staleTime: 60_000,
-    retry: 3,
+    retry: (failureCount, error) => {
+      const onPreview = isCloudflareQuickPreviewHost();
+      if (error instanceof ApiFetchError && error.status === 401) {
+        return failureCount < (onPreview ? 4 : 2);
+      }
+      return failureCount < 3;
+    },
+    retryDelay: (attempt) => {
+      const base = isCloudflareQuickPreviewHost() ? 600 : 400;
+      return Math.min(base * 2 ** attempt, 6000);
+    },
   });
 
   const workspaces = listData?.workspaces ?? [];
@@ -130,9 +146,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     queryKey: ["user-profile-summary"],
     queryFn: () =>
       fetchJson<{ accountRole?: { type: string; label: string } }>(`${basePath}/api/profile/summary`),
-    enabled: isLoaded && !!user,
+    enabled: authQueriesEnabled,
     staleTime: 30_000,
-    retry: 1,
+    retry: (failureCount, error) => {
+      const onPreview = isCloudflareQuickPreviewHost();
+      if (error instanceof ApiFetchError && error.status === 401) {
+        return failureCount < (onPreview ? 4 : 2);
+      }
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => {
+      const base = isCloudflareQuickPreviewHost() ? 600 : 400;
+      return Math.min(base * 2 ** attempt, 6000);
+    },
   });
 
   const sharedWorkspaceMember =
@@ -455,10 +481,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isAccountOwner,
     isWorkspaceAccountOwner,
     isTeamMemberAccount,
-    isLoading: listLoading || (!skipPermLoadingForNav && permLoading) || (profileLoading && workspaces.length === 0) || !isLoaded,
+    isLoading:
+      !isLoaded
+      || (!apiAuthReady && !!user)
+      || listLoading
+      || (!skipPermLoadingForNav && permLoading)
+      || (profileLoading && workspaces.length === 0 && !listError),
     // Always gate routes while role permissions load (including members); skipPermLoadingForNav
     // only applies to isLoading so nav/shell can render without blocking the whole app on first paint.
     permissionsLoading: Boolean(activeWorkspaceId && permLoading),
+    workspacesLoadFailed: listError,
     setActiveWorkspaceId: setWorkspace,
     can,
     canView,
@@ -476,7 +508,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
     permissions, roleName, isAccountOwner, isWorkspaceAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
-    listLoading, permLoading, skipPermLoadingForNav, isLoaded, activeWorkspaceId, setWorkspace, setAgencyAccountOverview, can, canView, canEdit, canDelete, refetchList,
+    listLoading, listError, permLoading, skipPermLoadingForNav, isLoaded, apiAuthReady, activeWorkspaceId, setWorkspace, setAgencyAccountOverview, can, canView, canEdit, canDelete, refetchList,
     workspaceApiScopeActive, needsWorkspaceSelection, workspaceScopeCommitted, isAgencyAccountOverview,
   ]);
 

@@ -336,6 +336,7 @@ export default function Dashboard() {
     isBillingAccountOwner,
     isAgencyAccountOverview,
     profileLoading,
+    workspacesLoadFailed,
   } = useWorkspace();
   const { workspacesEnabled, includedPlansLabel, upgradeShort } = useWorkspacesPlan();
 
@@ -511,6 +512,33 @@ export default function Dashboard() {
         <p className="text-sm text-amber-800 mt-2">
           We could not load your workspaces. Use &quot;Sign out &amp; retry&quot; at the top if you are on a Cloudflare preview link, then sign in again.
         </p>
+      </div>
+    );
+  }
+
+  if (
+    workspacesLoadFailed
+    && !wsLoading
+    && !dashboard
+  ) {
+    return (
+      <div className="text-center py-16 text-slate-500 px-4">
+        <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-orange-500" />
+        <p className="font-medium text-slate-800">Could not load your account</p>
+        <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
+          The app could not reach the API with your sign-in session. Use &quot;Sign out &amp; retry&quot; in the banner above,
+          or hard-refresh this page after the dev stack has been restarted with matching Clerk keys.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            void refetchWorkspaces();
+            void refetch();
+          }}
+          className="mt-4 text-sm font-medium text-orange-500 hover:text-orange-600"
+        >
+          Try again
+        </button>
       </div>
     );
   }

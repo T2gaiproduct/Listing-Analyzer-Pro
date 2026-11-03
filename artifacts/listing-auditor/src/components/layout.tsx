@@ -216,6 +216,7 @@ export function Layout({ children }: { children: ReactNode }) {
     roleName,
     isAgencyAccountOverview,
     isBillingAccountOwner,
+    workspacesLoadFailed,
   } = useWorkspace();
   const { workspacesEnabled } = useWorkspacesPlan();
 
@@ -225,7 +226,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const canViewBilling = isAccountOwner || canView("billing");
   const canViewAds = isAccountOwner || canView("ads");
 
-  const navReady = isAccountOwner || (activeWorkspaceId != null && !wsNavLoading);
+  const navReady =
+    isAccountOwner
+    || (activeWorkspaceId != null && !wsNavLoading)
+    || (clerkLoaded && !!user && workspacesLoadFailed && !wsNavLoading);
   const visibleNavItems = (navReady
     ? mainNavItems.filter((item) => isAccountOwner || canView(item.feature))
     : []
