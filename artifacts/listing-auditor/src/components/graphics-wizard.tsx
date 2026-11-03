@@ -31,6 +31,8 @@ import {
 } from "@/lib/graphics-image-types";
 import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
+import { useGraphicsModuleExamples } from "@/lib/graphics-module-examples";
+import { GraphicsModuleExamplesGrid } from "@/components/graphics-module-examples-grid";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { ProtectedAppImage } from "@/components/protected-app-image";
@@ -180,6 +182,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   const effectiveCategory = wizardCategory.trim() || category?.trim() || "";
+  const { data: moduleExamples, isLoading: moduleExamplesLoading } = useGraphicsModuleExamples(
+    step === 2 ? effectiveCategory : null,
+  );
   const [uploadedImages, setUploadedImages] = useState<string[]>(imageUrls ?? []);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -240,6 +245,27 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
     }));
   }, []);
+
+  const toggleStudioReference = useCallback(
+    (templateSlug: string, imageUrl: string) => {
+      setSelectedImageTypes((prev) => (prev.includes(templateSlug) ? prev : [...prev, templateSlug]));
+      const refs = getImageTypeConfig(templateSlug).referenceImages;
+      if (refs.includes(imageUrl)) {
+        updateImageTypeConfig(templateSlug, { referenceImages: refs.filter((u) => u !== imageUrl) });
+        return;
+      }
+      if (refs.length >= 4) {
+        toast({
+          title: "Maximum references",
+          description: "You can use up to 4 reference images per graphics type (studio + uploads).",
+          variant: "destructive",
+        });
+        return;
+      }
+      updateImageTypeConfig(templateSlug, { referenceImages: [...refs, imageUrl] });
+    },
+    [getImageTypeConfig, toast, updateImageTypeConfig],
+  );
 
   const graphicsTypeConfigsPayload = useMemo(() => {
     const configs: Record<string, {
@@ -1057,7 +1083,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   promptMaxChars={PROMPT_MAX_CHARS}
                   examplePrompts={moreCustomizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
                   productCategory={effectiveCategory || category}
-                  showStudioExample={false}
                 />
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t">
@@ -1322,6 +1347,17 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             </div>
           </div>
 
+          <GraphicsModuleExamplesGrid
+            mode="view"
+            examples={moduleExamples?.examples ?? []}
+            resolvedCategory={moduleExamples?.resolvedCategory ?? (effectiveCategory || "Default")}
+            usedDefaultFallback={moduleExamples?.usedDefaultFallback ?? false}
+            includesDefaultExamples={moduleExamples?.includesDefaultExamples ?? false}
+            isLoading={moduleExamplesLoading}
+            getReferenceImages={(slug) => getImageTypeConfig(slug).referenceImages}
+            onToggleStudioReference={toggleStudioReference}
+          />
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
             {IMAGE_TYPES.map((type) => {
               const isSelected = selectedImageTypes.includes(type.id);
@@ -1407,7 +1443,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             promptMaxChars={PROMPT_MAX_CHARS}
             examplePrompts={customizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
             productCategory={effectiveCategory || category}
-            showStudioExample={false}
           />
         </div>
       )}
