@@ -825,9 +825,6 @@ export default function ProductsPage() {
         <div className="space-y-2 -mx-1 px-1">
           {dynamicTypeFilters.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
-                Type
-              </span>
               <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <FilterPill
                   label="All"
