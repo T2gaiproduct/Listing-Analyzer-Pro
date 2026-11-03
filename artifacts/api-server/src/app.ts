@@ -27,8 +27,14 @@ import { isAllowedOrigin } from "./lib/allowed-origins";
 import { clerkMiddlewareOptionsForRequest } from "./lib/clerk-middleware-options.js";
 import { WebhookHandlers } from "./webhookHandlers";
 import { handleJsonParseError } from "./middlewares/json-parse-error";
+import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware.js";
 
 const app: Express = express();
+
+const useClerkFrontendApiProxy =
+  process.env.ENABLE_CLERK_PROXY === "true"
+  || process.env.ENABLE_CLOUD_AGENT_QUICK_TUNNEL === "true"
+  || (process.env.NODE_ENV !== "production" && process.env.ENABLE_CLERK_PROXY !== "false");
 
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -48,7 +54,8 @@ app.use(
   }),
 );
 
-// Clerk loads via custom domain (clerk.sellerlens.io) — no /api/__clerk proxy on production.
+// Production sellerlens.io uses clerk.sellerlens.io — no /api/__clerk proxy there.
+// Cloud Agent / dev preview mounts the proxy below (before express.json()).
 
 // ─── Stripe webhook MUST be registered BEFORE express.json() ─────────────────
 // Stripe requires the raw Buffer body to verify the signature.
@@ -71,6 +78,10 @@ app.post(
     }
   },
 );
+
+if (useClerkFrontendApiProxy) {
+  app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+}
 
 // ─── General middleware (after webhook) ──────────────────────────────────────
 app.use(cors({
