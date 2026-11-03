@@ -98,6 +98,26 @@ export function AdminGraphicsModuleExamplesPanel() {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div
+          className="rounded-lg border border-orange-200 bg-orange-50/80 px-3 py-2 text-sm text-orange-950"
+          role="status"
+        >
+          Uploads apply only to{" "}
+          <span className="font-semibold">{selectedCategory}</span>
+          {selectedCategory === "Default" ? (
+            <span className="block text-xs text-orange-900/80 mt-1">
+              Default is the fallback library merged into other categories on the seller dashboard when
+              they have fewer images for a module. For Alexa-only examples, choose{" "}
+              <strong>Alexa Skills</strong> first, then upload.
+            </span>
+          ) : (
+            <span className="block text-xs text-orange-900/80 mt-1">
+              Sellers in Create Graphics also see Default examples for a module if this category has
+              fewer than Default.
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Product category</Label>

@@ -14,6 +14,7 @@ type ViewProps = {
   examples: GraphicsModuleExampleItem[];
   resolvedCategory: string;
   usedDefaultFallback: boolean;
+  includesDefaultExamples?: boolean;
   isLoading?: boolean;
   /** Reference URLs already chosen for generation (per graphics type slug). */
   getReferenceImages?: (templateSlug: string) => string[];
@@ -81,6 +82,11 @@ export function GraphicsModuleExamplesGrid(props: GraphicsModuleExamplesGridProp
         {props.mode === "view" && props.usedDefaultFallback ? (
           <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
             No examples for your product category — showing Default.
+          </p>
+        ) : null}
+        {props.mode === "view" && props.includesDefaultExamples && !props.usedDefaultFallback ? (
+          <p className="text-[11px] text-slate-700 bg-slate-100 border border-slate-200 rounded-md px-2 py-1">
+            Includes Default studio examples where this category has fewer uploads.
           </p>
         ) : null}
       </div>

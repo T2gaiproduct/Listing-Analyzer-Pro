@@ -68,12 +68,40 @@ function groupExampleImages(
   return bySlug;
 }
 
+function mergeCategoryAndDefaultImages(
+  categoryImages: GraphicsModuleExampleImage[],
+  defaultImages: GraphicsModuleExampleImage[],
+): { images: GraphicsModuleExampleImage[]; usedDefaultImages: boolean } {
+  if (defaultImages.length === 0) {
+    return { images: categoryImages, usedDefaultImages: false };
+  }
+  const seen = new Set(categoryImages.map((i) => i.url));
+  const merged = [...categoryImages];
+  let usedDefaultImages = false;
+  for (const img of defaultImages) {
+    if (seen.has(img.url)) continue;
+    if (merged.length >= MAX_GRAPHICS_MODULE_EXAMPLES_PER_TYPE) break;
+    merged.push(img);
+    seen.add(img.url);
+    usedDefaultImages = true;
+  }
+  return { images: merged, usedDefaultImages };
+}
+
+export type GetGraphicsModuleExamplesOptions = {
+  /** Seller API: include Default category examples after category-specific ones (same module). */
+  mergeDefaultExamples?: boolean;
+};
+
 export async function getGraphicsModuleExamplesForCategory(
   requestedCategory: string | null | undefined,
+  options: GetGraphicsModuleExamplesOptions = {},
 ): Promise<{
   requestedCategory: string | null;
   resolvedCategory: string;
   usedDefaultFallback: boolean;
+  /** True when Default examples were merged into one or more modules (seller view). */
+  includesDefaultExamples: boolean;
   examples: GraphicsModuleExampleRow[];
 }> {
   const categoryNames = await listProductCategoryNames();
@@ -100,10 +128,44 @@ export async function getGraphicsModuleExamplesForCategory(
 
   const bySlug = groupExampleImages(exampleRows);
 
+  let defaultBySlug: Map<string, GraphicsModuleExampleImage[]> | null = null;
+  if (
+    options.mergeDefaultExamples &&
+    resolvedCategory !== DEFAULT_GRAPHICS_PRODUCT_CATEGORY &&
+    known.has(DEFAULT_GRAPHICS_PRODUCT_CATEGORY)
+  ) {
+    const defaultRows = await db
+      .select({
+        id: graphicsModuleExamplesTable.id,
+        templateSlug: graphicsModuleExamplesTable.templateSlug,
+        exampleImageUrl: graphicsModuleExamplesTable.exampleImageUrl,
+        displayOrder: graphicsModuleExamplesTable.displayOrder,
+      })
+      .from(graphicsModuleExamplesTable)
+      .where(eq(graphicsModuleExamplesTable.productCategoryName, DEFAULT_GRAPHICS_PRODUCT_CATEGORY))
+      .orderBy(
+        asc(graphicsModuleExamplesTable.templateSlug),
+        asc(graphicsModuleExamplesTable.displayOrder),
+        asc(graphicsModuleExamplesTable.id),
+      );
+    defaultBySlug = groupExampleImages(defaultRows);
+  }
+
+  let includesDefaultExamples = false;
+
   const examples: GraphicsModuleExampleRow[] = templates
     .filter((t) => t.slug !== "custom")
     .map((t) => {
-      const exampleImages = bySlug.get(t.slug) ?? [];
+      const categoryImages = bySlug.get(t.slug) ?? [];
+      let exampleImages = categoryImages;
+      if (defaultBySlug) {
+        const { images, usedDefaultImages } = mergeCategoryAndDefaultImages(
+          categoryImages,
+          defaultBySlug.get(t.slug) ?? [],
+        );
+        exampleImages = images;
+        if (usedDefaultImages) includesDefaultExamples = true;
+      }
       return {
         templateSlug: t.slug,
         name: t.name,
@@ -119,6 +181,7 @@ export async function getGraphicsModuleExamplesForCategory(
     requestedCategory: requested,
     resolvedCategory,
     usedDefaultFallback,
+    includesDefaultExamples,
     examples,
   };
 }

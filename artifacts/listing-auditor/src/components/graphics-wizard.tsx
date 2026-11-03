@@ -1352,6 +1352,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             examples={moduleExamples?.examples ?? []}
             resolvedCategory={moduleExamples?.resolvedCategory ?? (effectiveCategory || "Default")}
             usedDefaultFallback={moduleExamples?.usedDefaultFallback ?? false}
+            includesDefaultExamples={moduleExamples?.includesDefaultExamples ?? false}
             isLoading={moduleExamplesLoading}
             getReferenceImages={(slug) => getImageTypeConfig(slug).referenceImages}
             onToggleStudioReference={toggleStudioReference}

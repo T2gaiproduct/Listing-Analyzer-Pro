@@ -22,6 +22,7 @@ export type GraphicsModuleExamplesPayload = {
   requestedCategory: string | null;
   resolvedCategory: string;
   usedDefaultFallback: boolean;
+  includesDefaultExamples?: boolean;
   examples: GraphicsModuleExampleItem[];
 };
 
