@@ -36,6 +36,8 @@ WHERE user_id = :'uid';
 UPDATE admin_users SET is_deleted = 1 WHERE user_id = :'uid';
 SQL
 
+pnpm --filter @workspace/api-server exec tsx src/cli/seed-dev-customer-account.ts "$DEV_USER_ID" >/dev/null
+
 cat >"$OUT_FILE" <<EOF
 DEV_NATIVE_USER_ID=$DEV_USER_ID
 DEV_STACK_LOGIN_EMAIL=$DEV_EMAIL
@@ -43,4 +45,4 @@ EOF
 
 echo "==> Dev native login ready: $DEV_EMAIL (userId=$DEV_USER_ID)" >&2
 echo "    Password: $DEV_PASSWORD (override with DEV_STACK_LOGIN_PASSWORD)" >&2
-echo "    Credits: 500 audit / 500 image / 500 AI — onboarding complete (customer dashboard, not admin)" >&2
+echo "    Free plan (DB \$0 tier) + default workspace seeded — customer dashboard, not admin" >&2
