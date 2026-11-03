@@ -246,6 +246,27 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     }));
   }, []);
 
+  const toggleStudioReference = useCallback(
+    (templateSlug: string, imageUrl: string) => {
+      setSelectedImageTypes((prev) => (prev.includes(templateSlug) ? prev : [...prev, templateSlug]));
+      const refs = getImageTypeConfig(templateSlug).referenceImages;
+      if (refs.includes(imageUrl)) {
+        updateImageTypeConfig(templateSlug, { referenceImages: refs.filter((u) => u !== imageUrl) });
+        return;
+      }
+      if (refs.length >= 4) {
+        toast({
+          title: "Maximum references",
+          description: "You can use up to 4 reference images per graphics type (studio + uploads).",
+          variant: "destructive",
+        });
+        return;
+      }
+      updateImageTypeConfig(templateSlug, { referenceImages: [...refs, imageUrl] });
+    },
+    [getImageTypeConfig, toast, updateImageTypeConfig],
+  );
+
   const graphicsTypeConfigsPayload = useMemo(() => {
     const configs: Record<string, {
       customPrompt?: string;
@@ -1332,6 +1353,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             resolvedCategory={moduleExamples?.resolvedCategory ?? (effectiveCategory || "Default")}
             usedDefaultFallback={moduleExamples?.usedDefaultFallback ?? false}
             isLoading={moduleExamplesLoading}
+            getReferenceImages={(slug) => getImageTypeConfig(slug).referenceImages}
+            onToggleStudioReference={toggleStudioReference}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">

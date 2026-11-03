@@ -1,10 +1,13 @@
 import { useRef, useState } from "react";
-import { Loader2, Plus, Upload, X } from "lucide-react";
+import { Check, Loader2, Plus, Upload, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import type { GraphicsModuleExampleItem } from "@/lib/graphics-module-examples";
 
 const MAX_EXAMPLES_HINT = 12;
+
+const MAX_REFERENCE_IMAGES = 4;
 
 type ViewProps = {
   mode: "view";
@@ -12,6 +15,10 @@ type ViewProps = {
   resolvedCategory: string;
   usedDefaultFallback: boolean;
   isLoading?: boolean;
+  /** Reference URLs already chosen for generation (per graphics type slug). */
+  getReferenceImages?: (templateSlug: string) => string[];
+  /** Toggle a studio example URL into that type's reference list. */
+  onToggleStudioReference?: (templateSlug: string, imageUrl: string) => void;
 };
 
 type AdminProps = {
@@ -64,7 +71,12 @@ export function GraphicsModuleExamplesGrid(props: GraphicsModuleExamplesGridProp
               Upload multiple reference images per module (up to {MAX_EXAMPLES_HINT}). Sellers see them
               when customizing that graphics type.
             </p>
-          ) : null}
+          ) : (
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Tap an example to use it as an optional AI reference when you select that graphics type below
+              (up to {MAX_REFERENCE_IMAGES} references per type, including your uploads in Customize).
+            </p>
+          )}
         </div>
         {props.mode === "view" && props.usedDefaultFallback ? (
           <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
@@ -121,23 +133,89 @@ function ExampleCard(
   }
 
   const heroUrl = images[0]?.url ?? null;
-  const extraCount = images.length > 1 ? images.length - 1 : 0;
+  const viewRefs =
+    props.mode === "view" && props.getReferenceImages
+      ? props.getReferenceImages(item.templateSlug)
+      : [];
+  const viewSlotsLeft = MAX_REFERENCE_IMAGES - viewRefs.length;
+  const canToggleView =
+    props.mode === "view" && Boolean(props.onToggleStudioReference);
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden flex flex-col">
       <div className="aspect-square relative bg-slate-100 flex items-center justify-center">
-        {hasImages ? (
+        {hasImages && props.mode === "view" && images.length > 1 ? (
+          <div className="absolute inset-0 p-1.5 grid grid-cols-2 gap-1">
+            {images.slice(0, 4).map((img, idx) => {
+              const selected = viewRefs.includes(img.url);
+              const disabled = canToggleView && !selected && viewSlotsLeft <= 0;
+              return (
+                <button
+                  key={img.id > 0 ? img.id : `${img.url}-${idx}`}
+                  type="button"
+                  disabled={!canToggleView || disabled}
+                  onClick={() => props.mode === "view" && props.onToggleStudioReference?.(item.templateSlug, img.url)}
+                  className={cn(
+                    "relative rounded-md overflow-hidden bg-white border min-h-0",
+                    selected ? "border-orange-500 ring-1 ring-orange-300" : "border-slate-200",
+                    canToggleView && !disabled && "hover:border-orange-400 cursor-pointer",
+                    !canToggleView && "cursor-default",
+                    disabled && "opacity-50",
+                  )}
+                  title={
+                    canToggleView
+                      ? selected
+                        ? "Remove from references"
+                        : disabled
+                          ? "Max references reached"
+                          : "Use as reference"
+                      : undefined
+                  }
+                >
+                  <ProtectedAppImage
+                    src={img.url}
+                    alt={`${item.name} example ${idx + 1}`}
+                    className="w-full h-full object-contain"
+                  />
+                  {selected ? (
+                    <span className="absolute top-1 right-1 rounded-full bg-orange-500 text-white p-0.5">
+                      <Check className="w-3 h-3" />
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : hasImages ? (
           <>
-            <ProtectedAppImage
-              src={heroUrl!}
-              alt={`${item.name} example`}
-              className="w-full h-full object-contain"
-            />
-            {props.mode === "view" && extraCount > 0 ? (
-              <span className="absolute top-2 right-2 rounded-full bg-black/60 text-white text-[10px] font-medium px-2 py-0.5">
-                +{extraCount} more
-              </span>
-            ) : null}
+            {props.mode === "view" && canToggleView ? (
+              <button
+                type="button"
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center",
+                  viewRefs.includes(heroUrl!) && "ring-2 ring-inset ring-orange-400",
+                )}
+                onClick={() => props.onToggleStudioReference?.(item.templateSlug, heroUrl!)}
+                title={viewRefs.includes(heroUrl!) ? "Remove from references" : "Use as reference"}
+              >
+                <ProtectedAppImage
+                  src={heroUrl!}
+                  alt={`${item.name} example`}
+                  className="w-full h-full object-contain"
+                />
+                {viewRefs.includes(heroUrl!) ? (
+                  <span className="absolute top-2 right-2 rounded-full bg-orange-500 text-white p-1">
+                    <Check className="w-4 h-4" />
+                  </span>
+                ) : null}
+              </button>
+            ) : (
+              <ProtectedAppImage
+                src={heroUrl!}
+                alt={`${item.name} example`}
+                className="w-full h-full object-contain"
+              />
+            )}
           </>
         ) : (
           <span className="text-2xl opacity-40">{item.icon ?? "🖼️"}</span>
@@ -191,6 +269,29 @@ function ExampleCard(
         ) : null}
       </div>
 
+      {props.mode === "view" && hasImages && images.length > 4 ? (
+        <div className="flex flex-wrap gap-1 p-2 border-t bg-slate-50/80 max-h-24 overflow-y-auto">
+          {images.slice(4).map((img, idx) => {
+            const selected = viewRefs.includes(img.url);
+            const disabled = canToggleView && !selected && viewSlotsLeft <= 0;
+            return (
+              <button
+                key={img.id > 0 ? img.id : `more-${img.url}-${idx}`}
+                type="button"
+                disabled={!canToggleView || disabled}
+                onClick={() => props.onToggleStudioReference?.(item.templateSlug, img.url)}
+                className={cn(
+                  "relative w-10 h-10 rounded border overflow-hidden flex-shrink-0",
+                  selected ? "border-orange-500" : "border-slate-200",
+                )}
+              >
+                <ProtectedAppImage src={img.url} alt="" className="w-full h-full object-cover" />
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {props.mode === "admin" && hasImages ? (
         <div className="flex flex-wrap gap-1.5 p-2 border-t bg-slate-50/80">
           {images.map((img, idx) => (
@@ -219,8 +320,11 @@ function ExampleCard(
         <p className="text-xs font-medium text-slate-800 truncate" title={item.name}>
           {item.icon ? `${item.icon} ` : ""}
           {item.name}
-          {props.mode === "admin" && hasImages ? (
+          {hasImages && (props.mode === "admin" || images.length > 1) ? (
             <span className="text-slate-400 font-normal"> ({images.length})</span>
+          ) : null}
+          {props.mode === "view" && viewRefs.length > 0 ? (
+            <span className="text-orange-600 font-normal text-[10px]"> · {viewRefs.length} ref</span>
           ) : null}
         </p>
         {item.description ? (
