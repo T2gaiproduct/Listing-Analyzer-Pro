@@ -65,6 +65,7 @@ import type {
   SellerProductDetail,
 } from "@/lib/reference-research";
 import { getSafeReturnTo } from "@/lib/navigation-return";
+import { PROJECT_ORIGIN_BUILD_BRAND_SCRATCH } from "@/lib/audit-project-origin";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
@@ -289,6 +290,7 @@ function buildAuditDraftBody(
     bulletPoints: syntheticBullets,
     targetKeywords: syntheticKeywords,
     imageUrls: uploadedImages,
+    projectOrigin: PROJECT_ORIGIN_BUILD_BRAND_SCRATCH,
   };
 }
 

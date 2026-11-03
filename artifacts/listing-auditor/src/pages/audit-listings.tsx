@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { parseListingFetchInput } from "@/lib/listing-input";
 import { inferAuditSourceType } from "@/lib/product-mappers";
+import { PROJECT_ORIGIN_AUDIT_LISTING } from "@/lib/audit-project-origin";
 import { appendReturnTo } from "@/lib/navigation-return";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -211,6 +212,7 @@ export default function AuditListings() {
                 productDescription: listing.description ?? undefined,
                 importAttributes: listing.attributes ?? [],
                 sourceListingUrl: trimmed.startsWith("http") ? trimmed : undefined,
+                projectOrigin: PROJECT_ORIGIN_AUDIT_LISTING,
               } as Parameters<typeof createAudit.mutate>[0]["data"],
             },
             {

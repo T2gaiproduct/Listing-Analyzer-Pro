@@ -25,6 +25,9 @@ import {
 import { parseListingFetchInput } from "@/lib/listing-input";
 import { useToast } from "@/hooks/use-toast";
 import { getGetAuditQueryKey } from "@workspace/api-client-react";
+import {
+  PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
+} from "@/lib/audit-project-origin";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -106,6 +109,8 @@ export default function AuditImportFromLinkPage() {
           productDescription: listing.description ?? undefined,
           importAttributes: (listing.attributes ?? []).slice(0, 40),
           sourceListingUrl: sourceUrl.trim() || undefined,
+          projectOrigin: PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
+          importMarketplace: marketplace,
         } as Parameters<typeof createAuditDraft.mutateAsync>[0]["data"],
       });
 

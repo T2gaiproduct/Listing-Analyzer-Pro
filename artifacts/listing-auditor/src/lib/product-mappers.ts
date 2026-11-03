@@ -258,6 +258,8 @@ interface AuditLike {
   id: number;
   productName: string;
   projectName?: string | null;
+  projectOrigin?: string | null;
+  importMarketplace?: string | null;
   brandName?: string | null;
   category?: string | null;
   asin?: string | null;
@@ -289,6 +291,10 @@ export function isBuildBrandAudit(audit: AuditLike): boolean {
 }
 
 export function inferAuditSourceType(audit: AuditLike): "listing" | "audit" {
+  const origin = audit.projectOrigin?.trim();
+  if (origin === "audit_listing") return "audit";
+  if (origin === "build_brand_scratch" || origin === "build_brand_import") return "listing";
+
   const trimmed = audit.asin?.trim();
   if (!trimmed) return "listing";
   if (!isShopifyImportAsin(trimmed) && !isWooCommerceImportAsin(trimmed)) return "audit";
