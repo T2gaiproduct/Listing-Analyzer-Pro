@@ -113,6 +113,11 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
+/** Build Your Brand nav is only active on the BYB landing — not import/workflow entry flows. */
+function isBuildYourBrandNavActive(location: string): boolean {
+  return location === "/audits/new";
+}
+
 // --- Page title map ---------------------------------------------------------
 function getPageTitle(location: string, appName: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
@@ -811,7 +816,7 @@ export function Layout({ children }: { children: ReactNode }) {
               const isActive =
                 location === href ||
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
-                (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
+                (href === "/audits/new" && isBuildYourBrandNavActive(location)) ||
                 (href === "/projects" && location === "/projects") ||
                 (href === "/videos" && location === "/videos");
               if (collapsed) {
@@ -987,7 +992,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 const isActive =
                   location === href ||
                   (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
-                  (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
+                  (href === "/audits/new" && isBuildYourBrandNavActive(location)) ||
                   (href === "/projects" && location === "/projects") ||
                   (href === "/videos" && location === "/videos");
                 return (
