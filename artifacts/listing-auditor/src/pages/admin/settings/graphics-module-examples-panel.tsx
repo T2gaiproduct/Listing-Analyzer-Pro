@@ -13,13 +13,26 @@ import {
   useAdminProductCategoryMutations,
 } from "@/lib/graphics-module-examples";
 
-export function AdminGraphicsModuleExamplesPanel() {
+type AdminGraphicsModuleExamplesPanelProps = {
+  selectedCategory?: string;
+  onSelectedCategoryChange?: (name: string) => void;
+};
+
+export function AdminGraphicsModuleExamplesPanel({
+  selectedCategory: selectedCategoryProp,
+  onSelectedCategoryChange,
+}: AdminGraphicsModuleExamplesPanelProps = {}) {
   const { toast } = useToast();
   const { data: categoriesData } = useAdminProductCategories();
   const categories = categoriesData?.categories ?? [];
   const categoryNames = useMemo(() => categories.map((c) => c.name), [categories]);
 
-  const [selectedCategory, setSelectedCategory] = useState("Default");
+  const [internalCategory, setInternalCategory] = useState("Default");
+  const selectedCategory = selectedCategoryProp ?? internalCategory;
+  const setSelectedCategory = (name: string) => {
+    onSelectedCategoryChange?.(name);
+    if (selectedCategoryProp === undefined) setInternalCategory(name);
+  };
   const [newCategoryName, setNewCategoryName] = useState("");
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
 
@@ -88,7 +101,7 @@ export function AdminGraphicsModuleExamplesPanel() {
   }
 
   return (
-    <Card className="lg:col-span-2">
+    <Card className="shadow-none border-slate-200">
       <CardHeader>
         <CardTitle className="text-sm">Graphics studio examples (by product category)</CardTitle>
         <p className="text-xs text-muted-foreground font-normal mt-1">
@@ -106,16 +119,10 @@ export function AdminGraphicsModuleExamplesPanel() {
           <span className="font-semibold">{selectedCategory}</span>
           {selectedCategory === "Default" ? (
             <span className="block text-xs text-orange-900/80 mt-1">
-              Default is the fallback library merged into other categories on the seller dashboard when
-              they have fewer images for a module. For Alexa-only examples, choose{" "}
-              <strong>Alexa Skills</strong> first, then upload.
+              Used when a seller&apos;s category has no examples for a module. For category-specific refs,
+              choose e.g. <strong>Alexa Skills</strong> first.
             </span>
-          ) : (
-            <span className="block text-xs text-orange-900/80 mt-1">
-              Sellers in Create Graphics also see Default examples for a module if this category has
-              fewer than Default.
-            </span>
-          )}
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

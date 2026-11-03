@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ImageIcon, Plus, Save, Trash2 } from "lucide-react";
+import { ImageIcon, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   APLUS_PLACEHOLDER_HELP,
   GRAPHICS_PLACEHOLDER_HELP,
@@ -19,6 +21,7 @@ import {
   useAdminImagePromptTemplates,
 } from "@/lib/image-prompt-templates";
 import { AdminGraphicsModuleExamplesPanel } from "@/pages/admin/settings/graphics-module-examples-panel";
+import { AdminGraphicsSellerPreview } from "@/pages/admin/settings/admin-graphics-seller-preview";
 
 function blankTemplate(category: ImagePromptTemplateCategory): ImagePromptTemplateAdmin {
   return {
@@ -45,6 +48,7 @@ export default function AdminSettingsImagePromptTemplates() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<ImagePromptTemplateCategory>("graphics");
+  const [studioCategory, setStudioCategory] = useState("Default");
   const { data, isLoading } = useAdminImagePromptTemplates(tab);
   const templates = data?.templates ?? [];
 
@@ -135,160 +139,250 @@ export default function AdminSettingsImagePromptTemplates() {
     setDraft(blankTemplate(next));
   }
 
+  useEffect(() => {
+    if (isLoading || templates.length === 0 || selectedId != null) return;
+    startEdit(templates[0]!);
+  }, [isLoading, templates, selectedId]);
+
   const placeholderHelp = tab === "graphics" ? GRAPHICS_PLACEHOLDER_HELP : APLUS_PLACEHOLDER_HELP;
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div>
+    <div className="space-y-8 max-w-[1400px]">
+      <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-          <ImageIcon className="w-6 h-6 text-orange-500" />
+          <ImageIcon className="w-7 h-7 text-orange-500" />
           Image generation prompts
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Manage AI prompts for Create Graphics gallery types and A+ content image modules.
-          Enabled templates appear in the graphics and A+ wizards. Seller text from Customize is always appended
-          to these admin prompts (never replaces them).
+        <p className="text-sm text-slate-600 max-w-3xl">
+          Configure AI prompts, studio reference images, and what sellers see in Create Graphics and A+ wizards.
+          Seller Customize text is appended to these admin prompts.
         </p>
-      </div>
-
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant={tab === "graphics" ? "default" : "outline"}
-          size="sm"
-          onClick={() => switchTab("graphics")}
-        >
-          Product / gallery graphics
-        </Button>
-        <Button
-          type="button"
-          variant={tab === "aplus" ? "default" : "outline"}
-          size="sm"
-          onClick={() => switchTab("aplus")}
-        >
-          A+ image modules
-        </Button>
-      </div>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button
+            type="button"
+            variant={tab === "graphics" ? "default" : "outline"}
+            size="sm"
+            className={tab === "graphics" ? "bg-orange-500 hover:bg-orange-600" : ""}
+            onClick={() => switchTab("graphics")}
+          >
+            Product / gallery graphics
+          </Button>
+          <Button
+            type="button"
+            variant={tab === "aplus" ? "default" : "outline"}
+            size="sm"
+            className={tab === "aplus" ? "bg-orange-500 hover:bg-orange-600" : ""}
+            onClick={() => switchTab("aplus")}
+          >
+            A+ image modules
+          </Button>
+        </div>
+      </header>
 
       {tab === "graphics" ? (
-        <AdminGraphicsModuleExamplesPanel />
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-orange-500" />
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Studio references</h2>
+          </div>
+          <AdminGraphicsModuleExamplesPanel
+            selectedCategory={studioCategory}
+            onSelectedCategoryChange={setStudioCategory}
+          />
+        </section>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-        <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">{tab === "graphics" ? "Graphics types" : "A+ modules"}</CardTitle>
-            <Button type="button" size="sm" variant="outline" onClick={startCreate}>
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              New
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {isLoading ? (
-              <p className="text-xs text-muted-foreground">Loading…</p>
-            ) : (
-              templates.map((t) => (
-                <div
-                  key={t.id}
-                  className={`flex items-stretch gap-1 rounded-lg border ${
-                    selectedId === t.id ? "border-orange-300 bg-orange-50" : "border-transparent hover:bg-slate-50"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => startEdit(t)}
-                    className="flex-1 text-left px-3 py-2 text-sm min-w-0"
-                  >
-                    <div className="font-medium flex items-center gap-1.5">
-                      <span>{t.metadata?.icon ?? "✨"}</span>
-                      {t.name}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground font-mono">{t.slug}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {t.enabled ? "Enabled" : "Disabled"}
-                      {t.isSystem ? " · System" : " · Custom"}
-                    </div>
-                  </button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 h-auto my-1 text-slate-400 hover:text-red-600"
-                    title={t.isSystem ? "System templates cannot be deleted (disable instead)" : "Delete template"}
-                    onClick={() => handleDeleteTemplate(t)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          {tab === "graphics" ? "Graphics types & prompts" : "A+ modules & prompts"}
+        </h2>
+
+        <div
+          className={cn(
+            "grid gap-4",
+            tab === "graphics"
+              ? "grid-cols-1 xl:grid-cols-[minmax(260px,300px)_minmax(0,1fr)_minmax(280px,340px)]"
+              : "grid-cols-1 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)]",
+          )}
+        >
+          {/* Template list */}
+          <Card className="shadow-none border-slate-200 h-fit xl:sticky xl:top-4">
+            <CardHeader className="pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base font-semibold">
+                  {tab === "graphics" ? "Graphics types" : "A+ modules"}
+                </CardTitle>
+                <Button type="button" size="sm" variant="outline" className="h-8" onClick={startCreate}>
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  New
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground font-normal mt-1">
+                {templates.filter((t) => t.enabled).length} enabled · {templates.length} total
+              </p>
+            </CardHeader>
+            <CardContent className="p-2 max-h-[min(60vh,520px)] overflow-y-auto space-y-1">
+              {isLoading ? (
+                <p className="text-xs text-muted-foreground px-2 py-4">Loading…</p>
+              ) : templates.length === 0 ? (
+                <p className="text-xs text-muted-foreground px-2 py-4">No templates yet.</p>
+              ) : (
+                templates.map((t) => {
+                  const selected = selectedId === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => startEdit(t)}
+                      className={cn(
+                        "w-full text-left rounded-lg border px-3 py-2.5 transition-colors",
+                        selected
+                          ? "border-orange-300 bg-orange-50/90 shadow-none"
+                          : "border-transparent hover:border-slate-200 hover:bg-slate-50",
+                      )}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white border border-slate-100 text-lg">
+                          {t.metadata?.icon ?? "✨"}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-900 truncate">{t.name}</p>
+                          <p className="text-[11px] font-mono text-slate-400 truncate">{t.slug}</p>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <Badge
+                              variant={t.enabled ? "default" : "secondary"}
+                              className={cn(
+                                "text-[10px] px-1.5 py-0 h-5 font-normal",
+                                t.enabled && "bg-emerald-600 hover:bg-emerald-600",
+                              )}
+                            >
+                              {t.enabled ? "Enabled" : "Disabled"}
+                            </Badge>
+                            {t.isSystem ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal">
+                                System
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal">
+                                Custom
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Editor */}
+          <Card className="shadow-none border-slate-200 min-w-0">
+            <CardHeader className="border-b border-slate-100 pb-4">
+              <CardTitle className="text-base font-semibold">
+                {selectedId === "new" ? "Create template" : active ? `Edit · ${active.name}` : "Template editor"}
+              </CardTitle>
+              {active ? (
+                <p className="text-xs text-muted-foreground font-normal mt-1 font-mono">{active.slug}</p>
+              ) : null}
+            </CardHeader>
+            <CardContent className="space-y-4 pt-4">
+              {selectedId == null ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 px-6 text-center">
+                  <p className="text-sm font-medium text-slate-700">Pick a type from the list</p>
+                  <p className="text-xs text-slate-500 mt-1">Or create a new custom graphics type.</p>
+                  <Button type="button" variant="outline" size="sm" className="mt-4" onClick={startCreate}>
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    New template
                   </Button>
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">
-              {selectedId === "new" ? "Create template" : active ? `Edit ${active.name}` : "Select a template"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {selectedId == null ? (
-              <p className="text-sm text-muted-foreground">Choose a template from the list or create a new one.</p>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground">{placeholderHelp}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Name (shown in UI)</Label>
-                    <Input
-                      value={draft.name}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setDraft((prev) => ({
-                          ...prev,
-                          name,
-                          slug:
-                            selectedId === "new" && !prev.slug.trim()
-                              ? slugifyImagePromptTemplateName(name)
-                              : prev.slug,
-                        }));
-                      }}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Slug</Label>
-                    <Input
-                      value={draft.slug}
-                      onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
-                      disabled={draft.isSystem && selectedId !== "new"}
-                      placeholder="auto-generated-from-name"
-                      className="mt-1 font-mono text-xs"
-                    />
-                    {selectedId === "new" ? (
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        Leave blank to auto-generate from the name (e.g. &quot;My Shot&quot; → my-shot).
-                      </p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <Label>Sort order</Label>
-                    <Input
-                      type="number"
-                      value={draft.sortOrder}
-                      onChange={(e) => setDraft({ ...draft, sortOrder: parseInt(e.target.value, 10) || 0 })}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="flex items-end gap-2 pb-1">
-                    <Switch
-                      checked={draft.enabled}
-                      onCheckedChange={(v) => setDraft({ ...draft, enabled: v })}
-                    />
-                    <Label>Enabled in user wizards</Label>
-                  </div>
-                  {tab === "graphics" ? (
-                    <>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-500 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                    {placeholderHelp}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Name (shown in UI)</Label>
+                      <Input
+                        value={draft.name}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setDraft((prev) => ({
+                            ...prev,
+                            name,
+                            slug:
+                              selectedId === "new" && !prev.slug.trim()
+                                ? slugifyImagePromptTemplateName(name)
+                                : prev.slug,
+                          }));
+                        }}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Slug</Label>
+                      <Input
+                        value={draft.slug}
+                        onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+                        disabled={draft.isSystem && selectedId !== "new"}
+                        placeholder="auto-generated-from-name"
+                        className="mt-1 font-mono text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label>Sort order</Label>
+                      <Input
+                        type="number"
+                        value={draft.sortOrder}
+                        onChange={(e) => setDraft({ ...draft, sortOrder: parseInt(e.target.value, 10) || 0 })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex items-end gap-3 pb-1">
+                      <Switch
+                        checked={draft.enabled}
+                        onCheckedChange={(v) => setDraft({ ...draft, enabled: v })}
+                      />
+                      <Label className="leading-snug">Enabled in user wizards</Label>
+                    </div>
+                    {tab === "graphics" ? (
+                      <>
+                        <div>
+                          <Label>Icon (emoji)</Label>
+                          <Input
+                            value={draft.metadata?.icon ?? ""}
+                            onChange={(e) =>
+                              setDraft({
+                                ...draft,
+                                metadata: { ...draft.metadata, icon: e.target.value },
+                              })
+                            }
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label>Storage bucket</Label>
+                          <select
+                            className="mt-1 w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                            value={draft.metadata?.graphicsBucket ?? "lifestyle"}
+                            onChange={(e) =>
+                              setDraft({
+                                ...draft,
+                                metadata: {
+                                  ...draft.metadata,
+                                  graphicsBucket: e.target.value as "feature" | "lifestyle",
+                                },
+                              })
+                            }
+                          >
+                            <option value="lifestyle">Lifestyle slot</option>
+                            <option value="feature">Feature / infographic slot</option>
+                          </select>
+                        </div>
+                      </>
+                    ) : (
                       <div>
                         <Label>Icon (emoji)</Label>
                         <Input
@@ -302,101 +396,80 @@ export default function AdminSettingsImagePromptTemplates() {
                           className="mt-1"
                         />
                       </div>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Description (shown to users)</Label>
+                    <Input
+                      value={draft.description ?? ""}
+                      onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Image prompt template</Label>
+                    <Textarea
+                      value={draft.promptTemplate}
+                      onChange={(e) => setDraft({ ...draft, promptTemplate: e.target.value })}
+                      className="mt-1 min-h-[200px] font-mono text-xs"
+                    />
+                  </div>
+                  {tab === "aplus" ? (
+                    <>
                       <div>
-                        <Label>Storage bucket</Label>
-                        <select
-                          className="mt-1 w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
-                          value={draft.metadata?.graphicsBucket ?? "lifestyle"}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              metadata: {
-                                ...draft.metadata,
-                                graphicsBucket: e.target.value as "feature" | "lifestyle",
-                              },
-                            })
-                          }
-                        >
-                          <option value="lifestyle">Lifestyle slot</option>
-                          <option value="feature">Feature / infographic slot</option>
-                        </select>
+                        <Label>Headline template (module card)</Label>
+                        <Input
+                          value={draft.headlineTemplate ?? ""}
+                          onChange={(e) => setDraft({ ...draft, headlineTemplate: e.target.value })}
+                          className="mt-1 font-mono text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label>Body template (module card)</Label>
+                        <Input
+                          value={draft.bodyTemplate ?? ""}
+                          onChange={(e) => setDraft({ ...draft, bodyTemplate: e.target.value })}
+                          className="mt-1 font-mono text-xs"
+                        />
                       </div>
                     </>
-                  ) : (
-                    <div>
-                      <Label>Icon (emoji)</Label>
-                      <Input
-                        value={draft.metadata?.icon ?? ""}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            metadata: { ...draft.metadata, icon: e.target.value },
-                          })
-                        }
-                        className="mt-1"
-                      />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <Label>Description (shown to users)</Label>
-                  <Input
-                    value={draft.description ?? ""}
-                    onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Image prompt template</Label>
-                  <Textarea
-                    value={draft.promptTemplate}
-                    onChange={(e) => setDraft({ ...draft, promptTemplate: e.target.value })}
-                    className="mt-1 min-h-[180px] font-mono text-xs"
-                  />
-                </div>
-                {tab === "aplus" ? (
-                  <>
-                    <div>
-                      <Label>Headline template (module card)</Label>
-                      <Input
-                        value={draft.headlineTemplate ?? ""}
-                        onChange={(e) => setDraft({ ...draft, headlineTemplate: e.target.value })}
-                        className="mt-1 font-mono text-xs"
-                      />
-                    </div>
-                    <div>
-                      <Label>Body template (module card)</Label>
-                      <Input
-                        value={draft.bodyTemplate ?? ""}
-                        onChange={(e) => setDraft({ ...draft, bodyTemplate: e.target.value })}
-                        className="mt-1 font-mono text-xs"
-                      />
-                    </div>
-                  </>
-                ) : null}
-                <div className="flex flex-wrap gap-2 pt-2">
-                  <Button type="button" onClick={handleSave} disabled={saveMutation.isPending}>
-                    <Save className="w-4 h-4 mr-1" />
-                    Save
-                  </Button>
-                  {selectedId !== "new" && typeof selectedId === "number" ? (
+                  ) : null}
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
                     <Button
                       type="button"
-                      variant="destructive"
-                      onClick={() => handleDeleteTemplate(draft)}
-                      disabled={deleteMutation.isPending || draft.isSystem}
-                      title={draft.isSystem ? "System templates cannot be deleted" : undefined}
+                      onClick={handleSave}
+                      disabled={saveMutation.isPending}
+                      className="bg-orange-500 hover:bg-orange-600"
                     >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Delete
+                      <Save className="w-4 h-4 mr-1" />
+                      Save
                     </Button>
-                  ) : null}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                    {selectedId !== "new" && typeof selectedId === "number" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleDeleteTemplate(draft)}
+                        disabled={deleteMutation.isPending || draft.isSystem}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title={draft.isSystem ? "System templates cannot be deleted" : undefined}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    ) : null}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {tab === "graphics" ? (
+            <div className="xl:sticky xl:top-4 h-fit">
+              <AdminGraphicsSellerPreview productCategory={studioCategory} template={active} />
+            </div>
+          ) : null}
+        </div>
+      </section>
     </div>
   );
 }
