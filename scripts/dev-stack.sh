@@ -31,6 +31,7 @@ CLERK_SEC_FOR_STACK="${CLERK_SECRET_KEY:-}"
 ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-}"
 AUTH_SESSION_SECRET_FOR_STACK="${AUTH_SESSION_SECRET:-dev-native-auth-secret-change-me}"
 DEV_STACK_NATIVE_ENV_FILE="/tmp/dev-stack-native-login.env"
+DEV_STACK_NATIVE_ADMIN_ENV_FILE="/tmp/dev-stack-native-admin.env"
 
 # Local / Cloud Agent dev stack defaults to native auth (no Clerk CDN, proxy, or keys).
 # Opt back into Clerk with DEV_STACK_USE_CLERK=true or NATIVE_AUTH_ENABLED=false + Clerk env.
@@ -44,19 +45,28 @@ ensure_dev_native_login_if_needed() {
   stack_use_native_auth || return 0
   export DATABASE_URL
   bash "$ROOT/scripts/ensure-dev-native-login.sh"
+  bash "$ROOT/scripts/ensure-dev-native-admin-login.sh"
   if [[ -f "$DEV_STACK_NATIVE_ENV_FILE" ]]; then
     set -a
     # shellcheck disable=SC1090
     source "$DEV_STACK_NATIVE_ENV_FILE"
     set +a
-    # Dev test user is a normal customer — not Super Admin (unless you set DEV_STACK_ADMIN_USER_IDS).
-    if [[ -n "${DEV_STACK_ADMIN_USER_IDS:-}" ]]; then
-      ADMIN_IDS_FOR_STACK="$DEV_STACK_ADMIN_USER_IDS"
-    elif [[ "${ADMIN_USER_IDS:-}" == "${DEV_NATIVE_USER_ID:-}" ]]; then
-      ADMIN_IDS_FOR_STACK=""
-    else
-      ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-$ADMIN_IDS_FOR_STACK}"
-    fi
+  fi
+  if [[ -f "${DEV_STACK_NATIVE_ADMIN_ENV_FILE:-/tmp/dev-stack-native-admin.env}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${DEV_STACK_NATIVE_ADMIN_ENV_FILE:-/tmp/dev-stack-native-admin.env}"
+    set +a
+  fi
+  # Customer: dev@local.test — Admin: admin@local.test (Super Admin in DB + baked VITE_ADMIN_USER_IDS).
+  if [[ -n "${DEV_STACK_ADMIN_USER_IDS:-}" ]]; then
+    ADMIN_IDS_FOR_STACK="$DEV_STACK_ADMIN_USER_IDS"
+  elif [[ -n "${DEV_NATIVE_ADMIN_USER_ID:-}" ]]; then
+    ADMIN_IDS_FOR_STACK="$DEV_NATIVE_ADMIN_USER_ID"
+  elif [[ "${ADMIN_USER_IDS:-}" == "${DEV_NATIVE_USER_ID:-}" ]]; then
+    ADMIN_IDS_FOR_STACK=""
+  else
+    ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-$ADMIN_IDS_FOR_STACK}"
   fi
 }
 
@@ -679,7 +689,12 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
     if [[ "$DEV_STACK_NATIVE_AUTH" == "1" && -f "$DEV_STACK_NATIVE_ENV_FILE" ]]; then
       # shellcheck disable=SC1090
       source "$DEV_STACK_NATIVE_ENV_FILE"
-      echo "  Native sign-in: ${DEV_STACK_LOGIN_EMAIL:-dev@local.test} / (see DEV_STACK_LOGIN_PASSWORD or default DevAudit!2026)"
+      echo "  Customer sign-in: ${DEV_STACK_LOGIN_EMAIL:-dev@local.test} / DevAudit!2026"
+      if [[ -f "${DEV_STACK_NATIVE_ADMIN_ENV_FILE:-/tmp/dev-stack-native-admin.env}" ]]; then
+        # shellcheck disable=SC1090
+        source "${DEV_STACK_NATIVE_ADMIN_ENV_FILE:-/tmp/dev-stack-native-admin.env}"
+        echo "  Admin sign-in:    ${DEV_STACK_ADMIN_EMAIL:-admin@local.test} / DevAdmin!2026  → /admin"
+      fi
     fi
   else
     echo "Reload complete (no $PUBLIC_URL_FILE — run full bash scripts/dev-stack.sh once for a tunnel URL)"
@@ -790,7 +805,12 @@ if [[ -n "$PUBLIC_URL" ]]; then
   if [[ "$DEV_STACK_NATIVE_AUTH" == "1" && -f "$DEV_STACK_NATIVE_ENV_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$DEV_STACK_NATIVE_ENV_FILE"
-    echo "  Native dev login: ${DEV_STACK_LOGIN_EMAIL:-dev@local.test} (default password DevAudit!2026 — override DEV_STACK_LOGIN_PASSWORD)"
+    echo "  Customer: dev@local.test / DevAudit!2026"
+    if [[ -f "${DEV_STACK_NATIVE_ADMIN_ENV_FILE:-/tmp/dev-stack-native-admin.env}" ]]; then
+      # shellcheck disable=SC1090
+      source "${DEV_STACK_NATIVE_ADMIN_ENV_FILE:-/tmp/dev-stack-native-admin.env}"
+      echo "  Admin:    ${DEV_STACK_ADMIN_EMAIL:-admin@local.test} / DevAdmin!2026"
+    fi
   fi
   echo ""
   if should_skip_cloudflare_tunnel; then
