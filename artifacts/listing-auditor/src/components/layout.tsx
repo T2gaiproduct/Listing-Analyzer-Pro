@@ -113,9 +113,12 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-/** Build Your Brand nav is only active on the BYB landing — not import/workflow entry flows. */
+/** Build Your Brand nav stays active for the landing page and all BYB entry/workflow routes. */
 function isBuildYourBrandNavActive(location: string): boolean {
-  return location === "/audits/new";
+  if (location === "/audits/new") return true;
+  if (location === "/audits/import-from-link") return true;
+  if (location === "/audits/workflow") return true;
+  return false;
 }
 
 // --- Page title map ---------------------------------------------------------
