@@ -27,6 +27,10 @@ import {
   PROJECT_ORIGIN_BUILD_BRAND_SCRATCH,
   projectOriginInsertFields,
 } from "../lib/audit-project-origin.js";
+import {
+  applyListingFieldsToAudit,
+  findReusableListingAudit,
+} from "../lib/audit-listing-dedupe.js";
 import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
 import { formatReferenceResearchForContentPrompt } from "../lib/reference-research-prompt.js";
@@ -287,29 +291,57 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
   }
 
   const originFields = projectOriginInsertFields(req.body, PROJECT_ORIGIN_AUDIT_LISTING);
+  const scopeWhere = await auditScopeWhere(req);
+  const listingFields = {
+    projectName: projectName ?? productName,
+    productName,
+    productDescription: productDescription?.trim() || null,
+    asin: asin ?? null,
+    brandName: brandName ?? null,
+    category: category ?? null,
+    title,
+    bulletPoints,
+    imageUrls,
+    targetKeywords,
+  };
 
-  const [audit] = await db
-    .insert(auditsTable)
-    .values({
-      userId: ownerId,
-      createdByUserId: auditCreatedByUserId(req),
-      workspaceId: getActiveWorkspaceId(req),
-      projectName: projectName ?? productName,
-      productName,
-      productDescription: productDescription?.trim() || null,
-      asin: asin ?? null,
-      brandName: brandName ?? null,
-      category: category ?? null,
-      title,
-      bulletPoints,
-      imageUrls,
-      targetKeywords,
-      overallScore: 0,
-      status: "pending",
+  const existingAudit = await findReusableListingAudit(scopeWhere, {
+    projectOrigin: originFields.projectOrigin,
+    asin,
+    sourceListingUrl,
+  });
+
+  let audit: typeof auditsTable.$inferSelect;
+  if (existingAudit) {
+    const updated = await applyListingFieldsToAudit(existingAudit.id, listingFields, {
       projectOrigin: originFields.projectOrigin,
       importMarketplace: originFields.importMarketplace,
-    })
-    .returning();
+    });
+    if (!updated) {
+      res.status(500).json({ error: "Could not update existing listing audit" });
+      return;
+    }
+    audit = updated;
+    await db
+      .update(auditsTable)
+      .set({ status: "pending", overallScore: 0, updatedAt: new Date() })
+      .where(eq(auditsTable.id, audit.id));
+    audit = { ...audit, status: "pending", overallScore: 0 };
+  } else {
+    [audit] = await db
+      .insert(auditsTable)
+      .values({
+        userId: ownerId,
+        createdByUserId: auditCreatedByUserId(req),
+        workspaceId: getActiveWorkspaceId(req),
+        ...listingFields,
+        overallScore: 0,
+        status: "pending",
+        projectOrigin: originFields.projectOrigin,
+        importMarketplace: originFields.importMarketplace,
+      })
+      .returning();
+  }
 
   try {
     const result = await analyzeListingWithAI({
@@ -419,29 +451,66 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
       ? { projectOrigin: null, importMarketplace: null }
       : projectOriginInsertFields(req.body, PROJECT_ORIGIN_BUILD_BRAND_SCRATCH);
 
-    const [audit] = await db
-      .insert(auditsTable)
-      .values({
-        userId: ownerId,
-        createdByUserId: auditCreatedByUserId(req),
-        workspaceId: getActiveWorkspaceId(req),
-        projectName: projectName ?? productName,
-        productName,
-        productDescription: resolvedDescription,
-        asin: asin ?? null,
-        brandName: brandName ?? null,
-        category: category ?? null,
-        title,
-        bulletPoints,
-        imageUrls,
-        targetKeywords,
-        overallScore: 0,
-        status: "draft",
-        currentStep: 1,
+    const listingFields = {
+      projectName: projectName ?? productName,
+      productName,
+      productDescription: resolvedDescription,
+      asin: asin ?? null,
+      brandName: brandName ?? null,
+      category: category ?? null,
+      title,
+      bulletPoints,
+      imageUrls,
+      targetKeywords,
+    };
+
+    let audit: typeof auditsTable.$inferSelect;
+    if (!forGraphicsAplus && originFields.projectOrigin) {
+      const scopeWhere = await auditScopeWhere(req);
+      const existingAudit = await findReusableListingAudit(scopeWhere, {
         projectOrigin: originFields.projectOrigin,
-        importMarketplace: originFields.importMarketplace,
-      })
-      .returning();
+        asin,
+        sourceListingUrl,
+      });
+      if (existingAudit) {
+        const updated = await applyListingFieldsToAudit(existingAudit.id, listingFields);
+        if (!updated) {
+          res.status(500).json({ error: "Could not update existing project" });
+          return;
+        }
+        audit = updated;
+      } else {
+        [audit] = await db
+          .insert(auditsTable)
+          .values({
+            userId: ownerId,
+            createdByUserId: auditCreatedByUserId(req),
+            workspaceId: getActiveWorkspaceId(req),
+            ...listingFields,
+            overallScore: 0,
+            status: "draft",
+            currentStep: 1,
+            projectOrigin: originFields.projectOrigin,
+            importMarketplace: originFields.importMarketplace,
+          })
+          .returning();
+      }
+    } else {
+      [audit] = await db
+        .insert(auditsTable)
+        .values({
+          userId: ownerId,
+          createdByUserId: auditCreatedByUserId(req),
+          workspaceId: getActiveWorkspaceId(req),
+          ...listingFields,
+          overallScore: 0,
+          status: "draft",
+          currentStep: 1,
+          projectOrigin: originFields.projectOrigin,
+          importMarketplace: originFields.importMarketplace,
+        })
+        .returning();
+    }
 
     if (!forGraphicsAplus && (importAttributes.length > 0 || sourceListingUrl || asin?.trim())) {
       const marketplaceNotes = originFields.importMarketplace ?? "amazon";
