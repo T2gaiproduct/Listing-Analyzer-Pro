@@ -84,7 +84,6 @@ export function ImageTypeCustomizeDialog({
         <CustomPromptGenerationPanel
           variant="embedded"
           compactOutput
-          referenceBeforePrompt
           customPrompt={config.customPrompt}
           onCustomPromptChange={(value) => onConfigChange({ customPrompt: value })}
           referenceImages={config.referenceImages}

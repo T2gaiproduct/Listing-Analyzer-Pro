@@ -9,39 +9,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
+import { ChatGptStyleGenerationInput } from "@/components/chatgpt-style-generation-input";
+import {
+  DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+  GRAPHICS_ASPECT_RATIOS,
+  GRAPHICS_QUALITY_OPTIONS,
+  type GraphicsAspectRatio,
+  type GraphicsQuality,
+  type ImageTypePromptConfig,
+} from "@/components/graphics-output-options";
 
-export type GraphicsAspectRatio = "1:1" | "3:2" | "2:3";
-export type GraphicsQuality = "standard" | "hd";
-
-export type ImageTypePromptConfig = {
-  customPrompt: string;
-  referenceImages: string[];
-  aspectRatio: GraphicsAspectRatio;
-  quality: GraphicsQuality;
-};
-
-export const DEFAULT_IMAGE_TYPE_PROMPT_CONFIG: ImageTypePromptConfig = {
-  customPrompt: "",
-  referenceImages: [],
-  aspectRatio: "1:1",
-  quality: "standard",
-};
-
-export const GRAPHICS_ASPECT_RATIOS: {
-  value: GraphicsAspectRatio;
-  label: string;
-  size: string;
-  symbol: string;
-}[] = [
-  { value: "1:1", label: "Square", size: "1024 × 1024", symbol: "⬜" },
-  { value: "3:2", label: "Landscape", size: "1792 × 1024", symbol: "▬" },
-  { value: "2:3", label: "Portrait", size: "1024 × 1792", symbol: "▮" },
-];
-
-export const GRAPHICS_QUALITY_OPTIONS: { value: GraphicsQuality; label: string; desc: string }[] = [
-  { value: "standard", label: "Standard", desc: "Faster generation" },
-  { value: "hd", label: "HD", desc: "Sharper detail" },
-];
+export type { GraphicsAspectRatio, GraphicsQuality, ImageTypePromptConfig };
+export { DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, GRAPHICS_ASPECT_RATIOS, GRAPHICS_QUALITY_OPTIONS };
 
 const MAX_REFERENCE_IMAGES = 4;
 
@@ -89,31 +68,34 @@ export function CustomPromptGenerationPanel({
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
 
+  const chatBarField = compactOutput ? (
+    <ChatGptStyleGenerationInput
+      customPrompt={customPrompt}
+      onCustomPromptChange={onCustomPromptChange}
+      referenceImages={referenceImages}
+      onReferenceImagesChange={onReferenceImagesChange}
+      aspectRatio={aspectRatio}
+      onAspectRatioChange={onAspectRatioChange}
+      quality={quality}
+      onQualityChange={onQualityChange}
+      promptMaxChars={promptMaxChars}
+      hideAspectRatio={hideAspectRatio}
+      placeholder="Optional — scene, lighting, composition, and mood…"
+    />
+  ) : null;
+
   const promptField = (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <textarea
         value={customPrompt}
         onChange={(e) => onCustomPromptChange(e.target.value)}
         placeholder="Optional — added on top of the admin image prompt. Describe scene, lighting, composition, and mood."
-        rows={compactOutput ? 3 : 4}
+        rows={4}
         maxLength={promptMaxChars}
-        className={cn(
-          "w-full resize-none text-sm sm:text-base bg-transparent border-0 p-4 focus:outline-none focus:ring-0 placeholder:text-slate-400",
-          compactOutput ? "min-h-[5.5rem]" : "min-h-[7rem]",
-        )}
+        className="w-full resize-none text-sm sm:text-base bg-transparent border-0 p-4 focus:outline-none focus:ring-0 placeholder:text-slate-400 min-h-[7rem]"
       />
     </div>
   );
-
-  const referenceField = compactOutput ? (
-    <ReferenceImageUploadField
-      images={referenceImages}
-      onImagesChange={onReferenceImagesChange}
-      maxImages={MAX_REFERENCE_IMAGES}
-      label="Reference upload"
-      hint="Optional images to guide style or composition for this shot."
-    />
-  ) : null;
 
   const content = (
     <>
@@ -124,66 +106,9 @@ export function CustomPromptGenerationPanel({
         </div>
       )}
 
-      {compactOutput && referenceBeforePrompt ? referenceField : null}
-      {!compactOutput || !referenceBeforePrompt ? promptField : null}
-      {compactOutput && referenceBeforePrompt ? promptField : null}
-      {compactOutput && !referenceBeforePrompt ? referenceField : null}
+      {compactOutput ? chatBarField : promptField}
 
-      {compactOutput ? (
-        <div
-          className={cn(
-            "grid grid-cols-1 gap-3",
-            !hideAspectRatio && "sm:grid-cols-3",
-            hideAspectRatio && "sm:grid-cols-1 max-w-xs",
-          )}
-        >
-          {!hideAspectRatio ? (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-500">Aspect ratio</Label>
-              <Select value={aspectRatio} onValueChange={(v) => onAspectRatioChange(v as GraphicsAspectRatio)}>
-                <SelectTrigger className="h-9 text-sm w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
-                    <SelectItem key={ratio.value} value={ratio.value}>
-                      {ratio.symbol} {ratio.label} ({ratio.value})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-          {!hideAspectRatio ? (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-500">Output size</Label>
-              <InputLikeReadonly value={selectedRatio.size} />
-            </div>
-          ) : null}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-slate-500">Quality</Label>
-            <Select value={quality} onValueChange={(v) => onQualityChange(v as GraphicsQuality)}>
-              <SelectTrigger className="h-9 text-sm w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GRAPHICS_QUALITY_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="inline-flex items-center gap-2">
-                      {opt.value === "hd" ? (
-                        <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-                      ) : (
-                        <Zap className="w-3.5 h-3.5 text-slate-500" />
-                      )}
-                      {opt.label}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      ) : (
+      {!compactOutput ? (
         <div className={cn("grid grid-cols-1 gap-3", !hideAspectRatio && "sm:grid-cols-2")}>
           <ReferenceImageUploadField
             images={referenceImages}
@@ -245,8 +170,9 @@ export function CustomPromptGenerationPanel({
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
+      {!compactOutput && (
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {referenceImages.length > 0 && (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
@@ -268,6 +194,7 @@ export function CustomPromptGenerationPanel({
           </span>
         )}
       </div>
+      )}
 
       {examplePrompts.length > 0 && (
         <div className="space-y-2 pt-1">
