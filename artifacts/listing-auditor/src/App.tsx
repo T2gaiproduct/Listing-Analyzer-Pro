@@ -335,7 +335,9 @@ function resolveClerkProxyUrl(): string | undefined {
 
   const host = window.location.hostname;
   if (shouldUseSameOriginClerkProxy(host, clerkPubKey)) {
-    return sameOriginClerkProxyPath();
+    const path = sameOriginClerkProxyPath();
+    // Clerk accepts relative paths, but absolute same-origin URLs are more reliable on quick tunnels.
+    return `${window.location.origin}${path}`;
   }
 
   return undefined;
@@ -405,6 +407,17 @@ function SignInPage() {
 
   const showClerkSpinner = !clerkLoaded && !loadTimedOut;
 
+  const signIn = (
+    <SignIn
+      routing="path"
+      path={`${basePath}/sign-in`}
+      signUpUrl={signUpUrl}
+      fallbackRedirectUrl={redirectUrl}
+      forceRedirectUrl={redirectUrl}
+      initialValues={email ? { emailAddress: email } : undefined}
+    />
+  );
+
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-10">
       {resetSuccess && (
@@ -421,15 +434,13 @@ function SignInPage() {
           instead.
         </p>
       )}
-      {showClerkSpinner && (
-        <div className="flex flex-col items-center gap-3 py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-500" aria-hidden />
-          <p className="text-sm text-slate-600">Loading sign-in…</p>
-        </div>
-      )}
       {loadTimedOut && !clerkLoaded && (
         <div className="mb-4 w-full max-w-[440px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950 space-y-3">
-          <p className="font-semibold">Sign-in did not load on this preview link</p>
+          <p className="font-semibold">Sign-in is still loading on this preview link</p>
+          <p className="text-amber-900/90">
+            Try a hard refresh (Ctrl+Shift+R), disable ad blockers for this hostname, or use production sign-in
+            (sessions do not carry over — sign in again on the preview after creating an account).
+          </p>
           <a
             href={productionSignInHref}
             className="inline-flex rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-700"
@@ -438,16 +449,15 @@ function SignInPage() {
           </a>
         </div>
       )}
-      {(clerkLoaded || loadTimedOut) && (
-        <SignIn
-          routing="path"
-          path={`${basePath}/sign-in`}
-          signUpUrl={signUpUrl}
-          fallbackRedirectUrl={redirectUrl}
-          forceRedirectUrl={redirectUrl}
-          initialValues={email ? { emailAddress: email } : undefined}
-        />
-      )}
+      <div className="relative w-full max-w-[440px]">
+        {showClerkSpinner && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-gradient-to-br from-slate-50/95 to-blue-50/95">
+            <Loader2 className="h-8 w-8 animate-spin text-orange-500" aria-hidden />
+            <p className="text-sm text-slate-600">Loading sign-in…</p>
+          </div>
+        )}
+        {signIn}
+      </div>
     </div>
   );
 }
