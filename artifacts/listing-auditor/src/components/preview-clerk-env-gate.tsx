@@ -5,6 +5,7 @@ import { fetchJson } from "@/lib/api-fetch";
 import { isCloudflareQuickPreviewHost } from "@/lib/cloudflare-preview";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const isNativeAuthProvider = import.meta.env.VITE_AUTH_PROVIDER === "native";
 
 type Healthz = {
   clerkProxySecret?: string;
@@ -21,6 +22,7 @@ function previewApiClerkMisconfigured(health: Healthz | undefined): boolean {
 
 /** Non-blocking hint on Cloudflare preview when API Clerk secret is wrong (sign-in via Clerk still works). */
 export function PreviewClerkEnvGate({ children }: { children: ReactNode }) {
+  if (isNativeAuthProvider) return <>{children}</>;
   const onPreview = isCloudflareQuickPreviewHost();
 
   const { data: health } = useQuery({

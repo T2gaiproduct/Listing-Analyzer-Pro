@@ -29,6 +29,29 @@ LOCAL_DEV_PUBLIC_URL="${LOCAL_DEV_PUBLIC_URL:-http://127.0.0.1:3000}"
 CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
 CLERK_SEC_FOR_STACK="${CLERK_SECRET_KEY:-}"
 ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-}"
+AUTH_SESSION_SECRET_FOR_STACK="${AUTH_SESSION_SECRET:-dev-native-auth-secret-change-me}"
+DEV_STACK_NATIVE_ENV_FILE="/tmp/dev-stack-native-login.env"
+
+# Local / Cloud Agent dev stack defaults to native auth (no Clerk CDN, proxy, or keys).
+# Opt back into Clerk with DEV_STACK_USE_CLERK=true or NATIVE_AUTH_ENABLED=false + Clerk env.
+stack_use_native_auth() {
+  case "${DEV_STACK_USE_CLERK:-}" in true|1|yes|TRUE) return 1;; esac
+  case "${NATIVE_AUTH_ENABLED:-}" in false|0|no|FALSE) return 1;; esac
+  return 0
+}
+
+ensure_dev_native_login_if_needed() {
+  stack_use_native_auth || return 0
+  export DATABASE_URL
+  bash "$ROOT/scripts/ensure-dev-native-login.sh"
+  if [[ -f "$DEV_STACK_NATIVE_ENV_FILE" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$DEV_STACK_NATIVE_ENV_FILE"
+    set +a
+    ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-$ADMIN_IDS_FOR_STACK}"
+  fi
+}
 
 clerk_instance_from_publishable_key() {
   local key="$1"
@@ -90,19 +113,23 @@ for d in data:
   export CLERK_PUBLISHABLE_KEY="$fixed_pk"
 }
 
-sync_clerk_publishable_to_secret_instance
-
-if [[ -n "$CLERK_PUB_FOR_STACK" ]]; then
-  export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
-fi
-
-if [[ -z "$CLERK_SEC_FOR_STACK" || -z "$CLERK_PUB_FOR_STACK" ]]; then
-  echo "WARNING: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY missing — signed-in API calls will return 401" >&2
-elif ! curl -sf -H "Authorization: Bearer $CLERK_SEC_FOR_STACK" "https://api.clerk.com/v1/instance" >/dev/null; then
-  pub_inst="$(clerk_instance_from_publishable_key "${CLERK_PUB_FOR_STACK:-}")"
-  echo "WARNING: CLERK_SECRET_KEY is invalid (Clerk API rejected it). Signed-in users will see \"Cannot load your account\"." >&2
-  if [[ -n "$pub_inst" ]]; then
-    echo "         Set CLERK_SECRET_KEY + CLERK_PUBLISHABLE_KEY in Cursor Cloud → Environment to match VITE ($pub_inst), then start a new agent run." >&2
+DEV_STACK_NATIVE_AUTH=0
+if stack_use_native_auth; then
+  DEV_STACK_NATIVE_AUTH=1
+  echo "==> Dev stack auth: native email/password (Clerk disabled). Set DEV_STACK_USE_CLERK=true for Clerk preview." >&2
+else
+  sync_clerk_publishable_to_secret_instance
+  if [[ -n "$CLERK_PUB_FOR_STACK" ]]; then
+    export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
+  fi
+  if [[ -z "$CLERK_SEC_FOR_STACK" || -z "$CLERK_PUB_FOR_STACK" ]]; then
+    echo "WARNING: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY missing — signed-in API calls will return 401" >&2
+  elif ! curl -sf -H "Authorization: Bearer $CLERK_SEC_FOR_STACK" "https://api.clerk.com/v1/instance" >/dev/null; then
+    pub_inst="$(clerk_instance_from_publishable_key "${CLERK_PUB_FOR_STACK:-}")"
+    echo "WARNING: CLERK_SECRET_KEY is invalid (Clerk API rejected it). Signed-in users will see \"Cannot load your account\"." >&2
+    if [[ -n "$pub_inst" ]]; then
+      echo "         Set CLERK_SECRET_KEY + CLERK_PUBLISHABLE_KEY in Cursor Cloud → Environment to match VITE ($pub_inst), then start a new agent run." >&2
+    fi
   fi
 fi
 
@@ -139,10 +166,14 @@ build_listing_auditor_preview() {
     cd "$ROOT"
     export PORT=19145
     export BASE_PATH=/
-    export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
+    if stack_use_native_auth; then
+      export VITE_AUTH_PROVIDER=native
+    else
+      export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
+    fi
     export VITE_ADMIN_USER_IDS="$ADMIN_IDS_FOR_STACK"
     export VITE_APP_BUILD_ID="${VITE_APP_BUILD_ID:-}"
-    if using_cloud_agent_quick_tunnel; then
+    if using_cloud_agent_quick_tunnel && ! stack_use_native_auth; then
       export VITE_CLOUD_AGENT_PREVIEW=true
     fi
     if [[ -n "$clerk_proxy_export" ]]; then
@@ -172,7 +203,11 @@ start_frontend_live() {
       export PORT=19145
       export BASE_PATH=/
       export VITE_DISABLE_HMR=true
-      export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+      if [[ '$DEV_STACK_NATIVE_AUTH' == '1' ]]; then
+        export VITE_AUTH_PROVIDER=native
+      else
+        export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+      fi
       export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
       $clerk_proxy_export
       while true; do
@@ -331,9 +366,13 @@ using_cloud_agent_quick_tunnel() {
 # Opt-in *.trycloudflare.com behavior in app code (off in staging/production deploys).
 apply_cloud_agent_quick_tunnel_env() {
   if using_cloud_agent_quick_tunnel; then
-    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=true
-    export VITE_CLOUD_AGENT_PREVIEW=true
-    echo "==> Cloud Agent quick tunnel: ENABLE_CLOUD_AGENT_QUICK_TUNNEL + VITE_CLOUD_AGENT_PREVIEW (local dev-stack only)" >&2
+    if stack_use_native_auth; then
+      echo "==> Cloud Agent quick tunnel (native auth — no Clerk proxy)" >&2
+    else
+      export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=true
+      export VITE_CLOUD_AGENT_PREVIEW=true
+      echo "==> Cloud Agent quick tunnel: ENABLE_CLOUD_AGENT_QUICK_TUNNEL + VITE_CLOUD_AGENT_PREVIEW (local dev-stack only)" >&2
+    fi
   fi
 }
 
@@ -548,6 +587,7 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
   echo "==> Dev stack reload (keeping Cloudflare tunnel — URL unchanged)" >&2
   warn_if_named_tunnel_token_without_public_url
   apply_cloud_agent_quick_tunnel_env
+  ensure_dev_native_login_if_needed
   for port in 8080 19145 3000; do
     kill_port "$port"
   done
@@ -558,11 +598,18 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
     if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
     export DATABASE_URL='$DATABASE_URL'
     export PORT=8080
-    export ENABLE_CLERK_PROXY=\"\${ENABLE_CLERK_PROXY:-true}\"
-    export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-    export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+    if [[ '$DEV_STACK_NATIVE_AUTH' == '1' ]]; then
+      export NATIVE_AUTH_ENABLED=true
+      export AUTH_SESSION_SECRET='$AUTH_SESSION_SECRET_FOR_STACK'
+      export AUTH_COOKIE_SECURE=false
+      export ENABLE_CLERK_PROXY=false
+    else
+      export ENABLE_CLERK_PROXY=\"\${ENABLE_CLERK_PROXY:-true}\"
+      export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+      export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+      export ENABLE_CLOUD_AGENT_QUICK_TUNNEL='true'
+    fi
     export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL='true'
     export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
     export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
     export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
@@ -622,6 +669,11 @@ if [[ "${DEV_STACK_RELOAD_ONLY:-}" == "1" ]]; then
     echo "Reload complete — Cloudflare preview:"
     echo "  $(cat "$PUBLIC_URL_FILE")"
     echo "  Import from link: $(cat "$PUBLIC_URL_FILE")/audits/import-from-link"
+    if [[ "$DEV_STACK_NATIVE_AUTH" == "1" && -f "$DEV_STACK_NATIVE_ENV_FILE" ]]; then
+      # shellcheck disable=SC1090
+      source "$DEV_STACK_NATIVE_ENV_FILE"
+      echo "  Native sign-in: ${DEV_STACK_LOGIN_EMAIL:-dev@local.test} / (see DEV_STACK_LOGIN_PASSWORD or default DevAudit!2026)"
+    fi
   else
     echo "Reload complete (no $PUBLIC_URL_FILE — run full bash scripts/dev-stack.sh once for a tunnel URL)"
   fi
@@ -650,6 +702,13 @@ tmux_cmd new-session -d -s db-push -c "$ROOT" -- bash -lc "
   export DATABASE_URL='$DATABASE_URL'
   bash scripts/sync-local-db.sh
 "
+for _db_wait in $(seq 1 120); do
+  if ! tmux_cmd has-session -t db-push 2>/dev/null; then
+    break
+  fi
+  sleep 1
+done
+ensure_dev_native_login_if_needed
 
 echo "==> Starting API server (port 8080)"
 tmux_cmd kill-session -t api-server-live 2>/dev/null || true
@@ -657,11 +716,18 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
   export DATABASE_URL='$DATABASE_URL'
   export PORT=8080
-  export ENABLE_CLERK_PROXY=\"\${ENABLE_CLERK_PROXY:-true}\"
-  export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-  export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+  if [[ '$DEV_STACK_NATIVE_AUTH' == '1' ]]; then
+    export NATIVE_AUTH_ENABLED=true
+    export AUTH_SESSION_SECRET='$AUTH_SESSION_SECRET_FOR_STACK'
+    export AUTH_COOKIE_SECURE=false
+    export ENABLE_CLERK_PROXY=false
+  else
+    export ENABLE_CLERK_PROXY=\"\${ENABLE_CLERK_PROXY:-true}\"
+    export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+    export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
+  fi
   export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-  export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
   export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
   export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
   export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
@@ -714,18 +780,27 @@ if [[ -n "$PUBLIC_URL" ]]; then
       echo "  (quick tunnel — URL changes when dev-stack restarts; set SKIP_CLOUDFLARE_TUNNEL=true for localhost, or CLOUDFLARE_TUNNEL_TOKEN + CLOUDFLARE_TUNNEL_PUBLIC_URL)"
     fi
   fi
+  if [[ "$DEV_STACK_NATIVE_AUTH" == "1" && -f "$DEV_STACK_NATIVE_ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$DEV_STACK_NATIVE_ENV_FILE"
+    echo "  Native dev login: ${DEV_STACK_LOGIN_EMAIL:-dev@local.test} (default password DevAudit!2026 — override DEV_STACK_LOGIN_PASSWORD)"
+  fi
   echo ""
   if should_skip_cloudflare_tunnel; then
     echo "==> Configuring Amazon OAuth redirect for local dev"
     configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
+  elif [[ "$DEV_STACK_NATIVE_AUTH" == "1" ]]; then
+    echo "==> Cloudflare preview (native auth — no Clerk proxy changes)"
   else
     echo "==> Cloudflare preview (local-only): will not change Clerk production proxy_url"
   fi
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
-  if using_named_cloudflare_tunnel; then
-    configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
-  elif [[ -n "$PUBLIC_URL" && "$PUBLIC_URL" == *".trycloudflare.com"* ]]; then
-    clear_stale_trycloudflare_clerk_proxy
+  if [[ "$DEV_STACK_NATIVE_AUTH" != "1" ]]; then
+    if using_named_cloudflare_tunnel; then
+      configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
+    elif [[ -n "$PUBLIC_URL" && "$PUBLIC_URL" == *".trycloudflare.com"* ]]; then
+      clear_stale_trycloudflare_clerk_proxy
+    fi
   fi
   if ! should_skip_cloudflare_tunnel; then
     configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
@@ -740,11 +815,18 @@ if [[ -n "$PUBLIC_URL" ]]; then
     if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
     export DATABASE_URL='$DATABASE_URL'
     export PORT=8080
-    export ENABLE_CLERK_PROXY=true
-    export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-    export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+    if [[ '$DEV_STACK_NATIVE_AUTH' == '1' ]]; then
+      export NATIVE_AUTH_ENABLED=true
+      export AUTH_SESSION_SECRET='$AUTH_SESSION_SECRET_FOR_STACK'
+      export AUTH_COOKIE_SECURE=false
+      export ENABLE_CLERK_PROXY=false
+    else
+      export ENABLE_CLERK_PROXY=true
+      export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+      export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+      export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
+    fi
     export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
     export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
     export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
     export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
@@ -755,7 +837,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
   "
 
   FRONTEND_VITE_CLERK_PROXY=""
-  if using_named_cloudflare_tunnel; then
+  if [[ "$DEV_STACK_NATIVE_AUTH" != "1" ]] && using_named_cloudflare_tunnel; then
     FRONTEND_VITE_CLERK_PROXY="export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'"
   fi
 

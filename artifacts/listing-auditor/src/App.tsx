@@ -369,10 +369,10 @@ function OnboardingSignUpRedirect() {
 function SignInPage() {
   const { isLoaded: clerkLoaded } = useAuth();
   const [loadTimedOut, setLoadTimedOut] = useState(false);
-  const onPreview = isCloudflareQuickPreviewHost();
+  const onPreview = isCloudflareQuickPreviewHost() && !isNativeAuthProvider;
 
   useEffect(() => {
-    if (clerkLoaded) {
+    if (isNativeAuthProvider || clerkLoaded) {
       setLoadTimedOut(false);
       return;
     }
@@ -405,7 +405,7 @@ function SignInPage() {
     return q ? `https://sellerlens.io/sign-in?${q}` : "https://sellerlens.io/sign-in";
   }, [redirectParam, email]);
 
-  const showClerkSpinner = !clerkLoaded && !loadTimedOut;
+  const showClerkSpinner = !isNativeAuthProvider && !clerkLoaded && !loadTimedOut;
 
   const signIn = (
     <SignIn

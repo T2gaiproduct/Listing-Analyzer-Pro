@@ -17,16 +17,24 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 - If the DB is ever missing/empty, recreate it: `sudo -u postgres psql -c "CREATE ROLE lauser LOGIN PASSWORD 'lapass' CREATEDB;"` then `sudo -u postgres createdb -O lauser listingauditor`, then `bash scripts/sync-local-db.sh` (or `DATABASE_URL=... pnpm --filter @workspace/db run push` and `seed-plans`).
 - After schema changes in `lib/db/src/schema/`, run `bash scripts/sync-local-db.sh` locally and `bash scripts/sync-production-db.sh` on production (same additive SQL + drizzle push). `bash scripts/check-production-schema.sh` verifies critical columns (including `audits.reference_research`).
 
-### Running the API server (port 8080)
-- The API requires several env vars just to boot and serve **any** route:
-  - `DATABASE_URL` (see above), `PORT=8080`
-  - `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY` — module-level throw at import if unset (`lib/integrations-openai-ai-server/src/client.ts`). Dummy values let the server boot; real values are only needed for AI audits/content/image generation.
-  - `CLERK_PUBLISHABLE_KEY` **and** `CLERK_SECRET_KEY` — `clerkMiddleware` runs on every request and 500s the whole app if either is missing. Clerk's well-known dummy pair lets signed-out (public) routes work: `CLERK_PUBLISHABLE_KEY=pk_test_Y2xlcmsuZXhhbXBsZS5jb20k`, `CLERK_SECRET_KEY=sk_test_<any-40+-char-string>`. With dummies, public routes (`/api/healthz`, `/api/plans`, `/api/fetch-listing`, `/api/credit-*`) work and auth-gated routes correctly return 401.
-- Run: `pnpm --filter @workspace/api-server run dev` (esbuild **watch** → rebuilds `dist/index.mjs` and **restarts** Node on source changes). One-shot: `dev:once`. `GET /api/healthz` includes `apiBuildId` / `staleProcess` when the running process is behind `dist/build-meta.json`. Stripe init failing on boot ("Missing Replit environment variables") is expected and non-fatal.
+### Local / Cloud Agent auth (`bash scripts/dev-stack.sh`)
+- **`scripts/dev-stack.sh` and `dev-stack-reload.sh` default to native email/password auth** — no Clerk CDN, `/api/__clerk` proxy, or `CLERK_*` / `VITE_CLERK_*` keys required on the preview link.
+- API: `NATIVE_AUTH_ENABLED=true`, `AUTH_SESSION_SECRET` (defaults to a dev value if unset), `AUTH_COOKIE_SECURE=false` on the stack.
+- Frontend build: `VITE_AUTH_PROVIDER=native` (Vite aliases `@clerk/react` to the native sign-in UI).
+- Dev user (created idempotently): **`dev@local.test`** / **`DevAudit!2026`** — override with `DEV_STACK_LOGIN_EMAIL` / `DEV_STACK_LOGIN_PASSWORD`. Sign up on the preview also works (no Clerk CAPTCHA).
+- Opt back into **Clerk** on local preview: `DEV_STACK_USE_CLERK=true bash scripts/dev-stack.sh` (requires valid Clerk keys in Environment).
+- Production / sellerlens.io stays on Clerk until you deploy with `VITE_AUTH_PROVIDER=native` (see `docs/AUTH-MIGRATION.md`).
 
-### Running the frontend (port 19145)
+### Running the API server (port 8080) manually
+- Required: `DATABASE_URL`, `PORT=8080`, dummy or real `AI_INTEGRATIONS_OPENAI_*` (see `lib/integrations-openai-ai-server/src/client.ts`).
+- **Native auth:** `NATIVE_AUTH_ENABLED=true` and `AUTH_SESSION_SECRET=...` — no Clerk keys.
+- **Clerk mode:** `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` (dummy pair documented in older notes still works for signed-out public routes).
+- Run: `pnpm --filter @workspace/api-server run dev`. `GET /api/healthz` includes `apiBuildId` / `staleProcess`. Stripe init failing on boot is expected and non-fatal.
+
+### Running the frontend (port 19145) manually
 - Vite config throws unless `PORT` and `BASE_PATH` are set: `PORT=19145 BASE_PATH=/`.
-- The SPA renders **nothing** without a real, network-reachable Clerk instance: `App.tsx` throws if `VITE_CLERK_PUBLISHABLE_KEY` is unset, and the landing page waits on `useUser().isLoaded`, which never completes if Clerk JS can't load. The dummy key above is NOT reachable, so the UI shows a runtime-error overlay. A **real** `VITE_CLERK_PUBLISHABLE_KEY` (from a live Clerk instance) is required to see/exercise any UI.
+- **Native:** `VITE_AUTH_PROVIDER=native` — no `VITE_CLERK_PUBLISHABLE_KEY`.
+- **Clerk:** requires a real, network-reachable `VITE_CLERK_PUBLISHABLE_KEY`.
 - There is **no Vite dev proxy** for `/api`; the frontend calls `${BASE_PATH}/api/...` on its own origin. For full UI E2E you need a reverse proxy so the frontend origin also serves the API on `/api` (see `DEPLOY.md` Nginx example), or serve the built frontend from the API host.
 
 ### Quality gate / tests
@@ -42,12 +50,9 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
   - `CLOUDFLARE_TUNNEL_PUBLIC_URL` — exact public URL, e.g. `https://dev-preview.sellerlens.io`
   Then `bash scripts/dev-stack.sh` uses the named tunnel and the URL stays the same across restarts. Register the same hostname in Amazon OAuth (redirect + login URI) and Clerk if needed.
 - **Stable local Amazon testing:** `SKIP_CLOUDFLARE_TUNNEL=true bash scripts/dev-stack.sh` uses `http://127.0.0.1:3000` inside the VM. **On Cloud Agent, your laptop browser cannot open that URL** (`ERR_CONNECTION_REFUSED`) — `127.0.0.1` is the remote VM, not your PC. From your browser use the Cloudflare preview link, a named tunnel hostname, or `https://sellerlens.io`. Register the **same host you browse** in Amazon OAuth (redirect + login URI).
-- Clerk **sign-up** is blocked in this VM: the instance has bot-protection CAPTCHA (Smart CAPTCHA/Turnstile) that can't load headlessly ("The CAPTCHA failed to load"). Do NOT try to demo account creation through the UI.
-- **Do NOT** set Clerk `proxy_url` to a `*.trycloudflare.com` hostname on the shared production Clerk instance — it breaks `https://sellerlens.io/sign-in` (blank page) until restored to `https://sellerlens.io/api/__clerk`. `dev-stack.sh` skips this for quick tunnels; use a named tunnel on your zone if dev sign-in needs a stable Clerk proxy.
-- To test authenticated flows, create the user via the **Clerk Backend API** (bypasses CAPTCHA), then **sign in** through the UI (sign-in has no CAPTCHA):
-  - `curl -X POST https://api.clerk.com/v1/users -H "Authorization: Bearer $CLERK_SECRET_KEY" -H 'Content-Type: application/json' -d '{"email_address":["demo+clerk_test@example.com"],"password":"DemoAudit!2026","skip_password_checks":true}'`
-  - Use a Clerk **test email** (`+clerk_test@example.com`); `.test`/disposable TLDs are rejected. The email-code verification step accepts the fixed dev code **`424242`**.
-- With real Clerk keys, signing in reaches the dashboard and the API authenticates the session (profile/stats/credits load from Postgres). Creating an audit still needs a real AI key.
+- **Clerk-only** (when `DEV_STACK_USE_CLERK=true`): sign-up CAPTCHA often fails on `*.trycloudflare.com`; do not repoint production Clerk `proxy_url` to quick tunnels (breaks sellerlens.io). Use named tunnel + Clerk keys if you must test Clerk on preview.
+- **Native dev-stack (default):** sign in at `/sign-in` with `dev@local.test` / `DevAudit!2026` or register a new account on the preview URL.
+- Creating an audit still needs OpenAI configured in Admin → AI Settings (DB `settings` table) and credits for the user.
 
 ### AI provider configuration (audits / content / images)
 - The default AI provider is **OpenAI**, and its key is read from the **DB `settings` table** (`openai_api_key`, optional `openai_base_url`) — i.e. the **Admin → AI Settings** screen — NOT from the `AI_INTEGRATIONS_OPENAI_*` env (those are only used by the legacy `replit` provider). See `artifacts/api-server/src/lib/openai-client.ts` / `ai-provider.ts`.
@@ -55,6 +60,6 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 - Audit/content/image endpoints require **credits** from the `credits` table (audit = 1 audit credit by default). A brand-new user has 0 credits until onboarding/plan grants them; for testing you can insert a `credits` row for the user id.
 
 ### External secrets
-- Real Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) are required for auth / any UI — currently provisioned.
+- **Local dev-stack:** no Clerk secrets required (native auth). **Production / Clerk mode:** real Clerk keys as today.
 - A real OpenAI key enables the full audit flow; when present it lives in the DB `settings` table (see above). The `AI_INTEGRATIONS_OPENAI_API_KEY` env is only a dummy and does not drive the default OpenAI provider.
 - **Dropbox Excel image URLs (optional):** When `DROPBOX_ACCESS_TOKEN` is set on the API server, Amazon/multi-marketplace **Excel and CSV export** upload listing images to Dropbox and write **Dropbox direct links** in `main_image_url` / `other_image_url*` (instead of signed `/api/marketplace-publish/images/…?token=…`). Requires Dropbox app scopes `files.content.write` and `sharing.write`. Optional `DROPBOX_EXPORT_PREFIX` (default `/ecommerce-guru/exports`). Live marketplace publish is unchanged. Without the token, export keeps the previous signed-URL behavior.

@@ -31,10 +31,15 @@ import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxy
 
 const app: Express = express();
 
+const nativeAuthEnabled = process.env.NATIVE_AUTH_ENABLED === "true";
+
 const useClerkFrontendApiProxy =
-  process.env.ENABLE_CLERK_PROXY === "true"
-  || process.env.ENABLE_CLOUD_AGENT_QUICK_TUNNEL === "true"
-  || (process.env.NODE_ENV !== "production" && process.env.ENABLE_CLERK_PROXY !== "false");
+  !nativeAuthEnabled
+  && (
+    process.env.ENABLE_CLERK_PROXY === "true"
+    || process.env.ENABLE_CLOUD_AGENT_QUICK_TUNNEL === "true"
+    || (process.env.NODE_ENV !== "production" && process.env.ENABLE_CLERK_PROXY !== "false")
+  );
 
 app.use(helmet({
   contentSecurityPolicy: false,
