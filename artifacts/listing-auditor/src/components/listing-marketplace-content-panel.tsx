@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Loader2, Save, Sparkles } from "lucide-react";
+import { Check, Loader2, Save, Sparkles } from "lucide-react";
 import { getGetAuditQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import type { GeneratedContent } from "@workspace/api-client-react";
@@ -95,8 +93,6 @@ export function ListingMarketplaceContentPanel({
     return map;
   }, [contentVariants, legacyGeneratedContent, legacyMarketplaceId]);
 
-  const [generateMenuOpen, setGenerateMenuOpen] = useState(false);
-  const [batchSelected, setBatchSelected] = useState<Set<number>>(() => new Set());
   const [generatingMarketplaceIds, setGeneratingMarketplaceIds] = useState<Set<number>>(
     () => new Set(),
   );
@@ -108,11 +104,6 @@ export function ListingMarketplaceContentPanel({
     }
     onContentMarketplaceChange(contentMarketplaces[0].id);
   }, [contentMarketplaces, contentMarketplaceId, onContentMarketplaceChange]);
-
-  useEffect(() => {
-    if (contentMarketplaceId == null) return;
-    setBatchSelected(new Set([contentMarketplaceId]));
-  }, [contentMarketplaceId]);
 
   useEffect(() => {
     if (!isOptimizing) setGeneratingMarketplaceIds(new Set());
@@ -198,53 +189,24 @@ export function ListingMarketplaceContentPanel({
 
   const useCompareLayout = Boolean(showListingCompare && existingForTab);
 
-  function setBatchMarketplaceChecked(id: number, checked: boolean) {
-    setBatchSelected((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  function selectAllBatch() {
-    setBatchSelected(new Set(contentMarketplaces.map((m) => m.id)));
-  }
-
-  const batchIds = [...batchSelected];
-  const hasGenerateSelection = batchIds.length > 0;
-
-  const generateControlsDisabled =
+  const primaryGenerateDisabled =
     optimizeDisabled
     || isOptimizing
-    || (contentMarketplaceId == null && contentMarketplaces.length === 0);
-
-  const primaryGenerateDisabled = generateControlsDisabled || !hasGenerateSelection;
-
-  const invokeGenerate = (ids: number[]) => {
-    if (ids.length === 0) return;
-    setGeneratingMarketplaceIds(new Set(ids));
-    onGenerate(ids);
-  };
-
-  const generateBatch = () => {
-    if (batchIds.length === 0) return;
-    invokeGenerate(batchIds);
-    setGenerateMenuOpen(false);
-  };
+    || contentMarketplaceId == null
+    || contentMarketplaces.length === 0;
 
   const runPrimaryGenerate = () => {
-    if (!hasGenerateSelection) return;
-    const ids = contentMarketplaceId != null ? [contentMarketplaceId] : batchIds;
-    invokeGenerate(ids);
+    if (contentMarketplaceId == null) return;
+    setGeneratingMarketplaceIds(new Set([contentMarketplaceId]));
+    onGenerate([contentMarketplaceId]);
   };
 
   const generatingActiveTab = Boolean(
     isOptimizing
     && contentMarketplaceId != null
     && (
-      generatingMarketplaceIds.has(contentMarketplaceId)
-      || batchSelected.has(contentMarketplaceId)
+      generatingMarketplaceIds.size === 0
+      || generatingMarketplaceIds.has(contentMarketplaceId)
     ),
   );
 
@@ -296,83 +258,22 @@ export function ListingMarketplaceContentPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 text-[11px] rounded-r-none border-r-0 pr-3 disabled:pointer-events-none"
+              className="h-8 text-[11px] rounded-md max-w-[11rem]"
               onClick={runPrimaryGenerate}
               disabled={primaryGenerateDisabled}
             >
               {isOptimizing ? (
                 <>
-                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin shrink-0" />
                   Generating…
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                  <span className="max-w-[9rem] truncate">{primaryGenerateLabel}</span>
+                  <Sparkles className="w-3 h-3 mr-1 opacity-70 shrink-0" />
+                  <span className="truncate">{primaryGenerateLabel}</span>
                 </>
               )}
             </Button>
-            <Popover open={generateMenuOpen} onOpenChange={setGenerateMenuOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2 rounded-l-none"
-                  disabled={generateControlsDisabled}
-                  aria-label="Choose marketplaces to generate"
-                >
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-56 p-0">
-                <div className="px-3 py-2 border-b border-slate-100">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    Generate for
-                  </p>
-                </div>
-                <div className="max-h-48 overflow-y-auto px-3 py-2 space-y-2">
-                  {contentMarketplaces.map((m) => (
-                    <label
-                      key={m.id}
-                      className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer"
-                    >
-                      <Checkbox
-                        checked={batchSelected.has(m.id)}
-                        onCheckedChange={(checked) =>
-                          setBatchMarketplaceChecked(m.id, checked === true)
-                        }
-                        disabled={isOptimizing || optimizeDisabled}
-                      />
-                      <span className="flex-1">{m.name}</span>
-                      {variantMap.has(m.id) ? (
-                        <Check className="w-3 h-3 text-emerald-600 shrink-0" aria-hidden />
-                      ) : null}
-                    </label>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-slate-100 bg-slate-50/80">
-                  <button
-                    type="button"
-                    className="text-[10px] font-medium text-slate-600 hover:text-slate-900"
-                    onClick={selectAllBatch}
-                    disabled={isOptimizing || optimizeDisabled}
-                  >
-                    Select all
-                  </button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 text-[10px]"
-                    onClick={generateBatch}
-                    disabled={primaryGenerateDisabled}
-                  >
-                    Generate
-                    {batchIds.length > 1 ? ` (${batchIds.length})` : ""}
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
           </div>
         </div>
       )}
@@ -424,24 +325,14 @@ export function ListingMarketplaceContentPanel({
           ) : useCompareLayout ? (
             <>
               {!hasActiveContent && !generatingActiveTab && (
-                <div className="px-4 pt-4 pb-2 space-y-3 border-b border-orange-100/80">
+                <div className="px-4 pt-4 pb-2 border-b border-orange-100/80">
                   <p className="text-[11px] text-slate-600 leading-relaxed">
                     Compare your current listing on{" "}
                     <span className="font-semibold text-slate-800">{activeMarketplace?.name}</span>{" "}
-                    with AI-optimized copy for this marketplace. Click{" "}
-                    <span className="font-semibold text-slate-800">Generate</span> above to create
-                    marketplace-specific content for this tab.
+                    with AI-optimized copy for this marketplace. Use{" "}
+                    <span className="font-semibold text-slate-800">{primaryGenerateLabel}</span>{" "}
+                    at the top right.
                   </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 text-[11px] bg-orange-500 hover:bg-orange-600"
-                    disabled={primaryGenerateDisabled}
-                    onClick={runPrimaryGenerate}
-                  >
-                    <Sparkles className="w-3 h-3 mr-1.5" />
-                    {primaryGenerateLabel}
-                  </Button>
                 </div>
               )}
               <ListingMarketplaceContentCompare
@@ -476,18 +367,9 @@ export function ListingMarketplaceContentPanel({
               <p className="text-[11px] text-slate-600">
                 No optimized content for{" "}
                 <span className="font-semibold text-slate-800">{activeMarketplace?.name ?? "this marketplace"}</span>{" "}
-                yet.
+                yet. Use <span className="font-semibold text-slate-800">{primaryGenerateLabel}</span> at the top
+                right.
               </p>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 text-[11px] bg-orange-500 hover:bg-orange-600"
-                disabled={primaryGenerateDisabled}
-                onClick={runPrimaryGenerate}
-              >
-                <Sparkles className="w-3 h-3 mr-1.5" />
-                {primaryGenerateLabel}
-              </Button>
               {suggestions.length > 0 && (
                 <ListingSuggestionsCard suggestions={suggestions} />
               )}
