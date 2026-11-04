@@ -7,7 +7,6 @@ import {
   Trophy,
   Star,
   ArrowUpRight,
-  Link as LinkIcon,
   Target,
   Sparkles,
   History,
@@ -31,6 +30,14 @@ import { inferAuditSourceType } from "@/lib/product-mappers";
 import { PROJECT_ORIGIN_AUDIT_LISTING } from "@/lib/audit-project-origin";
 import { appendReturnTo } from "@/lib/navigation-return";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -100,7 +107,7 @@ function AuditListingHistory() {
           <CardContent className="py-10 px-6 text-center">
             <p className="text-sm font-medium text-foreground">No listing audits yet</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              Paste a product URL or ASIN above and run your first analysis. Completed audits will appear here.
+              Click Audit Listing to analyze a product page. Completed audits will appear here.
             </p>
           </CardContent>
         ) : (
@@ -170,6 +177,7 @@ function AuditListingHistory() {
 
 export default function AuditListings() {
   const [url, setUrl] = useState("");
+  const [auditDialogOpen, setAuditDialogOpen] = useState(false);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -230,6 +238,8 @@ export default function AuditListings() {
                 queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
                 refreshCreditBalances(queryClient);
+                setAuditDialogOpen(false);
+                setUrl("");
                 navigate(`/audits/${audit.id}?returnTo=/audit-listings`);
               },
               onError: () => {
@@ -387,37 +397,67 @@ export default function AuditListings() {
         </div>
       </div>
 
-      {/* URL Input */}
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-5 py-4 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
-          <LinkIcon className="w-5 h-5 text-orange-400 flex-shrink-0" />
-          <input
-            type="text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
-            placeholder="Paste any product page URL or Amazon ASIN..."
-            className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-base outline-none min-w-0"
-            disabled={isLoading}
-          />
-          <Button
-            onClick={handleAnalyze}
-            disabled={isLoading || !url.trim()}
-            className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-6 h-11 font-semibold flex items-center gap-2"
-          >
-            {isLoading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" />Analyzing...</>
-            ) : (
-              <><Sparkles className="w-4 h-4" />Analyze Now</>
-            )}
-          </Button>
-        </div>
-        <p className="text-center text-sm text-muted-foreground mt-3">
+      <div className="max-w-3xl mx-auto text-center space-y-3">
+        <Button
+          type="button"
+          size="lg"
+          onClick={() => setAuditDialogOpen(true)}
+          disabled={isLoading}
+          className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-10 h-12 text-base font-semibold gap-2 shadow-md"
+        >
+          <FileSearch className="w-5 h-5" />
+          Audit Listing
+        </Button>
+        <p className="text-sm text-muted-foreground">
           Works with <span className="text-orange-500 font-medium">Amazon</span>,{" "}
           <span className="text-orange-500 font-medium">Shopify</span>, and{" "}
           <span className="text-orange-500 font-medium">WooCommerce</span> product pages
         </p>
       </div>
+
+      <Dialog
+        open={auditDialogOpen}
+        onOpenChange={(open) => {
+          if (!isLoading) setAuditDialogOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Audit Listing</DialogTitle>
+            <DialogDescription>
+              Paste a product page URL or Amazon ASIN to run an AI listing audit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <Input
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+              placeholder="Paste any product page URL or Amazon ASIN..."
+              disabled={isLoading}
+              autoFocus
+            />
+            <Button
+              onClick={handleAnalyze}
+              disabled={isLoading || !url.trim()}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-11 font-semibold gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Analyze Now
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AuditListingHistory />
     </div>
