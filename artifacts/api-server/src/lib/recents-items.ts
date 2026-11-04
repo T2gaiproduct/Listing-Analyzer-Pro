@@ -32,6 +32,11 @@ export function activitySortTime(
   return createdAt ? new Date(createdAt).getTime() : 0;
 }
 
+/** Same destination as Product Explorer row click (not the audit workflow wizard). */
+export function listingProductRecentsUrl(auditId: number): string {
+  return `/products/${auditId}?source=listing&step=overview`;
+}
+
 export function recentsTypeLabel(type: string): string {
   switch (type) {
     case "audit": return "Audit Results";
@@ -68,7 +73,7 @@ export function classifyAuditRecentsItem(
         : classified.sourceTypeLabel;
   return {
     type,
-    url: classified.isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
+    url: classified.isAuditListing ? `/audits/${a.id}` : listingProductRecentsUrl(a.id),
     typeLabel,
   };
 }
@@ -366,11 +371,11 @@ export async function enrichRecentsAuditTypeLabels(items: RecentsItem[]): Promis
     if (catalog.isShopifyImport && !importFromMarketplaceLabel) {
       item.type = "listing";
       item.typeLabel = "Shopify Import";
-      item.url = `/audits/workflow?resume=${item.id}`;
+      item.url = listingProductRecentsUrl(item.id);
     } else if (catalog.isWooCommerceImport && !importFromMarketplaceLabel) {
       item.type = "listing";
       item.typeLabel = "WooCommerce Import";
-      item.url = `/audits/workflow?resume=${item.id}`;
+      item.url = listingProductRecentsUrl(item.id);
     } else if (importFromMarketplaceLabel && catalog.isShopifyImport) {
       item.typeLabel = "Shopify Import";
     } else if (importFromMarketplaceLabel && catalog.isWooCommerceImport) {
