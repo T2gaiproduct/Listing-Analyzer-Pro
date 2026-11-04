@@ -29,7 +29,9 @@ import {
 import { loadAuditIdsWithProductProfiles } from "../lib/audit-product-source.js";
 import {
   loadRecentsScoped,
-  buildRecentsItems,
+  buildEnrichedRecentsItems,
+  enrichRecentsAuditTypeLabels,
+  type RecentsItem,
   sortRecentsItems,
   activitySortTime,
   classifyAuditRecentsItem,
@@ -100,8 +102,7 @@ router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request
     .where(pinFilter);
 
   const pinnedSet = new Set(pins.map((p) => `${p.itemType}-${p.itemId}`));
-  const profileAuditIds = await loadAuditIdsWithProductProfiles(scopedData.audits.map((a) => a.id));
-  const items = buildRecentsItems(scopedData, pinnedSet, profileAuditIds);
+  const items = await buildEnrichedRecentsItems(scopedData, pinnedSet);
   sortRecentsItems(items, scopedData.worked);
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
@@ -137,6 +138,8 @@ router.get("/search/projects", requireAuth, resolveTeamAndWorkspace, async (req:
             name: auditsTable.projectName,
             productName: auditsTable.productName,
             asin: auditsTable.asin,
+            projectOrigin: auditsTable.projectOrigin,
+            importMarketplace: auditsTable.importMarketplace,
             category: auditsTable.category,
             overallScore: auditsTable.overallScore,
             imageUrls: auditsTable.imageUrls,
@@ -226,7 +229,7 @@ router.get("/search/projects", requireAuth, resolveTeamAndWorkspace, async (req:
 
   const profileAuditIds = await loadAuditIdsWithProductProfiles(audits.map((a) => a.id));
 
-  const items = [
+  const items: RecentsItem[] = [
     ...audits.map((a) => {
       const classified = classifyAuditRecentsItem(a, { hasProductProfile: profileAuditIds.has(a.id) });
       return {
@@ -287,6 +290,8 @@ router.get("/search/projects", requireAuth, resolveTeamAndWorkspace, async (req:
       imageUrl: null,
     })),
   ];
+
+  await enrichRecentsAuditTypeLabels(items);
 
   items.sort((a, b) => {
     const aTime = activitySortTime(worked, a.type, a.id, a.createdAt, a.updatedAt);

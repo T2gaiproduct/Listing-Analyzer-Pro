@@ -13,6 +13,8 @@ import {
   type MemberWorkedProjects,
 } from "./member-projects";
 import { classifyAuditForProductExplorer } from "./audit-project-origin.js";
+import { loadAuditIdsWithProductProfiles } from "./audit-product-source.js";
+import { loadAuditCatalogExtras } from "./product-marketplaces.js";
 
 export function activitySortTime(
   worked: MemberWorkedProjects | null,
@@ -57,10 +59,17 @@ export function classifyAuditRecentsItem(
     hasProductProfile: opts?.hasProductProfile === true,
   });
   const type = classified.sourceType;
+  const typeLabel = classified.isShopifyImport
+    ? "Shopify Import"
+    : classified.isWooCommerceImport
+      ? "WooCommerce Import"
+      : classified.isEbayImport
+        ? "eBay Import"
+        : classified.sourceTypeLabel;
   return {
     type,
     url: classified.isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
-    typeLabel: classified.sourceTypeLabel,
+    typeLabel,
   };
 }
 
@@ -151,6 +160,8 @@ export async function loadRecentsScoped(
             name: auditsTable.projectName,
             productName: auditsTable.productName,
             asin: auditsTable.asin,
+            projectOrigin: auditsTable.projectOrigin,
+            importMarketplace: auditsTable.importMarketplace,
             category: auditsTable.category,
             status: auditsTable.status,
             overallScore: auditsTable.overallScore,
@@ -331,6 +342,43 @@ export function buildRecentsItems(
   return items;
 }
 
+/** Product profiles + catalog extras — same labels as Product Explorer. */
+export async function buildEnrichedRecentsItems(
+  data: RecentsScopedData,
+  pinnedSet?: Set<string>,
+): Promise<RecentsItem[]> {
+  const profileAuditIds = await loadAuditIdsWithProductProfiles(data.audits.map((a) => a.id));
+  const items = buildRecentsItems(data, pinnedSet, profileAuditIds);
+  await enrichRecentsAuditTypeLabels(items);
+  return items;
+}
+
+/** Align recents subtitles with Product Explorer (Shopify/Woo catalog imports). */
+export async function enrichRecentsAuditTypeLabels(items: RecentsItem[]): Promise<void> {
+  const auditItems = items.filter((item) => item.type === "audit" || item.type === "listing");
+  if (auditItems.length === 0) return;
+
+  const extras = await loadAuditCatalogExtras(auditItems.map((item) => item.id));
+  for (const item of auditItems) {
+    const catalog = extras.get(item.id);
+    if (!catalog) continue;
+    const importFromMarketplaceLabel = item.typeLabel.startsWith("Import from ");
+    if (catalog.isShopifyImport && !importFromMarketplaceLabel) {
+      item.type = "listing";
+      item.typeLabel = "Shopify Import";
+      item.url = `/audits/workflow?resume=${item.id}`;
+    } else if (catalog.isWooCommerceImport && !importFromMarketplaceLabel) {
+      item.type = "listing";
+      item.typeLabel = "WooCommerce Import";
+      item.url = `/audits/workflow?resume=${item.id}`;
+    } else if (importFromMarketplaceLabel && catalog.isShopifyImport) {
+      item.typeLabel = "Shopify Import";
+    } else if (importFromMarketplaceLabel && catalog.isWooCommerceImport) {
+      item.typeLabel = "WooCommerce Import";
+    }
+  }
+}
+
 export function sortRecentsItems(
   items: RecentsItem[],
   worked: MemberWorkedProjects | null,
@@ -385,10 +433,10 @@ function statusBadgeColor(label: string): "orange" | "green" | "blue" | "red" | 
   return "gray";
 }
 
-export function buildDashboardRecentProjects(
+export async function buildDashboardRecentProjects(
   data: RecentsScopedData,
   limit = 5,
-): DashboardRecentProject[] {
+): Promise<DashboardRecentProject[]> {
   const statusByKey = new Map<string, { status: string; overallScore?: number | null }>();
   for (const a of data.audits) {
     statusByKey.set(`audit-${a.id}`, { status: a.status, overallScore: a.overallScore });
@@ -404,7 +452,7 @@ export function buildDashboardRecentProjects(
     statusByKey.set(`ads-${a.id}`, { status: a.status });
   }
 
-  const items = buildRecentsItems(data);
+  const items = await buildEnrichedRecentsItems(data);
   sortRecentsItems(items, data.worked, false);
 
   return items.slice(0, limit).map((item) => {
