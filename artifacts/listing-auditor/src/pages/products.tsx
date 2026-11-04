@@ -140,13 +140,17 @@ function canExportListingProduct(product: ProductListItem): boolean {
 }
 
 function productTypeLabel(product: ProductListItem): string {
-  return product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project";
+  const raw = product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project";
+  if (raw === "Import from Shopify") return "Shopify Import";
+  if (raw === "Import from WooCommerce") return "WooCommerce Import";
+  if (raw === "Import from eBay") return "eBay Import";
+  if (raw === "Import from Walmart") return "Walmart Import";
+  return raw;
 }
 
+/** Live/target marketplace channels only — import type is filtered via TYPE pills, not duplicated here. */
 function productChannelTags(product: ProductListItem): string[] {
   const tags = new Set(product.channels.map((c) => c.trim()).filter(Boolean));
-  if (product.isShopifyImport) tags.add("Shopify");
-  if (product.isWooCommerceImport) tags.add("WooCommerce");
   return [...tags].sort((a, b) => a.localeCompare(b));
 }
 

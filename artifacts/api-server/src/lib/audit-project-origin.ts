@@ -114,9 +114,22 @@ export function classifyAuditForProductExplorer(opts: {
   }
   if (origin === PROJECT_ORIGIN_BUILD_BRAND_IMPORT) {
     const mp = parseImportMarketplace(opts.importMarketplace);
+    const importDisplayLabel = mp === "shopify"
+      ? "Shopify Import"
+      : mp === "woocommerce"
+        ? "WooCommerce Import"
+        : mp === "ebay"
+          ? "eBay Import"
+          : mp === "walmart"
+            ? "Walmart Import"
+            : mp === "amazon"
+              ? "Import from Amazon"
+              : mp
+                ? IMPORT_MARKETPLACE_LABELS[mp]
+                : "Import from link";
     return {
       sourceType: "listing",
-      sourceTypeLabel: mp ? IMPORT_MARKETPLACE_LABELS[mp] : "Import from link",
+      sourceTypeLabel: importDisplayLabel,
       isAuditListing: false,
       isShopifyImport: mp === "shopify",
       isWooCommerceImport: mp === "woocommerce",
