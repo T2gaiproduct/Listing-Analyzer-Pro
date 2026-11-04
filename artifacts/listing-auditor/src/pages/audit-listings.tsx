@@ -397,16 +397,24 @@ export default function AuditListings() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto text-center">
+      <div className="max-w-3xl mx-auto w-full">
         <Button
           type="button"
-          size="lg"
           onClick={() => setAuditDialogOpen(true)}
           disabled={isLoading}
-          className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-10 h-12 text-base font-semibold gap-2 shadow-md"
+          className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-2xl h-14 text-base font-semibold gap-2 shadow-sm border border-orange-500/20"
         >
-          <FileSearch className="w-5 h-5" />
-          Audit Listing
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Analyzing…
+            </>
+          ) : (
+            <>
+              <FileSearch className="w-5 h-5" />
+              Audit Listing
+            </>
+          )}
         </Button>
       </div>
 
