@@ -39,7 +39,10 @@ import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
 import {
   pickDefaultMarketplaceId,
   useListingContentMarketplaces,
+  type ContentMarketplaceOption,
 } from "@/lib/content-marketplaces";
+
+const EMPTY_CONTENT_MARKETPLACES: ContentMarketplaceOption[] = [];
 import {
   ListingMarketplaceContentPanel,
   type ContentVariantRow,
@@ -1009,7 +1012,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
       }),
   });
   const { data: listingContentMarketplaceData, isLoading: marketplacesLoading } = useListingContentMarketplaces();
-  const contentMarketplaces = listingContentMarketplaceData?.marketplaces ?? [];
+  const contentMarketplaces = useMemo(
+    () => listingContentMarketplaceData?.marketplaces ?? EMPTY_CONTENT_MARKETPLACES,
+    [listingContentMarketplaceData?.marketplaces],
+  );
+  const auditSavedContentMarketplaceId = (effectiveAudit as { contentMarketplaceId?: number | null } | undefined)
+    ?.contentMarketplaceId;
   const [contentMarketplaceId, setContentMarketplaceId] = useState<number | undefined>(undefined);
   const [listingPreviewMarketplaceId, setListingPreviewMarketplaceId] = useState<number | undefined>(
     undefined,
@@ -1017,11 +1025,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   useEffect(() => {
     if (!contentMarketplaces.length) return;
-    const saved = (effectiveAudit as { contentMarketplaceId?: number | null } | undefined)?.contentMarketplaceId;
-    setContentMarketplaceId((prev) =>
-      pickDefaultMarketplaceId(contentMarketplaces, saved ?? prev) ?? contentMarketplaces[0]?.id,
-    );
-  }, [contentMarketplaces, effectiveAudit]);
+    setContentMarketplaceId((prev) => {
+      if (prev != null && contentMarketplaces.some((m) => m.id === prev)) return prev;
+      return pickDefaultMarketplaceId(contentMarketplaces, auditSavedContentMarketplaceId)
+        ?? contentMarketplaces[0]?.id;
+    });
+  }, [contentMarketplaces, auditSavedContentMarketplaceId]);
 
   const contentVariants = useMemo((): ContentVariantRow[] => {
     const raw = (effectiveAudit as { contentVariants?: ContentVariantRow[] } | null)?.contentVariants;
@@ -2086,7 +2095,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
 
-  function handleOptimizeContent(marketplaceIds: number[]) {
+  const handleOptimizeContent = useCallback((marketplaceIds: number[]) => {
     if (!optimizeAuditId) {
       toast({
         title: "Cannot optimize",
@@ -2164,12 +2173,85 @@ export default function ProductDetailPage({ id }: { id: number }) {
         },
       },
     );
-  }
+  }, [
+    auditQueryScope,
+    canEditProduct,
+    contentMarketplaceId,
+    generateContent,
+    id,
+    optimizeAuditId,
+    productQueryScope,
+    queryClient,
+    source,
+    toast,
+    existingListingContent,
+  ]);
 
   const ribbonDisplayName =
     product.isShopifyImport || product.isWooCommerceImport
       ? (listingProduct?.listingTitle ?? listingProduct?.title ?? product.name)
       : product.name;
+
+  const optimizeContentPanel = useMemo(
+    () => (
+      <ListingMarketplaceContentPanel
+        contentMarketplaces={contentMarketplaces}
+        contentMarketplaceId={contentMarketplaceId}
+        onContentMarketplaceChange={setContentMarketplaceId}
+        contentVariants={contentVariants}
+        legacyGeneratedContent={effectiveAudit?.generatedContent}
+        legacyMarketplaceId={auditSavedContentMarketplaceId}
+        suggestions={listingSuggestions}
+        isOptimizing={isOptimizingContent}
+        onGenerate={handleOptimizeContent}
+        optimizeDisabled={!canOptimizeContent}
+        marketplacesLoading={marketplacesLoading}
+        existingContent={existingListingContent}
+        storeDescriptionHtml={
+          listingProduct?.descriptionHtml
+          ?? (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml
+        }
+        showListingCompare={shouldShowExistingListingContent(listingProduct, effectiveAudit)}
+        auditId={optimizeAuditId}
+        onFieldSelectionsSaved={setListingPreviewMarketplaceId}
+        onContentVariantsUpdated={(variants) => {
+          const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
+            ? { ...current, contentVariants: variants }
+            : current);
+          if (optimizeAuditId != null) {
+            queryClient.setQueryData(
+              productAuditQueryKey(optimizeAuditId, auditQueryScope),
+              mergeAudit,
+            );
+          }
+          if (optimizeAuditId !== id) {
+            queryClient.setQueryData(
+              productAuditQueryKey(id, auditQueryScope),
+              mergeAudit,
+            );
+          }
+        }}
+      />
+    ),
+    [
+      auditQueryScope,
+      auditSavedContentMarketplaceId,
+      canOptimizeContent,
+      contentMarketplaceId,
+      contentMarketplaces,
+      contentVariants,
+      effectiveAudit,
+      existingListingContent,
+      handleOptimizeContent,
+      id,
+      isOptimizingContent,
+      listingProduct,
+      listingSuggestions,
+      marketplacesLoading,
+      optimizeAuditId,
+      queryClient,
+    ],
+  );
 
   return (
     <div className="space-y-3 animate-in fade-in duration-300 pb-6">
@@ -2224,46 +2306,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           onSyncToStore={() => syncToStoreMutation.mutate()}
           isSyncingStore={syncToStoreMutation.isPending}
           referenceResearch={referenceResearch}
-          OptimizedContentPanel={(panelProps) => (
-            <ListingMarketplaceContentPanel
-              contentMarketplaces={contentMarketplaces}
-              contentMarketplaceId={contentMarketplaceId}
-              onContentMarketplaceChange={setContentMarketplaceId}
-              contentVariants={contentVariants}
-              legacyGeneratedContent={effectiveAudit?.generatedContent}
-              legacyMarketplaceId={(effectiveAudit as { contentMarketplaceId?: number | null })?.contentMarketplaceId}
-              suggestions={panelProps.suggestions}
-              isOptimizing={panelProps.isOptimizing}
-              onGenerate={handleOptimizeContent}
-              optimizeDisabled={panelProps.optimizeDisabled}
-              marketplacesLoading={marketplacesLoading}
-              existingContent={existingListingContent}
-              storeDescriptionHtml={
-                listingProduct?.descriptionHtml
-                ?? (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml
-              }
-              showListingCompare={shouldShowExistingListingContent(listingProduct, effectiveAudit)}
-              auditId={optimizeAuditId}
-              onFieldSelectionsSaved={setListingPreviewMarketplaceId}
-              onContentVariantsUpdated={(variants) => {
-                const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
-                  ? { ...current, contentVariants: variants }
-                  : current);
-                if (optimizeAuditId != null) {
-                  queryClient.setQueryData(
-                    productAuditQueryKey(optimizeAuditId, auditQueryScope),
-                    mergeAudit,
-                  );
-                }
-                if (optimizeAuditId !== id) {
-                  queryClient.setQueryData(
-                    productAuditQueryKey(id, auditQueryScope),
-                    mergeAudit,
-                  );
-                }
-              }}
-            />
-          )}
+          optimizeContentPanel={optimizeContentPanel}
           overviewContent={
             <ProductExplorerOverviewPreview
               imageUrls={overviewPreview.imageUrls}

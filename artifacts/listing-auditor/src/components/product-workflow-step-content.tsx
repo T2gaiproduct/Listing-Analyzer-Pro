@@ -191,7 +191,7 @@ export function ProductWorkflowStepContent({
   onListingPreviewMarketplaceChange,
   contentVariants,
   contentMarketplaces,
-  OptimizedContentPanel,
+  optimizeContentPanel,
 }: {
   step: ProductExplorerWorkflowStepId;
   auditId: number;
@@ -232,20 +232,8 @@ export function ProductWorkflowStepContent({
   onSyncToStore?: () => void;
   isSyncingStore?: boolean;
   referenceResearch?: ReferenceResearchData | null;
-  OptimizedContentPanel: React.ComponentType<{
-    generatedContent: GeneratedContent | null | undefined;
-    existingContent?: {
-      title: string;
-      bulletPoints: string[];
-      keywords: string[];
-      htmlDescription: string;
-    } | null;
-    suggestions: string[];
-    hasGeneratedContent: boolean;
-    isOptimizing: boolean;
-    onOptimize: () => void;
-    optimizeDisabled?: boolean;
-  }>;
+  /** Stable React node (not an inline component) for Optimize Listing step. */
+  optimizeContentPanel?: ReactNode;
 }) {
   const [graphicsStepPanel, setGraphicsStepPanel] = useState<GraphicsStepPanel>("graphics");
 
@@ -298,15 +286,9 @@ export function ProductWorkflowStepContent({
   if (step === 2) {
     return (
       <WorkflowStepShell {...shellProps}>
-        <OptimizedContentPanel
-          generatedContent={generatedContent}
-          existingContent={existingContent}
-          suggestions={suggestions}
-          hasGeneratedContent={hasGeneratedContent}
-          isOptimizing={isOptimizing}
-          onOptimize={onOptimize}
-          optimizeDisabled={optimizeDisabled}
-        />
+        {optimizeContentPanel ?? (
+          <p className="text-[11px] text-slate-500">Optimized content is unavailable.</p>
+        )}
       </WorkflowStepShell>
     );
   }

@@ -108,7 +108,10 @@ export function ListingMarketplaceContentPanel({
 
   useEffect(() => {
     if (contentMarketplaceId == null) return;
-    setBatchSelected(new Set([contentMarketplaceId]));
+    setBatchSelected((prev) => {
+      if (prev.size > 0) return prev;
+      return new Set([contentMarketplaceId]);
+    });
   }, [contentMarketplaceId]);
 
   const activeMarketplace = contentMarketplaceId != null
@@ -191,11 +194,11 @@ export function ListingMarketplaceContentPanel({
 
   const useCompareLayout = Boolean(showListingCompare && existingForTab);
 
-  function toggleBatch(id: number) {
+  function setBatchMarketplaceChecked(id: number, checked: boolean) {
     setBatchSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (checked) next.add(id);
+      else next.delete(id);
       return next;
     });
   }
@@ -245,7 +248,10 @@ export function ListingMarketplaceContentPanel({
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => onContentMarketplaceChange(m.id)}
+                    onClick={() => {
+                      onContentMarketplaceChange(m.id);
+                      setBatchSelected(new Set([m.id]));
+                    }}
                     className={cn(
                       "relative px-4 py-2.5 text-left border-b-2 transition-colors shrink-0 -mb-px",
                       isActive
@@ -312,7 +318,9 @@ export function ListingMarketplaceContentPanel({
                     >
                       <Checkbox
                         checked={batchSelected.has(m.id)}
-                        onCheckedChange={() => toggleBatch(m.id)}
+                        onCheckedChange={(checked) =>
+                          setBatchMarketplaceChecked(m.id, checked === true)
+                        }
                         disabled={isOptimizing || optimizeDisabled}
                       />
                       <span className="flex-1">{m.name}</span>
