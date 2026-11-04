@@ -1737,6 +1737,162 @@ export default function ProductDetailPage({ id }: { id: number }) {
     id,
   ]);
 
+  const canOptimizeContent = canEditProduct && optimizeAuditId != null;
+  const isOptimizingContent = generateContent.isPending;
+
+  const handleOptimizeContent = useCallback((marketplaceIds: number[]) => {
+    if (!optimizeAuditId) {
+      toast({
+        title: "Cannot optimize",
+        description: "This product has no linked listing audit.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!canEditProduct) return;
+    const ids = marketplaceIds.length > 0 ? marketplaceIds : (contentMarketplaceId != null ? [contentMarketplaceId] : []);
+
+    generateContent.mutate(
+      { auditId: optimizeAuditId, contentMarketplaceIds: ids },
+      {
+        onSuccess: (payload) => {
+          const generatedContent: GeneratedContent = {
+            title: payload.title,
+            bulletPoints: payload.bulletPoints,
+            keywords: payload.keywords,
+            htmlDescription: payload.htmlDescription,
+          };
+          const sourceSnapshot = existingListingContent
+            ? {
+                title: existingListingContent.title,
+                bulletPoints: existingListingContent.bulletPoints,
+                keywords: existingListingContent.keywords,
+                htmlDescription: existingListingContent.htmlDescription,
+              }
+            : undefined;
+
+          const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
+            ? {
+                ...current,
+                generatedContent,
+                contentMarketplaceId: payload.contentMarketplaceId ?? current.contentMarketplaceId,
+                contentVariants: payload.contentVariants ?? current.contentVariants,
+                sourceListingContent: current.sourceListingContent ?? sourceSnapshot,
+              }
+            : current);
+
+          queryClient.setQueryData<GetAuditQueryResult>(
+            productAuditQueryKey(optimizeAuditId, auditQueryScope),
+            mergeAudit,
+          );
+          if (optimizeAuditId !== id) {
+            queryClient.setQueryData<GetAuditQueryResult>(
+              productAuditQueryKey(id, auditQueryScope),
+              mergeAudit,
+            );
+          }
+          if (payload.contentMarketplaceId != null) {
+            setContentMarketplaceId(payload.contentMarketplaceId);
+          }
+          void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
+          void queryClient.invalidateQueries({
+            queryKey: productAuditQueryKey(optimizeAuditId, auditQueryScope),
+          });
+          refreshCreditBalances(queryClient);
+
+          const okCount = payload.batchResults?.filter((r) => r.ok).length ?? ids.length;
+          const failCount = payload.batchResults?.filter((r) => !r.ok).length ?? 0;
+          toast({
+            title: failCount > 0 ? "Partially generated" : "Optimized content ready",
+            description: failCount > 0
+              ? `${okCount} marketplace(s) succeeded, ${failCount} failed. ${okCount} AI credit(s) used.`
+              : `${okCount} marketplace(s) updated. ${okCount} AI credit(s) used.`,
+          });
+        },
+        onError: (err) => {
+          toast({
+            title: "Optimize failed",
+            description: formatOptimizeError(err),
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  }, [
+    auditQueryScope,
+    canEditProduct,
+    contentMarketplaceId,
+    generateContent,
+    id,
+    optimizeAuditId,
+    productQueryScope,
+    queryClient,
+    source,
+    toast,
+    existingListingContent,
+  ]);
+
+  const optimizeContentPanel = useMemo(
+    () => (
+      <ListingMarketplaceContentPanel
+        contentMarketplaces={contentMarketplaces}
+        contentMarketplaceId={contentMarketplaceId}
+        onContentMarketplaceChange={setContentMarketplaceId}
+        contentVariants={contentVariants}
+        legacyGeneratedContent={effectiveAudit?.generatedContent}
+        legacyMarketplaceId={auditSavedContentMarketplaceId}
+        suggestions={listingSuggestions}
+        isOptimizing={isOptimizingContent}
+        onGenerate={handleOptimizeContent}
+        optimizeDisabled={!canOptimizeContent}
+        marketplacesLoading={marketplacesLoading}
+        existingContent={existingListingContent}
+        storeDescriptionHtml={
+          listingProduct?.descriptionHtml
+          ?? (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml
+        }
+        showListingCompare={shouldShowExistingListingContent(listingProduct, effectiveAudit)}
+        auditId={optimizeAuditId}
+        onFieldSelectionsSaved={setListingPreviewMarketplaceId}
+        onContentVariantsUpdated={(variants) => {
+          const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
+            ? { ...current, contentVariants: variants }
+            : current);
+          if (optimizeAuditId != null) {
+            queryClient.setQueryData(
+              productAuditQueryKey(optimizeAuditId, auditQueryScope),
+              mergeAudit,
+            );
+          }
+          if (optimizeAuditId !== id) {
+            queryClient.setQueryData(
+              productAuditQueryKey(id, auditQueryScope),
+              mergeAudit,
+            );
+          }
+        }}
+      />
+    ),
+    [
+      auditQueryScope,
+      auditSavedContentMarketplaceId,
+      canOptimizeContent,
+      contentMarketplaceId,
+      contentMarketplaces,
+      contentVariants,
+      effectiveAudit,
+      existingListingContent,
+      handleOptimizeContent,
+      id,
+      isOptimizingContent,
+      listingProduct,
+      listingSuggestions,
+      marketplacesLoading,
+      optimizeAuditId,
+      queryClient,
+    ],
+  );
+
   if (!validId) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
@@ -2092,166 +2248,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
     setEditForm((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
-  const canOptimizeContent = canEditProduct && optimizeAuditId != null;
-  const isOptimizingContent = generateContent.isPending;
-
-  const handleOptimizeContent = useCallback((marketplaceIds: number[]) => {
-    if (!optimizeAuditId) {
-      toast({
-        title: "Cannot optimize",
-        description: "This product has no linked listing audit.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!canEditProduct) return;
-    const ids = marketplaceIds.length > 0 ? marketplaceIds : (contentMarketplaceId != null ? [contentMarketplaceId] : []);
-
-    generateContent.mutate(
-      { auditId: optimizeAuditId, contentMarketplaceIds: ids },
-      {
-        onSuccess: (payload) => {
-          const generatedContent: GeneratedContent = {
-            title: payload.title,
-            bulletPoints: payload.bulletPoints,
-            keywords: payload.keywords,
-            htmlDescription: payload.htmlDescription,
-          };
-          const sourceSnapshot = existingListingContent
-            ? {
-                title: existingListingContent.title,
-                bulletPoints: existingListingContent.bulletPoints,
-                keywords: existingListingContent.keywords,
-                htmlDescription: existingListingContent.htmlDescription,
-              }
-            : undefined;
-
-          const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
-            ? {
-                ...current,
-                generatedContent,
-                contentMarketplaceId: payload.contentMarketplaceId ?? current.contentMarketplaceId,
-                contentVariants: payload.contentVariants ?? current.contentVariants,
-                sourceListingContent: current.sourceListingContent ?? sourceSnapshot,
-              }
-            : current);
-
-          queryClient.setQueryData<GetAuditQueryResult>(
-            productAuditQueryKey(optimizeAuditId, auditQueryScope),
-            mergeAudit,
-          );
-          if (optimizeAuditId !== id) {
-            queryClient.setQueryData<GetAuditQueryResult>(
-              productAuditQueryKey(id, auditQueryScope),
-              mergeAudit,
-            );
-          }
-          if (payload.contentMarketplaceId != null) {
-            setContentMarketplaceId(payload.contentMarketplaceId);
-          }
-          void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
-          void queryClient.invalidateQueries({
-            queryKey: productAuditQueryKey(optimizeAuditId, auditQueryScope),
-          });
-          refreshCreditBalances(queryClient);
-
-          const okCount = payload.batchResults?.filter((r) => r.ok).length ?? ids.length;
-          const failCount = payload.batchResults?.filter((r) => !r.ok).length ?? 0;
-          toast({
-            title: failCount > 0 ? "Partially generated" : "Optimized content ready",
-            description: failCount > 0
-              ? `${okCount} marketplace(s) succeeded, ${failCount} failed. ${okCount} AI credit(s) used.`
-              : `${okCount} marketplace(s) updated. ${okCount} AI credit(s) used.`,
-          });
-        },
-        onError: (err) => {
-          toast({
-            title: "Optimize failed",
-            description: formatOptimizeError(err),
-            variant: "destructive",
-          });
-        },
-      },
-    );
-  }, [
-    auditQueryScope,
-    canEditProduct,
-    contentMarketplaceId,
-    generateContent,
-    id,
-    optimizeAuditId,
-    productQueryScope,
-    queryClient,
-    source,
-    toast,
-    existingListingContent,
-  ]);
-
   const ribbonDisplayName =
     product.isShopifyImport || product.isWooCommerceImport
       ? (listingProduct?.listingTitle ?? listingProduct?.title ?? product.name)
       : product.name;
-
-  const optimizeContentPanel = useMemo(
-    () => (
-      <ListingMarketplaceContentPanel
-        contentMarketplaces={contentMarketplaces}
-        contentMarketplaceId={contentMarketplaceId}
-        onContentMarketplaceChange={setContentMarketplaceId}
-        contentVariants={contentVariants}
-        legacyGeneratedContent={effectiveAudit?.generatedContent}
-        legacyMarketplaceId={auditSavedContentMarketplaceId}
-        suggestions={listingSuggestions}
-        isOptimizing={isOptimizingContent}
-        onGenerate={handleOptimizeContent}
-        optimizeDisabled={!canOptimizeContent}
-        marketplacesLoading={marketplacesLoading}
-        existingContent={existingListingContent}
-        storeDescriptionHtml={
-          listingProduct?.descriptionHtml
-          ?? (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml
-        }
-        showListingCompare={shouldShowExistingListingContent(listingProduct, effectiveAudit)}
-        auditId={optimizeAuditId}
-        onFieldSelectionsSaved={setListingPreviewMarketplaceId}
-        onContentVariantsUpdated={(variants) => {
-          const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
-            ? { ...current, contentVariants: variants }
-            : current);
-          if (optimizeAuditId != null) {
-            queryClient.setQueryData(
-              productAuditQueryKey(optimizeAuditId, auditQueryScope),
-              mergeAudit,
-            );
-          }
-          if (optimizeAuditId !== id) {
-            queryClient.setQueryData(
-              productAuditQueryKey(id, auditQueryScope),
-              mergeAudit,
-            );
-          }
-        }}
-      />
-    ),
-    [
-      auditQueryScope,
-      auditSavedContentMarketplaceId,
-      canOptimizeContent,
-      contentMarketplaceId,
-      contentMarketplaces,
-      contentVariants,
-      effectiveAudit,
-      existingListingContent,
-      handleOptimizeContent,
-      id,
-      isOptimizingContent,
-      listingProduct,
-      listingSuggestions,
-      marketplacesLoading,
-      optimizeAuditId,
-      queryClient,
-    ],
-  );
 
   return (
     <div className="space-y-3 animate-in fade-in duration-300 pb-6">
