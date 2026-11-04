@@ -397,12 +397,12 @@ export default function AuditListings() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto w-full">
+      <div className="max-w-3xl mx-auto flex justify-center">
         <Button
           type="button"
           onClick={() => setAuditDialogOpen(true)}
           disabled={isLoading}
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-2xl h-14 text-base font-semibold gap-2 shadow-sm border border-orange-500/20"
+          className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-11 px-8 text-base font-semibold gap-2 shadow-sm"
         >
           {isLoading ? (
             <>
