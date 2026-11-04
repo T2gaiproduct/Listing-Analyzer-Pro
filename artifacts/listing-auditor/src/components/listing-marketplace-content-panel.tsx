@@ -97,6 +97,9 @@ export function ListingMarketplaceContentPanel({
 
   const [generateMenuOpen, setGenerateMenuOpen] = useState(false);
   const [batchSelected, setBatchSelected] = useState<Set<number>>(() => new Set());
+  const [generatingMarketplaceIds, setGeneratingMarketplaceIds] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     if (!contentMarketplaces.length) return;
@@ -108,11 +111,12 @@ export function ListingMarketplaceContentPanel({
 
   useEffect(() => {
     if (contentMarketplaceId == null) return;
-    setBatchSelected((prev) => {
-      if (prev.size > 0) return prev;
-      return new Set([contentMarketplaceId]);
-    });
+    setBatchSelected(new Set([contentMarketplaceId]));
   }, [contentMarketplaceId]);
+
+  useEffect(() => {
+    if (!isOptimizing) setGeneratingMarketplaceIds(new Set());
+  }, [isOptimizing]);
 
   const activeMarketplace = contentMarketplaceId != null
     ? contentMarketplaces.find((m) => m.id === contentMarketplaceId)
@@ -217,16 +221,36 @@ export function ListingMarketplaceContentPanel({
 
   const primaryGenerateDisabled = generateControlsDisabled || !hasGenerateSelection;
 
+  const invokeGenerate = (ids: number[]) => {
+    if (ids.length === 0) return;
+    setGeneratingMarketplaceIds(new Set(ids));
+    onGenerate(ids);
+  };
+
   const generateBatch = () => {
     if (batchIds.length === 0) return;
-    onGenerate(batchIds);
+    invokeGenerate(batchIds);
     setGenerateMenuOpen(false);
   };
 
   const runPrimaryGenerate = () => {
     if (!hasGenerateSelection) return;
-    onGenerate(batchIds);
+    const ids = contentMarketplaceId != null ? [contentMarketplaceId] : batchIds;
+    invokeGenerate(ids);
   };
+
+  const generatingActiveTab = Boolean(
+    isOptimizing
+    && contentMarketplaceId != null
+    && (
+      generatingMarketplaceIds.has(contentMarketplaceId)
+      || batchSelected.has(contentMarketplaceId)
+    ),
+  );
+
+  const primaryGenerateLabel = activeMarketplace?.name
+    ? `Generate for ${activeMarketplace.name}`
+    : "Generate";
 
   return (
     <div className="space-y-4 min-w-0 overflow-x-hidden">
@@ -248,10 +272,7 @@ export function ListingMarketplaceContentPanel({
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => {
-                      onContentMarketplaceChange(m.id);
-                      setBatchSelected(new Set([m.id]));
-                    }}
+                    onClick={() => onContentMarketplaceChange(m.id)}
                     className={cn(
                       "relative px-4 py-2.5 text-left border-b-2 transition-colors shrink-0 -mb-px",
                       isActive
@@ -287,7 +308,7 @@ export function ListingMarketplaceContentPanel({
               ) : (
                 <>
                   <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                  Generate
+                  <span className="max-w-[9rem] truncate">{primaryGenerateLabel}</span>
                 </>
               )}
             </Button>
@@ -393,16 +414,34 @@ export function ListingMarketplaceContentPanel({
         </div>
 
         <div className="min-w-0">
-          {isOptimizing && !hasActiveContent && !useCompareLayout ? (
+          {generatingActiveTab && !hasActiveContent ? (
             <div className="px-4 py-8 text-center">
               <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
-              <p className="text-[11px] text-slate-600">Generating optimized listing copy and attributes…</p>
+              <p className="text-[11px] text-slate-600">
+                Generating optimized copy for {activeMarketplace?.name ?? "this marketplace"}…
+              </p>
             </div>
           ) : useCompareLayout ? (
             <>
-              {suggestions.length > 0 && !hasActiveContent && (
-                <div className="px-4 pt-4">
-                  <ListingSuggestionsCard suggestions={suggestions} />
+              {!hasActiveContent && !generatingActiveTab && (
+                <div className="px-4 pt-4 pb-2 space-y-3 border-b border-orange-100/80">
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Compare your current listing on{" "}
+                    <span className="font-semibold text-slate-800">{activeMarketplace?.name}</span>{" "}
+                    with AI-optimized copy for this marketplace. Click{" "}
+                    <span className="font-semibold text-slate-800">Generate</span> above to create
+                    marketplace-specific content for this tab.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 text-[11px] bg-orange-500 hover:bg-orange-600"
+                    disabled={primaryGenerateDisabled}
+                    onClick={runPrimaryGenerate}
+                  >
+                    <Sparkles className="w-3 h-3 mr-1.5" />
+                    {primaryGenerateLabel}
+                  </Button>
                 </div>
               )}
               <ListingMarketplaceContentCompare
@@ -425,23 +464,32 @@ export function ListingMarketplaceContentPanel({
                   )}
                 </p>
               )}
-              {isOptimizing && (
+              {generatingActiveTab && hasActiveContent && (
                 <div className="px-4 pb-4 flex items-center justify-center gap-2 text-[11px] text-slate-600">
                   <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
-                  Generating optimized copy for {activeMarketplace?.name ?? "this marketplace"}…
+                  Regenerating optimized copy for {activeMarketplace?.name ?? "this marketplace"}…
                 </div>
               )}
             </>
           ) : !hasActiveContent ? (
             <div className="px-4 py-4 space-y-3">
-              <ListingSuggestionsCard suggestions={suggestions} />
-              {!suggestions.length && (
-                <ListingContentCard
-                  content={null}
-                  emptyMessage="No optimized content for this marketplace yet. Choose a marketplace above and click Generate."
-                  accent="orange"
-                  embedded
-                />
+              <p className="text-[11px] text-slate-600">
+                No optimized content for{" "}
+                <span className="font-semibold text-slate-800">{activeMarketplace?.name ?? "this marketplace"}</span>{" "}
+                yet.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-[11px] bg-orange-500 hover:bg-orange-600"
+                disabled={primaryGenerateDisabled}
+                onClick={runPrimaryGenerate}
+              >
+                <Sparkles className="w-3 h-3 mr-1.5" />
+                {primaryGenerateLabel}
+              </Button>
+              {suggestions.length > 0 && (
+                <ListingSuggestionsCard suggestions={suggestions} />
               )}
             </div>
           ) : (

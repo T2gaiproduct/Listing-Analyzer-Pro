@@ -1791,9 +1791,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
               mergeAudit,
             );
           }
-          if (payload.contentMarketplaceId != null) {
-            setContentMarketplaceId(payload.contentMarketplaceId);
-          }
+          setContentMarketplaceId((prev) => {
+            if (prev != null && ids.includes(prev)) return prev;
+            const okIds = payload.batchResults?.filter((r) => r.ok).map((r) => r.contentMarketplaceId) ?? ids;
+            if (prev != null && okIds.includes(prev)) return prev;
+            return payload.contentMarketplaceId ?? prev;
+          });
           void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
           void queryClient.invalidateQueries({
             queryKey: productAuditQueryKey(optimizeAuditId, auditQueryScope),
