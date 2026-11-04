@@ -2,9 +2,10 @@ import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight } from "lucide-react";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
+import { ImageGenerationProgressPanel } from "@/components/image-generation-progress-panel";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -28,14 +29,6 @@ function fetchProject(id: string): Promise<GraphicsProject> {
     if (!r.ok) throw new Error("Failed to fetch project");
     return r.json();
   });
-}
-
-function formatEta(seconds: number): string {
-  if (seconds <= 0) return "Almost done";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
 }
 
 export default function GeneratingPage({ params }: { params?: { id?: string } }) {
@@ -103,54 +96,28 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
     return () => clearInterval(interval);
   }, [project?.status]);
 
-  return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="text-center space-y-6 max-w-md mx-auto">
-        {/* Centered loader */}
-        <div className="relative w-20 h-20 mx-auto">
-          <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
-          <div className="absolute inset-0 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
-          <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-orange-500 animate-spin" />
-        </div>
+  if (project?.status === "completed") {
+    return (
+      <ImageGenerationProgressPanel
+        title="All done!"
+        subtitle="Redirecting to your project…"
+        progressPercent={100}
+        generatedCount={project.generatedCount}
+        totalImages={totalImages}
+      />
+    );
+  }
 
-        {/* Status text */}
-        <div className="space-y-2">
-          <h1 className="text-xl font-bold text-slate-900">
-            {project?.status === "completed"
-              ? "All done!"
-              : generationFailed
-                ? "Generation failed"
-                : "Generating your images"}
-          </h1>
-          <p className="text-sm text-slate-500">
-            {project?.status === "generating"
-              ? `${project?.generatedCount ?? 0} of ${totalImages} images • ~${formatEta(etaSeconds)} left`
-              : project?.status === "completed"
-                ? "Redirecting to your project..."
-                : "Please wait..."}
-          </p>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${generationFailed ? "bg-red-500" : "bg-orange-500"}`}
-            style={{ width: `${project?.status === "completed" ? 100 : Math.min(progress, 95)}%` }}
-          />
-        </div>
-
-        {/* Percentage */}
-        <p className="text-xs text-slate-400">
-          {generationFailed ? "Failed" : project?.status === "completed" ? "100%" : `${Math.round(progress)}%`}
-        </p>
-
-        {/* Error display */}
-        {generationFailed && (
+  if (generationFailed) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="text-center space-y-6 max-w-md mx-auto">
+          <h1 className="text-xl font-bold text-slate-900">Generation failed</h1>
           <div className="bg-red-50 rounded-lg p-4 border border-red-100 text-left">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-red-800 font-medium">Generation failed</p>
+                <p className="text-sm text-red-800 font-medium">Something went wrong</p>
                 <p className="text-xs text-red-600 mt-1">
                   {project?.errorMessage || "An unexpected error occurred. You can try creating graphics again."}
                 </p>
@@ -165,8 +132,17 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <ImageGenerationProgressPanel
+      progressPercent={progress}
+      generatedCount={project?.generatedCount}
+      totalImages={totalImages}
+      etaSeconds={etaSeconds}
+    />
   );
 }

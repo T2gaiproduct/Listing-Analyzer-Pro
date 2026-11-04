@@ -31,6 +31,7 @@ import {
 import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
+import { ImageGenerationProgressPanel } from "@/components/image-generation-progress-panel";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
 import { downloadAppImage } from "@/lib/download-app-image";
@@ -406,11 +407,18 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       )}
 
       {/* Generating state */}
-      {!isLoading && isGenerating && (
-        <div className="rounded-lg border bg-white p-8 text-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
-          <p className="text-slate-700 font-medium">Generating your images...</p>
-          <p className="text-sm text-slate-400">This may take a minute or two. The page will update automatically.</p>
+      {!isLoading && isGenerating && project && (
+        <div className="rounded-lg border bg-white overflow-hidden">
+          <ImageGenerationProgressPanel
+            embedded
+            progressPercent={
+              (project.lifestyleCount + project.featureCount) > 0
+                ? (project.generatedCount / (project.lifestyleCount + project.featureCount)) * 100
+                : 0
+            }
+            generatedCount={project.generatedCount}
+            totalImages={project.lifestyleCount + project.featureCount}
+          />
         </div>
       )}
 

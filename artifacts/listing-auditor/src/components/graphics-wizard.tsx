@@ -33,6 +33,7 @@ import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
+import { ImageGenerationProgressPanel } from "@/components/image-generation-progress-panel";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { downloadAppImage } from "@/lib/download-app-image";
 import {
@@ -112,14 +113,6 @@ function fetchProjectForAudit(auditId: number): Promise<WizardProject | null> {
 
 const IMAGE_GENERATION_SEC = 22;
 const MAX_CONCURRENT = 4;
-
-function formatEta(seconds: number): string {
-  if (seconds <= 0) return "Almost done";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
 
 const TYPE_LABELS: Record<ImageRecord["type"], string> = {
   lifestyle: "Lifestyle",
@@ -742,32 +735,14 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   // If generating, show centered loader
   if (isGenerating) {
     return (
-      <div className={embedded ? "py-8" : "min-h-[40vh] flex items-center justify-center"}>
-        <div className={`text-center space-y-6 max-w-md ${embedded ? "mx-auto" : "mx-auto"}`}>
-          {/* Centered loader */}
-          <div className="relative w-20 h-20 mx-auto">
-            <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
-            <div className="absolute inset-0 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
-            <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-orange-500 animate-spin" />
-          </div>
-
-          {/* Status text */}
-          <div className="space-y-2">
-            <h1 className="text-xl font-bold text-slate-900">Generating your images</h1>
-            <p className="text-sm text-slate-500">
-              {etaSeconds > 0 ? `ETA: ${formatEta(etaSeconds)}` : "Almost done..."}
-            </p>
-          </div>
-
-          {/* Progress bar */}
-          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-orange-500 transition-all duration-500" style={{ width: `${Math.min(progress, 95)}%` }} />
-          </div>
-
-          {/* Percentage */}
-          <p className="text-xs text-slate-400">{Math.round(progress)}%</p>
-        </div>
-      </div>
+      <ImageGenerationProgressPanel
+        embedded={embedded}
+        progressPercent={progress}
+        generatedCount={project?.generatedCount}
+        totalImages={totalImages}
+        etaSeconds={etaSeconds}
+        className={embedded ? undefined : "min-h-[40vh]"}
+      />
     );
   }
 
