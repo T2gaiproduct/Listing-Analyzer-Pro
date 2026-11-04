@@ -7,6 +7,7 @@ import {
   Trophy,
   Star,
   ArrowUpRight,
+  ArrowRight,
   Target,
   Sparkles,
   History,
@@ -400,19 +401,21 @@ export default function AuditListings() {
       <div className="max-w-3xl mx-auto flex justify-center">
         <Button
           type="button"
+          size="lg"
           onClick={() => setAuditDialogOpen(true)}
           disabled={isLoading}
-          className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-11 px-8 text-base font-semibold gap-2 shadow-sm"
+          className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-10 py-6 rounded-full shadow-lg shadow-orange-400/30 text-base font-semibold"
         >
           {isLoading ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
               Analyzing…
             </>
           ) : (
             <>
-              <FileSearch className="w-5 h-5" />
+              <Sparkles className="w-5 h-5 mr-2" />
               Audit Listing
+              <ArrowRight className="w-5 h-5 ml-2" />
             </>
           )}
         </Button>
