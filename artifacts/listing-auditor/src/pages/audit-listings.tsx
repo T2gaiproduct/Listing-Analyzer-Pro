@@ -43,6 +43,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { HERO_PRIMARY_CTA_CLASS } from "@/lib/hero-primary-cta";
 
 const AUDIT_HISTORY_LIMIT = 25;
 
@@ -404,7 +405,7 @@ export default function AuditListings() {
           size="lg"
           onClick={() => setAuditDialogOpen(true)}
           disabled={isLoading}
-          className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-10 py-6 rounded-full shadow-lg shadow-orange-400/30 text-base font-semibold"
+          className={HERO_PRIMARY_CTA_CLASS}
         >
           {isLoading ? (
             <>

@@ -5,6 +5,8 @@ import {
   BuildBrandStartDrawer,
   type BuildBrandStartEntry,
 } from "@/components/build-brand-start-drawer";
+import { HERO_PRIMARY_CTA_CLASS } from "@/lib/hero-primary-cta";
+import { cn } from "@/lib/utils";
 import {
   ArrowRight,
   Upload,
@@ -102,7 +104,7 @@ export default function AuditNew() {
 
         <Button
           size="lg"
-          className="mt-7 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-10 py-6 rounded-full shadow-lg shadow-orange-400/30 text-base font-semibold"
+          className={cn("mt-7", HERO_PRIMARY_CTA_CLASS)}
           onClick={() => setStartDrawerOpen(true)}
         >
           <Sparkles className="w-5 h-5 mr-2" />
