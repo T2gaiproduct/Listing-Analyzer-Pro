@@ -21,7 +21,7 @@ import {
   Tag,
   Type,
 } from "lucide-react";
-import { getAudit, useGenerateContent, type AuditWithResults, type GetAuditQueryResult } from "@workspace/api-client-react";
+import { getAudit, type AuditWithResults, type GetAuditQueryResult } from "@workspace/api-client-react";
 
 function productAuditQueryKey(auditId: number, scope: string) {
   return ["product-audit", auditId, scope] as const;
@@ -988,7 +988,26 @@ export default function ProductDetailPage({ id }: { id: number }) {
     return linkedAuditData ?? auditData;
   }, [auditData, linkedAuditData, optimizeAuditId]);
 
-  const generateContent = useGenerateContent();
+  const generateContent = useMutation({
+    mutationFn: ({
+      auditId,
+      contentMarketplaceIds,
+    }: {
+      auditId: number;
+      contentMarketplaceIds: number[];
+    }) =>
+      fetchJson<
+        GeneratedContent & {
+          contentMarketplaceId?: number;
+          contentVariants?: ContentVariantRow[];
+          batchResults?: Array<{ contentMarketplaceId: number; ok: boolean; error?: string }>;
+        }
+      >(`${basePath}/api/audits/${auditId}/generate-content`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentMarketplaceIds }),
+      }),
+  });
   const { data: listingContentMarketplaceData, isLoading: marketplacesLoading } = useListingContentMarketplaces();
   const contentMarketplaces = listingContentMarketplaceData?.marketplaces ?? [];
   const [contentMarketplaceId, setContentMarketplaceId] = useState<number | undefined>(undefined);
@@ -2080,13 +2099,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const ids = marketplaceIds.length > 0 ? marketplaceIds : (contentMarketplaceId != null ? [contentMarketplaceId] : []);
 
     generateContent.mutate(
-      { id: optimizeAuditId, data: { contentMarketplaceIds: ids } },
+      { auditId: optimizeAuditId, contentMarketplaceIds: ids },
       {
-        onSuccess: (payload: GeneratedContent & {
-          contentMarketplaceId?: number;
-          contentVariants?: ContentVariantRow[];
-          batchResults?: Array<{ contentMarketplaceId: number; ok: boolean; error?: string }>;
-        }) => {
+        onSuccess: (payload) => {
           const generatedContent: GeneratedContent = {
             title: payload.title,
             bulletPoints: payload.bulletPoints,

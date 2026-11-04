@@ -108,10 +108,7 @@ export function ListingMarketplaceContentPanel({
 
   useEffect(() => {
     if (contentMarketplaceId == null) return;
-    setBatchSelected((prev) => {
-      if (prev.size > 0) return prev;
-      return new Set([contentMarketplaceId]);
-    });
+    setBatchSelected(new Set([contentMarketplaceId]));
   }, [contentMarketplaceId]);
 
   const activeMarketplace = contentMarketplaceId != null
