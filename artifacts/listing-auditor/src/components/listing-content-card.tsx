@@ -302,6 +302,7 @@ export function ListingContentCard({
               rows={attributeRows}
               showHeading={false}
               compact
+              variant="panel"
               className="mt-0 pt-0 border-0"
             />
           </div>
@@ -679,6 +680,7 @@ export function ListingMarketplaceContentCompare({
                 rows={existing?.attributes ?? []}
                 showHeading={false}
                 compact
+                variant="panel"
                 className="mt-0 pt-0 border-0"
               />
             </div>
@@ -690,6 +692,7 @@ export function ListingMarketplaceContentCompare({
                 rows={optimized?.attributes ?? []}
                 showHeading={false}
                 compact
+                variant="panel"
                 className="mt-0 pt-0 border-0"
               />
             </div>
