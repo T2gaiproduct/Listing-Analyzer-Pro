@@ -38,6 +38,7 @@ import {
   BUILD_BRAND_WORKFLOW_STEPS,
   BuildBrandWorkflowStepper,
   apiStepToUiStep,
+  resolveBuildBrandResumeUiStep,
   uiStepToApiStep,
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
@@ -816,8 +817,14 @@ export default function AuditWorkflow() {
           setActiveStep(2);
           forceUploadStepRef.current = false;
         } else {
-          const step = apiStepToUiStep(auditData.currentStep);
-          if (step >= 2 && step <= 7) setActiveStep(step);
+          const resumeStep = resolveBuildBrandResumeUiStep({
+            currentStep: auditData.currentStep,
+            imageUrls: auditData.imageUrls as string[] | undefined,
+            generatedContent: auditData.generatedContent as { title?: string | null } | null,
+            imageRecords: auditData.imageRecords as Array<{ currentUrl?: string | null }> | undefined,
+            generatedImages: auditData.generatedImages,
+          });
+          setActiveStep(resumeStep);
         }
         stepRestoredForAuditIdRef.current = currentAuditId;
       }
@@ -1579,6 +1586,7 @@ export default function AuditWorkflow() {
         .then((data) => {
           setIsCreating(false);
           setGeneratedContent(data);
+          persistWorkflowStep(3);
           toast({ title: "Listing content ready!", description: "Your optimized content is ready." });
           refreshCreditBalances(queryClient);
         })
@@ -2229,6 +2237,7 @@ export default function AuditWorkflow() {
                     .then((data) => {
                       setIsCreating(false);
                       setGeneratedContent(data);
+                      persistWorkflowStep(3);
                       toast({
                         title: generatedContent ? "Listing content regenerated!" : "Listing content ready!",
                         description: "Your optimized content is ready.",

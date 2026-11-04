@@ -36,6 +36,36 @@ export const BUILD_BRAND_WORKFLOW_STEPS: {
   { id: 7, key: "export", label: "EXPORT", shortLabel: "Export", sub: "CSV & Excel download", icon: Download },
 ];
 
+/** Pick the workflow tab to show when reopening a saved project (API step + saved work). */
+export function resolveBuildBrandResumeUiStep(audit: {
+  currentStep?: number | null;
+  imageUrls?: string[] | null;
+  generatedContent?: { title?: string | null } | null;
+  imageRecords?: Array<{ currentUrl?: string | null }> | null;
+  generatedImages?: unknown;
+}): BuildBrandWorkflowStepId {
+  const fromApi = apiStepToUiStep(audit.currentStep);
+  let fromData: BuildBrandWorkflowStepId = 2;
+
+  if ((audit.imageUrls?.length ?? 0) > 0) fromData = 2;
+  if (audit.generatedContent?.title?.trim()) fromData = 3;
+
+  const hasGraphics = (audit.imageRecords ?? []).some((r) => Boolean(r.currentUrl?.trim()));
+  if (hasGraphics) fromData = 4;
+
+  const aplus = (audit.generatedImages as {
+    aplus?: { modules?: unknown[]; status?: string };
+  } | null)?.aplus;
+  const hasAplus =
+    (aplus?.modules?.length ?? 0) > 0
+    || aplus?.status === "completed"
+    || aplus?.status === "generating";
+  if (hasAplus) fromData = 5;
+
+  const merged = Math.max(fromApi, fromData);
+  return Math.min(7, Math.max(2, merged)) as BuildBrandWorkflowStepId;
+}
+
 export function buildBrandStepCompletedFromCurrentStep(
   currentStep: number | null | undefined,
   status?: string | null,
