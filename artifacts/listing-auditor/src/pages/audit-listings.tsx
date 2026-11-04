@@ -397,7 +397,7 @@ export default function AuditListings() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto text-center space-y-3">
+      <div className="max-w-3xl mx-auto text-center">
         <Button
           type="button"
           size="lg"
@@ -408,11 +408,6 @@ export default function AuditListings() {
           <FileSearch className="w-5 h-5" />
           Audit Listing
         </Button>
-        <p className="text-sm text-muted-foreground">
-          Works with <span className="text-orange-500 font-medium">Amazon</span>,{" "}
-          <span className="text-orange-500 font-medium">Shopify</span>, and{" "}
-          <span className="text-orange-500 font-medium">WooCommerce</span> product pages
-        </p>
       </div>
 
       <Dialog
