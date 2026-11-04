@@ -881,7 +881,8 @@ export default function CreateProject() {
               if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
             }}
             hideAspectRatio
-            showStudioExample={false}
+            productCategory={category}
+            templateCategory="aplus"
           />
 
           <p className="text-xs text-slate-500">

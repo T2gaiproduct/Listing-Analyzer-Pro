@@ -49,6 +49,15 @@ export async function ensureGraphicsProductCategoriesSchemaMigrated(): Promise<v
   `);
   await db.execute(sql`
     ALTER TABLE graphics_module_examples
+    ADD COLUMN IF NOT EXISTS template_category text NOT NULL DEFAULT 'graphics'
+  `);
+  await db.execute(sql`
+    UPDATE graphics_module_examples
+    SET template_category = 'graphics'
+    WHERE template_category IS NULL OR trim(template_category) = ''
+  `);
+  await db.execute(sql`
+    ALTER TABLE graphics_module_examples
     DROP CONSTRAINT IF EXISTS graphics_module_examples_product_category_name_template_slug_key
   `);
   await db.execute(sql`

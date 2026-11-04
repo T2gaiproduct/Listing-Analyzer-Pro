@@ -10,6 +10,7 @@ import {
 } from "@/components/custom-prompt-generation-panel";
 import { GraphicsStudioReferencePicker } from "@/components/graphics-studio-reference-picker";
 import { useGraphicsModuleExamples } from "@/lib/graphics-module-examples";
+import type { ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
 
 export type GraphicsImageTypeOption = {
   id: string;
@@ -29,8 +30,10 @@ type ImageTypeCustomizeDialogProps = {
   hideAspectRatio?: boolean;
   /** Product category for admin studio example (graphics modules only). */
   productCategory?: string | null;
-  /** When false, skips studio example block (e.g. A+ modules). */
+  /** When false, skips studio example block. */
   showStudioExample?: boolean;
+  /** Which admin studio example set to load (graphics vs A+). */
+  templateCategory?: ImagePromptTemplateCategory;
 };
 
 export function ImageTypeCustomizeDialog({
@@ -44,12 +47,14 @@ export function ImageTypeCustomizeDialog({
   hideAspectRatio = false,
   productCategory,
   showStudioExample = true,
+  templateCategory = "graphics",
 }: ImageTypeCustomizeDialogProps) {
   const categoryKey = productCategory?.trim() || "";
   const fetchExamples =
     open && showStudioExample && type != null && type.id !== "custom" && Boolean(categoryKey);
   const { data: examplesPayload, isLoading: examplesLoading } = useGraphicsModuleExamples(
     fetchExamples ? categoryKey : null,
+    templateCategory,
   );
 
   const moduleExample = useMemo(() => {

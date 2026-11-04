@@ -12,15 +12,18 @@ import {
   useAdminProductCategories,
   useAdminProductCategoryMutations,
 } from "@/lib/graphics-module-examples";
+import type { ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
 
 type AdminGraphicsModuleExamplesPanelProps = {
   selectedCategory?: string;
   onSelectedCategoryChange?: (name: string) => void;
+  templateCategory?: ImagePromptTemplateCategory;
 };
 
 export function AdminGraphicsModuleExamplesPanel({
   selectedCategory: selectedCategoryProp,
   onSelectedCategoryChange,
+  templateCategory = "graphics",
 }: AdminGraphicsModuleExamplesPanelProps = {}) {
   const { toast } = useToast();
   const { data: categoriesData } = useAdminProductCategories();
@@ -36,7 +39,7 @@ export function AdminGraphicsModuleExamplesPanel({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
 
-  const { data: examplesData, isLoading } = useAdminGraphicsModuleExamples(selectedCategory);
+  const { data: examplesData, isLoading } = useAdminGraphicsModuleExamples(selectedCategory, templateCategory);
   const { createCategory, removeCategory, addExample, removeExample } = useAdminProductCategoryMutations();
 
   async function handleUpload(templateSlug: string, dataUrl: string) {
@@ -47,6 +50,7 @@ export function AdminGraphicsModuleExamplesPanel({
         productCategoryName: selectedCategory,
         templateSlug,
         exampleImageUrl: url,
+        templateCategory,
       });
       toast({ title: "Example added", description: `Added image for ${templateSlug} (${selectedCategory}).` });
     } catch (err) {
@@ -67,6 +71,7 @@ export function AdminGraphicsModuleExamplesPanel({
         productCategoryName: selectedCategory,
         templateSlug,
         exampleId,
+        templateCategory,
       });
       toast({ title: "Example removed" });
     } catch (err) {
@@ -87,6 +92,7 @@ export function AdminGraphicsModuleExamplesPanel({
       await removeExample.mutateAsync({
         productCategoryName: selectedCategory,
         templateSlug,
+        templateCategory,
       });
       toast({ title: "All examples removed" });
     } catch (err) {
@@ -103,11 +109,16 @@ export function AdminGraphicsModuleExamplesPanel({
   return (
     <Card className="shadow-none border-slate-200">
       <CardHeader>
-        <CardTitle className="text-sm">Graphics studio examples (by product category)</CardTitle>
+        <CardTitle className="text-sm">
+          {templateCategory === "aplus"
+            ? "A+ studio examples (by product category)"
+            : "Graphics studio examples (by product category)"}
+        </CardTitle>
         <p className="text-xs text-muted-foreground font-normal mt-1">
           Upload several reference images per module (use <strong>Add another</strong> on each card). Sellers can
-          pick which examples to use as AI references when customizing a graphics type. Missing category images fall
-          back to Default.
+          pick which examples to use as AI references when customizing{" "}
+          {templateCategory === "aplus" ? "an A+ module" : "a graphics type"}. Missing category images fall back to
+          Default.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

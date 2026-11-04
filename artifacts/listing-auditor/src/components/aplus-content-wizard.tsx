@@ -522,7 +522,8 @@ export function AplusContentWizard({
         if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
       }}
       hideAspectRatio
-      showStudioExample={false}
+      productCategory={auditData?.category ?? null}
+      templateCategory="aplus"
     />
   );
 

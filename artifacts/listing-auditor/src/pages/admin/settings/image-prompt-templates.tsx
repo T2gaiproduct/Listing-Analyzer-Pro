@@ -179,18 +179,17 @@ export default function AdminSettingsImagePromptTemplates() {
         </div>
       </header>
 
-      {tab === "graphics" ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-orange-500" />
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Studio references</h2>
-          </div>
-          <AdminGraphicsModuleExamplesPanel
-            selectedCategory={studioCategory}
-            onSelectedCategoryChange={setStudioCategory}
-          />
-        </section>
-      ) : null}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-orange-500" />
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Studio references</h2>
+        </div>
+        <AdminGraphicsModuleExamplesPanel
+          selectedCategory={studioCategory}
+          onSelectedCategoryChange={setStudioCategory}
+          templateCategory={tab}
+        />
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -200,9 +199,7 @@ export default function AdminSettingsImagePromptTemplates() {
         <div
           className={cn(
             "grid gap-4",
-            tab === "graphics"
-              ? "grid-cols-1 xl:grid-cols-[minmax(260px,300px)_minmax(0,1fr)_minmax(280px,340px)]"
-              : "grid-cols-1 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)]",
+            "grid-cols-1 xl:grid-cols-[minmax(260px,300px)_minmax(0,1fr)_minmax(280px,340px)]",
           )}
         >
           {/* Template list */}
@@ -463,11 +460,13 @@ export default function AdminSettingsImagePromptTemplates() {
             </CardContent>
           </Card>
 
-          {tab === "graphics" ? (
-            <div className="xl:sticky xl:top-4 h-fit">
-              <AdminGraphicsSellerPreview productCategory={studioCategory} template={active} />
-            </div>
-          ) : null}
+          <div className="xl:sticky xl:top-4 h-fit">
+            <AdminGraphicsSellerPreview
+              productCategory={studioCategory}
+              template={active}
+              templateCategory={tab}
+            />
+          </div>
         </div>
       </section>
     </div>

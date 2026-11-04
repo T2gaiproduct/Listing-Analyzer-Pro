@@ -2658,7 +2658,8 @@ export default function AuditWorkflow() {
                   }
                 }}
                 hideAspectRatio
-                showStudioExample={false}
+                productCategory={category}
+                templateCategory="aplus"
               />
 
               <Button

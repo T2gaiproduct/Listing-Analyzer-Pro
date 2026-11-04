@@ -4,17 +4,22 @@ import { Badge } from "@/components/ui/badge";
 import { GraphicsStudioReferencePicker } from "@/components/graphics-studio-reference-picker";
 import { ChatGptStyleGenerationInput } from "@/components/chatgpt-style-generation-input";
 import { DEFAULT_IMAGE_TYPE_PROMPT_CONFIG } from "@/components/graphics-output-options";
-import type { ImagePromptTemplateAdmin } from "@/lib/image-prompt-templates";
+import type { ImagePromptTemplateAdmin, ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
 import { useAdminGraphicsModuleExamples } from "@/lib/graphics-module-examples";
 
 type Props = {
   productCategory: string;
   template: ImagePromptTemplateAdmin | null;
+  templateCategory?: ImagePromptTemplateCategory;
 };
 
-export function AdminGraphicsSellerPreview({ productCategory, template }: Props) {
+export function AdminGraphicsSellerPreview({
+  productCategory,
+  template,
+  templateCategory = "graphics",
+}: Props) {
   const categoryKey = productCategory.trim() || "Default";
-  const { data: examplesPayload, isLoading } = useAdminGraphicsModuleExamples(categoryKey);
+  const { data: examplesPayload, isLoading } = useAdminGraphicsModuleExamples(categoryKey, templateCategory);
 
   const moduleExample = useMemo(() => {
     if (!template || template.slug === "custom") return null;
@@ -32,7 +37,10 @@ export function AdminGraphicsSellerPreview({ productCategory, template }: Props)
       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 p-6 text-center">
         <Eye className="w-8 h-8 text-slate-300 mx-auto mb-2" />
         <p className="text-sm font-medium text-slate-700">Seller preview</p>
-        <p className="text-xs text-slate-500 mt-1">Select a graphics type to see what sellers see in Customize.</p>
+        <p className="text-xs text-slate-500 mt-1">
+          Select {templateCategory === "aplus" ? "an A+ module" : "a graphics type"} to see what sellers see in
+          Customize.
+        </p>
       </div>
     );
   }
@@ -45,8 +53,8 @@ export function AdminGraphicsSellerPreview({ productCategory, template }: Props)
           <p className="text-sm font-semibold text-amber-950">Seller preview</p>
         </div>
         <p className="text-xs text-amber-900">
-          <strong>{template.name}</strong> is disabled — sellers will not see this type in Create Graphics until
-          you enable it.
+          <strong>{template.name}</strong> is disabled — sellers will not see this{" "}
+          {templateCategory === "aplus" ? "module" : "type"} in user wizards until you enable it.
         </p>
       </div>
     );
@@ -60,7 +68,7 @@ export function AdminGraphicsSellerPreview({ productCategory, template }: Props)
           <p className="text-sm font-semibold text-slate-900 truncate">Seller preview</p>
         </div>
         <Badge variant="secondary" className="text-[10px] font-normal shrink-0">
-          Create Graphics → Customize
+          {templateCategory === "aplus" ? "A+ wizard → Customize" : "Create Graphics → Customize"}
         </Badge>
       </div>
 

@@ -75,7 +75,8 @@ router.get(
     await ensureGraphicsProductCategoriesReady();
     const categoryRaw = req.query.category;
     const category = typeof categoryRaw === "string" ? categoryRaw : null;
-    const payload = await getGraphicsModuleExamplesForCategory(category);
+    const templateCategory = req.query.templateCategory === "aplus" ? "aplus" : "graphics";
+    const payload = await getGraphicsModuleExamplesForCategory(category, {}, templateCategory);
     res.json(payload);
   },
 );
@@ -89,6 +90,7 @@ router.put(
     const productCategoryName = typeof b.productCategoryName === "string" ? b.productCategoryName : "";
     const templateSlug = typeof b.templateSlug === "string" ? b.templateSlug : "";
     const exampleImageUrl = typeof b.exampleImageUrl === "string" ? b.exampleImageUrl : "";
+    const templateCategory = b.templateCategory === "aplus" ? "aplus" : "graphics";
     const exampleIdRaw = b.exampleId;
     const exampleId =
       typeof exampleIdRaw === "number"
@@ -102,12 +104,17 @@ router.put(
         if (Number.isFinite(exampleId) && exampleId > 0) {
           await deleteGraphicsModuleExampleById(exampleId);
         } else {
-          await deleteGraphicsModuleExamplesForSlug(productCategoryName, templateSlug);
+          await deleteGraphicsModuleExamplesForSlug(productCategoryName, templateSlug, templateCategory);
         }
         res.json({ ok: true });
         return;
       }
-      const { id } = await addGraphicsModuleExample(productCategoryName, templateSlug, exampleImageUrl);
+      const { id } = await addGraphicsModuleExample(
+        productCategoryName,
+        templateSlug,
+        exampleImageUrl,
+        templateCategory,
+      );
       res.json({ ok: true, id });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });

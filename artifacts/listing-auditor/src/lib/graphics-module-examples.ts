@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function examplesQuerySuffix(templateCategory: ImagePromptTemplateCategory): string {
+  return templateCategory === "aplus" ? "&templateCategory=aplus" : "";
+}
 
 export type GraphicsModuleExampleImage = {
   id: number;
@@ -35,13 +40,16 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function useGraphicsModuleExamples(productCategory: string | null | undefined) {
+export function useGraphicsModuleExamples(
+  productCategory: string | null | undefined,
+  templateCategory: ImagePromptTemplateCategory = "graphics",
+) {
   const categoryKey = productCategory?.trim() || "";
   return useQuery({
-    queryKey: ["graphics-module-examples", categoryKey],
+    queryKey: ["graphics-module-examples", templateCategory, categoryKey],
     queryFn: () =>
       fetchJson<GraphicsModuleExamplesPayload>(
-        `${basePath}/api/graphics-module-examples?category=${encodeURIComponent(categoryKey)}`,
+        `${basePath}/api/graphics-module-examples?category=${encodeURIComponent(categoryKey)}${examplesQuerySuffix(templateCategory)}`,
       ),
     staleTime: 30_000,
   });
@@ -49,13 +57,16 @@ export function useGraphicsModuleExamples(productCategory: string | null | undef
 
 export const DEFAULT_CATEGORY_FOR_ADMIN = "Default";
 
-export function useAdminGraphicsModuleExamples(productCategory: string | null | undefined) {
+export function useAdminGraphicsModuleExamples(
+  productCategory: string | null | undefined,
+  templateCategory: ImagePromptTemplateCategory = "graphics",
+) {
   const categoryKey = productCategory?.trim() || DEFAULT_CATEGORY_FOR_ADMIN;
   return useQuery({
-    queryKey: ["admin", "graphics-module-examples", categoryKey],
+    queryKey: ["admin", "graphics-module-examples", templateCategory, categoryKey],
     queryFn: () =>
       fetchJson<GraphicsModuleExamplesPayload>(
-        `${basePath}/api/admin/graphics-module-examples?category=${encodeURIComponent(categoryKey)}`,
+        `${basePath}/api/admin/graphics-module-examples?category=${encodeURIComponent(categoryKey)}${examplesQuerySuffix(templateCategory)}`,
       ),
     staleTime: 10_000,
   });
@@ -91,6 +102,7 @@ export async function addAdminGraphicsModuleExample(payload: {
   productCategoryName: string;
   templateSlug: string;
   exampleImageUrl: string;
+  templateCategory?: ImagePromptTemplateCategory;
 }): Promise<{ id: number }> {
   return fetchJson<{ ok: true; id: number }>(`${basePath}/api/admin/graphics-module-examples`, {
     method: "PUT",
@@ -104,6 +116,7 @@ export async function deleteAdminGraphicsModuleExample(payload: {
   productCategoryName: string;
   templateSlug: string;
   exampleId?: number;
+  templateCategory?: ImagePromptTemplateCategory;
 }): Promise<void> {
   await fetchJson(`${basePath}/api/admin/graphics-module-examples`, {
     method: "PUT",
@@ -112,6 +125,7 @@ export async function deleteAdminGraphicsModuleExample(payload: {
       productCategoryName: payload.productCategoryName,
       templateSlug: payload.templateSlug,
       exampleImageUrl: "",
+      templateCategory: payload.templateCategory ?? "graphics",
       ...(payload.exampleId != null ? { exampleId: payload.exampleId } : {}),
     }),
   });

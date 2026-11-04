@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import type { ImagePromptTemplateCategory } from "./image-prompt-templates.js";
 
 export const graphicsProductCategoriesTable = pgTable("graphics_product_categories", {
   id: serial("id").primaryKey(),
@@ -13,6 +14,11 @@ export const graphicsProductCategoriesTable = pgTable("graphics_product_categori
 export const graphicsModuleExamplesTable = pgTable("graphics_module_examples", {
   id: serial("id").primaryKey(),
   productCategoryName: text("product_category_name").notNull(),
+  /** graphics vs aplus — slugs like "hero" exist in both template categories. */
+  templateCategory: text("template_category")
+    .notNull()
+    .$type<ImagePromptTemplateCategory>()
+    .default("graphics"),
   templateSlug: text("template_slug").notNull(),
   exampleImageUrl: text("example_image_url").notNull(),
   displayOrder: integer("display_order").notNull().default(0),

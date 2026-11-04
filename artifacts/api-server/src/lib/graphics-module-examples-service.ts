@@ -3,6 +3,7 @@ import {
   db,
   graphicsModuleExamplesTable,
   graphicsProductCategoriesTable,
+  type ImagePromptTemplateCategory,
 } from "@workspace/db";
 import { DEFAULT_GRAPHICS_PRODUCT_CATEGORY } from "./amazon-category-seeds.js";
 import { listEnabledImagePromptTemplates } from "./image-prompt-template-service.js";
@@ -93,9 +94,14 @@ export type GetGraphicsModuleExamplesOptions = {
   mergeDefaultExamples?: boolean;
 };
 
+function parseTemplateCategory(raw: unknown): ImagePromptTemplateCategory {
+  return raw === "aplus" ? "aplus" : "graphics";
+}
+
 export async function getGraphicsModuleExamplesForCategory(
   requestedCategory: string | null | undefined,
   options: GetGraphicsModuleExamplesOptions = {},
+  templateCategory: ImagePromptTemplateCategory = "graphics",
 ): Promise<{
   requestedCategory: string | null;
   resolvedCategory: string;
@@ -110,7 +116,7 @@ export async function getGraphicsModuleExamplesForCategory(
   const resolvedCategory = resolveCategoryName(requested, known);
   const usedDefaultFallback = Boolean(requested && requested !== resolvedCategory);
 
-  const templates = await listEnabledImagePromptTemplates("graphics");
+  const templates = await listEnabledImagePromptTemplates(templateCategory);
   const exampleRows = await db
     .select({
       id: graphicsModuleExamplesTable.id,
@@ -119,7 +125,12 @@ export async function getGraphicsModuleExamplesForCategory(
       displayOrder: graphicsModuleExamplesTable.displayOrder,
     })
     .from(graphicsModuleExamplesTable)
-    .where(eq(graphicsModuleExamplesTable.productCategoryName, resolvedCategory))
+    .where(
+      and(
+        eq(graphicsModuleExamplesTable.productCategoryName, resolvedCategory),
+        eq(graphicsModuleExamplesTable.templateCategory, templateCategory),
+      ),
+    )
     .orderBy(
       asc(graphicsModuleExamplesTable.templateSlug),
       asc(graphicsModuleExamplesTable.displayOrder),
@@ -142,7 +153,12 @@ export async function getGraphicsModuleExamplesForCategory(
         displayOrder: graphicsModuleExamplesTable.displayOrder,
       })
       .from(graphicsModuleExamplesTable)
-      .where(eq(graphicsModuleExamplesTable.productCategoryName, DEFAULT_GRAPHICS_PRODUCT_CATEGORY))
+      .where(
+        and(
+          eq(graphicsModuleExamplesTable.productCategoryName, DEFAULT_GRAPHICS_PRODUCT_CATEGORY),
+          eq(graphicsModuleExamplesTable.templateCategory, templateCategory),
+        ),
+      )
       .orderBy(
         asc(graphicsModuleExamplesTable.templateSlug),
         asc(graphicsModuleExamplesTable.displayOrder),
@@ -191,10 +207,12 @@ export async function addGraphicsModuleExample(
   productCategoryName: string,
   templateSlug: string,
   exampleImageUrl: string,
+  templateCategory: ImagePromptTemplateCategory = "graphics",
 ): Promise<{ id: number }> {
   const category = productCategoryName.trim();
   const slug = templateSlug.trim().toLowerCase();
   const url = exampleImageUrl.trim();
+  const tplCategory = parseTemplateCategory(templateCategory);
   if (!category || !slug || !url) {
     throw new Error("Category, template slug, and image URL are required.");
   }
@@ -206,6 +224,7 @@ export async function addGraphicsModuleExample(
       and(
         eq(graphicsModuleExamplesTable.productCategoryName, category),
         eq(graphicsModuleExamplesTable.templateSlug, slug),
+        eq(graphicsModuleExamplesTable.templateCategory, tplCategory),
       ),
     );
 
@@ -220,6 +239,7 @@ export async function addGraphicsModuleExample(
       and(
         eq(graphicsModuleExamplesTable.productCategoryName, category),
         eq(graphicsModuleExamplesTable.templateSlug, slug),
+        eq(graphicsModuleExamplesTable.templateCategory, tplCategory),
       ),
     );
 
@@ -227,6 +247,7 @@ export async function addGraphicsModuleExample(
     .insert(graphicsModuleExamplesTable)
     .values({
       productCategoryName: category,
+      templateCategory: tplCategory,
       templateSlug: slug,
       exampleImageUrl: url,
       displayOrder: (maxOrder?.max ?? -1) + 1,
@@ -253,13 +274,16 @@ export async function deleteGraphicsModuleExampleById(id: number): Promise<void>
 export async function deleteGraphicsModuleExamplesForSlug(
   productCategoryName: string,
   templateSlug: string,
+  templateCategory: ImagePromptTemplateCategory = "graphics",
 ): Promise<void> {
+  const tplCategory = parseTemplateCategory(templateCategory);
   await db
     .delete(graphicsModuleExamplesTable)
     .where(
       and(
         eq(graphicsModuleExamplesTable.productCategoryName, productCategoryName.trim()),
         eq(graphicsModuleExamplesTable.templateSlug, templateSlug.trim().toLowerCase()),
+        eq(graphicsModuleExamplesTable.templateCategory, tplCategory),
       ),
     );
 }

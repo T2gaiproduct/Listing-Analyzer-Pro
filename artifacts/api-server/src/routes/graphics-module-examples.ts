@@ -10,7 +10,12 @@ router.get("/graphics-module-examples", async (req, res): Promise<void> => {
   await ensureGraphicsProductCategoriesReady();
   const categoryRaw = req.query.category;
   const category = typeof categoryRaw === "string" ? categoryRaw : null;
-  const payload = await getGraphicsModuleExamplesForCategory(category, { mergeDefaultExamples: true });
+  const templateCategory = req.query.templateCategory === "aplus" ? "aplus" : "graphics";
+  const payload = await getGraphicsModuleExamplesForCategory(
+    category,
+    { mergeDefaultExamples: true },
+    templateCategory,
+  );
   res.json(payload);
 });
 
