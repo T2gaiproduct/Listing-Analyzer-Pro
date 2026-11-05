@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ReferenceImagePopoutDialog } from "@/components/reference-image-popout-dialog";
 import { ChevronDown, Loader2, Plus, Sparkles, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -68,6 +69,7 @@ export function ChatGptStyleGenerationInput({
   className,
   flatSurface = false,
 }: ChatGptStyleGenerationInputProps) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
@@ -110,11 +112,19 @@ export function ChatGptStyleGenerationInput({
                 key={`${idx}-${img.slice(0, 32)}`}
                 className="relative h-12 w-12 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
               >
-                <img src={img} alt={`Reference ${idx + 1}`} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  className="absolute inset-0 z-0"
+                  onClick={() => setPreviewUrl(img)}
+                  title="View full size"
+                  aria-label={`View reference ${idx + 1} full size`}
+                >
+                  <img src={img} alt={`Reference ${idx + 1}`} className="h-full w-full object-cover" />
+                </button>
                 <button
                   type="button"
                   onClick={() => removeImage(idx)}
-                  className="absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
+                  className="absolute top-0.5 right-0.5 z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
                   aria-label="Remove reference"
                 >
                   <X className="h-3 w-3" />
@@ -234,6 +244,14 @@ export function ChatGptStyleGenerationInput({
         onChange={(e) => {
           handleFiles(e.target.files);
           e.target.value = "";
+        }}
+      />
+
+      <ReferenceImagePopoutDialog
+        src={previewUrl}
+        open={previewUrl !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewUrl(null);
         }}
       />
 

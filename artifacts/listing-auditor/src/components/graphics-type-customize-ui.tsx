@@ -86,6 +86,7 @@ export function ImageTypeCustomizeDialog({
             referenceImages={config.referenceImages}
             onReferenceImagesChange={(images) => onConfigChange({ referenceImages: images })}
             isLoading={examplesLoading}
+            openSelectionInDialog
           />
         ) : null}
 
