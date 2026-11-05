@@ -14,6 +14,7 @@ import {
   Palette,
   Video,
   Archive,
+  Search,
   PanelLeftClose,
   PanelLeftOpen,
   ArrowLeft,
@@ -40,6 +41,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
+import { DashboardSearchDialog } from "@/components/dashboard-search-dialog";
 import { ProfileAccountMenu } from "@/components/profile-account-menu";
 import { CustomerNotificationBell } from "@/components/customer-notification-bell";
 import {
@@ -276,6 +278,7 @@ export function Layout({ children }: { children: ReactNode }) {
     isAuditListingSectionPath(location, search),
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
 
@@ -319,6 +322,17 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [location]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchDialogOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (isManageAdsPath(location)) setManageAdsNavOpen(true);
@@ -712,6 +726,17 @@ export function Layout({ children }: { children: ReactNode }) {
               <div className="flex-1 min-w-0" />
 
               <div className="flex items-center shrink-0">
+                <SidebarTooltip label="Search" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setSearchDialogOpen(true)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+                    aria-label="Search"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                </SidebarTooltip>
+
                 {/* Notifications */}
                 {canViewNotifications && <NotificationIcon collapsed={false} />}
 
@@ -745,14 +770,26 @@ export function Layout({ children }: { children: ReactNode }) {
 
           {/* Expand button — sits below logo when collapsed */}
           {collapsed && (
-            <SidebarTooltip label="Expand Sidebar" side="right">
-              <button
-                onClick={() => setCollapsed(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 border border-sidebar-border/60 transition-colors"
-              >
-                <PanelLeftOpen className="w-5 h-5" />
-              </button>
-            </SidebarTooltip>
+            <>
+              <SidebarTooltip label="Search" side="right">
+                <button
+                  type="button"
+                  onClick={() => setSearchDialogOpen(true)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+                  aria-label="Search"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              </SidebarTooltip>
+              <SidebarTooltip label="Expand Sidebar" side="right">
+                <button
+                  onClick={() => setCollapsed(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 border border-sidebar-border/60 transition-colors"
+                >
+                  <PanelLeftOpen className="w-5 h-5" />
+                </button>
+              </SidebarTooltip>
+            </>
           )}
         </div>
 
@@ -1059,16 +1096,24 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <DashboardTopbar
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          searchResults={searchResults}
           displayName={displayName}
           initials={initials}
           email={userEmail}
           planLabel={planLabel}
           roleLabel={roleLabel}
           onMenuClick={() => setMobileNavOpen(true)}
+          onOpenSearch={() => setSearchDialogOpen(true)}
           showProfileMenu={false}
+        />
+
+        <DashboardSearchDialog
+          open={searchDialogOpen}
+          onOpenChange={setSearchDialogOpen}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          searchResults={searchResults}
+          recents={recents}
+          searchEnabled={isWorkspaceApiScopeActive && !!featureWorkspaceId}
         />
 
         {/* ── Top ribbon (project context) ── */}
