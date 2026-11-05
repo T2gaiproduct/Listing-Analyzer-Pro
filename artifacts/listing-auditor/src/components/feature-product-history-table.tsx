@@ -29,7 +29,11 @@ import { downloadAuditExport } from "@/lib/amazon-export";
 import { fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
-import { auditInDetailViewPath } from "@/lib/audit-in-detail-nav";
+import {
+  auditListingDetailViewPath,
+  AUDIT_IN_DETAIL_FROM,
+  type AuditListingDetailOpenFrom,
+} from "@/lib/audit-in-detail-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -97,9 +101,10 @@ function productKey(product: ProductListItem): string {
 function resolveProductViewUrl(
   product: ProductListItem,
   viewTarget: "default" | "audit-detail",
+  auditDetailFrom: AuditListingDetailOpenFrom,
 ): string {
   if (viewTarget === "audit-detail" && product.sourceType === "audit") {
-    return auditInDetailViewPath(product.id, "overview");
+    return auditListingDetailViewPath(product.id, auditDetailFrom, "overview");
   }
   return product.detailUrl;
 }
@@ -357,6 +362,7 @@ export function FeatureProductHistoryTable({
   emptyTitle,
   emptyDescription,
   viewTarget = "default",
+  auditDetailFrom = AUDIT_IN_DETAIL_FROM,
 }: {
   sourceType: FeatureProductHistorySource;
   sectionTitle: string;
@@ -364,6 +370,7 @@ export function FeatureProductHistoryTable({
   emptyDescription: string;
   /** Open audit rows on `/audits/:id` (overview + audit result tabs) instead of Product Explorer. */
   viewTarget?: "default" | "audit-detail";
+  auditDetailFrom?: AuditListingDetailOpenFrom;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -570,7 +577,7 @@ export function FeatureProductHistoryTable({
           <ul className="divide-y divide-border/60">
             {products.map((product) => {
               const key = productKey(product);
-              const viewUrl = resolveProductViewUrl(product, viewTarget);
+              const viewUrl = resolveProductViewUrl(product, viewTarget, auditDetailFrom);
               return (
                 <li key={key}>
                   <div
@@ -677,7 +684,7 @@ export function FeatureProductHistoryTable({
               ) : (
                 products.map((product) => {
                   const key = productKey(product);
-                  const viewUrl = resolveProductViewUrl(product, viewTarget);
+                  const viewUrl = resolveProductViewUrl(product, viewTarget, auditDetailFrom);
                   return (
                     <tr
                       key={key}

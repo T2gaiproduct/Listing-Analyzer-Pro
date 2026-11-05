@@ -26,6 +26,11 @@ import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
 import { PROJECT_ORIGIN_AUDIT_LISTING } from "@/lib/audit-project-origin";
 import {
+  isOpenedFromAuditListingDetailHub,
+  parseAuditDetailOpenFrom,
+  auditListingDetailViewPath,
+} from "@/lib/audit-in-detail-nav";
+import {
   AuditListingDetailTabs,
   type AuditListingDetailTab,
 } from "@/components/audit-listing-detail-tabs";
@@ -132,6 +137,17 @@ export default function AuditDetail({ id }: { id: number }) {
     const tab = new URLSearchParams(q).get("tab");
     setAuditListingTab(tab === "audit_result" ? "audit_result" : "overview");
   }, [search, id]);
+
+  const handleAuditListingTabChange = useCallback(
+    (tab: AuditListingDetailTab) => {
+      setAuditListingTab(tab);
+      const from = parseAuditDetailOpenFrom(search);
+      if (from) {
+        setLocation(auditListingDetailViewPath(id, from, tab));
+      }
+    },
+    [id, search, setLocation],
+  );
 
   useEffect(() => {
     analyzeAttemptedRef.current = false;
@@ -273,7 +289,9 @@ export default function AuditDetail({ id }: { id: number }) {
   ];
 
   const auditRecord = audit as AuditDetailRecord;
-  const isAuditListingFlow = auditRecord.projectOrigin === PROJECT_ORIGIN_AUDIT_LISTING;
+  const isAuditListingFlow =
+    auditRecord.projectOrigin === PROJECT_ORIGIN_AUDIT_LISTING
+    || isOpenedFromAuditListingDetailHub(search);
 
   const snapshotAttrs = auditRecord.sourceListingContent?.attributes ?? [];
   const refDetails = auditRecord.referenceResearch?.productDetails ?? [];
@@ -296,7 +314,7 @@ export default function AuditDetail({ id }: { id: number }) {
       {isAuditListingFlow && (
         <AuditListingDetailTabs
           activeTab={auditListingTab}
-          onTabChange={setAuditListingTab}
+          onTabChange={handleAuditListingTabChange}
         />
       )}
 

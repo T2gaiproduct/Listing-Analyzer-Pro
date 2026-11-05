@@ -1,16 +1,50 @@
-/** Query `from=` when opening audit detail from the Audit in Detail sidebar tab. */
+import { IMPORT_FROM_LINK_AUDIT_LISTINGS } from "@/lib/import-from-link-return";
+
+/** Query `from=` when opening audit detail from the Audit in Detail sidebar sub-tab. */
 export const AUDIT_IN_DETAIL_FROM = "audit-in-detail";
 
-export function isOpenedFromAuditInDetail(search: string | undefined): boolean {
+/** Same value as import-from-link; opens detail with listing hub tabs from Audit Listing. */
+export const AUDIT_LISTING_HISTORY_FROM = IMPORT_FROM_LINK_AUDIT_LISTINGS;
+
+export type AuditListingDetailOpenFrom =
+  | typeof AUDIT_IN_DETAIL_FROM
+  | typeof AUDIT_LISTING_HISTORY_FROM;
+
+export function parseAuditDetailOpenFrom(
+  search: string | undefined,
+): AuditListingDetailOpenFrom | null {
   const raw = search ?? "";
   const q = raw.startsWith("?") ? raw.slice(1) : raw;
-  return new URLSearchParams(q).get("from") === AUDIT_IN_DETAIL_FROM;
+  const from = new URLSearchParams(q).get("from");
+  if (from === AUDIT_IN_DETAIL_FROM) return AUDIT_IN_DETAIL_FROM;
+  if (from === AUDIT_LISTING_HISTORY_FROM) return AUDIT_LISTING_HISTORY_FROM;
+  return null;
+}
+
+export function isOpenedFromAuditInDetail(search: string | undefined): boolean {
+  return parseAuditDetailOpenFrom(search) === AUDIT_IN_DETAIL_FROM;
+}
+
+export function isOpenedFromAuditListingsHistory(search: string | undefined): boolean {
+  return parseAuditDetailOpenFrom(search) === AUDIT_LISTING_HISTORY_FROM;
+}
+
+export function isOpenedFromAuditListingDetailHub(search: string | undefined): boolean {
+  return parseAuditDetailOpenFrom(search) != null;
+}
+
+export function auditListingDetailViewPath(
+  auditId: number,
+  from: AuditListingDetailOpenFrom,
+  tab: "overview" | "audit_result" = "overview",
+): string {
+  const params = new URLSearchParams({ from, tab });
+  return `/audits/${auditId}?${params.toString()}`;
 }
 
 export function auditInDetailViewPath(
   auditId: number,
   tab: "overview" | "audit_result" = "overview",
 ): string {
-  const params = new URLSearchParams({ from: AUDIT_IN_DETAIL_FROM, tab });
-  return `/audits/${auditId}?${params.toString()}`;
+  return auditListingDetailViewPath(auditId, AUDIT_IN_DETAIL_FROM, tab);
 }

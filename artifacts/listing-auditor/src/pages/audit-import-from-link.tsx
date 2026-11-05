@@ -31,6 +31,10 @@ import {
   PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
 } from "@/lib/audit-project-origin";
 import { isImportFromLinkForAuditListings } from "@/lib/import-from-link-return";
+import {
+  auditListingDetailViewPath,
+  AUDIT_LISTING_HISTORY_FROM,
+} from "@/lib/audit-in-detail-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -138,7 +142,7 @@ export default function AuditImportFromLinkPage() {
           title: "Audit complete",
           description: "Review the overview and audit results on the listing details page.",
         });
-        nav(`/audits/${audit.id}`);
+        nav(auditListingDetailViewPath(audit.id, AUDIT_LISTING_HISTORY_FROM, "overview"));
       } else {
         toast({
           title: "Saved to Product Explorer",

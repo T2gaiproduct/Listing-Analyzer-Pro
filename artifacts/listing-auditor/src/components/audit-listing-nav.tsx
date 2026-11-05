@@ -1,7 +1,10 @@
 import { ChevronDown, ClipboardList, FileSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isImportFromLinkForAuditListings } from "@/lib/import-from-link-return";
-import { isOpenedFromAuditInDetail } from "@/lib/audit-in-detail-nav";
+import {
+  isOpenedFromAuditInDetail,
+  isOpenedFromAuditListingsHistory,
+} from "@/lib/audit-in-detail-nav";
 
 export const AUDIT_LISTING_HOME_HREF = "/audit-listings";
 export const AUDIT_IN_DETAIL_HREF = "/audit-in-detail";
@@ -13,6 +16,9 @@ function isAuditDetailPath(location: string): boolean {
 export function isAuditListingNavActive(location: string, search = ""): boolean {
   if (location === AUDIT_LISTING_HOME_HREF) return true;
   if (location === "/audits/import-from-link" && isImportFromLinkForAuditListings(search)) {
+    return true;
+  }
+  if (isAuditDetailPath(location) && isOpenedFromAuditListingsHistory(search)) {
     return true;
   }
   return false;

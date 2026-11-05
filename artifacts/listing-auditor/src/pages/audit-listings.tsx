@@ -22,6 +22,7 @@ import {
   IMPORT_FROM_LINK_AUDIT_LISTINGS,
   importFromLinkPath,
 } from "@/lib/import-from-link-return";
+import { AUDIT_LISTING_HISTORY_FROM } from "@/lib/audit-in-detail-nav";
 
 export default function AuditListings() {
   const [startDrawerOpen, setStartDrawerOpen] = useState(false);
@@ -165,6 +166,8 @@ export default function AuditListings() {
 
       <FeatureProductHistoryTable
         sourceType="audit"
+        viewTarget="audit-detail"
+        auditDetailFrom={AUDIT_LISTING_HISTORY_FROM}
         sectionTitle="Your audit history"
         emptyTitle="No listing audits yet"
         emptyDescription="Click Audit Listing and choose how to begin. Completed audits will appear here."
