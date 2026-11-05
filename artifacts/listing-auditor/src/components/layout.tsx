@@ -723,9 +723,9 @@ export function Layout({ children }: { children: ReactNode }) {
 
           {!collapsed && (
             <>
-              <div className="flex-1 min-w-0" />
+              <div className="flex-1 min-w-2" />
 
-              <div className="flex items-center shrink-0">
+              <div className="flex items-center shrink-0 pl-2.5 ml-0.5">
                 <SidebarTooltip label="Search" side="bottom">
                   <button
                     type="button"
