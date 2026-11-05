@@ -57,13 +57,17 @@ export function BuildBrandStartDrawer({
   onChoose,
   title = DEFAULT_DRAWER_TITLE,
   description = DEFAULT_DRAWER_DESCRIPTION,
+  excludeEntries = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChoose: (entry: BuildBrandStartEntry) => void;
   title?: string;
   description?: string;
+  /** Hide start paths (e.g. audit listing omits create-from-scratch). */
+  excludeEntries?: BuildBrandStartEntry[];
 }) {
+  const visibleOptions = options.filter((opt) => !excludeEntries.includes(opt.entry));
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -78,7 +82,7 @@ export function BuildBrandStartDrawer({
         </SheetHeader>
 
         <div className="mt-6 flex flex-col gap-3">
-          {options.map((opt) => {
+          {visibleOptions.map((opt) => {
             const Icon = opt.icon;
             return (
               <button

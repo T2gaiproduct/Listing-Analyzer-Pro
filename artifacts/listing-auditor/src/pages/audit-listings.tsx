@@ -155,6 +155,7 @@ export default function AuditListings() {
           onChoose={handleStartChoice}
           title="Start auditing"
           description="Choose how you'd like to begin your listing audit"
+          excludeEntries={["scratch"]}
         />
       </div>
 
