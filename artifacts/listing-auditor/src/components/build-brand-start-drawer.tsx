@@ -47,14 +47,22 @@ const options: Option[] = [
   },
 ];
 
+const DEFAULT_DRAWER_TITLE = "Start generating";
+const DEFAULT_DRAWER_DESCRIPTION =
+  "Choose how you'd like to begin your Build Your Brand project";
+
 export function BuildBrandStartDrawer({
   open,
   onOpenChange,
   onChoose,
+  title = DEFAULT_DRAWER_TITLE,
+  description = DEFAULT_DRAWER_DESCRIPTION,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChoose: (entry: BuildBrandStartEntry) => void;
+  title?: string;
+  description?: string;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -63,9 +71,9 @@ export function BuildBrandStartDrawer({
         className="flex w-full flex-col border-l border-orange-100 sm:max-w-md"
       >
         <SheetHeader className="text-left space-y-1 pr-8">
-          <SheetTitle className="text-xl font-bold text-foreground">Start generating</SheetTitle>
+          <SheetTitle className="text-xl font-bold text-foreground">{title}</SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
-            Choose how you&apos;d like to begin your Build Your Brand project
+            {description}
           </SheetDescription>
         </SheetHeader>
 

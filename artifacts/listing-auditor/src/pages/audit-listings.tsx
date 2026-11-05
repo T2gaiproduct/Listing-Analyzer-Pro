@@ -294,6 +294,8 @@ export default function AuditListings() {
           open={startDrawerOpen}
           onOpenChange={setStartDrawerOpen}
           onChoose={handleStartChoice}
+          title="Start auditing"
+          description="Choose how you'd like to begin your listing audit"
         />
       </div>
 
