@@ -14,31 +14,14 @@ import {
   ChevronRight,
   FileSearch,
 } from "lucide-react";
-import {
-  useFetchListing,
-  useCreateAudit,
-  useListAudits,
-  getGetAuditStatsQueryKey,
-  getGetRecentsQueryKey,
-  getListAuditsQueryKey,
-  type Audit,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { refreshCreditBalances } from "@/lib/credit-queries";
-import { parseListingFetchInput } from "@/lib/listing-input";
+import { useListAudits, type Audit } from "@workspace/api-client-react";
 import { inferAuditSourceType } from "@/lib/product-mappers";
-import { PROJECT_ORIGIN_AUDIT_LISTING } from "@/lib/audit-project-origin";
 import { appendReturnTo } from "@/lib/navigation-return";
-import { Card, CardContent } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+  BuildBrandStartDrawer,
+  type BuildBrandStartEntry,
+} from "@/components/build-brand-start-drawer";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,7 +92,7 @@ function AuditListingHistory() {
           <CardContent className="py-10 px-6 text-center">
             <p className="text-sm font-medium text-foreground">No listing audits yet</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              Click Audit Listing to analyze a product page. Completed audits will appear here.
+              Click Audit Listing and choose how to begin. Completed audits will appear here.
             </p>
           </CardContent>
         ) : (
@@ -178,123 +161,20 @@ function AuditListingHistory() {
 }
 
 export default function AuditListings() {
-  const [url, setUrl] = useState("");
-  const [auditDialogOpen, setAuditDialogOpen] = useState(false);
+  const [startDrawerOpen, setStartDrawerOpen] = useState(false);
   const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const fetchListing = useFetchListing();
-  const createAudit = useCreateAudit();
-
-  const isLoading = fetchListing.isPending || createAudit.isPending;
-
-  function handleAnalyze() {
-    const trimmed = url.trim();
-    if (!trimmed || isLoading) return;
-
-    let fetchPayload: { asin?: string; url?: string };
-    try {
-      fetchPayload = parseListingFetchInput(trimmed);
-    } catch (err) {
-      toast({
-        title: "Invalid input",
-        description: err instanceof Error ? err.message : "Enter a product URL or Amazon ASIN.",
-        variant: "destructive",
-      });
+  function handleStartChoice(entry: BuildBrandStartEntry) {
+    setStartDrawerOpen(false);
+    if (entry === "import-link") {
+      navigate("/audits/import-from-link");
       return;
     }
-
-    fetchListing.mutate(
-      { data: fetchPayload },
-      {
-        onSuccess: (listing) => {
-          createAudit.mutate(
-            {
-              data: {
-                productName: listing.productName,
-                asin: listing.asin,
-                category: listing.category ?? undefined,
-                title: listing.title,
-                bulletPoints: listing.bulletPoints,
-                imageUrls: listing.imageUrls,
-                targetKeywords: listing.targetKeywords,
-                productDescription: listing.description ?? undefined,
-                importAttributes: listing.attributes ?? [],
-                sourceListingUrl: trimmed.startsWith("http") ? trimmed : undefined,
-                projectOrigin: PROJECT_ORIGIN_AUDIT_LISTING,
-              } as Parameters<typeof createAudit.mutate>[0]["data"],
-            },
-            {
-              onSuccess: (audit) => {
-                if (audit.status === "failed") {
-                  void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
-                  toast({
-                    title: "Audit failed",
-                    description: "Could not analyze the listing. Please try again.",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
-                queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
-                queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                refreshCreditBalances(queryClient);
-                setAuditDialogOpen(false);
-                setUrl("");
-                navigate(`/audits/${audit.id}?returnTo=/audit-listings`);
-              },
-              onError: () => {
-                void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
-                toast({
-                  title: "Audit failed",
-                  description: "Could not analyze the listing. Please try again.",
-                  variant: "destructive",
-                });
-              },
-            }
-          );
-        },
-        onError: (err) => {
-          const msg = err instanceof Error ? err.message : "Unknown error";
-          const lower = msg.toLowerCase();
-          const isBlocked = lower.includes("captcha") || lower.includes("blocked") || lower.includes("automated");
-          const isNotFound = lower.includes("not found") || lower.includes("404");
-          toast({
-            title: isBlocked ? "We couldn't access this product page automatically." : isNotFound ? "Product not found" : "Failed to fetch listing",
-            description: isBlocked
-              ? "Some stores restrict automated access. You can connect your marketplace account or enter the product details manually to continue."
-              : msg,
-            variant: "destructive",
-          });
-        },
-      }
-    );
+    navigate(`/audits/workflow?entry=${entry}`);
   }
 
   return (
     <div className="w-full min-w-0 py-12 space-y-16 animate-in fade-in duration-500">
-      {/* Full-screen loading overlay */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 w-80">
-            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-              <Loader2 className="w-7 h-7 text-primary animate-spin" />
-            </div>
-            <div className="text-center">
-              <h3 className="font-bold text-base">
-                {fetchListing.isPending ? "Fetching listing…" : "Analyzing with AI…"}
-              </h3>
-              <p className="text-muted-foreground text-sm mt-1">
-                {fetchListing.isPending
-                  ? "Pulling product data from the store page"
-                  : "Scoring title, bullets, images, and keywords"}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Hero Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         {/* Left */}
@@ -403,68 +283,19 @@ export default function AuditListings() {
         <Button
           type="button"
           size="lg"
-          onClick={() => setAuditDialogOpen(true)}
-          disabled={isLoading}
+          onClick={() => setStartDrawerOpen(true)}
           className={HERO_PRIMARY_CTA_CLASS}
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Analyzing…
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-5 h-5 mr-2" />
-              Audit Listing
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </>
-          )}
+          <Sparkles className="w-5 h-5 mr-2" />
+          Audit Listing
+          <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
+        <BuildBrandStartDrawer
+          open={startDrawerOpen}
+          onOpenChange={setStartDrawerOpen}
+          onChoose={handleStartChoice}
+        />
       </div>
-
-      <Dialog
-        open={auditDialogOpen}
-        onOpenChange={(open) => {
-          if (!isLoading) setAuditDialogOpen(open);
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Audit Listing</DialogTitle>
-            <DialogDescription>
-              Paste a product page URL or Amazon ASIN to run an AI listing audit.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-1">
-            <Input
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
-              placeholder="Paste any product page URL or Amazon ASIN..."
-              disabled={isLoading}
-              autoFocus
-            />
-            <Button
-              onClick={handleAnalyze}
-              disabled={isLoading || !url.trim()}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-11 font-semibold gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Analyzing…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Analyze Now
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <AuditListingHistory />
     </div>
