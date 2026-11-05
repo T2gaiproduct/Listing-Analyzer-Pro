@@ -135,12 +135,12 @@ export function ListingMarketplaceContentPanel({
 
   useEffect(() => {
     setDraftFieldSources(savedFieldSources);
-  }, [contentMarketplaceId, savedFieldSourcesKey, savedFieldSources]);
+  }, [contentMarketplaceId, savedFieldSourcesKey]);
 
   useEffect(() => {
     setDraftAiView(savedAiView ? cloneListingContentView(savedAiView) : null);
     setEditingField(null);
-  }, [contentMarketplaceId, savedAiViewKey, savedAiView]);
+  }, [contentMarketplaceId, savedAiViewKey]);
 
   const aiEditsDirty = Boolean(
     savedAiView
@@ -372,6 +372,7 @@ export function ListingMarketplaceContentPanel({
                 marketplaceName={activeMarketplace?.name}
                 fieldSources={draftFieldSources}
                 fieldPickDisabled={optimizeDisabled || !auditId || saveFieldSelections.isPending}
+                editDisabled={!auditId || saveFieldSelections.isPending}
                 editingField={editingField}
                 onEditingFieldChange={setEditingField}
                 onOptimizedFieldChange={(field, value) => {

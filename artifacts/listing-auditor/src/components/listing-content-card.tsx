@@ -417,11 +417,12 @@ function CompareFieldShell({
               AI suggestions
             </span>
           )}
-          {showAiBadge && onEditAi && (
+          {onEditAi && (
             <button
               type="button"
               title="Edit AI content"
               disabled={editDisabled}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={onEditAi}
               className={cn(
                 "h-7 w-7 rounded-md border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 hover:border-slate-300",
@@ -505,6 +506,7 @@ export function ListingMarketplaceContentCompare({
   fieldSources,
   onFieldSourceChange,
   fieldPickDisabled,
+  editDisabled,
   editingField,
   onEditingFieldChange,
   onOptimizedFieldChange,
@@ -515,6 +517,8 @@ export function ListingMarketplaceContentCompare({
   fieldSources?: ListingContentFieldSources;
   onFieldSourceChange?: (field: ListingContentFieldKey, source: ListingContentFieldSource) => void;
   fieldPickDisabled?: boolean;
+  /** Pencil edit only — not tied to generate/optimize permissions. */
+  editDisabled?: boolean;
   editingField?: ListingContentFieldKey | null;
   onEditingFieldChange?: (field: ListingContentFieldKey | null) => void;
   onOptimizedFieldChange?: (
@@ -590,7 +594,7 @@ export function ListingMarketplaceContentCompare({
               ? () => onEditingFieldChange?.("title")
               : undefined
           }
-          editDisabled={fieldPickDisabled}
+          editDisabled={editDisabled ?? fieldPickDisabled}
         >
           {hasExisting && existing?.title?.trim() && (
             <div className={compareBlockClass(titleSource === "current")}>
@@ -634,7 +638,7 @@ export function ListingMarketplaceContentCompare({
               ? () => onEditingFieldChange?.("bulletPoints")
               : undefined
           }
-          editDisabled={fieldPickDisabled}
+          editDisabled={editDisabled ?? fieldPickDisabled}
         >
           {existingBullets.length > 0 && (
             <div className={compareBlockClass(bulletSource === "current")}>
@@ -691,7 +695,7 @@ export function ListingMarketplaceContentCompare({
               ? () => onEditingFieldChange?.("keywords")
               : undefined
           }
-          editDisabled={fieldPickDisabled}
+          editDisabled={editDisabled ?? fieldPickDisabled}
         >
           {existingKeywords.length > 0 && (
             <div className={compareBlockClass(kwSource === "current")}>
@@ -737,7 +741,7 @@ export function ListingMarketplaceContentCompare({
               ? () => onEditingFieldChange?.("htmlDescription")
               : undefined
           }
-          editDisabled={fieldPickDisabled}
+          editDisabled={editDisabled ?? fieldPickDisabled}
         >
           {existingDesc && (
             <div className={compareBlockClass(descSource === "current")}>
