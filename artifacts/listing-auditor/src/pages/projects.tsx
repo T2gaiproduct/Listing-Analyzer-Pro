@@ -111,7 +111,7 @@ export default function ProjectsPage() {
               open={startDrawerOpen}
               onOpenChange={setStartDrawerOpen}
               onChoose={handleStartChoice}
-              title="Start generating"
+              title="Create graphics"
               description="Choose how you'd like to begin your graphics project"
             />
 
