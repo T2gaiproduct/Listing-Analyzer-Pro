@@ -180,10 +180,14 @@ sync_frontend_build_id_from_api() {
   if [[ -f "$meta_file" ]]; then
     id=$(python3 -c "import json; print(json.load(open('$meta_file')).get('buildId',''))" 2>/dev/null || true)
   fi
+  local fe_suffix
+  fe_suffix=$(date +%s)
   if [[ -n "$id" && "$id" != "unknown" ]]; then
-    export VITE_APP_BUILD_ID="$id"
-    echo "==> Frontend VITE_APP_BUILD_ID synced to API: $VITE_APP_BUILD_ID" >&2
+    export VITE_APP_BUILD_ID="${id}-fe-${fe_suffix}"
+  else
+    export VITE_APP_BUILD_ID="fe-${fe_suffix}"
   fi
+  echo "==> Frontend VITE_APP_BUILD_ID: $VITE_APP_BUILD_ID" >&2
 }
 
 build_listing_auditor_preview() {

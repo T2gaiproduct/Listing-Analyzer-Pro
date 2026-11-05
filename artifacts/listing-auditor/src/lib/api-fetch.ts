@@ -176,7 +176,7 @@ async function authFailureHint(): Promise<string | null> {
   const localBuild = (import.meta.env.VITE_APP_BUILD_ID as string | undefined)?.trim();
   if (localBuild && localBuild !== "dev") {
     try {
-      const res = await fetch(`${basePath}/build-id.json`, { cache: "no-store" });
+      const res = await fetch(`${basePath}/build-id.json?t=${Date.now()}`, { cache: "no-store" });
       if (res.ok) {
         const remote = ((await res.json()) as { buildId?: string }).buildId?.trim();
         if (remote && remote !== localBuild) {

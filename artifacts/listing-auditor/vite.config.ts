@@ -31,6 +31,24 @@ function appBuildIdPlugin(buildId: string): Plugin {
   };
 }
 
+const previewNoCachePaths = new Set(["/", "/index.html", "/build-id.json"]);
+
+function previewNoCachePlugin(): Plugin {
+  return {
+    name: "preview-no-cache-shell",
+    configurePreviewServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const pathOnly = (req.url ?? "/").split("?")[0];
+        if (previewNoCachePaths.has(pathOnly) || pathOnly.endsWith("/build-id.json")) {
+          res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+          res.setHeader("Pragma", "no-cache");
+        }
+        next();
+      });
+    },
+  };
+}
+
 const rawPort = process.env.PORT;
 
 if (!rawPort) {
@@ -83,6 +101,7 @@ export default defineConfig({
   },
   plugins: [
     appBuildIdPlugin(appBuildId),
+    previewNoCachePlugin(),
     react(),
     tailwindcss({ optimize: process.env.NODE_ENV === "production" }),
     // Vite dev + runtime error overlay breaks behind Cloudflare quick tunnels (no HMR websocket).

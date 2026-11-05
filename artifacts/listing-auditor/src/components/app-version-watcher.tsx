@@ -2,8 +2,15 @@ import { useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { BUILD_RELOAD_SESSION_KEY } from "@/lib/chunk-load-error";
 
-const POLL_MS = 5 * 60 * 1000;
+const POLL_MS_CLOUD_PREVIEW = 30 * 1000;
+const POLL_MS_DEFAULT = 5 * 60 * 1000;
 const RELOAD_DELAY_MS = 2000;
+
+function isCloudPreviewHost(): boolean {
+  if (import.meta.env.VITE_CLOUD_AGENT_PREVIEW === "true") return true;
+  const host = window.location.hostname.toLowerCase();
+  return host.endsWith(".trycloudflare.com");
+}
 
 function runningBuildId(): string {
   return (import.meta.env.VITE_APP_BUILD_ID as string | undefined)?.trim() || "dev";
@@ -32,9 +39,11 @@ export function AppVersionWatcher() {
       window.setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
     };
 
+    const pollMs = isCloudPreviewHost() ? POLL_MS_CLOUD_PREVIEW : POLL_MS_DEFAULT;
+
     const check = async () => {
       try {
-        const res = await fetch(buildIdUrl, { cache: "no-store" });
+        const res = await fetch(`${buildIdUrl}?t=${Date.now()}`, { cache: "no-store" });
         if (!res.ok) return;
         const data = (await res.json()) as { buildId?: string };
         const remoteId = data.buildId?.trim();
@@ -46,7 +55,7 @@ export function AppVersionWatcher() {
     };
 
     void check();
-    const interval = window.setInterval(() => void check(), POLL_MS);
+    const interval = window.setInterval(() => void check(), pollMs);
     const onFocus = () => void check();
     window.addEventListener("focus", onFocus);
     const onVisibility = () => {

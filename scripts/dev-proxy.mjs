@@ -130,7 +130,20 @@ function proxyRequest(req, res, attempt = 0) {
       timeout: upstreamTimeoutMs(),
     },
     (proxyRes) => {
-      res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
+      const outHeaders = { ...proxyRes.headers };
+      const pathOnly = path.split("?")[0];
+      const disableCache =
+        upstream === WEB_TARGET
+        && (pathOnly === "/"
+          || pathOnly === "/index.html"
+          || pathOnly.endsWith("/build-id.json"));
+      if (disableCache) {
+        outHeaders["cache-control"] = "no-store, no-cache, must-revalidate, max-age=0";
+        outHeaders.pragma = "no-cache";
+        delete outHeaders.etag;
+        delete outHeaders["last-modified"];
+      }
+      res.writeHead(proxyRes.statusCode ?? 502, outHeaders);
       proxyRes.pipe(res);
     },
   );
