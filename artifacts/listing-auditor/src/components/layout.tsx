@@ -18,7 +18,6 @@ import {
   Share2,
   PenLine,
   Trash2,
-  Zap,
   Folder,
   MessageSquare,
   Eye,
@@ -238,7 +237,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const homeHref = "/dashboard";
   const canViewArchive = isAccountOwner || canView("archive");
   const canViewNotifications = isAccountOwner || canView("notifications");
-  const canViewBilling = isAccountOwner || canView("billing");
   const canViewAds = isAccountOwner || canView("ads");
 
   const navReady =
@@ -957,32 +955,6 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </div>
 
-        {/* ── Footer: Upgrade ───────────────────────────────── */}
-        <div
-          className={cn(
-            "border-t border-sidebar-border/50 flex-shrink-0",
-            collapsed ? "px-2 py-3 flex justify-center" : "px-4 py-4"
-          )}
-        >
-          {canViewBilling && (
-          collapsed ? (
-            <SidebarTooltip label="Upgrade" side="right">
-              <Link href="/billing">
-                <button className="w-9 h-9 flex items-center justify-center rounded-xl text-sidebar-foreground/70 hover:text-primary hover:bg-primary/10 border border-sidebar-border/60 transition-colors">
-                  <Zap className="w-4 h-4 text-primary" />
-                </button>
-              </Link>
-            </SidebarTooltip>
-          ) : (
-            <Link href="/billing" className="block w-full">
-              <button className="w-full text-xs font-medium text-sidebar-foreground/80 border border-sidebar-border rounded-full px-3 py-1.5 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors">
-                Upgrade
-              </button>
-            </Link>
-          )
-          )}
-        </div>
-
         <div
           className={cn(
             "border-t border-sidebar-border/50 flex-shrink-0",
@@ -1090,16 +1062,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Link>
               )}
             </div>
-            <div className="p-4 border-t border-slate-200 space-y-3">
-              <Link href="/billing">
-                <button
-                  type="button"
-                  onClick={() => setMobileNavOpen(false)}
-                  className="w-full text-xs font-medium border border-slate-200 rounded-full px-3 py-2 hover:border-primary hover:text-primary min-h-9"
-                >
-                  Upgrade
-                </button>
-              </Link>
+            <div className="p-4 border-t border-slate-200">
               <ProfileAccountMenu
                 displayName={displayName}
                 initials={initials}
