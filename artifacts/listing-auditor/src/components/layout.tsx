@@ -277,7 +277,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const [auditListingNavOpen, setAuditListingNavOpen] = useState(() =>
     isAuditListingSectionPath(location, search),
   );
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
@@ -458,19 +457,6 @@ export function Layout({ children }: { children: ReactNode }) {
     isEnabled: recentsReady,
   });
   const recents = recentsScopeLoading ? [] : ((recentsData?.items ?? []) as RecentItem[]);
-
-  // Search projects (scoped to active workspace)
-  const { data: searchData } = useQuery({
-    queryKey: ["search-projects", searchQuery, featureWorkspaceId],
-    queryFn: async () => {
-      const r = await fetch(`${basePath}/api/search/projects?q=${encodeURIComponent(searchQuery)}&limit=50`, { credentials: "include" });
-      if (!r.ok) return { items: [] };
-      return r.json() as Promise<{ items: RecentItem[] }>;
-    },
-    enabled: isWorkspaceApiScopeActive && searchQuery.length > 0 && !!featureWorkspaceId,
-    staleTime: 0,
-  });
-  const searchResults = (searchData?.items ?? []) as RecentItem[];
 
   // Close ribbon dots dropdown on outside click
   useEffect(() => {
@@ -1109,11 +1095,11 @@ export function Layout({ children }: { children: ReactNode }) {
         <DashboardSearchDialog
           open={searchDialogOpen}
           onOpenChange={setSearchDialogOpen}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          searchResults={searchResults}
           recents={recents}
-          searchEnabled={isWorkspaceApiScopeActive && !!featureWorkspaceId}
+          searchEnabled={
+            isWorkspaceApiScopeActive && !!(featureWorkspaceId ?? activeWorkspaceId)
+          }
+          featureWorkspaceId={featureWorkspaceId ?? activeWorkspaceId}
         />
 
         {/* ── Top ribbon (project context) ── */}
