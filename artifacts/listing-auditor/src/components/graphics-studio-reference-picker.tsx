@@ -299,7 +299,18 @@ export function GraphicsStudioReferencePicker({
   }
 
   const hasExamples = !isLoading && images.length > 0;
-  const previewStrip = selectedStudio.length > 0 ? selectedStudio : images.map((i) => i.url);
+  const exampleUrls = images.map((i) => i.url);
+  const slotsUsed = referenceImages.length;
+  const slotsLeft = MAX_REFERENCE_IMAGES - slotsUsed;
+
+  function toggleStudioUrlFromStrip(url: string) {
+    if (referenceImages.includes(url)) {
+      onReferenceImagesChange(referenceImages.filter((u) => u !== url));
+      return;
+    }
+    if (slotsLeft <= 0) return;
+    onReferenceImagesChange([...referenceImages, url]);
+  }
 
   return (
     <>
@@ -329,8 +340,8 @@ export function GraphicsStudioReferencePicker({
                   ? "Loading examples…"
                   : hasExamples
                     ? selectedStudio.length > 0
-                      ? `${selectedStudio.length} selected for AI · also shown in prompt bar below`
-                      : "Tap to choose references (up to 4 total)"
+                      ? `${selectedStudio.length} selected · tap thumbs to select/deselect`
+                      : "Tap thumbnails to select references (up to 4 total)"
                     : "No studio examples yet"}
               </p>
             </div>
@@ -338,13 +349,15 @@ export function GraphicsStudioReferencePicker({
           </div>
         </button>
 
-        {hasExamples && previewStrip.length > 0 ? (
-          <div className="px-3 pb-3 pt-1 border-t border-orange-200/60">
+        {hasExamples && exampleUrls.length > 0 ? (
+          <div className="px-3 pb-3 pt-1 border-t border-orange-200/60 overflow-x-auto">
             <ReferenceImageThumbStrip
-              images={previewStrip.slice(0, MAX_REFERENCE_IMAGES)}
+              images={exampleUrls}
               prominent
-              accent={selectedStudio.length > 0 ? "orange" : "muted"}
+              selectedUrls={referenceImages}
+              onToggleSelect={toggleStudioUrlFromStrip}
               onPreview={(url) => openPreview(url)}
+              selectionCapReached={slotsLeft <= 0}
             />
           </div>
         ) : null}
@@ -355,8 +368,8 @@ export function GraphicsStudioReferencePicker({
           <DialogHeader>
             <DialogTitle className="text-lg">Choose studio references</DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Admin-configured examples for {moduleLabel}. Tap a tile to select; use View for full size. Up to{" "}
-              {MAX_REFERENCE_IMAGES} references total including uploads below.
+              Tap a tile to select or deselect. Use View for full size. Up to {MAX_REFERENCE_IMAGES} references
+              total including uploads in the prompt bar.
             </p>
           </DialogHeader>
           <GraphicsStudioReferencePickerBody
