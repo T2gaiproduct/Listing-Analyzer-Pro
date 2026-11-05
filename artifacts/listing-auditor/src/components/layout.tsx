@@ -53,7 +53,7 @@ import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useWorkspaceScopeLoading } from "@/hooks/use-workspace-scope-loading";
 import { projectTypeToFeature } from "@/lib/workspace-route-access";
-import { isWorkspaceAdminOverviewRoute, isAccountScopedRoute } from "@/lib/workspace-routes";
+import { isWorkspaceAdminOverviewRoute } from "@/lib/workspace-routes";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
@@ -415,7 +415,7 @@ export function Layout({ children }: { children: ReactNode }) {
     },
   });
 
-  const { isTeamMember, memberCredits, isOwner } = useTeam();
+  const { isTeamMember, isOwner } = useTeam();
 
   const showAccountRecents = isAgencyAccountOverviewDashboard(
     isBillingAccountOwner,
@@ -606,7 +606,7 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Shell/topbar: subscription + credits use the same queries as billing (single source of truth)
+  // Shell/sidebar plan label (same subscription query as billing)
   const { data: subscription } = useQuery<{
     planName: string | null;
     status: string;
@@ -621,48 +621,7 @@ export function Layout({ children }: { children: ReactNode }) {
     refetchOnMount: "always",
   });
 
-  const { data: creditsData } = useQuery<{
-    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
-    accountCreditSummary?: {
-      unallocatedTotal: number;
-      inPoolsTotal: number;
-      accountTotal: number;
-      unallocated: { aiCredits: number; imageCredits: number; auditCredits: number };
-      accountTotalBuckets?: { aiCredits: number; imageCredits: number; auditCredits: number };
-      workspaceCreditsAllocatedTotal?: number;
-    };
-  }>({
-    queryKey: ["user-credits"],
-    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
-    enabled: clerkLoaded && !!user,
-    staleTime: 30_000,
-    refetchOnMount: "always",
-  });
-
-  const isAccountHubRoute = isAccountScopedRoute(location);
   const isAccountDashboardRoute = location === "/dashboard" || location === "/";
-  const accountCreditSummary = creditsData?.accountCreditSummary;
-
-  const showWorkspacePoolCredits =
-    workspacesEnabled
-    && !isAgencyAccountOverview
-    && isAccountOwner
-    && !isTeamMember
-    && featureWorkspaceId != null
-    && isWorkspaceApiScopeActive;
-
-  const { data: workspacePoolData } = useQuery<{
-    poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
-  }>({
-    queryKey: ["workspace-pool-credits", featureWorkspaceId],
-    queryFn: () =>
-      fetch(`${basePath}/api/workspaces/${featureWorkspaceId}/members`, { credentials: "include" }).then(
-        (r) => r.json(),
-      ),
-    enabled: clerkLoaded && !!user && showWorkspacePoolCredits && !featureWorkspace?.isDefault,
-    staleTime: 30_000,
-    refetchOnMount: "always",
-  });
 
   // Full profile for display name (same source as /profile page)
   const { data: fullProfileData } = useQuery<{
@@ -686,48 +645,6 @@ export function Layout({ children }: { children: ReactNode }) {
     enabled: clerkLoaded && !!user,
     refetchOnMount: "always",
   });
-
-  const usesMemberCredits = featureWorkspace != null && !featureWorkspace.isAccountOwner;
-  const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const isDefaultWorkspace = featureWorkspace?.isDefault === true;
-  /** Default ("My") workspace charges the account owner balance, not the workspace pool. */
-  const defaultWorkspaceAccountCredits =
-    showWorkspacePoolCredits && isDefaultWorkspace && isAccountOwner && !usesMemberCredits;
-
-  const workspacePoolCredits = workspacePoolData?.poolCredits;
-  const accountSpendableCredits = accountCreditSummary?.unallocated ?? ownerCredits;
-  const displayCredits = usesMemberCredits
-    ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
-    : defaultWorkspaceAccountCredits
-      ? accountSpendableCredits
-      : showWorkspacePoolCredits
-        ? (workspacePoolCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
-        : isAgencyAccountOverview && accountCreditSummary?.unallocated
-          ? accountCreditSummary.unallocated
-          : accountSpendableCredits;
-  const creditsScopeLabel = !workspacesEnabled
-    ? "account"
-    : defaultWorkspaceAccountCredits
-      ? "default_workspace"
-      : showWorkspacePoolCredits
-        ? "workspace"
-        : usesMemberCredits
-          ? "member"
-          : isAccountOwner && isAgencyAccountOverview
-            ? "account_total"
-            : isAccountOwner && isAccountHubRoute
-              ? "account_hub"
-              : "account";
-
-  const workspaceScopeName =
-    creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace"
-      ? (featureWorkspace?.name ?? workspaces.find((w) => w.id === featureWorkspaceId)?.name ?? null)
-      : null;
-  const workspaceManageHref =
-    (creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace")
-    && featureWorkspaceId != null
-      ? `/workspaces/${featureWorkspaceId}`
-      : null;
 
   const profileName =
     fullProfileData?.profile?.fullName?.trim() ||
@@ -1150,11 +1067,6 @@ export function Layout({ children }: { children: ReactNode }) {
           email={userEmail}
           planLabel={planLabel}
           roleLabel={roleLabel}
-          credits={displayCredits}
-          creditsScopeLabel={creditsScopeLabel}
-          accountCreditSummary={accountCreditSummary}
-          workspaceScopeName={workspaceScopeName}
-          workspaceManageHref={workspaceManageHref}
           onMenuClick={() => setMobileNavOpen(true)}
           showProfileMenu={false}
         />

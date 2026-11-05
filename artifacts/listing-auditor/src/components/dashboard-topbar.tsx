@@ -1,19 +1,15 @@
 import { useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Search, Coins, ChevronDown, Menu, Building2, Archive,
+  Search, Menu, Building2, Archive,
 } from "lucide-react";
 import { CustomerNotificationBell } from "@/components/customer-notification-bell";
 import { AdminNotificationBell } from "@/components/admin-notification-bell";
-import { cn } from "@/lib/utils";
 import type { RecentItem } from "@workspace/api-client-react";
-import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { TopbarWorkspaceSwitcher } from "@/components/topbar-workspace-switcher";
 import { ProfileAccountMenu } from "@/components/profile-account-menu";
-
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface DashboardTopbarProps {
   searchQuery: string;
@@ -24,19 +20,6 @@ interface DashboardTopbarProps {
   email: string;
   planLabel: string;
   roleLabel: string;
-  credits?: { aiCredits: number; imageCredits: number; auditCredits: number };
-  creditsScopeLabel?: "workspace" | "default_workspace" | "member" | "account" | "account_hub" | "account_total";
-  accountCreditSummary?: {
-    unallocatedTotal: number;
-    inPoolsTotal: number;
-    accountTotal: number;
-    unallocated?: { aiCredits: number; imageCredits: number; auditCredits: number };
-    accountTotalBuckets?: { aiCredits: number; imageCredits: number; auditCredits: number };
-    workspaceCreditsAllocatedTotal?: number;
-  };
-  /** When scoped to a client workspace — pill subtitle and manage link. */
-  workspaceScopeName?: string | null;
-  workspaceManageHref?: string | null;
   onMenuClick?: () => void;
   variant?: "customer" | "admin";
   searchPlaceholder?: string;
@@ -53,79 +36,23 @@ export function DashboardTopbar({
   email,
   planLabel,
   roleLabel,
-  credits,
-  creditsScopeLabel = "account",
-  accountCreditSummary,
-  workspaceScopeName,
-  workspaceManageHref,
   onMenuClick,
   variant = "customer",
   searchPlaceholder = "Search projects, listings...",
   showProfileMenu = true,
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
-  const { isTeamMember, isOwner } = useTeam();
-  const { isAccountOwner, canView, can } = useWorkspace();
+  const { isAccountOwner, canView } = useWorkspace();
   const { workspacesPlanLocked, workspacesEnabled, upgradeShort, includedPlansLabel } = useWorkspacesPlan();
   const { activeWorkspace } = useWorkspace();
   const showWorkspaceSwitcher = variant === "customer" && workspacesEnabled;
   const showStaticWorkspaceLabel =
     variant === "customer" && !workspacesEnabled && Boolean(activeWorkspace?.name?.trim());
-  const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const creditsRef = useRef<HTMLDivElement>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [creditsOpen, setCreditsOpen] = useState(false);
 
-  const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
-
-  function formatCompactCreditCount(value: number): string {
-    if (value >= 1_000_000) {
-      const millions = value / 1_000_000;
-      return millions >= 10 ? `${Math.round(millions)}M` : `${millions.toFixed(1).replace(/\.0$/, "")}M`;
-    }
-    if (value >= 10_000) return `${Math.round(value / 1_000)}k`;
-    return value.toLocaleString();
-  }
-  const creditBalanceLabel =
-    !workspacesEnabled
-      ? "Plan credits"
-      : creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace"
-        ? (workspaceScopeName?.trim() || "Workspace")
-        : creditsScopeLabel === "account_hub"
-          ? "Available to fund"
-          : creditsScopeLabel === "account_total"
-            ? "Credit balance"
-            : "Credit balance";
-  const creditBalanceHeadline =
-    creditsScopeLabel === "account_total" && accountCreditSummary
-      ? accountCreditSummary.unallocatedTotal
-      : creditsScopeLabel === "account_hub" && accountCreditSummary
-        ? accountCreditSummary.unallocatedTotal
-        : creditsScopeLabel === "default_workspace" && accountCreditSummary
-          ? accountCreditSummary.unallocatedTotal
-          : accountCreditSummary && creditsScopeLabel === "account"
-            ? accountCreditSummary.unallocatedTotal
-            : totalCredits;
-
-  const breakdownCredits =
-    creditsScopeLabel === "workspace" || creditsScopeLabel === "member"
-      ? credits
-      : creditsScopeLabel === "default_workspace" && accountCreditSummary?.unallocated
-        ? accountCreditSummary.unallocated
-        : creditsScopeLabel === "account_total" && accountCreditSummary?.unallocated
-          ? accountCreditSummary.unallocated
-          : creditsScopeLabel === "account_hub" && accountCreditSummary?.unallocated
-            ? accountCreditSummary.unallocated
-            : accountCreditSummary?.unallocated ?? credits;
-
-  const typeBreakdownRows = [
-    { label: "Audit", value: breakdownCredits?.auditCredits ?? 0 },
-    { label: "Text", value: breakdownCredits?.aiCredits ?? 0 },
-    { label: "Images", value: breakdownCredits?.imageCredits ?? 0 },
-  ];
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -137,7 +64,6 @@ export function DashboardTopbar({
       if (e.key === "Escape") {
         setSearchFocused(false);
         setMobileSearchOpen(false);
-        setCreditsOpen(false);
         searchRef.current?.blur();
       }
     }
@@ -150,9 +76,6 @@ export function DashboardTopbar({
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setSearchFocused(false);
         if (window.innerWidth < 640) setMobileSearchOpen(false);
-      }
-      if (creditsRef.current && !creditsRef.current.contains(e.target as Node)) {
-        setCreditsOpen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -283,141 +206,6 @@ export function DashboardTopbar({
       )}
 
       <div className="ml-auto flex items-center gap-2 sm:gap-4 flex-shrink-0">
-        {showCredits && (
-        <div ref={creditsRef} className="relative flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => { setCreditsOpen((o) => !o); }}
-            className="flex items-center gap-2 h-9 pl-2 sm:pl-2.5 pr-2 rounded-md hover:bg-muted/45 transition-colors touch-target border-0 shadow-none bg-transparent"
-            aria-label={`${creditBalanceHeadline} credits`}
-          >
-            <Coins className="w-4 h-4 text-amber-500 flex-shrink-0" />
-            <div className="text-left hidden sm:block">
-              <p className="text-[10px] font-medium text-muted-foreground leading-none">
-                {creditBalanceLabel}
-              </p>
-              <p className="text-xs font-semibold text-foreground leading-tight">{creditBalanceHeadline.toLocaleString()} Credits</p>
-            </div>
-            <span
-              className="sm:hidden text-[11px] font-semibold text-foreground tabular-nums max-w-[4.25rem] truncate"
-              title={`${creditBalanceHeadline.toLocaleString()} credits`}
-            >
-              {formatCompactCreditCount(creditBalanceHeadline)}
-            </span>
-            <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform hidden sm:block", creditsOpen && "rotate-180")} />
-          </button>
-
-          {creditsOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-[min(100vw-2rem,15rem)] sm:w-60 bg-card border border-border rounded-xl shadow-xl z-50 py-2">
-              <div className="px-4 py-2 border-b border-border">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {!workspacesEnabled
-                    ? "Plan credits"
-                    : creditsScopeLabel === "workspace"
-                      ? (workspaceScopeName?.trim() || "This workspace")
-                      : creditsScopeLabel === "default_workspace"
-                        ? (workspaceScopeName?.trim() || "My Workspace")
-                        : creditsScopeLabel === "member"
-                          ? "Your credits"
-                          : creditsScopeLabel === "account_hub"
-                            ? "Available on account"
-                            : creditsScopeLabel === "account_total"
-                              ? "Credit balance"
-                              : "Credit balance"}
-                </p>
-                <p className="text-lg font-bold text-foreground mt-0.5 tabular-nums">
-                  {creditBalanceHeadline.toLocaleString()}
-                  <span className="text-sm font-semibold text-muted-foreground">
-                    {creditsScopeLabel === "account_hub" ? " available" : " remaining"}
-                  </span>
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-                  {!workspacesEnabled
-                    ? "Subscription credits on your account. Usage reduces this balance. Upgrade to Pro or Agencies for multiple workspaces."
-                    : creditsScopeLabel === "workspace"
-                      ? "Credits in this workspace pool (spend and assign from Workspaces)."
-                      : creditsScopeLabel === "default_workspace"
-                        ? "For your default workspace only: if you have not assigned credits to the pool, usage is charged to your account balance. Client workspaces use their pool balance instead."
-                        : creditsScopeLabel === "member"
-                          ? "Credits allocated to you in this workspace by your admin."
-                          : creditsScopeLabel === "account_hub"
-                            ? "Not yet moved into client workspace pools."
-                            : creditsScopeLabel === "account_total"
-                              ? "On your account — fund workspaces or spend from your account balance."
-                              : "Credits available on your account."}
-                </p>
-                {accountCreditSummary && creditsScopeLabel === "account_total" && (
-                  <div className="mt-2 pt-2 border-t border-border space-y-1.5 text-[11px] text-muted-foreground">
-                    <div className="flex justify-between gap-2">
-                      <span>Allocated to workspaces</span>
-                      <span className="font-semibold text-foreground tabular-nums">
-                        {(accountCreditSummary.workspaceCreditsAllocatedTotal ?? 0).toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-[10px] leading-snug text-muted-foreground/90">
-                      Total funded to workspaces this billing period (manage on Workspaces).
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="px-4 py-2 space-y-1.5 text-sm border-b border-border">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pb-0.5">
-                  {creditsScopeLabel === "account_total" ? "By type (on your account)" : "By type"}
-                </p>
-                {typeBreakdownRows.map((row) => (
-                  <div key={row.label} className="flex justify-between text-muted-foreground">
-                    <span>{row.label}</span>
-                    <span className="font-semibold text-foreground tabular-nums">{row.value.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="px-2 pt-1 space-y-0.5">
-                <button
-                  type="button"
-                  className="w-full px-3 py-2.5 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg text-left transition-colors min-h-11"
-                  onClick={() => {
-                    setCreditsOpen(false);
-                    navigate(
-                      isTeamMember && !isOwner
-                        ? "/billing"
-                        : "/billing?tab=credits",
-                    );
-                  }}
-                >
-                  {isTeamMember && !isOwner
-                    ? "View usage →"
-                    : "Buy more credits →"}
-                </button>
-                {(creditsScopeLabel === "workspace" || creditsScopeLabel === "default_workspace") && workspaceManageHref && (
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-muted rounded-lg text-left transition-colors min-h-11"
-                    onClick={() => {
-                      setCreditsOpen(false);
-                      navigate(workspaceManageHref);
-                    }}
-                  >
-                    Manage workspace →
-                  </button>
-                )}
-                {creditsScopeLabel === "account_total" && (
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-muted rounded-lg text-left transition-colors min-h-11"
-                    onClick={() => {
-                      setCreditsOpen(false);
-                      navigate("/workspaces");
-                    }}
-                  >
-                    Manage workspaces →
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        )}
-
         {showProfileMenu && (
           <ProfileAccountMenu
             displayName={displayName}
