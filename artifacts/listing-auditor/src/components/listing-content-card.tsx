@@ -405,26 +405,19 @@ function CompareFieldShell({
   children: ReactNode;
 }) {
   const showPickers = Boolean(showAiBadge && onPickSource);
-  const aiApplied = showAiBadge && fieldSource === "ai";
+  const hideSuggestionBadge = showAiBadge && fieldSource === "ai";
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50/80">
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">{label}</p>
-          {showAiBadge && (
-            <span
-              className={cn(
-                "text-[9px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1",
-                aiApplied
-                  ? "text-violet-900 bg-violet-100"
-                  : "text-amber-900 bg-amber-100",
-              )}
-            >
-              <Sparkles className={cn("w-3 h-3", aiApplied ? "text-violet-600" : "text-amber-600")} />
-              {aiApplied ? "AI applied" : "AI suggestions"}
+          {showAiBadge && !hideSuggestionBadge && (
+            <span className="text-[9px] font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-600" />
+              AI suggestions
             </span>
           )}
-          {aiApplied && onEditAi && (
+          {showAiBadge && onEditAi && (
             <button
               type="button"
               title="Edit AI content"
@@ -607,9 +600,7 @@ export function ListingMarketplaceContentCompare({
           )}
           {optimized?.title?.trim() && (
             <div className={compareBlockClass(titleSource === "ai")}>
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1">
-                {titleSource === "ai" ? "AI applied" : "AI suggests"}
-              </p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1">AI suggests</p>
               {editingField === "title" ? (
                 <Textarea
                   className="text-[11px] min-h-[4.5rem]"
@@ -656,9 +647,7 @@ export function ListingMarketplaceContentCompare({
           )}
           {optimizedBullets.length > 0 && (
             <div className={compareBlockClass(bulletSource === "ai")}>
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">
-                {bulletSource === "ai" ? "AI applied" : "AI suggests"}
-              </p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
               {editingField === "bulletPoints" ? (
                 <Textarea
                   className="text-[11px] min-h-[8rem] font-mono"
@@ -712,9 +701,7 @@ export function ListingMarketplaceContentCompare({
           )}
           {optimizedKeywords.length > 0 && (
             <div className={compareBlockClass(kwSource === "ai")}>
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">
-                {kwSource === "ai" ? "AI applied" : "AI suggests"}
-              </p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
               {editingField === "keywords" ? (
                 <Input
                   className="text-[11px] h-9"
@@ -763,9 +750,7 @@ export function ListingMarketplaceContentCompare({
           )}
           {optimizedDesc && (
             <div className={compareBlockClass(descSource === "ai")}>
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">
-                {descSource === "ai" ? "AI applied" : "AI suggests"}
-              </p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
               {editingField === "htmlDescription" ? (
                 <Textarea
                   className="text-[11px] min-h-[8rem] font-mono"
