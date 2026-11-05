@@ -110,6 +110,16 @@ function proxyRequest(req, res, attempt = 0) {
   const headers = buildForwardHeaders(req, target);
   const label = upstream === API_TARGET ? "API server" : "frontend";
 
+  /** AI listing audits and similar POST /api/* calls often exceed 30s locally. */
+  function upstreamTimeoutMs() {
+    if (upstream !== API_TARGET) return 30_000;
+    const method = (req.method ?? "GET").toUpperCase();
+    if (method === "GET" || method === "HEAD") return 60_000;
+    if (path.startsWith("/api/audits")) return 180_000;
+    if (path.startsWith("/api/")) return 120_000;
+    return 30_000;
+  }
+
   const proxyReq = http.request(
     {
       hostname: target.hostname,
@@ -117,7 +127,7 @@ function proxyRequest(req, res, attempt = 0) {
       path: req.url,
       method: req.method,
       headers,
-      timeout: 30_000,
+      timeout: upstreamTimeoutMs(),
     },
     (proxyRes) => {
       res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
