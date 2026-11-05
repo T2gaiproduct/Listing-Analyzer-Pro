@@ -227,8 +227,10 @@ export default function AuditImportFromLinkPage() {
                   {fetchListing.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Fetching…
+                      {fromAuditListing ? "Auditing listing…" : "Fetching…"}
                     </>
+                  ) : fromAuditListing ? (
+                    "Audit listing"
                   ) : (
                     "Fetch listing"
                   )}
