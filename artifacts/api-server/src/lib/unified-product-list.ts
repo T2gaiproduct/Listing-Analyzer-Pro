@@ -137,9 +137,10 @@ export async function loadUnifiedProductList(
   const restrictToWorkedProjects = team.isTeamMember
     && !wsCtx.isAccountOwner
     && !requireWorkspacePerm(wsCtx, "build_brand", "viewGlobal")
-    && !requireWorkspacePerm(wsCtx, "audits", "viewGlobal");
+    && !requireWorkspacePerm(wsCtx, "audits", "viewGlobal")
+    && !requireWorkspacePerm(wsCtx, "graphics", "viewGlobal");
 
-  const { audits, videos, ads } = await loadScopedRecents(
+  const { audits, graphics, videos, ads } = await loadScopedRecents(
     ownerUserId,
     userId,
     team,
@@ -231,7 +232,38 @@ export async function loadUnifiedProductList(
     });
   }
 
-  // Create Graphics gallery projects live under /projects and Recent Projects — not Product Explorer.
+  for (const g of graphics) {
+    const mapped = mapGenericStatus(g.status);
+    const name = g.name?.trim() || "Untitled Project";
+    items.push({
+      id: g.id,
+      name,
+      sku: deriveSku(name, g.id, "GFX"),
+      imageUrl: pickProjectThumbnail({
+        sourceImageUrls: g.sourceImageUrls,
+        imageRecords: g.imageRecords as Array<{ currentUrl?: string }> | null,
+      }),
+      channels: [],
+      price: null,
+      currency: "INR",
+      stock: null,
+      inStock: null,
+      status: mapped.status,
+      statusLabel: mapped.label,
+      workflowUrl: `/projects/${g.id}`,
+      detailUrl: `/products/${g.id}?source=graphics`,
+      sourceType: "graphics",
+      sourceTypeLabel: sourceTypeLabel("graphics"),
+      isShopifyImport: false,
+      isWooCommerceImport: false,
+      referenceUrl: null,
+      auditScore: null,
+      auditPending: false,
+      createdAt: g.createdAt,
+      updatedAt: g.updatedAt ?? g.createdAt,
+      workspaceId: g.workspaceId ?? null,
+    });
+  }
 
   for (const v of videos) {
     const mapped = mapGenericStatus(v.status);
