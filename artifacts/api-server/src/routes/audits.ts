@@ -57,7 +57,7 @@ import {
   mergeListingContentByFieldSources,
   resolveAiSnapshot,
 } from "../lib/listing-content-field-merge.js";
-import { listingContentFieldSourcesSchema } from "@workspace/db";
+import { generatedContentSchema, listingContentFieldSourcesSchema } from "@workspace/db";
 import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refresh.js";
 import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-product-listing-refresh.js";
 import { listProductMarketplacesSafe } from "../lib/product-marketplaces.js";
@@ -1559,9 +1559,8 @@ router.patch(
       return;
     }
 
-    const parsedSources = listingContentFieldSourcesSchema.safeParse(
-      (req.body as { fieldSources?: unknown })?.fieldSources,
-    );
+    const body = req.body as { fieldSources?: unknown; aiSnapshot?: unknown };
+    const parsedSources = listingContentFieldSourcesSchema.safeParse(body.fieldSources);
     if (!parsedSources.success) {
       res.status(400).json({ error: "Invalid fieldSources" });
       return;
@@ -1573,7 +1572,15 @@ router.patch(
       return;
     }
 
-    const ai = resolveAiSnapshot(variant);
+    let ai = resolveAiSnapshot(variant);
+    if (body.aiSnapshot != null) {
+      const parsedAi = generatedContentSchema.partial().safeParse(body.aiSnapshot);
+      if (!parsedAi.success) {
+        res.status(400).json({ error: "Invalid aiSnapshot" });
+        return;
+      }
+      ai = { ...ai, ...parsedAi.data };
+    }
     const sourceListing = (audit.sourceListingContent ?? buildSourceListingSnapshot(audit)) as {
       title: string;
       bulletPoints: string[];

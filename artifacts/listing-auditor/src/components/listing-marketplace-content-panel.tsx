@@ -7,13 +7,16 @@ import { cn } from "@/lib/utils";
 import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import {
+  cloneListingContentView,
   generatedContentToListingView,
   ListingContentCard,
   ListingMarketplaceContentCompare,
   ListingSuggestionsCard,
+  listingViewToGenerated,
   resolveExistingContentForMarketplaceSlug,
   type ListingContentView,
 } from "@/components/listing-content-card";
+import type { ListingContentFieldKey } from "@/lib/listing-content-field-merge";
 import {
   defaultFieldSourcesAi,
   LISTING_CONTENT_FIELD_KEYS,
@@ -121,15 +124,37 @@ export function ListingMarketplaceContentPanel({
   const [draftFieldSources, setDraftFieldSources] = useState<ListingContentFieldSources>(savedFieldSources);
 
   const savedFieldSourcesKey = JSON.stringify(savedFieldSources);
+  const savedAiView = useMemo(
+    () => (aiView ? cloneListingContentView(aiView) : null),
+    [aiView],
+  );
+  const savedAiViewKey = savedAiView ? JSON.stringify(savedAiView) : "";
+
+  const [draftAiView, setDraftAiView] = useState<ListingContentView | null>(savedAiView);
+  const [editingField, setEditingField] = useState<ListingContentFieldKey | null>(null);
 
   useEffect(() => {
     setDraftFieldSources(savedFieldSources);
   }, [contentMarketplaceId, savedFieldSourcesKey, savedFieldSources]);
 
-  const selectionsDirty = !fieldSourcesEqual(draftFieldSources, savedFieldSources);
+  useEffect(() => {
+    setDraftAiView(savedAiView ? cloneListingContentView(savedAiView) : null);
+    setEditingField(null);
+  }, [contentMarketplaceId, savedAiViewKey, savedAiView]);
+
+  const aiEditsDirty = Boolean(
+    savedAiView
+    && draftAiView
+    && JSON.stringify(savedAiView) !== JSON.stringify(draftAiView),
+  );
+  const selectionsDirty =
+    !fieldSourcesEqual(draftFieldSources, savedFieldSources) || aiEditsDirty;
 
   const saveFieldSelections = useMutation({
-    mutationFn: async (sources: ListingContentFieldSources) => {
+    mutationFn: async (payload: {
+      sources: ListingContentFieldSources;
+      aiSnapshot?: ReturnType<typeof listingViewToGenerated>;
+    }) => {
       if (!auditId || contentMarketplaceId == null) {
         throw new Error("Missing audit or marketplace");
       }
@@ -139,7 +164,10 @@ export function ListingMarketplaceContentPanel({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ fieldSources: sources }),
+          body: JSON.stringify({
+            fieldSources: payload.sources,
+            ...(payload.aiSnapshot ? { aiSnapshot: payload.aiSnapshot } : {}),
+          }),
         },
       );
       if (!res.ok) {
@@ -297,7 +325,10 @@ export function ListingMarketplaceContentPanel({
                   : "bg-slate-400 hover:bg-slate-500 cursor-default",
               )}
               disabled={!selectionsDirty || saveFieldSelections.isPending || optimizeDisabled}
-              onClick={() => saveFieldSelections.mutate(draftFieldSources)}
+              onClick={() => saveFieldSelections.mutate({
+                sources: draftFieldSources,
+                aiSnapshot: draftAiView ? listingViewToGenerated(draftAiView) : undefined,
+              })}
             >
               {saveFieldSelections.isPending ? (
                 <>
@@ -337,10 +368,29 @@ export function ListingMarketplaceContentPanel({
               )}
               <ListingMarketplaceContentCompare
                 existing={existingForTab}
-                optimized={aiView ?? activeView}
+                optimized={draftAiView ?? aiView ?? activeView}
                 marketplaceName={activeMarketplace?.name}
                 fieldSources={draftFieldSources}
                 fieldPickDisabled={optimizeDisabled || !auditId || saveFieldSelections.isPending}
+                editingField={editingField}
+                onEditingFieldChange={setEditingField}
+                onOptimizedFieldChange={(field, value) => {
+                  setDraftAiView((prev) => {
+                    const base = prev ?? (aiView ? cloneListingContentView(aiView) : null);
+                    if (!base) return prev;
+                    const next = cloneListingContentView(base);
+                    if (field === "title" && typeof value === "string") next.title = value;
+                    if (field === "bulletPoints" && Array.isArray(value)) {
+                      next.bulletPoints = value.filter((v): v is string => typeof v === "string");
+                    }
+                    if (field === "keywords" && Array.isArray(value)) {
+                      next.keywords = value.filter((v): v is string => typeof v === "string");
+                    }
+                    if (field === "htmlDescription" && typeof value === "string") next.htmlDescription = value;
+                    if (field === "attributes" && Array.isArray(value)) next.attributes = value;
+                    return next;
+                  });
+                }}
                 onFieldSourceChange={(field, source) => {
                   setDraftFieldSources((prev) => ({ ...prev, [field]: source }));
                 }}
