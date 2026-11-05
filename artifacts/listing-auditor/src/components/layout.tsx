@@ -215,7 +215,7 @@ function parseProjectContext(location: string): { type: string; id: number } | n
 // --- Main Layout ------------------------------------------------------------
 export function Layout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
-  const [search] = useSearch();
+  const search = useSearch();
   const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { toast } = useToast();

@@ -35,7 +35,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function AuditImportFromLinkPage() {
   const [, nav] = useLocation();
-  const [search] = useSearch();
+  const search = useSearch();
   const fromAuditListing = isImportFromLinkForAuditListings(search);
   const returnPath = fromAuditListing ? "/audit-listings" : "/audits/new";
   const returnLabel = fromAuditListing ? "Back to Audit Listing" : "Back to Build Your Brand";

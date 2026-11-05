@@ -8,7 +8,8 @@ export function importFromLinkPath(from?: typeof IMPORT_FROM_LINK_AUDIT_LISTINGS
   return "/audits/import-from-link";
 }
 
-export function isImportFromLinkForAuditListings(search: string): boolean {
-  const q = search.startsWith("?") ? search.slice(1) : search;
+export function isImportFromLinkForAuditListings(search: string | undefined): boolean {
+  const raw = search ?? "";
+  const q = raw.startsWith("?") ? raw.slice(1) : raw;
   return new URLSearchParams(q).get("from") === IMPORT_FROM_LINK_AUDIT_LISTINGS;
 }
