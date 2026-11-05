@@ -133,7 +133,7 @@ export function GraphicsProjectHistory() {
           <CardContent className="py-10 px-6 text-center">
             <p className="text-sm font-medium text-foreground">No graphics projects yet</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              Click Create Images above to start your first AI graphics project. Completed work will appear here.
+              Click Create Images and choose how to begin. Completed work will appear here.
             </p>
           </CardContent>
         ) : (

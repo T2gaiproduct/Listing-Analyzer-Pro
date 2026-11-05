@@ -1,10 +1,29 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { GraphicsProjectHistory } from "@/components/graphics-project-history";
+import {
+  BuildBrandStartDrawer,
+  type BuildBrandStartEntry,
+} from "@/components/build-brand-start-drawer";
 import { Wand2, Image as ImageIcon, Sparkles, Shield, Zap, Clock, Crown, TrendingUp } from "lucide-react";
 
 export default function ProjectsPage() {
   const [, nav] = useLocation();
+  const [startDrawerOpen, setStartDrawerOpen] = useState(false);
+
+  function handleStartChoice(entry: BuildBrandStartEntry) {
+    setStartDrawerOpen(false);
+    if (entry === "import-link") {
+      nav("/audits/import-from-link");
+      return;
+    }
+    if (entry === "scratch") {
+      nav("/projects/create");
+      return;
+    }
+    nav(`/audits/workflow?entry=${entry}`);
+  }
 
   return (
     <div className="w-full min-w-0 space-y-6 sm:space-y-8 pb-8 animate-in fade-in duration-500">
@@ -83,11 +102,18 @@ export default function ProjectsPage() {
             {/* CTA Button */}
             <Button
               className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-7 py-3 h-auto min-h-11 text-sm font-semibold shadow-lg shadow-orange-500/20 transition-all hover:shadow-orange-500/30"
-              onClick={() => nav("/projects/create")}
+              onClick={() => setStartDrawerOpen(true)}
             >
               <Sparkles className="w-4 h-4 mr-2" />
               Create Images
             </Button>
+            <BuildBrandStartDrawer
+              open={startDrawerOpen}
+              onOpenChange={setStartDrawerOpen}
+              onChoose={handleStartChoice}
+              title="Start generating"
+              description="Choose how you'd like to begin your graphics project"
+            />
 
             {/* Trust Badges */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 mt-4 sm:mt-5">
