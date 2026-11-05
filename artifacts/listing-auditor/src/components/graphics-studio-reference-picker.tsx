@@ -306,7 +306,7 @@ export function GraphicsStudioReferencePicker({
                   ? "Loading examples…"
                   : hasExamples
                     ? selectedStudio.length > 0
-                      ? `${selectedStudio.length} selected · tap to change`
+                      ? `${selectedStudio.length} selected for AI · also shown in prompt bar below`
                       : "Tap to choose references (up to 4 total)"
                     : "No studio examples yet"}
               </p>

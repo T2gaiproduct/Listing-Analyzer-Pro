@@ -291,6 +291,13 @@ async function resolveSourceImage(auditId: number, imageUrls: string[]): Promise
       continue;
     }
 
+    if (raw.includes("/api/images/graphics-examples/")) {
+      const { resolveGraphicsExampleImagePath } = await import("./graphics-example-image-storage.js");
+      const fromExample = resolveGraphicsExampleImagePath(raw);
+      if (fromExample) return fromExample;
+      continue;
+    }
+
     const auditApiMatch = raw.match(/\/api\/images\/(\d+)\/([^/?#]+)/);
     if (auditApiMatch) {
       const auditIdFromUrl = parseInt(auditApiMatch[1], 10);

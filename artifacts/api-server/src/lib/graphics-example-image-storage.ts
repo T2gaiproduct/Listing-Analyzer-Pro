@@ -37,3 +37,15 @@ export function saveGraphicsExampleImageFromDataUrl(dataUrl: string, preferredNa
   if (!parsed) throw new Error("Invalid image data");
   return saveGraphicsExampleImage(parsed.buffer, preferredName);
 }
+
+const MIN_EXAMPLE_FILE_BYTES = 1024;
+
+/** Resolve `/api/images/graphics-examples/...` to a local file for AI reference input. */
+export function resolveGraphicsExampleImagePath(imageUrl: string): string | null {
+  const basename = path.basename((imageUrl.split("?")[0] ?? imageUrl).trim());
+  if (!basename || basename === "." || basename.includes("..")) return null;
+  const filePath = path.join(GRAPHICS_EXAMPLE_IMAGES_DIR, basename);
+  if (!fs.existsSync(filePath)) return null;
+  if (fs.statSync(filePath).size < MIN_EXAMPLE_FILE_BYTES) return null;
+  return filePath;
+}

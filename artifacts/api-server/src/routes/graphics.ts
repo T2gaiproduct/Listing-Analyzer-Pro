@@ -44,6 +44,7 @@ import {
 } from "../lib/image-storage.js";
 import { persistGraphicsProjectSourceImages } from "../lib/graphics-source-images.js";
 import { resolveAuditImagePath } from "../lib/image-storage.js";
+import { resolveGraphicsExampleImagePath } from "../lib/graphics-example-image-storage.js";
 
 const router: IRouter = Router();
 
@@ -656,6 +657,20 @@ async function resolveReferencePaths(
       const ext = rawPath.startsWith("data:image/png") ? "png" : "jpg";
       const saved = saveBase64Image(rawPath, dir, `prompt_ref_${resolved.length}.${ext}`);
       if (saved) resolved.push(saved);
+    } else if (rawPath.includes("/api/images/graphics-examples/")) {
+      const fromExample = resolveGraphicsExampleImagePath(rawPath);
+      if (fromExample) resolved.push(fromExample);
+    } else if (rawPath.includes("/api/images/graphics/")) {
+      const graphicsMatch = rawPath.match(/\/api\/images\/graphics\/(\d+)\/([^/?#]+)/);
+      if (graphicsMatch) {
+        const refProjectId = parseInt(graphicsMatch[1], 10);
+        if (!Number.isNaN(refProjectId)) {
+          const fromGraphics = resolveGraphicsImagePath(refProjectId, rawPath);
+          if (fromGraphics && fs.existsSync(fromGraphics) && fs.statSync(fromGraphics).size >= MIN_FILE_SIZE) {
+            resolved.push(fromGraphics);
+          }
+        }
+      }
     } else if (rawPath.includes("/api/images/")) {
       const match = rawPath.match(/\/api\/images\/(\d+)\//);
       const auditId = match ? parseInt(match[1], 10) : NaN;

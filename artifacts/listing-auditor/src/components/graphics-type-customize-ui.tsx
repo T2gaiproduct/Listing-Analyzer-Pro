@@ -90,6 +90,12 @@ export function ImageTypeCustomizeDialog({
           />
         ) : null}
 
+        {showAdminBlock && config.referenceImages.length > 0 ? (
+          <p className="text-[11px] text-slate-500 -mt-1">
+            Studio and uploaded references below are sent to the AI together (max 4) when you generate.
+          </p>
+        ) : null}
+
         <CustomPromptGenerationPanel
           variant="embedded"
           compactOutput

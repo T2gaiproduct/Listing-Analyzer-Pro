@@ -9,6 +9,7 @@ import {
   type GraphicsQuality,
 } from "@/components/graphics-output-options";
 import { useReferenceImageUpload } from "@/components/use-reference-image-upload";
+import { ProtectedAppImage } from "@/components/protected-app-image";
 import {
   Popover,
   PopoverContent,
@@ -119,7 +120,15 @@ export function ChatGptStyleGenerationInput({
                   title="View full size"
                   aria-label={`View reference ${idx + 1} full size`}
                 >
-                  <img src={img} alt={`Reference ${idx + 1}`} className="h-full w-full object-cover" />
+                  {img.startsWith("data:") || img.startsWith("blob:") ? (
+                    <img src={img} alt={`Reference ${idx + 1}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <ProtectedAppImage
+                      src={img}
+                      alt={`Reference ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
                 </button>
                 <button
                   type="button"
