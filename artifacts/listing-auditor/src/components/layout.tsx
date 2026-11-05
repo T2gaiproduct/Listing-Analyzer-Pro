@@ -1,13 +1,16 @@
 import { ReactNode, useState, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { isImportFromLinkForAuditListings } from "@/lib/import-from-link-return";
-import { isOpenedFromAuditInDetail } from "@/lib/audit-in-detail-nav";
+import {
+  AuditListingNavCollapsed,
+  AuditListingNavGroup,
+  isAuditListingSectionPath,
+} from "@/components/audit-listing-nav";
 import {
   Package,
   Store,
   FilePlus2,
   FileSearch,
-  ClipboardList,
   Palette,
   Video,
   Archive,
@@ -82,7 +85,6 @@ const mainNavItems: Array<{
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
   { icon: Package, label: "Product Explorer", href: "/products", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
-  { icon: ClipboardList, label: "Audit in Detail", href: "/audit-in-detail", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
@@ -124,24 +126,6 @@ function isBuildYourBrandNavActive(location: string, search = ""): boolean {
     return !isImportFromLinkForAuditListings(search);
   }
   if (location === "/audits/workflow") return true;
-  return false;
-}
-
-function isAuditListingNavActive(location: string, search = ""): boolean {
-  if (location === "/audit-listings") return true;
-  if (location === "/audits/import-from-link" && isImportFromLinkForAuditListings(search)) {
-    return true;
-  }
-  return false;
-}
-
-function isAuditDetailPath(location: string): boolean {
-  return /^\/audits\/\d+$/.test(location);
-}
-
-function isAuditInDetailNavActive(location: string, search = ""): boolean {
-  if (location === "/audit-in-detail") return true;
-  if (isAuditDetailPath(location) && isOpenedFromAuditInDetail(search)) return true;
   return false;
 }
 
@@ -276,12 +260,21 @@ export function Layout({ children }: { children: ReactNode }) {
   ).map((item) =>
     item.label === "__AI__" ? { ...item, label: platformAiName(platformName) } : item,
   );
-  const navItemsBeforeManageAds = visibleNavItems.filter((item) => item.href !== "/recent-projects" && item.href !== "/marketplaces" && item.href !== "/ai");
+  const navItemsBeforeManageAds = visibleNavItems.filter(
+    (item) =>
+      item.href !== "/recent-projects"
+      && item.href !== "/marketplaces"
+      && item.href !== "/ai"
+      && item.href !== "/audit-in-detail",
+  );
   const navItemsAfterManageAds = visibleNavItems.filter((item) => item.href === "/recent-projects" || item.href === "/marketplaces" || item.href === "/ai");
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [manageAdsNavOpen, setManageAdsNavOpen] = useState(() => isManageAdsPath(location));
+  const [auditListingNavOpen, setAuditListingNavOpen] = useState(() =>
+    isAuditListingSectionPath(location, search),
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
@@ -330,6 +323,10 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isManageAdsPath(location)) setManageAdsNavOpen(true);
   }, [location]);
+
+  useEffect(() => {
+    if (isAuditListingSectionPath(location, search)) setAuditListingNavOpen(true);
+  }, [location, search]);
 
   /* ── Ribbon actions state ── */
   const [dotsOpen, setDotsOpen] = useState(false);
@@ -847,12 +844,35 @@ export function Layout({ children }: { children: ReactNode }) {
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3.5")}>
             {navItemsBeforeManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
+              if (href === "/audit-listings") {
+                if (collapsed) {
+                  return (
+                    <SidebarTooltip key={href} label="Audit Listing" side="right">
+                      <div>
+                        <AuditListingNavCollapsed
+                          location={location}
+                          search={search}
+                          onNavigate={(h) => handleFeatureNav(h)}
+                        />
+                      </div>
+                    </SidebarTooltip>
+                  );
+                }
+                return (
+                  <AuditListingNavGroup
+                    key={href}
+                    location={location}
+                    search={search}
+                    expanded={auditListingNavOpen}
+                    onToggle={() => setAuditListingNavOpen((v) => !v)}
+                    onNavigate={(h) => handleFeatureNav(h)}
+                  />
+                );
+              }
               const isActive =
                 location === href ||
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                 (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
-                (href === "/audit-listings" && isAuditListingNavActive(location, search)) ||
-                (href === "/audit-in-detail" && isAuditInDetailNavActive(location, search)) ||
                 (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                 (href === "/videos" && location === "/videos");
               if (collapsed) {
@@ -1017,12 +1037,23 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
               {navItemsBeforeManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
+                if (href === "/audit-listings") {
+                  return (
+                    <AuditListingNavGroup
+                      key={href}
+                      location={location}
+                      search={search}
+                      expanded={auditListingNavOpen}
+                      onToggle={() => setAuditListingNavOpen((v) => !v)}
+                      onNavigate={(h) => handleFeatureNav(h)}
+                      variant="mobile"
+                    />
+                  );
+                }
                 const isActive =
                   location === href ||
                   (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                   (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
-                  (href === "/audit-listings" && isAuditListingNavActive(location, search)) ||
-                  (href === "/audit-in-detail" && isAuditInDetailNavActive(location, search)) ||
                   (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                   (href === "/videos" && location === "/videos");
                 return (
