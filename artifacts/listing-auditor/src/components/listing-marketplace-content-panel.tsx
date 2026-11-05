@@ -132,6 +132,7 @@ export function ListingMarketplaceContentPanel({
 
   const [draftAiView, setDraftAiView] = useState<ListingContentView | null>(savedAiView);
   const [editingField, setEditingField] = useState<ListingContentFieldKey | null>(null);
+  const [editingAttributeIndex, setEditingAttributeIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setDraftFieldSources(savedFieldSources);
@@ -140,6 +141,7 @@ export function ListingMarketplaceContentPanel({
   useEffect(() => {
     setDraftAiView(savedAiView ? cloneListingContentView(savedAiView) : null);
     setEditingField(null);
+    setEditingAttributeIndex(null);
   }, [contentMarketplaceId, savedAiViewKey]);
 
   const aiEditsDirty = Boolean(
@@ -374,7 +376,12 @@ export function ListingMarketplaceContentPanel({
                 fieldPickDisabled={optimizeDisabled || !auditId || saveFieldSelections.isPending}
                 editDisabled={!auditId || saveFieldSelections.isPending}
                 editingField={editingField}
-                onEditingFieldChange={setEditingField}
+                onEditingFieldChange={(field) => {
+                  setEditingField(field);
+                  if (field != null) setEditingAttributeIndex(null);
+                }}
+                editingAttributeIndex={editingAttributeIndex}
+                onEditingAttributeIndexChange={setEditingAttributeIndex}
                 onOptimizedFieldChange={(field, value) => {
                   setDraftAiView((prev) => {
                     const base = prev ?? (aiView ? cloneListingContentView(aiView) : null);

@@ -480,6 +480,148 @@ function compareBlockClass(selected: boolean): string {
   );
 }
 
+function AiEditableAttributesPanel({
+  rows,
+  editDisabled,
+  editingIndex,
+  onEditingIndexChange,
+  onRowsChange,
+}: {
+  rows: ListingContentAttribute[];
+  editDisabled?: boolean;
+  editingIndex: number | null;
+  onEditingIndexChange: (index: number | null) => void;
+  onRowsChange: (rows: ListingContentAttribute[]) => void;
+}) {
+  const displayEntries = rows
+    .map((row, globalIndex) => ({ row, globalIndex }))
+    .filter(
+      ({ row, globalIndex }) =>
+        editingIndex === globalIndex
+        || (row.attribute?.trim() && row.value?.trim()),
+    );
+
+  if (displayEntries.length === 0 && editDisabled) {
+    return null;
+  }
+
+  const splitAt = Math.ceil(displayEntries.length / 2);
+  const columns = [
+    displayEntries.slice(0, splitAt),
+    displayEntries.slice(splitAt),
+  ];
+
+  const labelClass = "text-[10px] font-bold text-slate-900 shrink-0 leading-snug";
+  const valueClass = "text-[10px] text-slate-700 leading-snug break-words min-w-0 flex-1 text-right";
+
+  const renderRow = ({ row, globalIndex }: { row: ListingContentAttribute; globalIndex: number }) => {
+    const isEditing = editingIndex === globalIndex;
+    return (
+      <div
+        key={`attr-${globalIndex}-${row.attribute}`}
+        className={cn(
+          "flex items-start gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 border-b border-slate-100 last:border-b-0",
+          isEditing && "bg-orange-50/40",
+        )}
+      >
+        {isEditing ? (
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <Input
+              className="h-8 text-[10px]"
+              placeholder="Attribute name"
+              value={row.attribute}
+              onChange={(e) => {
+                const next = rows.map((r, i) =>
+                  i === globalIndex ? { ...r, attribute: e.target.value } : r,
+                );
+                onRowsChange(next);
+              }}
+              autoFocus
+            />
+            <Input
+              className="h-8 text-[10px]"
+              placeholder="Value"
+              value={row.value}
+              onChange={(e) => {
+                const next = rows.map((r, i) =>
+                  i === globalIndex ? { ...r, value: e.target.value } : r,
+                );
+                onRowsChange(next);
+              }}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+              <span className={labelClass}>{row.attribute}</span>
+              <span className={valueClass}>{row.value}</span>
+            </div>
+            {!editDisabled && (
+              <button
+                type="button"
+                title="Edit this attribute"
+                className="h-7 w-7 shrink-0 rounded-md border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 hover:border-slate-300"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onEditingIndexChange(globalIndex)}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </>
+        )}
+        {isEditing && (
+          <button
+            type="button"
+            title="Done editing"
+            className="h-7 w-7 shrink-0 rounded-md border border-emerald-200 bg-emerald-50 flex items-center justify-center text-emerald-700 hover:bg-emerald-100"
+            onClick={() => {
+              const cleaned = rows.filter(
+                (r) => r.attribute?.trim() && r.value?.trim(),
+              );
+              if (cleaned.length !== rows.length) onRowsChange(cleaned);
+              onEditingIndexChange(null);
+            }}
+          >
+            <Check className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-slate-100">
+          {columns.map((columnRows, colIndex) =>
+            columnRows.length > 0 ? (
+              <div
+                key={colIndex}
+                className={cn(colIndex > 0 && "border-t sm:border-t-0 border-slate-100")}
+              >
+                {columnRows.map((entry) => renderRow(entry))}
+              </div>
+            ) : null,
+          )}
+        </div>
+      </div>
+      {!editDisabled && (
+        <button
+          type="button"
+          className="text-[10px] font-medium text-orange-600 hover:text-orange-800"
+          onClick={() => {
+            const next = [...rows, { attribute: "", value: "" }];
+            onRowsChange(next);
+            onEditingIndexChange(next.length - 1);
+          }}
+        >
+          + Add attribute
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function listingViewToGenerated(view: ListingContentView | null): GeneratedContent {
   return {
     title: view?.title ?? "",
@@ -509,6 +651,8 @@ export function ListingMarketplaceContentCompare({
   editDisabled,
   editingField,
   onEditingFieldChange,
+  editingAttributeIndex,
+  onEditingAttributeIndexChange,
   onOptimizedFieldChange,
 }: {
   existing: ListingContentView | null;
@@ -521,6 +665,8 @@ export function ListingMarketplaceContentCompare({
   editDisabled?: boolean;
   editingField?: ListingContentFieldKey | null;
   onEditingFieldChange?: (field: ListingContentFieldKey | null) => void;
+  editingAttributeIndex?: number | null;
+  onEditingAttributeIndexChange?: (index: number | null) => void;
   onOptimizedFieldChange?: (
     field: ListingContentFieldKey,
     value: string | string[] | ListingContentAttribute[],
@@ -786,12 +932,6 @@ export function ListingMarketplaceContentCompare({
           fieldSource={attrSource}
           onPickSource={attrDiff ? pick("attributes") : undefined}
           pickDisabled={fieldPickDisabled}
-          onEditAi={
-            (optimized?.attributes?.length ?? 0) > 0 && onOptimizedFieldChange
-              ? () => onEditingFieldChange?.("attributes")
-              : undefined
-          }
-          editDisabled={editDisabled ?? fieldPickDisabled}
         >
           {(existing?.attributes?.length ?? 0) > 0 && (
             <div className={compareBlockClass(attrSource === "current")}>
@@ -808,44 +948,16 @@ export function ListingMarketplaceContentCompare({
           {(optimized?.attributes?.length ?? 0) > 0 && (
             <div className={compareBlockClass(attrSource === "ai")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
-              {editingField === "attributes" ? (
-                <div className="space-y-2">
-                  <p className="text-[10px] text-slate-500">
-                    Edit attribute name and value. One attribute per line, formatted as{" "}
-                    <span className="font-mono text-slate-600">Name: Value</span>.
-                  </p>
-                  <Textarea
-                    className="text-[11px] min-h-[10rem] font-mono leading-relaxed"
-                    value={(optimized?.attributes ?? [])
-                      .map((row) => `${row.attribute}: ${row.value}`)
-                      .join("\n")}
-                    onChange={(e) => {
-                      const rows = e.target.value
-                        .split("\n")
-                        .map((line) => {
-                          const colon = line.indexOf(":");
-                          if (colon <= 0) return null;
-                          const attribute = line.slice(0, colon).trim();
-                          const value = line.slice(colon + 1).trim();
-                          if (!attribute || !value) return null;
-                          return { attribute, value };
-                        })
-                        .filter((row): row is ListingContentAttribute => row != null);
-                      onOptimizedFieldChange?.("attributes", rows);
-                    }}
-                    onBlur={() => onEditingFieldChange?.(null)}
-                    autoFocus
-                  />
-                </div>
-              ) : (
-                <SpecificationsFeaturesSection
-                  rows={optimized?.attributes ?? []}
-                  showHeading={false}
-                  compact
-                  variant="panel"
-                  className="mt-0 pt-0 border-0"
-                />
-              )}
+              <AiEditableAttributesPanel
+                rows={optimized?.attributes ?? []}
+                editDisabled={editDisabled ?? fieldPickDisabled}
+                editingIndex={editingAttributeIndex ?? null}
+                onEditingIndexChange={(index) => {
+                  onEditingAttributeIndexChange?.(index);
+                  if (index != null) onEditingFieldChange?.(null);
+                }}
+                onRowsChange={(nextRows) => onOptimizedFieldChange?.("attributes", nextRows)}
+              />
             </div>
           )}
         </CompareFieldShell>
