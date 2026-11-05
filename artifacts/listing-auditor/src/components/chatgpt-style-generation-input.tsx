@@ -9,7 +9,7 @@ import {
   type GraphicsQuality,
 } from "@/components/graphics-output-options";
 import { useReferenceImageUpload } from "@/components/use-reference-image-upload";
-import { ProtectedAppImage } from "@/components/protected-app-image";
+import { ReferenceImageThumbStrip } from "@/components/reference-image-thumb-strip";
 import {
   Popover,
   PopoverContent,
@@ -33,6 +33,10 @@ type ChatGptStyleGenerationInputProps = {
   className?: string;
   /** Flat border only — no drop shadow (module customize dialog). */
   flatSurface?: boolean;
+  /** Larger orange-bordered refs (Create Graphics customize, matches studio strip). */
+  prominentReferenceThumbs?: boolean;
+  /** Sits directly under studio references card — square top corners. */
+  composerAttachTop?: boolean;
 };
 
 function ToolbarPill({
@@ -69,6 +73,8 @@ export function ChatGptStyleGenerationInput({
   placeholder = "Describe scene, lighting, composition, and mood…",
   className,
   flatSurface = false,
+  prominentReferenceThumbs = false,
+  composerAttachTop = false,
 }: ChatGptStyleGenerationInputProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -96,6 +102,7 @@ export function ChatGptStyleGenerationInput({
       <div
         className={cn(
           "rounded-[26px] border border-slate-200/90 bg-white transition-colors",
+          composerAttachTop && "rounded-t-none border-t-0",
           flatSurface
             ? "shadow-none focus-within:border-slate-300"
             : "shadow-[0_2px_12px_rgba(15,23,42,0.08)] focus-within:border-slate-300 focus-within:shadow-[0_4px_20px_rgba(15,23,42,0.1)]",
@@ -107,40 +114,13 @@ export function ChatGptStyleGenerationInput({
         }}
       >
         {referenceImages.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1">
-            {referenceImages.map((img, idx) => (
-              <div
-                key={`${idx}-${img.slice(0, 32)}`}
-                className="relative h-12 w-12 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
-              >
-                <button
-                  type="button"
-                  className="absolute inset-0 z-0"
-                  onClick={() => setPreviewUrl(img)}
-                  title="View full size"
-                  aria-label={`View reference ${idx + 1} full size`}
-                >
-                  {img.startsWith("data:") || img.startsWith("blob:") ? (
-                    <img src={img} alt={`Reference ${idx + 1}`} className="h-full w-full object-cover" />
-                  ) : (
-                    <ProtectedAppImage
-                      src={img}
-                      alt={`Reference ${idx + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeImage(idx)}
-                  className="absolute top-0.5 right-0.5 z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
-                  aria-label="Remove reference"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
+          <ReferenceImageThumbStrip
+            images={referenceImages}
+            prominent={prominentReferenceThumbs}
+            onPreview={(url) => setPreviewUrl(url)}
+            onRemove={removeImage}
+            className="px-4 pt-3 pb-1"
+          />
         )}
 
         <div className="flex items-end gap-1 px-2 py-2 sm:px-3">

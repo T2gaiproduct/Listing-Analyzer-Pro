@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { ReferenceImagePopoutDialog } from "@/components/reference-image-popout-dialog";
+import { ReferenceImageThumbStrip } from "@/components/reference-image-thumb-strip";
+import { PromptBarReferencePreview } from "@/components/prompt-bar-reference-preview";
+import type { GraphicsAspectRatio, GraphicsQuality } from "@/components/graphics-output-options";
 import type { GraphicsModuleExampleImage } from "@/lib/graphics-module-examples";
 
 const MAX_REFERENCE_IMAGES = 4;
@@ -25,6 +28,15 @@ type Props = {
   isLoading?: boolean;
   /** Create Graphics customize: summary + popup picker (avoids clipped inline grid). */
   openSelectionInDialog?: boolean;
+  /** Stack flush above the prompt input bar. */
+  composeWithPromptBar?: boolean;
+  onScrollToPromptBar?: () => void;
+  promptPreview?: {
+    customPrompt?: string;
+    aspectRatio?: GraphicsAspectRatio;
+    quality?: GraphicsQuality;
+    hideAspectRatio?: boolean;
+  };
 };
 
 function normalizeImages(exampleImages: GraphicsModuleExampleImage[], fallbackUrl: string | null) {
@@ -238,6 +250,9 @@ export function GraphicsStudioReferencePicker({
   onReferenceImagesChange,
   isLoading,
   openSelectionInDialog = false,
+  composeWithPromptBar = false,
+  onScrollToPromptBar,
+  promptPreview,
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -245,7 +260,10 @@ export function GraphicsStudioReferencePicker({
   const studioUrls = new Set(images.map((i) => i.url));
   const selectedStudio = referenceImages.filter((u) => studioUrls.has(u));
 
-  const openPreview = (url: string) => setPreviewUrl(url);
+  const openPreview = (url: string) => {
+    setPreviewUrl(url);
+    onScrollToPromptBar?.();
+  };
 
   const body = (
     <GraphicsStudioReferencePickerBody
@@ -285,7 +303,12 @@ export function GraphicsStudioReferencePicker({
 
   return (
     <>
-      <div className="rounded-xl border border-orange-200/80 bg-orange-50/30 overflow-hidden">
+      <div
+        className={cn(
+          "rounded-xl border border-orange-200/80 bg-orange-50/30 overflow-hidden",
+          composeWithPromptBar && "rounded-b-none border-b-0",
+        )}
+      >
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
@@ -316,21 +339,13 @@ export function GraphicsStudioReferencePicker({
         </button>
 
         {hasExamples && previewStrip.length > 0 ? (
-          <div className="flex flex-wrap gap-2 px-3 pb-3 pt-1 border-t border-orange-200/60">
-            {previewStrip.slice(0, MAX_REFERENCE_IMAGES).map((url, idx) => (
-              <button
-                key={`${idx}-${url.slice(0, 24)}`}
-                type="button"
-                onClick={() => openPreview(url)}
-                className={cn(
-                  "w-14 h-14 rounded-lg overflow-hidden bg-white shrink-0 border-2 transition-transform hover:scale-105",
-                  selectedStudio.includes(url) ? "border-orange-500" : "border-slate-200",
-                )}
-                title="View full size"
-              >
-                <ProtectedAppImage src={url} alt="" className="w-full h-full object-contain" />
-              </button>
-            ))}
+          <div className="px-3 pb-3 pt-1 border-t border-orange-200/60">
+            <ReferenceImageThumbStrip
+              images={previewStrip.slice(0, MAX_REFERENCE_IMAGES)}
+              prominent
+              accent={selectedStudio.length > 0 ? "orange" : "muted"}
+              onPreview={(url) => openPreview(url)}
+            />
           </div>
         ) : null}
       </div>
@@ -355,11 +370,28 @@ export function GraphicsStudioReferencePicker({
             spacious
             onPreviewUrl={openPreview}
           />
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Prompt bar preview
+            </p>
+            <PromptBarReferencePreview
+              referenceImages={referenceImages}
+              customPrompt={promptPreview?.customPrompt}
+              aspectRatio={promptPreview?.aspectRatio}
+              quality={promptPreview?.quality}
+              hideAspectRatio={promptPreview?.hideAspectRatio}
+              onPreviewReference={openPreview}
+            />
+          </div>
+
           <DialogFooter className="sm:justify-end pt-1">
             <Button
               type="button"
               className="bg-orange-500 hover:bg-orange-600 text-white min-w-[7rem]"
-              onClick={() => setDialogOpen(false)}
+              onClick={() => {
+                setDialogOpen(false);
+                onScrollToPromptBar?.();
+              }}
             >
               Done
             </Button>

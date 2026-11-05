@@ -44,6 +44,8 @@ export interface CustomPromptGenerationPanelProps {
   compactOutput?: boolean;
   /** Reference upload above prompt (customize dialog). */
   referenceBeforePrompt?: boolean;
+  prominentReferenceThumbs?: boolean;
+  composerAttachTop?: boolean;
 }
 
 export function CustomPromptGenerationPanel({
@@ -64,6 +66,8 @@ export function CustomPromptGenerationPanel({
   hideAspectRatio = false,
   compactOutput = false,
   referenceBeforePrompt = false,
+  prominentReferenceThumbs = false,
+  composerAttachTop = false,
 }: CustomPromptGenerationPanelProps) {
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
@@ -82,6 +86,8 @@ export function CustomPromptGenerationPanel({
       hideAspectRatio={hideAspectRatio}
       placeholder="Optional — scene, lighting, composition, and mood…"
       flatSurface
+      prominentReferenceThumbs={prominentReferenceThumbs}
+      composerAttachTop={composerAttachTop}
     />
   ) : null;
 

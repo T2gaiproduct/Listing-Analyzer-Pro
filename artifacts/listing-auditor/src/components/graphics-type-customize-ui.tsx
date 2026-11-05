@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -64,6 +64,11 @@ export function ImageTypeCustomizeDialog({
 
   const showAdminBlock =
     showStudioExample && type != null && type.id !== "custom" && Boolean(categoryKey);
+  const promptComposerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToPromptBar = () => {
+    promptComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
 
   return (
     <Dialog open={open && Boolean(type)} onOpenChange={onOpenChange}>
@@ -77,40 +82,46 @@ export function ImageTypeCustomizeDialog({
           <p className="text-sm text-muted-foreground">{type.desc}</p>
         </DialogHeader>
 
-        {showAdminBlock ? (
-          <GraphicsStudioReferencePicker
-            moduleLabel={type.label}
-            resolvedCategory={examplesPayload?.resolvedCategory ?? categoryKey}
-            usedDefaultFallback={examplesPayload?.usedDefaultFallback ?? false}
-            exampleImages={moduleExample?.exampleImages ?? []}
+        <div ref={promptComposerRef} className="space-y-0">
+          {showAdminBlock ? (
+            <GraphicsStudioReferencePicker
+              moduleLabel={type.label}
+              resolvedCategory={examplesPayload?.resolvedCategory ?? categoryKey}
+              usedDefaultFallback={examplesPayload?.usedDefaultFallback ?? false}
+              exampleImages={moduleExample?.exampleImages ?? []}
+              referenceImages={config.referenceImages}
+              onReferenceImagesChange={(images) => onConfigChange({ referenceImages: images })}
+              isLoading={examplesLoading}
+              openSelectionInDialog
+              composeWithPromptBar
+              onScrollToPromptBar={scrollToPromptBar}
+              promptPreview={{
+                customPrompt: config.customPrompt,
+                aspectRatio: config.aspectRatio,
+                quality: config.quality,
+                hideAspectRatio,
+              }}
+            />
+          ) : null}
+
+          <CustomPromptGenerationPanel
+            variant="embedded"
+            compactOutput
+            customPrompt={config.customPrompt}
+            onCustomPromptChange={(value) => onConfigChange({ customPrompt: value })}
             referenceImages={config.referenceImages}
             onReferenceImagesChange={(images) => onConfigChange({ referenceImages: images })}
-            isLoading={examplesLoading}
-            openSelectionInDialog
+            aspectRatio={config.aspectRatio}
+            onAspectRatioChange={(ratio) => onConfigChange({ aspectRatio: ratio })}
+            quality={config.quality}
+            onQualityChange={(quality) => onConfigChange({ quality })}
+            promptMaxChars={promptMaxChars}
+            examplePrompts={examplePrompts}
+            hideAspectRatio={hideAspectRatio}
+            prominentReferenceThumbs={showAdminBlock}
+            composerAttachTop={showAdminBlock}
           />
-        ) : null}
-
-        {showAdminBlock && config.referenceImages.length > 0 ? (
-          <p className="text-[11px] text-slate-500 -mt-1">
-            Studio and uploaded references below are sent to the AI together (max 4) when you generate.
-          </p>
-        ) : null}
-
-        <CustomPromptGenerationPanel
-          variant="embedded"
-          compactOutput
-          customPrompt={config.customPrompt}
-          onCustomPromptChange={(value) => onConfigChange({ customPrompt: value })}
-          referenceImages={config.referenceImages}
-          onReferenceImagesChange={(images) => onConfigChange({ referenceImages: images })}
-          aspectRatio={config.aspectRatio}
-          onAspectRatioChange={(ratio) => onConfigChange({ aspectRatio: ratio })}
-          quality={config.quality}
-          onQualityChange={(quality) => onConfigChange({ quality })}
-          promptMaxChars={promptMaxChars}
-          examplePrompts={examplePrompts}
-          hideAspectRatio={hideAspectRatio}
-        />
+        </div>
 
         <DialogFooter className="sm:justify-end gap-2 pt-1">
           <Button
