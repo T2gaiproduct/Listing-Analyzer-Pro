@@ -372,7 +372,7 @@ export default function AuditDetail({ id }: { id: number }) {
               ) : (
                 <Package className="w-3.5 h-3.5 mr-1.5" />
               )}
-              {isAuditListingFlow ? "Optimize Listing" : "Save to Product Explorer"}
+              Optimize Listing
             </Button>
           )}
           <Button variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0 min-h-11" onClick={handleDownloadPdf}>
