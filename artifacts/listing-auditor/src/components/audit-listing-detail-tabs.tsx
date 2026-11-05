@@ -32,7 +32,7 @@ export function AuditListingDetailTabs({
         className,
       )}
     >
-      <div className="flex items-stretch min-w-[20rem] w-full max-w-2xl">
+      <div className="flex items-stretch min-w-[20rem] w-full">
         {AUDIT_LISTING_DETAIL_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const TabIcon = tab.icon;

@@ -5,7 +5,8 @@ import { UPLOAD_TAB_FIELD_CLASS } from "@/components/build-brand-upload-attribut
 import { useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import type { FetchedListing } from "@workspace/api-client-react";
-import { useCreateAuditDraft, useFetchListing } from "@workspace/api-client-react";
+import { useCreateAudit, useCreateAuditDraft, useFetchListing } from "@workspace/api-client-react";
+import { ApiFetchError } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,7 @@ export default function AuditImportFromLinkPage() {
   const queryClient = useQueryClient();
   const fetchListing = useFetchListing();
   const createAuditDraft = useCreateAuditDraft();
+  const createAudit = useCreateAudit();
 
   const [marketplace, setMarketplace] = useState<ImportLinkMarketplace>("amazon");
   const [url, setUrl] = useState("");
@@ -102,33 +104,39 @@ export default function AuditImportFromLinkPage() {
     if (!listing || saving) return;
     setSaving(true);
     try {
-      const audit = await createAuditDraft.mutateAsync({
-        data: {
-          productName: listing.productName,
-          projectName: listing.productName,
-          title: listing.title,
-          bulletPoints: listing.bulletPoints ?? [],
-          imageUrls: listing.imageUrls ?? [],
-          targetKeywords: listing.targetKeywords ?? [],
-          category: listing.category ?? undefined,
-          asin: listing.asin || undefined,
-          productDescription: listing.description ?? undefined,
-          importAttributes: (listing.attributes ?? []).slice(0, 40),
-          sourceListingUrl: sourceUrl.trim() || undefined,
-          projectOrigin: fromAuditListing
-            ? PROJECT_ORIGIN_AUDIT_LISTING
-            : PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
-          importMarketplace: fromAuditListing ? undefined : marketplace,
-        } as Parameters<typeof createAuditDraft.mutateAsync>[0]["data"],
-      });
+      const listingPayload = {
+        productName: listing.productName,
+        projectName: listing.productName,
+        title: listing.title,
+        bulletPoints: listing.bulletPoints ?? [],
+        imageUrls: listing.imageUrls ?? [],
+        targetKeywords: listing.targetKeywords ?? [],
+        category: listing.category ?? undefined,
+        asin: listing.asin || undefined,
+        productDescription: listing.description ?? undefined,
+        importAttributes: (listing.attributes ?? []).slice(0, 40),
+        sourceListingUrl: sourceUrl.trim() || undefined,
+        projectOrigin: fromAuditListing
+          ? PROJECT_ORIGIN_AUDIT_LISTING
+          : PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
+        importMarketplace: fromAuditListing ? undefined : marketplace,
+      };
+
+      const audit = fromAuditListing
+        ? await createAudit.mutateAsync({
+            data: listingPayload as Parameters<typeof createAudit.mutateAsync>[0]["data"],
+          })
+        : await createAuditDraft.mutateAsync({
+            data: listingPayload as Parameters<typeof createAuditDraft.mutateAsync>[0]["data"],
+          });
 
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(audit.id) });
 
       if (fromAuditListing) {
         toast({
-          title: "Listing imported",
-          description: "Continue with your audit on the listing details page.",
+          title: "Audit complete",
+          description: "Review the overview and audit results on the listing details page.",
         });
         nav(`/audits/${audit.id}`);
       } else {
@@ -139,9 +147,16 @@ export default function AuditImportFromLinkPage() {
         nav(`/products/${audit.id}?source=listing`);
       }
     } catch (err) {
+      const description = err instanceof ApiFetchError && err.status === 402
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : fromAuditListing
+            ? "Could not run the listing audit."
+            : "Could not save to Product Explorer.";
       toast({
-        title: "Save failed",
-        description: err instanceof Error ? err.message : "Could not save to Product Explorer.",
+        title: fromAuditListing ? "Audit failed" : "Save failed",
+        description,
         variant: "destructive",
       });
     } finally {
@@ -248,13 +263,17 @@ export default function AuditImportFromLinkPage() {
               <Button
                 type="button"
                 className="bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600"
-                disabled={saving || createAuditDraft.isPending}
+                disabled={
+                  saving
+                  || createAuditDraft.isPending
+                  || createAudit.isPending
+                }
                 onClick={() => void handleSaveToProductExplorer()}
               >
-                {saving ? (
+                {saving || createAudit.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving…
+                    {fromAuditListing ? "Running audit…" : "Saving…"}
                   </>
                 ) : fromAuditListing ? (
                   "Continue to audit"

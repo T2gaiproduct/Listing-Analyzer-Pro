@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import {
   useGetAudit,
@@ -29,8 +29,19 @@ import {
   AuditListingDetailTabs,
   type AuditListingDetailTab,
 } from "@/components/audit-listing-detail-tabs";
-import { displayListingDescription } from "@/lib/listing-display-sanitize";
-import type { AuditWithResults } from "@workspace/api-client-react";
+import type { AuditWithResults, GeneratedContent } from "@workspace/api-client-react";
+import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
+import { runListingAudit } from "@/lib/run-listing-audit";
+import type { ReferenceResearchData } from "@/lib/reference-research";
+
+type AuditDetailRecord = AuditWithResults & {
+  projectOrigin?: string;
+  productDescription?: string | null;
+  referenceResearch?: ReferenceResearchData | null;
+  sourceListingContent?: (GeneratedContent & {
+    attributes?: Array<{ attribute: string; value: string }>;
+  }) | null;
+};
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -98,112 +109,6 @@ function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardP
   );
 }
 
-function AuditListingOverviewPanel({ audit }: { audit: AuditWithResults }) {
-  const description =
-    displayListingDescription(audit.productDescription)
-    ?? (audit.bulletPoints?.length
-      ? audit.bulletPoints.map((b) => b.trim()).filter(Boolean).join("\n\n")
-      : null);
-  const bullets = audit.bulletPoints?.filter((b) => b.trim()) ?? [];
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">{audit.productName}</h2>
-        {audit.category?.trim() && (
-          <p className="text-sm text-muted-foreground mt-1">{audit.category}</p>
-        )}
-      </div>
-
-      {audit.imageUrls.length > 0 && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Image className="w-4 h-4 text-muted-foreground" />
-              Product images ({audit.imageUrls.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 flex-wrap">
-              {audit.imageUrls.map((url, i) => (
-                <a
-                  key={i}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block shrink-0 hover:ring-2 hover:ring-primary rounded transition-all"
-                >
-                  <img
-                    src={url}
-                    alt={`Product image ${i + 1}`}
-                    className="w-20 h-20 object-contain rounded border bg-white"
-                  />
-                </a>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="border-border/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wider">
-            Listing title
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-foreground font-medium leading-relaxed">{audit.title}</p>
-          <p className="text-xs text-muted-foreground mt-2 font-mono">{audit.title.length} characters</p>
-        </CardContent>
-      </Card>
-
-      {bullets.length > 0 && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Bullet points</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm text-foreground/90 list-disc pl-5">
-              {bullets.map((b, i) => (
-                <li key={i}>{b}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {description && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Description</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">{description}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {audit.targetKeywords.length > 0 && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Tag className="w-4 h-4 text-muted-foreground" />
-              Target keywords
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {audit.targetKeywords.map((kw, i) => (
-                <Badge key={i} variant="outline" className="text-xs">{kw}</Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
-
 export default function AuditDetail({ id }: { id: number }) {
   const [, setLocation] = useLocation();
   const search = useSearch();
@@ -218,6 +123,8 @@ export default function AuditDetail({ id }: { id: number }) {
   });
 
   const [auditListingTab, setAuditListingTab] = useState<AuditListingDetailTab>("overview");
+  const [analysisRunning, setAnalysisRunning] = useState(false);
+  const analyzeAttemptedRef = useRef(false);
 
   useEffect(() => {
     const raw = search ?? "";
@@ -225,6 +132,10 @@ export default function AuditDetail({ id }: { id: number }) {
     const tab = new URLSearchParams(q).get("tab");
     setAuditListingTab(tab === "audit_result" ? "audit_result" : "overview");
   }, [search, id]);
+
+  useEffect(() => {
+    analyzeAttemptedRef.current = false;
+  }, [id]);
 
   const handleSaveToProductExplorer = useCallback(() => {
     if (!canEditAudits) {
@@ -266,6 +177,41 @@ export default function AuditDetail({ id }: { id: number }) {
       setLocation(`/audits/workflow?resume=${id}`);
     }
   }, [audit, id, setLocation]);
+
+  useEffect(() => {
+    const record = audit as AuditDetailRecord | undefined;
+    if (!record) return;
+    if (record.projectOrigin !== PROJECT_ORIGIN_AUDIT_LISTING) return;
+    if (record.result != null && (record.overallScore ?? 0) > 0) return;
+    if (record.status === "failed") return;
+    if (analyzeAttemptedRef.current) return;
+    analyzeAttemptedRef.current = true;
+
+    let cancelled = false;
+    void (async () => {
+      setAnalysisRunning(true);
+      try {
+        await runListingAudit(record.id);
+        if (!cancelled) {
+          await queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast({
+            title: "Audit failed",
+            description: err instanceof Error ? err.message : "Could not run the listing audit.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) setAnalysisRunning(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audit, id, queryClient, toast]);
 
   if (isLoading) {
     return (
@@ -326,9 +272,21 @@ export default function AuditDetail({ id }: { id: number }) {
     { icon: Tag, title: "Keywords", ...result.keywordScore },
   ];
 
-  const isAuditListingFlow =
-    (audit as AuditWithResults & { projectOrigin?: string }).projectOrigin
-    === PROJECT_ORIGIN_AUDIT_LISTING;
+  const auditRecord = audit as AuditDetailRecord;
+  const isAuditListingFlow = auditRecord.projectOrigin === PROJECT_ORIGIN_AUDIT_LISTING;
+
+  const snapshotAttrs = auditRecord.sourceListingContent?.attributes ?? [];
+  const refDetails = auditRecord.referenceResearch?.productDetails ?? [];
+  const overviewAttributes = (
+    refDetails.length > 0 ? refDetails : snapshotAttrs
+  ).filter((row) => row.attribute?.trim() && row.value?.trim());
+  const overviewPreview = {
+    imageUrls: auditRecord.imageUrls ?? [],
+    title: auditRecord.title?.trim() || auditRecord.productName || "",
+    bulletPoints: auditRecord.bulletPoints ?? [],
+    descriptionHtml: auditRecord.productDescription?.trim() || null,
+    attributes: overviewAttributes,
+  };
 
   const showAuditResults = !isAuditListingFlow || auditListingTab === "audit_result";
   const showOverview = isAuditListingFlow && auditListingTab === "overview";
@@ -355,7 +313,18 @@ export default function AuditDetail({ id }: { id: number }) {
         </div>
       )}
 
-      {showAuditResults && !hasAnalysis && audit.status !== "failed" && (
+      {showAuditResults && analysisRunning && (
+        <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
+          <Loader2 className="w-5 h-5 text-orange-600 shrink-0 mt-0.5 animate-spin" />
+          <div>
+            <p className="text-sm font-semibold text-orange-900">Running AI audit</p>
+            <p className="text-sm text-orange-800/80 mt-0.5">
+              Scoring your listing — scores will appear here in a moment.
+            </p>
+          </div>
+        </div>
+      )}
+      {showAuditResults && !hasAnalysis && !analysisRunning && audit.status !== "failed" && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
@@ -366,7 +335,25 @@ export default function AuditDetail({ id }: { id: number }) {
           </div>
         </div>
       )}
-      {showOverview && <AuditListingOverviewPanel audit={audit} />}
+      {showOverview && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">{audit.productName}</h2>
+            {audit.category?.trim() && (
+              <p className="text-sm text-muted-foreground mt-1">{audit.category}</p>
+            )}
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm">
+            <ProductExplorerOverviewPreview
+              imageUrls={overviewPreview.imageUrls}
+              title={overviewPreview.title}
+              bulletPoints={overviewPreview.bulletPoints}
+              descriptionHtml={overviewPreview.descriptionHtml}
+              attributes={overviewPreview.attributes}
+            />
+          </div>
+        </div>
+      )}
 
       {showAuditResults && (
         <>
