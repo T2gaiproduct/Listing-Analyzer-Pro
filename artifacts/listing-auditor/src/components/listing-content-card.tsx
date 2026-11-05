@@ -786,6 +786,12 @@ export function ListingMarketplaceContentCompare({
           fieldSource={attrSource}
           onPickSource={attrDiff ? pick("attributes") : undefined}
           pickDisabled={fieldPickDisabled}
+          onEditAi={
+            (optimized?.attributes?.length ?? 0) > 0 && onOptimizedFieldChange
+              ? () => onEditingFieldChange?.("attributes")
+              : undefined
+          }
+          editDisabled={editDisabled ?? fieldPickDisabled}
         >
           {(existing?.attributes?.length ?? 0) > 0 && (
             <div className={compareBlockClass(attrSource === "current")}>
@@ -802,13 +808,44 @@ export function ListingMarketplaceContentCompare({
           {(optimized?.attributes?.length ?? 0) > 0 && (
             <div className={compareBlockClass(attrSource === "ai")}>
               <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 mb-1.5">AI suggests</p>
-              <SpecificationsFeaturesSection
-                rows={optimized?.attributes ?? []}
-                showHeading={false}
-                compact
-                variant="panel"
-                className="mt-0 pt-0 border-0"
-              />
+              {editingField === "attributes" ? (
+                <div className="space-y-2">
+                  <p className="text-[10px] text-slate-500">
+                    Edit attribute name and value. One attribute per line, formatted as{" "}
+                    <span className="font-mono text-slate-600">Name: Value</span>.
+                  </p>
+                  <Textarea
+                    className="text-[11px] min-h-[10rem] font-mono leading-relaxed"
+                    value={(optimized?.attributes ?? [])
+                      .map((row) => `${row.attribute}: ${row.value}`)
+                      .join("\n")}
+                    onChange={(e) => {
+                      const rows = e.target.value
+                        .split("\n")
+                        .map((line) => {
+                          const colon = line.indexOf(":");
+                          if (colon <= 0) return null;
+                          const attribute = line.slice(0, colon).trim();
+                          const value = line.slice(colon + 1).trim();
+                          if (!attribute || !value) return null;
+                          return { attribute, value };
+                        })
+                        .filter((row): row is ListingContentAttribute => row != null);
+                      onOptimizedFieldChange?.("attributes", rows);
+                    }}
+                    onBlur={() => onEditingFieldChange?.(null)}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <SpecificationsFeaturesSection
+                  rows={optimized?.attributes ?? []}
+                  showHeading={false}
+                  compact
+                  variant="panel"
+                  className="mt-0 pt-0 border-0"
+                />
+              )}
             </div>
           )}
         </CompareFieldShell>
