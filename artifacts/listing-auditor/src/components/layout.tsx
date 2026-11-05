@@ -1,5 +1,6 @@
 import { ReactNode, useState, useRef, useEffect, useCallback } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
+import { isImportFromLinkForAuditListings } from "@/lib/import-from-link-return";
 import {
   Package,
   Store,
@@ -114,10 +115,20 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
 }
 
 /** Build Your Brand nav stays active for the landing page and all BYB entry/workflow routes. */
-function isBuildYourBrandNavActive(location: string): boolean {
+function isBuildYourBrandNavActive(location: string, search = ""): boolean {
   if (location === "/audits/new") return true;
-  if (location === "/audits/import-from-link") return true;
+  if (location === "/audits/import-from-link") {
+    return !isImportFromLinkForAuditListings(search);
+  }
   if (location === "/audits/workflow") return true;
+  return false;
+}
+
+function isAuditListingNavActive(location: string, search = ""): boolean {
+  if (location === "/audit-listings") return true;
+  if (location === "/audits/import-from-link" && isImportFromLinkForAuditListings(search)) {
+    return true;
+  }
   return false;
 }
 
@@ -204,6 +215,7 @@ function parseProjectContext(location: string): { type: string; id: number } | n
 // --- Main Layout ------------------------------------------------------------
 export function Layout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
+  const [search] = useSearch();
   const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { toast } = useToast();
@@ -823,7 +835,8 @@ export function Layout({ children }: { children: ReactNode }) {
               const isActive =
                 location === href ||
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
-                (href === "/audits/new" && isBuildYourBrandNavActive(location)) ||
+                (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
+                (href === "/audit-listings" && isAuditListingNavActive(location, search)) ||
                 (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                 (href === "/videos" && location === "/videos");
               if (collapsed) {
@@ -991,7 +1004,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 const isActive =
                   location === href ||
                   (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
-                  (href === "/audits/new" && isBuildYourBrandNavActive(location)) ||
+                  (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
+                  (href === "/audit-listings" && isAuditListingNavActive(location, search)) ||
                   (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                   (href === "/videos" && location === "/videos");
                 return (

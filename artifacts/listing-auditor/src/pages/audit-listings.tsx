@@ -18,6 +18,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { HERO_PRIMARY_CTA_CLASS } from "@/lib/hero-primary-cta";
+import {
+  IMPORT_FROM_LINK_AUDIT_LISTINGS,
+  importFromLinkPath,
+} from "@/lib/import-from-link-return";
 
 export default function AuditListings() {
   const [startDrawerOpen, setStartDrawerOpen] = useState(false);
@@ -26,7 +30,7 @@ export default function AuditListings() {
   function handleStartChoice(entry: BuildBrandStartEntry) {
     setStartDrawerOpen(false);
     if (entry === "import-link") {
-      navigate("/audits/import-from-link");
+      navigate(importFromLinkPath(IMPORT_FROM_LINK_AUDIT_LISTINGS));
       return;
     }
     navigate(`/audits/workflow?entry=${entry}`);

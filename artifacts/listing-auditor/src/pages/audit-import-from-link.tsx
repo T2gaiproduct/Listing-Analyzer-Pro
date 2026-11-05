@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link2, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UPLOAD_TAB_FIELD_CLASS } from "@/components/build-brand-upload-attributes-section";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import type { FetchedListing } from "@workspace/api-client-react";
 import { useCreateAuditDraft, useFetchListing } from "@workspace/api-client-react";
@@ -26,13 +26,19 @@ import { parseListingFetchInput } from "@/lib/listing-input";
 import { useToast } from "@/hooks/use-toast";
 import { getGetAuditQueryKey } from "@workspace/api-client-react";
 import {
+  PROJECT_ORIGIN_AUDIT_LISTING,
   PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
 } from "@/lib/audit-project-origin";
+import { isImportFromLinkForAuditListings } from "@/lib/import-from-link-return";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function AuditImportFromLinkPage() {
   const [, nav] = useLocation();
+  const [search] = useSearch();
+  const fromAuditListing = isImportFromLinkForAuditListings(search);
+  const returnPath = fromAuditListing ? "/audit-listings" : "/audits/new";
+  const returnLabel = fromAuditListing ? "Back to Audit Listing" : "Back to Build Your Brand";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fetchListing = useFetchListing();
@@ -109,19 +115,29 @@ export default function AuditImportFromLinkPage() {
           productDescription: listing.description ?? undefined,
           importAttributes: (listing.attributes ?? []).slice(0, 40),
           sourceListingUrl: sourceUrl.trim() || undefined,
-          projectOrigin: PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
-          importMarketplace: marketplace,
+          projectOrigin: fromAuditListing
+            ? PROJECT_ORIGIN_AUDIT_LISTING
+            : PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
+          importMarketplace: fromAuditListing ? undefined : marketplace,
         } as Parameters<typeof createAuditDraft.mutateAsync>[0]["data"],
       });
 
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(audit.id) });
 
-      toast({
-        title: "Saved to Product Explorer",
-        description: "Your imported listing is ready in Product Explorer.",
-      });
-      nav(`/products/${audit.id}?source=listing`);
+      if (fromAuditListing) {
+        toast({
+          title: "Listing imported",
+          description: "Continue with your audit on the listing details page.",
+        });
+        nav(`/audits/${audit.id}`);
+      } else {
+        toast({
+          title: "Saved to Product Explorer",
+          description: "Your imported listing is ready in Product Explorer.",
+        });
+        nav(`/products/${audit.id}?source=listing`);
+      }
     } catch (err) {
       toast({
         title: "Save failed",
@@ -141,10 +157,10 @@ export default function AuditImportFromLinkPage() {
             type="button"
             variant="link"
             className="h-auto p-0 text-sm font-semibold text-muted-foreground hover:text-foreground"
-            onClick={() => nav("/audits/new")}
+            onClick={() => nav(returnPath)}
           >
             <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Build Your Brand
+            {returnLabel}
           </Button>
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100">
@@ -153,7 +169,9 @@ export default function AuditImportFromLinkPage() {
             <div className="min-w-0">
               <h1 className="text-xl font-semibold text-foreground sm:text-2xl">Import from link</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Fetch a listing, preview it, then save to Product Explorer
+                {fromAuditListing
+                  ? "Fetch a listing, preview it, then continue your audit"
+                  : "Fetch a listing, preview it, then save to Product Explorer"}
               </p>
             </div>
           </div>
@@ -224,7 +242,7 @@ export default function AuditImportFromLinkPage() {
           <>
             <BuildBrandFetchedListingPreview listing={listing} />
             <div className="flex flex-wrap justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => nav("/audits/new")}>
+              <Button type="button" variant="outline" onClick={() => nav(returnPath)}>
                 Cancel
               </Button>
               <Button
@@ -238,6 +256,8 @@ export default function AuditImportFromLinkPage() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Saving…
                   </>
+                ) : fromAuditListing ? (
+                  "Continue to audit"
                 ) : (
                   "Save to Product Explorer"
                 )}
