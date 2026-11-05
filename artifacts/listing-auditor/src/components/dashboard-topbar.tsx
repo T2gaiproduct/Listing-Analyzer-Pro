@@ -1,45 +1,19 @@
 import { useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Search, Coins, ChevronDown, UserCircle, Receipt, Settings,
-  Users, LogOut, Lock, X, Menu, Building2, Shield, Archive,
+  Search, Coins, ChevronDown, Menu, Building2, Archive,
 } from "lucide-react";
 import { CustomerNotificationBell } from "@/components/customer-notification-bell";
 import { AdminNotificationBell } from "@/components/admin-notification-bell";
-import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { buildProfileMenuItems } from "@/lib/profile-menu-items";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { TopbarWorkspaceSwitcher } from "@/components/topbar-workspace-switcher";
+import { ProfileAccountMenu } from "@/components/profile-account-menu";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function profileMenuItems(
-  isTeamMember: boolean,
-  isOwner: boolean,
-  isAccountOwner: boolean,
-  isWorkspaceAccountOwner: boolean,
-  variant: "customer" | "admin",
-  canView: ReturnType<typeof useWorkspace>["canView"],
-  can: ReturnType<typeof useWorkspace>["can"],
-  workspacesPlanLocked: boolean,
-  workspacesEnabled: boolean,
-) {
-  return buildProfileMenuItems(
-    isTeamMember,
-    isOwner,
-    isAccountOwner,
-    isWorkspaceAccountOwner,
-    variant,
-    canView,
-    can,
-    workspacesPlanLocked,
-    workspacesEnabled,
-  );
-}
 
 interface DashboardTopbarProps {
   searchQuery: string;
@@ -66,6 +40,8 @@ interface DashboardTopbarProps {
   onMenuClick?: () => void;
   variant?: "customer" | "admin";
   searchPlaceholder?: string;
+  /** When false, profile menu is rendered elsewhere (e.g. sidebar footer). */
+  showProfileMenu?: boolean;
 }
 
 export function DashboardTopbar({
@@ -85,24 +61,13 @@ export function DashboardTopbar({
   onMenuClick,
   variant = "customer",
   searchPlaceholder = "Search projects, listings...",
+  showProfileMenu = true,
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
-  const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
-  const { isAccountOwner, isWorkspaceAccountOwner, canView, can } = useWorkspace();
+  const { isAccountOwner, canView, can } = useWorkspace();
   const { workspacesPlanLocked, workspacesEnabled, upgradeShort, includedPlansLabel } = useWorkspacesPlan();
   const { activeWorkspace } = useWorkspace();
-  const menuItems = profileMenuItems(
-    isTeamMember,
-    isOwner,
-    isAccountOwner,
-    isWorkspaceAccountOwner,
-    variant,
-    canView,
-    can,
-    workspacesPlanLocked,
-    workspacesEnabled,
-  );
   const showWorkspaceSwitcher = variant === "customer" && workspacesEnabled;
   const showStaticWorkspaceLabel =
     variant === "customer" && !workspacesEnabled && Boolean(activeWorkspace?.name?.trim());
@@ -110,12 +75,9 @@ export function DashboardTopbar({
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const creditsRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
-
   const [searchFocused, setSearchFocused] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
 
@@ -164,12 +126,6 @@ export function DashboardTopbar({
     { label: "Text", value: breakdownCredits?.aiCredits ?? 0 },
     { label: "Images", value: breakdownCredits?.imageCredits ?? 0 },
   ];
-  const profileSubtitle = variant === "admin"
-    ? roleLabel
-    : planLabel && planLabel !== "No plan"
-      ? `${roleLabel} · ${planLabel}`
-      : roleLabel;
-
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -182,7 +138,6 @@ export function DashboardTopbar({
         setSearchFocused(false);
         setMobileSearchOpen(false);
         setCreditsOpen(false);
-        setProfileOpen(false);
         searchRef.current?.blur();
       }
     }
@@ -198,9 +153,6 @@ export function DashboardTopbar({
       }
       if (creditsRef.current && !creditsRef.current.contains(e.target as Node)) {
         setCreditsOpen(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -335,7 +287,7 @@ export function DashboardTopbar({
         <div ref={creditsRef} className="relative flex-shrink-0">
           <button
             type="button"
-            onClick={() => { setCreditsOpen((o) => !o); setProfileOpen(false); }}
+            onClick={() => { setCreditsOpen((o) => !o); }}
             className="flex items-center gap-2 h-9 pl-2 sm:pl-2.5 pr-2 rounded-md hover:bg-muted/45 transition-colors touch-target border-0 shadow-none bg-transparent"
             aria-label={`${creditBalanceHeadline} credits`}
           >
@@ -466,93 +418,19 @@ export function DashboardTopbar({
         </div>
         )}
 
-        <div ref={profileRef} className="relative flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => { setProfileOpen((o) => !o); setCreditsOpen(false); }}
-            className={cn(
-              "flex items-center gap-2 h-9 pl-1.5 pr-2 rounded-lg transition-colors touch-target",
-              profileOpen ? "bg-muted" : "hover:bg-muted"
-            )}
-            aria-label="Account menu"
-          >
-            <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
-              {initials}
-            </div>
-            <div className="text-left hidden md:block min-w-0">
-              <p className="text-xs font-semibold text-foreground leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{displayName}</p>
-              <p className="text-[11px] text-muted-foreground leading-tight truncate max-w-[7.5rem] lg:max-w-[140px]">{profileSubtitle}</p>
-            </div>
-            <ChevronDown className={cn("w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform hidden sm:block", profileOpen && "rotate-180")} />
-          </button>
-
-          {profileOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-[min(100vw-2rem,14rem)] sm:w-56 bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden">
-              <div className="px-4 pt-4 pb-3 border-b border-border flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
-                  <p className="text-xs text-muted-foreground truncate">{email}</p>
-                  <p className="text-xs text-orange-600 font-medium mt-0.5">{roleLabel}</p>
-                  {variant !== "admin" && planLabel && planLabel !== "No plan" && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{planLabel}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setProfileOpen(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground touch-target"
-                  aria-label="Close menu"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="py-1.5">
-                {menuItems.map(({ icon: Icon, label, href, locked, lockedHint }) => (
-                  locked ? (
-                    <div
-                      key={label}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-muted-foreground cursor-not-allowed min-h-11"
-                      title={lockedHint ?? "Upgrade your plan to unlock"}
-                    >
-                      <Icon className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" />
-                      <span className="flex-1 min-w-0">
-                        {label}
-                        {lockedHint && (
-                          <span className="block text-[10px] text-amber-700 font-medium mt-0.5">{lockedHint}</span>
-                        )}
-                      </span>
-                      <Lock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                    </div>
-                  ) : (
-                    <Link key={label} href={href}>
-                      <button
-                        type="button"
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground/90 hover:bg-muted transition-colors text-left min-h-11"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        {label}
-                      </button>
-                    </Link>
-                  )
-                ))}
-              </div>
-              <div className="border-t border-border py-1.5">
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors text-left min-h-11"
-                  onClick={() => signOut({ redirectUrl: `${basePath}/` })}
-                >
-                  <LogOut className="w-4 h-4 flex-shrink-0" />
-                  Log Out
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {showProfileMenu && (
+          <ProfileAccountMenu
+            displayName={displayName}
+            initials={initials}
+            email={email}
+            planLabel={planLabel}
+            roleLabel={roleLabel}
+            variant={variant}
+            dropdownDirection="down"
+            layout="topbar"
+            className="w-auto flex-shrink-0"
+          />
+        )}
       </div>
     </header>
   );

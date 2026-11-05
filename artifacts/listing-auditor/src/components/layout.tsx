@@ -35,6 +35,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
+import { ProfileAccountMenu } from "@/components/profile-account-menu";
 import { CustomerNotificationBell } from "@/components/customer-notification-bell";
 import {
   ProjectShareMenu,
@@ -981,6 +982,24 @@ export function Layout({ children }: { children: ReactNode }) {
           )
           )}
         </div>
+
+        <div
+          className={cn(
+            "border-t border-sidebar-border/50 flex-shrink-0",
+            collapsed ? "px-2 py-3" : "px-3 py-3",
+          )}
+        >
+          <ProfileAccountMenu
+            displayName={displayName}
+            initials={initials}
+            email={userEmail}
+            planLabel={planLabel}
+            roleLabel={roleLabel}
+            collapsed={collapsed}
+            dropdownDirection="up"
+            layout="sidebar"
+          />
+        </div>
         </aside>
 
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
@@ -1071,7 +1090,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Link>
               )}
             </div>
-            <div className="p-4 border-t border-slate-200">
+            <div className="p-4 border-t border-slate-200 space-y-3">
               <Link href="/billing">
                 <button
                   type="button"
@@ -1081,6 +1100,15 @@ export function Layout({ children }: { children: ReactNode }) {
                   Upgrade
                 </button>
               </Link>
+              <ProfileAccountMenu
+                displayName={displayName}
+                initials={initials}
+                email={userEmail}
+                planLabel={planLabel}
+                roleLabel={roleLabel}
+                dropdownDirection="up"
+                layout="sidebar"
+              />
             </div>
           </SheetContent>
         </Sheet>
@@ -1103,6 +1131,7 @@ export function Layout({ children }: { children: ReactNode }) {
           workspaceScopeName={workspaceScopeName}
           workspaceManageHref={workspaceManageHref}
           onMenuClick={() => setMobileNavOpen(true)}
+          showProfileMenu={false}
         />
 
         {/* ── Top ribbon (project context) ── */}
