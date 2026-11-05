@@ -62,13 +62,6 @@ export function ImageTypeCustomizeDialog({
     return examplesPayload?.examples.find((e) => e.templateSlug === type.id) ?? null;
   }, [examplesPayload?.examples, type]);
 
-  const studioReferenceUrls = useMemo(() => {
-    const imgs = moduleExample?.exampleImages ?? [];
-    if (imgs.length) return imgs.map((i) => i.url);
-    if (moduleExample?.exampleImageUrl) return [moduleExample.exampleImageUrl];
-    return [];
-  }, [moduleExample]);
-
   const showAdminBlock =
     showStudioExample && type != null && type.id !== "custom" && Boolean(categoryKey);
   const promptComposerRef = useRef<HTMLDivElement>(null);
@@ -106,14 +99,13 @@ export function ImageTypeCustomizeDialog({
                 aspectRatio: config.aspectRatio,
                 quality: config.quality,
                 hideAspectRatio,
-                studioReferenceUrls,
               }}
             />
           ) : null}
 
           {showAdminBlock ? (
             <p className="text-[11px] text-slate-500 -mt-2">
-              Prompt bar is for your upload + text only. Studio picks above still count toward the 4 AI references.
+              Selected references appear in the prompt bar below; remove from either place to deselect.
             </p>
           ) : null}
 
@@ -131,7 +123,7 @@ export function ImageTypeCustomizeDialog({
             promptMaxChars={promptMaxChars}
             examplePrompts={examplePrompts}
             hideAspectRatio={hideAspectRatio}
-            studioReferenceUrls={showAdminBlock ? studioReferenceUrls : undefined}
+            prominentReferenceThumbs={showAdminBlock}
           />
         </div>
 

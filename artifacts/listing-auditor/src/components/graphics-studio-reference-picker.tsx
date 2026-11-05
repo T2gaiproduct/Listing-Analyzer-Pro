@@ -34,7 +34,6 @@ type Props = {
     aspectRatio?: GraphicsAspectRatio;
     quality?: GraphicsQuality;
     hideAspectRatio?: boolean;
-    studioReferenceUrls?: string[];
   };
 };
 
@@ -308,6 +307,7 @@ export function GraphicsStudioReferencePicker({
     }
     if (slotsLeft <= 0) return;
     onReferenceImagesChange([...referenceImages, url]);
+    onScrollToPromptBar?.();
   }
 
   return (
@@ -378,16 +378,10 @@ export function GraphicsStudioReferencePicker({
           />
           <div className="space-y-2 pt-2 border-t border-slate-100">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Prompt bar preview (uploads + text)
+              Prompt bar preview
             </p>
             <PromptBarReferencePreview
-              referenceImages={
-                promptPreview?.studioReferenceUrls?.length
-                  ? referenceImages.filter(
-                      (u) => !new Set(promptPreview.studioReferenceUrls).has(u),
-                    )
-                  : referenceImages
-              }
+              referenceImages={referenceImages}
               customPrompt={promptPreview?.customPrompt}
               aspectRatio={promptPreview?.aspectRatio}
               quality={promptPreview?.quality}
