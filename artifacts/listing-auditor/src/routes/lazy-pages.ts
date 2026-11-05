@@ -40,6 +40,7 @@ export const AuditImportFromLink = lazyWithRetry(() => import("@/pages/audit-imp
 export const AuditDetail = lazyWithRetry(() => import("@/pages/audit-detail"));
 export const CompetitorNew = lazyWithRetry(() => import("@/pages/competitor-new"));
 export const AuditListings = lazyWithRetry(() => import("@/pages/audit-listings"));
+export const AuditInDetail = lazyWithRetry(() => import("@/pages/audit-in-detail"));
 export const AuditWorkflow = lazyWithRetry(() => import("@/pages/audit-workflow"));
 export const Billing = lazyWithRetry(() => import("@/pages/billing"));
 export const Team = lazyWithRetry(() => import("@/pages/team"));

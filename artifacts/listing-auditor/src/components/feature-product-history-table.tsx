@@ -29,6 +29,7 @@ import { downloadAuditExport } from "@/lib/amazon-export";
 import { fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
+import { auditInDetailViewPath } from "@/lib/audit-in-detail-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -91,6 +92,16 @@ function productDetailUrl(id: number, sourceType: ProductSourceType): string {
 
 function productKey(product: ProductListItem): string {
   return `${product.sourceType}-${product.id}`;
+}
+
+function resolveProductViewUrl(
+  product: ProductListItem,
+  viewTarget: "default" | "audit-detail",
+): string {
+  if (viewTarget === "audit-detail" && product.sourceType === "audit") {
+    return auditInDetailViewPath(product.id, "overview");
+  }
+  return product.detailUrl;
 }
 
 function productOverviewEditUrl(detailUrl: string): string {
@@ -345,11 +356,14 @@ export function FeatureProductHistoryTable({
   sectionTitle,
   emptyTitle,
   emptyDescription,
+  viewTarget = "default",
 }: {
   sourceType: FeatureProductHistorySource;
   sectionTitle: string;
   emptyTitle: string;
   emptyDescription: string;
+  /** Open audit rows on `/audits/:id` (overview + audit result tabs) instead of Product Explorer. */
+  viewTarget?: "default" | "audit-detail";
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -556,7 +570,7 @@ export function FeatureProductHistoryTable({
           <ul className="divide-y divide-border/60">
             {products.map((product) => {
               const key = productKey(product);
-              const viewUrl = product.detailUrl;
+              const viewUrl = resolveProductViewUrl(product, viewTarget);
               return (
                 <li key={key}>
                   <div
@@ -663,7 +677,7 @@ export function FeatureProductHistoryTable({
               ) : (
                 products.map((product) => {
                   const key = productKey(product);
-                  const viewUrl = product.detailUrl;
+                  const viewUrl = resolveProductViewUrl(product, viewTarget);
                   return (
                     <tr
                       key={key}

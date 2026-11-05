@@ -12,7 +12,7 @@ export function viewFeatureForPath(path: string): WorkspaceFeature | null {
   if (p === "/products") return "build_brand";
   if (p.startsWith("/products/")) return "build_brand";
   if (p === "/recent-projects") return "recent_projects";
-  if (p === "/audit-listings") return "audits";
+  if (p === "/audit-listings" || p === "/audit-in-detail") return "audits";
   if (p === "/audits/new" || p === "/audits/workflow") return "build_brand";
   if (p.startsWith("/audits/")) return "audits";
   if (p === "/projects" || p === "/projects/create") return "graphics";
@@ -103,7 +103,7 @@ export function canCreateForPath(
     return can("build_brand", "create") || can("audits", "create");
   }
   if (p === "/projects/create") return can("graphics", "create");
-  if (p === "/audit-listings") return can("audits", "create");
+  if (p === "/audit-listings" || p === "/audit-in-detail") return can("audits", "create");
   return true;
 }
 

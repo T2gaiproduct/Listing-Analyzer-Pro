@@ -1,11 +1,13 @@
 import { ReactNode, useState, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { isImportFromLinkForAuditListings } from "@/lib/import-from-link-return";
+import { isOpenedFromAuditInDetail } from "@/lib/audit-in-detail-nav";
 import {
   Package,
   Store,
   FilePlus2,
   FileSearch,
+  ClipboardList,
   Palette,
   Video,
   Archive,
@@ -80,6 +82,7 @@ const mainNavItems: Array<{
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
   { icon: Package, label: "Product Explorer", href: "/products", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
+  { icon: ClipboardList, label: "Audit in Detail", href: "/audit-in-detail", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
@@ -132,6 +135,16 @@ function isAuditListingNavActive(location: string, search = ""): boolean {
   return false;
 }
 
+function isAuditDetailPath(location: string): boolean {
+  return /^\/audits\/\d+$/.test(location);
+}
+
+function isAuditInDetailNavActive(location: string, search = ""): boolean {
+  if (location === "/audit-in-detail") return true;
+  if (isAuditDetailPath(location) && isOpenedFromAuditInDetail(search)) return true;
+  return false;
+}
+
 /** Create Graphics landing, create wizard, generating screen, and project gallery. */
 function isCreateGraphicsNavActive(location: string): boolean {
   return location === "/projects" || location.startsWith("/projects/");
@@ -151,6 +164,7 @@ function getPageTitle(location: string, appName: string): string {
   if (location.startsWith("/audits/") && location.includes("/competitors/")) return "Add Competitor";
   if (location.startsWith("/audits/")) return "Audit Details";
   if (location === "/audit-listings") return "Audit Listings";
+  if (location === "/audit-in-detail") return "Audit in Detail";
   if (location === "/projects/create") return "New Graphics Project";
   if (location.endsWith("/generating")) return "Generating Graphics";
   if (location.startsWith("/projects/")) return "Project Details";
@@ -184,6 +198,7 @@ function isRibbonVisible(location: string): boolean {
   if (location === "/videos") return false;
   if (location === "/ads" || location.startsWith("/ads/")) return false;
   if (location === "/audit-listings") return false;
+  if (location === "/audit-in-detail") return false;
   if (location === "/billing") return false;
   if (location === "/profile") return false;
   if (location === "/settings") return false;
@@ -837,6 +852,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                 (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
                 (href === "/audit-listings" && isAuditListingNavActive(location, search)) ||
+                (href === "/audit-in-detail" && isAuditInDetailNavActive(location, search)) ||
                 (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                 (href === "/videos" && location === "/videos");
               if (collapsed) {
@@ -1006,6 +1022,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                   (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
                   (href === "/audit-listings" && isAuditListingNavActive(location, search)) ||
+                  (href === "/audit-in-detail" && isAuditInDetailNavActive(location, search)) ||
                   (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                   (href === "/videos" && location === "/videos");
                 return (
