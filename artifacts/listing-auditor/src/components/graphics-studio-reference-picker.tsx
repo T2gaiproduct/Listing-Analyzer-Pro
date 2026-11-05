@@ -28,14 +28,13 @@ type Props = {
   isLoading?: boolean;
   /** Create Graphics customize: summary + popup picker (avoids clipped inline grid). */
   openSelectionInDialog?: boolean;
-  /** Stack flush above the prompt input bar. */
-  composeWithPromptBar?: boolean;
   onScrollToPromptBar?: () => void;
   promptPreview?: {
     customPrompt?: string;
     aspectRatio?: GraphicsAspectRatio;
     quality?: GraphicsQuality;
     hideAspectRatio?: boolean;
+    studioReferenceUrls?: string[];
   };
 };
 
@@ -250,7 +249,6 @@ export function GraphicsStudioReferencePicker({
   onReferenceImagesChange,
   isLoading,
   openSelectionInDialog = false,
-  composeWithPromptBar = false,
   onScrollToPromptBar,
   promptPreview,
 }: Props) {
@@ -314,12 +312,7 @@ export function GraphicsStudioReferencePicker({
 
   return (
     <>
-      <div
-        className={cn(
-          "rounded-xl border border-orange-200/80 bg-orange-50/30 overflow-hidden",
-          composeWithPromptBar && "rounded-b-none border-b-0",
-        )}
-      >
+      <div className="rounded-xl border border-orange-200/80 bg-orange-50/30 overflow-hidden">
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
@@ -385,16 +378,27 @@ export function GraphicsStudioReferencePicker({
           />
           <div className="space-y-2 pt-2 border-t border-slate-100">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Prompt bar preview
+              Prompt bar preview (uploads + text)
             </p>
             <PromptBarReferencePreview
-              referenceImages={referenceImages}
+              referenceImages={
+                promptPreview?.studioReferenceUrls?.length
+                  ? referenceImages.filter(
+                      (u) => !new Set(promptPreview.studioReferenceUrls).has(u),
+                    )
+                  : referenceImages
+              }
               customPrompt={promptPreview?.customPrompt}
               aspectRatio={promptPreview?.aspectRatio}
               quality={promptPreview?.quality}
               hideAspectRatio={promptPreview?.hideAspectRatio}
               onPreviewReference={openPreview}
             />
+            {referenceImages.length > 0 ? (
+              <p className="text-[10px] text-slate-400">
+                {referenceImages.length}/{MAX_REFERENCE_IMAGES} total AI references (studio + uploads).
+              </p>
+            ) : null}
           </div>
 
           <DialogFooter className="sm:justify-end pt-1">

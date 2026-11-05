@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ReferenceImagePopoutDialog } from "@/components/reference-image-popout-dialog";
 import { ChevronDown, Loader2, Plus, Sparkles, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,8 @@ type ChatGptStyleGenerationInputProps = {
   prominentReferenceThumbs?: boolean;
   /** Sits directly under studio references card — square top corners. */
   composerAttachTop?: boolean;
+  /** When set, prompt bar shows only uploads (studio refs live in the studio section). */
+  studioReferenceUrls?: string[];
 };
 
 function ToolbarPill({
@@ -75,9 +77,24 @@ export function ChatGptStyleGenerationInput({
   flatSurface = false,
   prominentReferenceThumbs = false,
   composerAttachTop = false,
+  studioReferenceUrls,
 }: ChatGptStyleGenerationInputProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const studioUrlSet = useMemo(() => new Set(studioReferenceUrls ?? []), [studioReferenceUrls]);
+  const promptBarReferences = useMemo(
+    () =>
+      studioReferenceUrls?.length
+        ? referenceImages.filter((url) => !studioUrlSet.has(url))
+        : referenceImages,
+    [referenceImages, studioReferenceUrls, studioUrlSet],
+  );
+
+  function removePromptBarReference(stripIndex: number) {
+    const url = promptBarReferences[stripIndex];
+    if (!url) return;
+    onReferenceImagesChange(referenceImages.filter((u) => u !== url));
+  }
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
 
@@ -113,12 +130,12 @@ export function ChatGptStyleGenerationInput({
           handleFiles(e.dataTransfer.files);
         }}
       >
-        {referenceImages.length > 0 && (
+        {promptBarReferences.length > 0 && (
           <ReferenceImageThumbStrip
-            images={referenceImages}
+            images={promptBarReferences}
             prominent={prominentReferenceThumbs}
             onPreview={(url) => setPreviewUrl(url)}
-            onRemove={removeImage}
+            onRemove={removePromptBarReference}
             className="px-4 pt-3 pb-1"
           />
         )}

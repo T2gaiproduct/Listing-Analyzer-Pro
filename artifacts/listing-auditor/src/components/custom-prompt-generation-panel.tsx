@@ -46,6 +46,7 @@ export interface CustomPromptGenerationPanelProps {
   referenceBeforePrompt?: boolean;
   prominentReferenceThumbs?: boolean;
   composerAttachTop?: boolean;
+  studioReferenceUrls?: string[];
 }
 
 export function CustomPromptGenerationPanel({
@@ -68,6 +69,7 @@ export function CustomPromptGenerationPanel({
   referenceBeforePrompt = false,
   prominentReferenceThumbs = false,
   composerAttachTop = false,
+  studioReferenceUrls,
 }: CustomPromptGenerationPanelProps) {
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
@@ -88,6 +90,7 @@ export function CustomPromptGenerationPanel({
       flatSurface
       prominentReferenceThumbs={prominentReferenceThumbs}
       composerAttachTop={composerAttachTop}
+      studioReferenceUrls={studioReferenceUrls}
     />
   ) : null;
 
