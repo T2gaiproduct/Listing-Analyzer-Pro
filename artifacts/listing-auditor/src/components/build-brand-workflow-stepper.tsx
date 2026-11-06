@@ -37,13 +37,44 @@ export const BUILD_BRAND_WORKFLOW_STEPS: {
 ];
 
 /** Pick the workflow tab to show when reopening a saved project (API step + saved work). */
+export function coalesceMergedContentUiStep(
+  step: BuildBrandWorkflowStepId,
+  mergeContentSteps: boolean,
+): BuildBrandWorkflowStepId {
+  if (mergeContentSteps && (step === 4 || step === 5)) return 3;
+  return step;
+}
+
+export function nextBuildBrandUiStep(
+  step: BuildBrandWorkflowStepId,
+  mergeContentSteps: boolean,
+): BuildBrandWorkflowStepId | null {
+  if (step >= 7) return null;
+  if (mergeContentSteps) {
+    if (step === 3) return 6;
+    if (step === 6) return 7;
+  }
+  return (step + 1) as BuildBrandWorkflowStepId;
+}
+
+export function prevBuildBrandUiStep(
+  step: BuildBrandWorkflowStepId,
+  mergeContentSteps: boolean,
+): BuildBrandWorkflowStepId {
+  if (mergeContentSteps) {
+    if (step === 6) return 3;
+    if (step === 7) return 6;
+  }
+  return Math.max(1, step - 1) as BuildBrandWorkflowStepId;
+}
+
 export function resolveBuildBrandResumeUiStep(audit: {
   currentStep?: number | null;
   imageUrls?: string[] | null;
   generatedContent?: { title?: string | null } | null;
   imageRecords?: Array<{ currentUrl?: string | null }> | null;
   generatedImages?: unknown;
-}): BuildBrandWorkflowStepId {
+}, options?: { mergeContentSteps?: boolean }): BuildBrandWorkflowStepId {
   const fromApi = apiStepToUiStep(audit.currentStep);
   let fromData: BuildBrandWorkflowStepId = 2;
 
@@ -63,7 +94,8 @@ export function resolveBuildBrandResumeUiStep(audit: {
   if (hasAplus) fromData = 5;
 
   const merged = Math.max(fromApi, fromData);
-  return Math.min(7, Math.max(2, merged)) as BuildBrandWorkflowStepId;
+  const step = Math.min(7, Math.max(2, merged)) as BuildBrandWorkflowStepId;
+  return coalesceMergedContentUiStep(step, Boolean(options?.mergeContentSteps));
 }
 
 export function buildBrandStepCompletedFromCurrentStep(
@@ -90,6 +122,8 @@ interface BuildBrandWorkflowStepperProps {
   onStepClick?: (stepId: BuildBrandWorkflowStepId) => void;
   /** Build Your Brand “Create from scratch” — hide SELECT and show Upload as step 1 of 6. */
   hideSelectStep?: boolean;
+  /** From scratch: one step for listing + graphics + A+ (Product Explorer–style). */
+  mergeContentSteps?: boolean;
   className?: string;
 }
 
@@ -98,12 +132,27 @@ export function BuildBrandWorkflowStepper({
   stepCompleted = {},
   onStepClick,
   hideSelectStep = false,
+  mergeContentSteps = false,
   className,
 }: BuildBrandWorkflowStepperProps) {
   const activeStepRef = useRef<HTMLButtonElement>(null);
-  const visibleSteps = hideSelectStep
+  let visibleSteps = hideSelectStep
     ? BUILD_BRAND_WORKFLOW_STEPS.filter((s) => s.id !== 1)
     : BUILD_BRAND_WORKFLOW_STEPS;
+  if (mergeContentSteps) {
+    visibleSteps = visibleSteps
+      .filter((s) => s.id !== 4 && s.id !== 5)
+      .map((s) =>
+        s.id === 3
+          ? {
+              ...s,
+              label: "OPTIMIZE & CREATE",
+              shortLabel: "Create",
+              sub: "Listing, graphics & A+",
+            }
+          : s,
+      );
+  }
   const totalSteps = visibleSteps.length;
   const displayStepIndex = hideSelectStep
     ? Math.max(1, activeStep - 1)
