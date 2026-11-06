@@ -99,9 +99,29 @@ import {
   getListAuditsQueryKey,
   getGetAuditQueryKey,
   getGetRecentsQueryKey,
+  type GeneratedContent,
+  type GetAuditQueryResult,
 } from "@workspace/api-client-react";
+import {
+  ListingMarketplaceContentPanel,
+  type ContentVariantRow,
+} from "@/components/listing-marketplace-content-panel";
+import type { ListingContentView } from "@/components/listing-content-card";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function formatWorkflowOptimizeError(err: unknown): string {
+  if (err instanceof ApiFetchError) return err.message;
+  return err instanceof Error ? err.message : "Content generation failed";
+}
+
+function workflowHasGeneratedListing(
+  generatedContent: { title?: string | null } | null,
+  contentVariants: ContentVariantRow[],
+): boolean {
+  if (generatedContent?.title?.trim()) return true;
+  return contentVariants.some((v) => Boolean(v.generatedContent?.title?.trim()));
+}
 
 function parseWorkflowEntry(raw: string): BuildBrandStartEntry | null {
   const entry = new URLSearchParams(raw).get("entry");
@@ -1155,6 +1175,144 @@ export default function AuditWorkflow() {
     queryClient,
   ]);
 
+  const contentVariants = useMemo((): ContentVariantRow[] => {
+    const raw = (auditData as { contentVariants?: ContentVariantRow[] } | undefined)?.contentVariants;
+    return raw ?? [];
+  }, [auditData]);
+
+  const auditSavedContentMarketplaceId = (auditData as { contentMarketplaceId?: number | null } | undefined)
+    ?.contentMarketplaceId;
+
+  const scratchExistingListingContent = useMemo((): ListingContentView | null => {
+    if (!mergeGraphicsAplusSteps) return null;
+    const title = String(auditData?.title ?? productName ?? "").trim();
+    if (!title) return null;
+    return {
+      title,
+      bulletPoints: normalizeBulletPoints((auditData?.bulletPoints as string[] | undefined) ?? []),
+      keywords: ((auditData?.targetKeywords as string[] | undefined) ?? []).map(String),
+      htmlDescription: "",
+    };
+  }, [mergeGraphicsAplusSteps, auditData, productName]);
+
+  const scratchListingSuggestions = useMemo(
+    () => [
+      "Pick a marketplace tab, then generate optimized title, bullets, keywords, and description.",
+      "Save your choices on each marketplace tab so Listing Preview uses the right copy.",
+    ],
+    [],
+  );
+
+  const generateListingContent = useMutation({
+    mutationFn: async ({
+      auditId,
+      contentMarketplaceIds,
+    }: {
+      auditId: number;
+      contentMarketplaceIds: number[];
+    }) => {
+      await persistUploadTabToAudit(auditId);
+      return fetchJson<
+        GeneratedContent & {
+          contentMarketplaceId?: number;
+          contentVariants?: ContentVariantRow[];
+          batchResults?: Array<{ contentMarketplaceId: number; ok: boolean; error?: string }>;
+        }
+      >(`${basePath}/api/audits/${auditId}/generate-content`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentMarketplaceIds }),
+      });
+    },
+  });
+
+  const handleWorkflowOptimizeContent = useCallback((marketplaceIds: number[]) => {
+    if (!productName.trim() || !category) {
+      toast({
+        title: "Upload step incomplete",
+        description: "Enter a product name and category on Upload before generating content.",
+        variant: "destructive",
+      });
+      return;
+    }
+    void (async () => {
+      const auditId = await ensureAuditDraft();
+      if (!auditId) return;
+      const ids = marketplaceIds.length > 0
+        ? marketplaceIds
+        : (contentMarketplaceId != null ? [contentMarketplaceId] : []);
+      if (ids.length === 0) {
+        toast({
+          title: "Select a marketplace",
+          description: "Choose a marketplace tab first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      generateListingContent.mutate(
+        { auditId, contentMarketplaceIds: ids },
+        {
+          onSuccess: (payload) => {
+            const generated: GeneratedContent = {
+              title: payload.title,
+              bulletPoints: payload.bulletPoints,
+              keywords: payload.keywords,
+              htmlDescription: payload.htmlDescription,
+            };
+            setGeneratedContent(generated);
+            if (currentAuditId !== auditId) setCurrentAuditId(auditId);
+
+            queryClient.setQueryData<GetAuditQueryResult | undefined>(
+              getGetAuditQueryKey(auditId),
+              (current) => (current
+                ? {
+                    ...current,
+                    generatedContent: generated,
+                    contentMarketplaceId: payload.contentMarketplaceId ?? current.contentMarketplaceId,
+                    contentVariants: payload.contentVariants ?? current.contentVariants,
+                  }
+                : current),
+            );
+
+            setContentMarketplaceId((prev) => {
+              if (prev != null && ids.includes(prev)) return prev;
+              return payload.contentMarketplaceId ?? prev;
+            });
+            persistWorkflowStep(3);
+            refreshCreditBalances(queryClient);
+            void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+
+            const okCount = payload.batchResults?.filter((r) => r.ok).length ?? ids.length;
+            const failCount = payload.batchResults?.filter((r) => !r.ok).length ?? 0;
+            toast({
+              title: failCount > 0 ? "Partially generated" : "Optimized content ready",
+              description: failCount > 0
+                ? `${okCount} marketplace(s) succeeded, ${failCount} failed.`
+                : `${okCount} marketplace(s) updated.`,
+            });
+          },
+          onError: (err) => {
+            toast({
+              title: "Optimize failed",
+              description: formatWorkflowOptimizeError(err),
+              variant: "destructive",
+            });
+          },
+        },
+      );
+    })();
+  }, [
+    productName,
+    category,
+    ensureAuditDraft,
+    contentMarketplaceId,
+    generateListingContent,
+    currentAuditId,
+    queryClient,
+    persistWorkflowStep,
+    toast,
+  ]);
+
   const persistAuditImageRecordsFromGraphics = useCallback((records: Array<{
     id: string;
     type: string;
@@ -1637,6 +1795,11 @@ export default function AuditWorkflow() {
         });
 
     } else if (step === 3) {
+      if (mergeGraphicsAplusSteps) {
+        setIsCreating(false);
+        handleWorkflowOptimizeContent(contentMarketplaceId != null ? [contentMarketplaceId] : []);
+        return;
+      }
       // Listing: generate content directly (no audit)
       if (!productName.trim()) {
         setIsCreating(false);
@@ -1718,7 +1881,7 @@ export default function AuditWorkflow() {
       });
 
     }
-  }, [activeStep, mergeGraphicsAplusSteps, graphicsStepPanel, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast, isTeamMember, memberCredits?.imageCredits, accountImageCredits, aplusImageCostPerModule]);
+  }, [activeStep, mergeGraphicsAplusSteps, graphicsStepPanel, handleWorkflowOptimizeContent, contentMarketplaceId, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast, isTeamMember, memberCredits?.imageCredits, accountImageCredits, aplusImageCostPerModule, generateListingFromUploadContext, persistWorkflowStep, queryClient]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!productName.trim()) {
@@ -1943,28 +2106,83 @@ export default function AuditWorkflow() {
   }, [autoSave, currentAuditId, toast]);
 
   const filteredCats = filterProductCategories(productCategories, catSearch);
+  const workflowUploadReady = Boolean(productName.trim() && category);
+
+  const scratchOptimizeListingPanel = useMemo(
+    () => (
+      <ListingMarketplaceContentPanel
+        contentMarketplaces={contentMarketplaces}
+        contentMarketplaceId={contentMarketplaceId}
+        onContentMarketplaceChange={setContentMarketplaceId}
+        contentVariants={contentVariants}
+        legacyGeneratedContent={generatedContent}
+        legacyMarketplaceId={auditSavedContentMarketplaceId}
+        suggestions={scratchListingSuggestions}
+        isOptimizing={generateListingContent.isPending}
+        onGenerate={handleWorkflowOptimizeContent}
+        optimizeDisabled={!workflowUploadReady || isCreating}
+        marketplacesLoading={marketplacesLoading}
+        existingContent={scratchExistingListingContent}
+        showListingCompare={Boolean(scratchExistingListingContent?.title?.trim())}
+        auditId={currentAuditId}
+        onContentVariantsUpdated={(variants) => {
+          if (!currentAuditId) return;
+          queryClient.setQueryData<GetAuditQueryResult | undefined>(
+            getGetAuditQueryKey(currentAuditId),
+            (current) => (current ? { ...current, contentVariants: variants } : current),
+          );
+          const row = variants.find((v) => v.contentMarketplaceId === contentMarketplaceId) ?? variants[0];
+          const gc = row?.generatedContent;
+          if (gc?.title?.trim()) {
+            setGeneratedContent({
+              title: gc.title,
+              bulletPoints: gc.bulletPoints ?? [],
+              keywords: gc.keywords ?? [],
+              htmlDescription: gc.htmlDescription ?? "",
+            });
+          }
+        }}
+      />
+    ),
+    [
+      auditSavedContentMarketplaceId,
+      contentMarketplaceId,
+      contentMarketplaces,
+      contentVariants,
+      currentAuditId,
+      generateListingContent.isPending,
+      generatedContent,
+      handleWorkflowOptimizeContent,
+      isCreating,
+      marketplacesLoading,
+      queryClient,
+      scratchExistingListingContent,
+      scratchListingSuggestions,
+      workflowUploadReady,
+    ],
+  );
 
   const stepCompleted = useMemo((): Record<StepId, boolean> => ({
     1: activeStep > 1 || currentAuditId !== null,
     2: uploadedImages.length > 0 || currentAuditId !== null,
-    3: generatedContent !== null,
+    3: workflowHasGeneratedListing(generatedContent, contentVariants),
     4: mergeGraphicsAplusSteps
       ? activeStep >= 6
       : generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
     5: aplusModules.length > 0 || aplusStatus === "completed",
     6: generatedContent !== null,
     7: generatedContent !== null,
-  }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus, mergeGraphicsAplusSteps]);
-
-  const workflowUploadReady = Boolean(productName.trim() && category);
+  }), [activeStep, currentAuditId, uploadedImages, generatedContent, contentVariants, generatedImages, graphicsStatus, aplusModules, aplusStatus, mergeGraphicsAplusSteps]);
 
   const productExplorerSaveBlocker = useMemo((): string | null => {
     if (patchAudit.isPending) return "Saving your project…";
     if (!workflowUploadReady) return "Enter a product name and category on the Upload step first.";
     if (!currentAuditId) return "Saving your project…";
-    if (!generatedContent) return "Go to the Listing step and click Generate Listing Content.";
+    if (!workflowHasGeneratedListing(generatedContent, contentVariants)) {
+      return "Go to the Listing step and generate optimized content for at least one marketplace.";
+    }
     return null;
-  }, [currentAuditId, generatedContent, patchAudit.isPending, workflowUploadReady]);
+  }, [currentAuditId, generatedContent, contentVariants, patchAudit.isPending, workflowUploadReady]);
 
   const canSaveToProductExplorer = productExplorerSaveBlocker === null;
 
@@ -2242,7 +2460,11 @@ export default function AuditWorkflow() {
           )}
 
           {/* STEP 3: Listing ── */}
-          {activeStep === 3 && (
+          {activeStep === 3 && mergeGraphicsAplusSteps && (
+            <div className="space-y-4 min-w-0">{scratchOptimizeListingPanel}</div>
+          )}
+
+          {activeStep === 3 && !mergeGraphicsAplusSteps && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">

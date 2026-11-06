@@ -146,16 +146,25 @@ export function BuildBrandWorkflowStepper({
   if (mergeGraphicsAplusSteps) {
     visibleSteps = visibleSteps
       .filter((s) => s.id !== 5)
-      .map((s) =>
-        s.id === 4
-          ? {
-              ...s,
-              label: "GRAPHICS",
-              shortLabel: "Graphics",
-              sub: "Product graphics & A+",
-            }
-          : s,
-      );
+      .map((s) => {
+        if (s.id === 3) {
+          return {
+            ...s,
+            label: "OPTIMIZE LISTING",
+            shortLabel: "Optimize",
+            sub: "Create optimized content",
+          };
+        }
+        if (s.id === 4) {
+          return {
+            ...s,
+            label: "GRAPHICS",
+            shortLabel: "Graphics",
+            sub: "Product graphics & A+",
+          };
+        }
+        return s;
+      });
   }
   const totalSteps = visibleSteps.length;
   const displayStepIndex = mergeGraphicsAplusSteps
