@@ -73,6 +73,8 @@ import { PROJECT_ORIGIN_BUILD_BRAND_SCRATCH } from "@/lib/audit-project-origin";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
+import { GraphicsWizard } from "@/components/graphics-wizard";
+import { AplusContentWizard } from "@/components/aplus-content-wizard";
 import { downloadAppImage } from "@/lib/download-app-image";
 import { ContentMarketplaceSelect } from "@/components/content-marketplace-select";
 import {
@@ -1203,6 +1205,19 @@ export default function AuditWorkflow() {
     [],
   );
 
+  const scratchWorkflowImageUrls = useMemo(() => {
+    const urls: string[] = [];
+    const add = (raw: string | null | undefined) => {
+      const trimmed = raw?.trim();
+      if (trimmed && !urls.includes(trimmed)) urls.push(trimmed);
+    };
+    for (const rec of auditData?.imageRecords ?? []) {
+      add((rec as { currentUrl?: string }).currentUrl);
+    }
+    for (const url of uploadedImages) add(url);
+    return urls;
+  }, [auditData?.imageRecords, uploadedImages]);
+
   const generateListingContent = useMutation({
     mutationFn: async ({
       auditId,
@@ -2162,6 +2177,55 @@ export default function AuditWorkflow() {
     ],
   );
 
+  const scratchExplorerGraphicsStep = useMemo(
+    () => (
+      <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm space-y-3 min-w-0">
+        <BuildBrandGraphicsAplusSubTabs active={graphicsStepPanel} onChange={setGraphicsStepPanel} />
+        {!canEditGraphics && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Your workspace role does not include permission to create graphics. Ask your workspace owner to enable
+            <strong> Build Your Brand </strong> or <strong> Create Graphics </strong> edit access.
+          </div>
+        )}
+        {!currentAuditId ? (
+          <p className="text-sm text-muted-foreground px-1 py-4">
+            Save your project from the Upload step before generating graphics or A+ content.
+          </p>
+        ) : graphicsStepPanel === "graphics" ? (
+          <div className="min-w-0 pt-1">
+            <GraphicsWizard
+              embedded
+              createOnly
+              auditId={currentAuditId}
+              productName={productName || "Product"}
+              imageUrls={scratchWorkflowImageUrls}
+              category={category || null}
+              targetKeywords={(auditData?.targetKeywords as string[] | null | undefined) ?? null}
+            />
+          </div>
+        ) : (
+          <div className="min-w-0 pt-1">
+            <AplusContentWizard
+              embedded
+              createOnly
+              auditId={currentAuditId}
+              productName={productName || "Product"}
+            />
+          </div>
+        )}
+      </div>
+    ),
+    [
+      canEditGraphics,
+      category,
+      currentAuditId,
+      graphicsStepPanel,
+      productName,
+      auditData?.targetKeywords,
+      scratchWorkflowImageUrls,
+    ],
+  );
+
   const stepCompleted = useMemo((): Record<StepId, boolean> => ({
     1: activeStep > 1 || currentAuditId !== null,
     2: uploadedImages.length > 0 || currentAuditId !== null,
@@ -2642,12 +2706,13 @@ export default function AuditWorkflow() {
             </div>
           )}
 
-          {/* STEP 4: Graphics ── */}
-          {(activeStep === 4 && (!mergeGraphicsAplusSteps || graphicsStepPanel === "graphics")) && (
+          {mergeGraphicsAplusSteps && activeStep === 4 && (
+            <div className="min-w-0">{scratchExplorerGraphicsStep}</div>
+          )}
+
+          {/* STEP 4: Graphics (legacy BYB wizard) ── */}
+          {activeStep === 4 && !mergeGraphicsAplusSteps && (
             <div className="space-y-8">
-              {mergeGraphicsAplusSteps && activeStep === 4 && (
-                <BuildBrandGraphicsAplusSubTabs active={graphicsStepPanel} onChange={setGraphicsStepPanel} />
-              )}
               {!canEditGraphics && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   Your workspace role does not include permission to create graphics. Ask your workspace owner to enable
@@ -2857,12 +2922,9 @@ export default function AuditWorkflow() {
             </div>
           )}
 
-          {/* STEP 5: A+ Content ── */}
-          {(activeStep === 5 || (mergeGraphicsAplusSteps && activeStep === 4 && graphicsStepPanel === "aplus")) && (
+          {/* STEP 5: A+ Content (legacy BYB wizard) ── */}
+          {activeStep === 5 && !mergeGraphicsAplusSteps && (
             <div className="space-y-8">
-              {mergeGraphicsAplusSteps && activeStep === 4 && (
-                <BuildBrandGraphicsAplusSubTabs active={graphicsStepPanel} onChange={setGraphicsStepPanel} />
-              )}
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
                   <Sparkles className="w-6 h-6 text-orange-500" />
