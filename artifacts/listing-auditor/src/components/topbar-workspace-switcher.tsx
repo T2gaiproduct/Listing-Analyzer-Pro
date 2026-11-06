@@ -27,6 +27,16 @@ const DROPDOWN_PREVIEW_LIMIT = 8;
 
 type SortMode = "az" | "za";
 
+/** Client label is already visible in the workspace name (e.g. "Client — Brand B"). */
+function isRedundantWorkspacePillSubtitle(name: string, subtitle: string | null | undefined): boolean {
+  if (!subtitle) return false;
+  const s = subtitle.trim();
+  if (!s) return false;
+  const n = name.trim();
+  if (n === s) return true;
+  return n.includes(`— ${s}`) || n.includes(`| ${s}`);
+}
+
 /** Pages scoped to the account, not a single workspace — don't highlight one workspace in the switcher. */
 function accountScopedPill(location: string): { name: string; subtitle: string } | null {
   if (location === "/roles") {
@@ -288,6 +298,11 @@ export function TopbarWorkspaceSwitcher({
           ? "Choose a workspace to continue"
           : (scopedWorkspace?.clientLabel?.trim() || null));
 
+  const displayPillSubtitle =
+    pillSubtitle && !(isSidebar && isRedundantWorkspacePillSubtitle(pillName, pillSubtitle))
+      ? pillSubtitle
+      : null;
+
   if (!workspacesEnabled) return null;
   if (!workspaces.length && !canCreate && !isLoading && !isBillingAccountOwner) return null;
 
@@ -372,7 +387,7 @@ export function TopbarWorkspaceSwitcher({
         <div
           className={cn(
             "flex items-stretch rounded-md border-0 shadow-none transition-colors w-full",
-            isSidebar ? "h-auto min-h-11 py-1" : "items-center h-10",
+            isSidebar ? "h-auto min-h-[3.25rem] py-1.5" : "items-center h-10",
             isSidebar
               ? cn(
                   "rounded-xl border border-sidebar-border/40 bg-sidebar-accent/30",
@@ -386,10 +401,10 @@ export function TopbarWorkspaceSwitcher({
             onClick={openActiveWorkspace}
             className={cn(
               "flex items-center gap-2 pl-2.5 pr-1 min-w-0 flex-1 rounded-l-md focus:outline-none focus-visible:outline-none transition-colors",
-              isSidebar ? "py-0.5 self-center" : "h-full max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]",
+              isSidebar ? "py-1 self-center" : "h-full max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]",
             )}
-            aria-label={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? `, ${pillSubtitle}` : ""}`}
-            title={isAccountOwner ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? ` (${pillSubtitle})` : ""}`}
+            aria-label={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${displayPillSubtitle ? `, ${displayPillSubtitle}` : ""}`}
+            title={isAccountOwner ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${displayPillSubtitle ? ` (${displayPillSubtitle})` : ""}`}
           >
             {onWorkspaceDashboard ? (
               <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -402,37 +417,39 @@ export function TopbarWorkspaceSwitcher({
               className={cn(
                 "min-w-0 text-left flex-1",
                 !isSidebar && "hidden md:block",
-                isSidebar && "flex flex-col gap-0.5 py-0.5",
+                isSidebar && "flex flex-col gap-1.5 py-0.5",
               )}
             >
               <p
                 className={cn(
-                  "text-[10px] font-semibold uppercase tracking-wide leading-none",
-                  isSidebar ? "text-sidebar-foreground/55" : "text-slate-500",
+                  "text-[10px] font-semibold uppercase tracking-wide",
+                  isSidebar ? "leading-4 text-sidebar-foreground/55" : "leading-none text-slate-500",
                 )}
               >
                 Workspace
               </p>
-              <p
-                className={cn(
-                  "text-sm font-semibold truncate",
-                  isSidebar ? "leading-snug text-sidebar-foreground" : "leading-tight text-slate-900",
-                )}
-              >
-                {pillName}
-              </p>
-              {pillSubtitle && (
+              <div className={cn(isSidebar && displayPillSubtitle && "flex flex-col gap-1")}>
                 <p
                   className={cn(
-                    "text-[10px] truncate",
-                    isSidebar
-                      ? "leading-snug text-sidebar-foreground/50"
-                      : "leading-tight text-slate-400",
+                    "text-sm font-semibold truncate",
+                    isSidebar ? "leading-5 text-sidebar-foreground" : "leading-tight text-slate-900",
                   )}
                 >
-                  {pillSubtitle}
+                  {pillName}
                 </p>
-              )}
+                {displayPillSubtitle && (
+                  <p
+                    className={cn(
+                      "truncate",
+                      isSidebar
+                        ? "text-[11px] leading-4 text-sidebar-foreground/55"
+                        : "text-[10px] leading-tight text-slate-400",
+                    )}
+                  >
+                    {displayPillSubtitle}
+                  </p>
+                )}
+              </div>
             </div>
             {!isSidebar && (
             <div className="min-w-0 text-left md:hidden">
