@@ -148,8 +148,8 @@ console.log(
       extraWorkspaceIds: createdExtra,
       workspaces: workspaceRows,
       signInHint: seedEmail
-        ? `Sign in with ${seedEmail} (Clerk test email; email code 424242 if prompted).`
-        : "Sign in with the Clerk user email you created for this user id.",
+        ? `Sign in with ${seedEmail} (native auth password or Clerk, depending on deployment).`
+        : "Sign in with the account email linked to this user id.",
     },
     null,
     2,
