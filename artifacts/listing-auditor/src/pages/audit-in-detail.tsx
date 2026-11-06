@@ -3,7 +3,7 @@ import { FeatureProductHistoryTable } from "@/components/feature-product-history
 
 export default function AuditInDetail() {
   return (
-    <div className="w-full min-w-0 py-10 space-y-12 animate-in fade-in duration-500">
+    <div className="w-full min-w-0 pt-0 pb-8 space-y-12 animate-in fade-in duration-500">
       <div className="max-w-3xl space-y-4">
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
           Audit in <span className="text-orange-500">detail</span>
