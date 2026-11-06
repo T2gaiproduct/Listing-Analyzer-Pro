@@ -115,7 +115,15 @@ export function TopbarWorkspaceSwitcher({
   }, [workspaces, search, sort]);
 
   const dropdownWorkspaces = workspaces.slice(0, DROPDOWN_PREVIEW_LIMIT);
-  const hasMore = workspaces.length > DROPDOWN_PREVIEW_LIMIT;
+  const inlineDropdownWorkspaces = useMemo(() => {
+    if (isSidebar) {
+      return [...workspaces].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      );
+    }
+    return dropdownWorkspaces;
+  }, [isSidebar, workspaces, dropdownWorkspaces]);
+  const hasMore = !isSidebar && workspaces.length > DROPDOWN_PREVIEW_LIMIT;
 
   const createWorkspace = useMutation({
     mutationFn: async () =>
@@ -192,6 +200,10 @@ export function TopbarWorkspaceSwitcher({
   };
 
   const openActiveWorkspace = () => {
+    if (isSidebar && showWorkspaceDropdown) {
+      toggleDropdown();
+      return;
+    }
     setOpen(false);
     if (isAccountOwner) {
       if (onWorkspaceDashboard) {
@@ -235,6 +247,15 @@ export function TopbarWorkspaceSwitcher({
     : onAccountDashboard
       ? null
       : viewedWorkspaceId ?? (onAccountScopedPage ? null : (activeWorkspaceId ?? featureWorkspaceId));
+
+  const activeSelectionId =
+    onAccountDashboard || onWorkspaceDashboard
+      ? null
+      : (activeWorkspaceId ?? highlightedWorkspaceId);
+
+  const hasMultipleWorkspaces = workspaces.length > 1;
+  const showWorkspaceDropdown =
+    !isSidebar || hasMultipleWorkspaces || isBillingAccountOwner;
 
   const scopedWorkspace = viewedWorkspace ?? activeWorkspace ?? featureWorkspace;
 
@@ -290,18 +311,18 @@ export function TopbarWorkspaceSwitcher({
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
             </div>
             <div className="flex-1 overflow-y-auto min-h-[min(280px,45vh)] max-h-[55vh] py-1">
-              {workspaces.map((ws) => (
+              {inlineDropdownWorkspaces.map((ws) => (
                 <button
                   key={ws.id}
                   type="button"
                   onClick={() => selectWorkspace(ws.id)}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50",
-                    highlightedWorkspaceId === ws.id && "bg-orange-50 text-orange-800",
+                    activeSelectionId === ws.id && "bg-orange-500/15 text-orange-800 font-medium ring-1 ring-inset ring-orange-500/25",
                   )}
                 >
-                  <span className="truncate flex-1 font-medium">{workspaceListLabel(ws)}</span>
-                  {highlightedWorkspaceId === ws.id && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+                  <span className="truncate flex-1">{workspaceListLabel(ws)}</span>
+                  {activeSelectionId === ws.id && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
                 </button>
               ))}
             </div>
@@ -411,6 +432,7 @@ export function TopbarWorkspaceSwitcher({
             </div>
             )}
           </button>
+          {showWorkspaceDropdown && (
           <button
             type="button"
             onClick={toggleDropdown}
@@ -421,6 +443,7 @@ export function TopbarWorkspaceSwitcher({
           >
             <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform", open && "rotate-180")} />
           </button>
+          )}
           {canCreate ? (
             <>
               <div className="w-px h-5 bg-border/80 flex-shrink-0" />
@@ -483,18 +506,21 @@ export function TopbarWorkspaceSwitcher({
               {isLoading && workspaces.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-slate-500">Loading workspaces…</p>
               ) : (
-                dropdownWorkspaces.map((ws) => (
+                inlineDropdownWorkspaces.map((ws) => (
                   <button
                     key={ws.id}
                     type="button"
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors",
-                      highlightedWorkspaceId === ws.id && "bg-orange-50 text-orange-800",
+                      activeSelectionId === ws.id && cn(
+                        "bg-orange-50 text-orange-800 font-medium",
+                        isSidebar && "bg-orange-500/15 ring-1 ring-inset ring-orange-500/25",
+                      ),
                     )}
                     onClick={() => selectWorkspace(ws.id)}
                   >
-                    <span className="truncate flex-1 font-medium">{workspaceListLabel(ws)}</span>
-                    {highlightedWorkspaceId === ws.id && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+                    <span className="truncate flex-1">{workspaceListLabel(ws)}</span>
+                    {activeSelectionId === ws.id && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
                   </button>
                 ))
               )}
@@ -510,7 +536,7 @@ export function TopbarWorkspaceSwitcher({
                 </button>
               </div>
             )}
-            {!hasMore && workspaces.length > 0 && (
+            {!isSidebar && !hasMore && workspaces.length > 0 && (
               <div className="border-t border-border py-2 text-center">
                 <button
                   type="button"
@@ -612,7 +638,7 @@ export function TopbarWorkspaceSwitcher({
               <p className="px-4 py-8 text-sm text-slate-500 text-center">No workspaces match your search.</p>
             ) : (
               sortedWorkspaces.map((ws) => {
-                const isCurrent = highlightedWorkspaceId === ws.id;
+                const isCurrent = activeSelectionId === ws.id;
                 return (
                   <button
                     key={ws.id}
