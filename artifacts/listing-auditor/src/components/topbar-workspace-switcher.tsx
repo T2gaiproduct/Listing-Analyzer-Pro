@@ -35,7 +35,18 @@ function accountScopedPill(location: string): { name: string; subtitle: string }
   return null;
 }
 
-export function TopbarWorkspaceSwitcher() {
+type TopbarWorkspaceSwitcherProps = {
+  placement?: "topbar" | "sidebar";
+  collapsed?: boolean;
+  onNavigate?: () => void;
+};
+
+export function TopbarWorkspaceSwitcher({
+  placement = "topbar",
+  collapsed = false,
+  onNavigate,
+}: TopbarWorkspaceSwitcherProps = {}) {
+  const isSidebar = placement === "sidebar";
   const [location, navigate] = useLocation();
   const {
     workspaces,
@@ -140,6 +151,7 @@ export function TopbarWorkspaceSwitcher() {
     if (location !== "/dashboard" && location !== "/") {
       navigate("/dashboard");
     }
+    onNavigate?.();
   };
 
   const selectWorkspace = (id: number) => {
@@ -176,6 +188,7 @@ export function TopbarWorkspaceSwitcher() {
     if (isWorkspaceAdminOverviewRoute(location) || needsWorkspaceSelection) {
       navigate("/dashboard");
     }
+    onNavigate?.();
   };
 
   const openActiveWorkspace = () => {
@@ -257,19 +270,102 @@ export function TopbarWorkspaceSwitcher() {
   if (!workspacesEnabled) return null;
   if (!workspaces.length && !canCreate && !isLoading && !isBillingAccountOwner) return null;
 
+  if (isSidebar && collapsed) {
+    return (
+      <>
+        <div className="px-2 mb-2">
+          <button
+            type="button"
+            title={pillName}
+            onClick={() => setSeeAllOpen(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl mx-auto text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+            aria-label={`Workspace: ${pillName}`}
+          >
+            <Building2 className="w-5 h-5 text-orange-500" />
+          </button>
+        </div>
+        <Dialog open={seeAllOpen} onOpenChange={setSeeAllOpen}>
+          <DialogContent className="max-w-md max-h-[85vh] flex flex-col gap-0 p-0 border border-border shadow-xl sm:rounded-lg overflow-hidden bg-card">
+            <div className="px-3 py-2.5 border-b border-border bg-muted/80">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-[min(280px,45vh)] max-h-[55vh] py-1">
+              {workspaces.map((ws) => (
+                <button
+                  key={ws.id}
+                  type="button"
+                  onClick={() => selectWorkspace(ws.id)}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50",
+                    highlightedWorkspaceId === ws.id && "bg-orange-50 text-orange-800",
+                  )}
+                >
+                  <span className="truncate flex-1 font-medium">{workspaceListLabel(ws)}</span>
+                  {highlightedWorkspaceId === ws.id && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+                </button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create workspace</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-1">
+              <div>
+                <Label htmlFor="topbar-ws-name-collapsed">Name</Label>
+                <Input
+                  id="topbar-ws-name-collapsed"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder={egPlaceholderCompanyWithPrefix()}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => createWorkspace.mutate()}
+                disabled={!form.name.trim() || createWorkspace.isPending}
+              >
+                Create
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
   return (
     <>
-      <div ref={rootRef} className="relative flex-shrink-0 hidden lg:flex items-center">
+      <div
+        ref={rootRef}
+        className={cn(
+          "relative flex-shrink-0 items-center",
+          isSidebar ? "flex w-full px-3 mb-3" : "hidden lg:flex",
+        )}
+      >
         <div
           className={cn(
-            "flex items-center h-10 rounded-md border-0 shadow-none bg-transparent transition-colors",
-            open ? "bg-muted/60" : "hover:bg-muted/45",
+            "flex items-center h-10 rounded-md border-0 shadow-none transition-colors w-full",
+            isSidebar
+              ? cn(
+                  "rounded-xl border border-sidebar-border/40 bg-sidebar-accent/30 min-h-10",
+                  open ? "bg-sidebar-accent/50" : "hover:bg-sidebar-accent/45",
+                )
+              : cn("bg-transparent", open ? "bg-muted/60" : "hover:bg-muted/45"),
           )}
         >
           <button
             type="button"
             onClick={openActiveWorkspace}
-            className="flex items-center gap-2 pl-2.5 pr-1 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-md focus:outline-none focus-visible:outline-none transition-colors"
+            className={cn(
+              "flex items-center gap-2 pl-2.5 pr-1 h-full min-w-0 flex-1 rounded-l-md focus:outline-none focus-visible:outline-none transition-colors",
+              !isSidebar && "max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]",
+            )}
             aria-label={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? `, ${pillSubtitle}` : ""}`}
             title={isAccountOwner ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? ` (${pillSubtitle})` : ""}`}
           >
@@ -280,17 +376,40 @@ export function TopbarWorkspaceSwitcher() {
             ) : (
               <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
             )}
-            <div className="min-w-0 text-left hidden md:block">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-none">Workspace</p>
-              <p className="text-sm font-semibold text-slate-900 leading-tight truncate">{pillName}</p>
+            <div className={cn("min-w-0 text-left flex-1", !isSidebar && "hidden md:block")}>
+              <p
+                className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wide leading-none",
+                  isSidebar ? "text-sidebar-foreground/55" : "text-slate-500",
+                )}
+              >
+                Workspace
+              </p>
+              <p
+                className={cn(
+                  "text-sm font-semibold leading-tight truncate",
+                  isSidebar ? "text-sidebar-foreground" : "text-slate-900",
+                )}
+              >
+                {pillName}
+              </p>
               {pillSubtitle && (
-                <p className="text-[10px] text-slate-400 leading-tight truncate">{pillSubtitle}</p>
+                <p
+                  className={cn(
+                    "text-[10px] leading-tight truncate",
+                    isSidebar ? "text-sidebar-foreground/50" : "text-slate-400",
+                  )}
+                >
+                  {pillSubtitle}
+                </p>
               )}
             </div>
+            {!isSidebar && (
             <div className="min-w-0 text-left md:hidden">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-none">Workspace</p>
               <p className="text-xs font-semibold text-slate-900 leading-tight truncate max-w-[5.5rem]">{pillName}</p>
             </div>
+            )}
           </button>
           <button
             type="button"
@@ -335,7 +454,12 @@ export function TopbarWorkspaceSwitcher() {
         </div>
 
         {open && (
-          <div className="absolute left-0 top-full mt-2 w-72 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+          <div
+            className={cn(
+              "absolute left-0 top-full mt-2 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden",
+              isSidebar ? "right-0 w-full" : "w-72",
+            )}
+          >
             <div className="absolute -top-1.5 left-6 w-3 h-3 bg-card border-l border-t border-border rotate-45" />
             <div className="px-3 py-2 border-b border-border bg-muted/80">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
@@ -401,7 +525,7 @@ export function TopbarWorkspaceSwitcher() {
         )}
       </div>
 
-      {/* Mobile: compact with label */}
+      {!isSidebar && (
       <button
         type="button"
         className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-md border-0 shadow-none bg-transparent text-muted-foreground flex-shrink-0 hover:bg-muted/45 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200/80"
@@ -423,6 +547,7 @@ export function TopbarWorkspaceSwitcher() {
           <span className="text-[9px] font-semibold text-slate-800 leading-none truncate max-w-[4.5rem]">{pillName}</span>
         )}
       </button>
+      )}
 
       <Dialog open={seeAllOpen} onOpenChange={setSeeAllOpen}>
         <DialogContent className="max-w-md max-h-[85vh] flex flex-col gap-0 p-0 border border-border shadow-xl sm:rounded-lg overflow-hidden bg-card">

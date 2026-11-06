@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Search, Menu, Building2, Archive,
+  Search, Menu, Archive,
 } from "lucide-react";
 import { CustomerNotificationBell } from "@/components/customer-notification-bell";
 import { AdminNotificationBell } from "@/components/admin-notification-bell";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
-import { TopbarWorkspaceSwitcher } from "@/components/topbar-workspace-switcher";
 import { ProfileAccountMenu } from "@/components/profile-account-menu";
 import { cn } from "@/lib/utils";
 
@@ -48,11 +46,6 @@ export function DashboardTopbar({
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
   const { isAccountOwner, canView } = useWorkspace();
-  const { workspacesPlanLocked, workspacesEnabled, upgradeShort, includedPlansLabel } = useWorkspacesPlan();
-  const { activeWorkspace } = useWorkspace();
-  const showWorkspaceSwitcher = variant === "customer" && workspacesEnabled;
-  const showStaticWorkspaceLabel =
-    variant === "customer" && !workspacesEnabled && Boolean(activeWorkspace?.name?.trim());
   const useCommandPalette = variant === "customer" && !!onOpenSearch;
   const useInlineSearch = !useCommandPalette && !!onSearchQueryChange;
 
@@ -92,29 +85,7 @@ export function DashboardTopbar({
         </div>
       )}
 
-      {useCommandPalette && <div className="flex-1 min-w-0 lg:hidden" />}
-
-      {showWorkspaceSwitcher && <TopbarWorkspaceSwitcher />}
-      {showStaticWorkspaceLabel && (
-        <div
-          className="hidden sm:flex items-center gap-2 h-10 pl-2.5 pr-2 rounded-md flex-shrink-0 max-w-[min(100%,20rem)] hover:bg-muted/40 transition-colors"
-          title={upgradeShort || `Upgrade to ${includedPlansLabel} to enable multiple workspaces`}
-        >
-          <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
-          <div className="min-w-0 text-left flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-none">Workspace</p>
-            <p className="text-sm font-semibold text-slate-900 leading-tight truncate">{activeWorkspace!.name}</p>
-          </div>
-          {workspacesPlanLocked && isAccountOwner && (
-            <Link
-              href="/billing"
-              className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-orange-600 hover:text-orange-700 px-2 py-1 rounded-md bg-orange-50/80 hover:bg-orange-100/90 transition-colors"
-            >
-              Upgrade
-            </Link>
-          )}
-        </div>
-      )}
+      {useCommandPalette && <div className="flex-1 min-w-0" />}
 
       {variant === "customer" && (
         <div className="flex items-center gap-0.5 lg:hidden flex-shrink-0">

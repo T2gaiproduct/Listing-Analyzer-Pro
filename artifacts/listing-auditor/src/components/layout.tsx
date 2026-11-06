@@ -42,6 +42,7 @@ import { getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@worksp
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import { DashboardSearchDialog } from "@/components/dashboard-search-dialog";
+import { CustomerSidebarWorkspace } from "@/components/customer-sidebar-workspace";
 import { ProfileAccountMenu } from "@/components/profile-account-menu";
 import { CustomerNotificationBell } from "@/components/customer-notification-bell";
 import {
@@ -779,6 +780,8 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </div>
 
+        <CustomerSidebarWorkspace collapsed={collapsed} />
+
         {/* ── Nav + Projects (scrollable) ─────────────────────── */}
         <div className="flex-1 overflow-y-auto overflow-x-visible py-3 flex flex-col">
           {/* Main nav items */}
@@ -975,6 +978,10 @@ export function Layout({ children }: { children: ReactNode }) {
                 <SiteLogo variant="app" />
               </Link>
             </div>
+            <CustomerSidebarWorkspace
+              collapsed={false}
+              onNavigate={() => setMobileNavOpen(false)}
+            />
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
               {navItemsBeforeManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
                 if (href === "/audit-listings") {
