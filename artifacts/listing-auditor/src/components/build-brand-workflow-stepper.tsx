@@ -36,36 +36,39 @@ export const BUILD_BRAND_WORKFLOW_STEPS: {
   { id: 7, key: "export", label: "EXPORT", shortLabel: "Export", sub: "CSV & Excel download", icon: Download },
 ];
 
-/** Pick the workflow tab to show when reopening a saved project (API step + saved work). */
-export function coalesceMergedContentUiStep(
+/** From scratch: A+ lives under the Graphics step (Product Explorer–style). */
+export function coalesceMergedGraphicsAplusUiStep(
   step: BuildBrandWorkflowStepId,
-  mergeContentSteps: boolean,
+  mergeGraphicsAplusSteps: boolean,
 ): BuildBrandWorkflowStepId {
-  if (mergeContentSteps && (step === 4 || step === 5)) return 3;
+  if (mergeGraphicsAplusSteps && step === 5) return 4;
   return step;
 }
 
 export function nextBuildBrandUiStep(
   step: BuildBrandWorkflowStepId,
-  mergeContentSteps: boolean,
+  mergeGraphicsAplusSteps: boolean,
 ): BuildBrandWorkflowStepId | null {
   if (step >= 7) return null;
-  if (mergeContentSteps) {
-    if (step === 3) return 6;
-    if (step === 6) return 7;
-  }
+  if (mergeGraphicsAplusSteps && step === 4) return 6;
   return (step + 1) as BuildBrandWorkflowStepId;
 }
 
 export function prevBuildBrandUiStep(
   step: BuildBrandWorkflowStepId,
-  mergeContentSteps: boolean,
+  mergeGraphicsAplusSteps: boolean,
 ): BuildBrandWorkflowStepId {
-  if (mergeContentSteps) {
-    if (step === 6) return 3;
-    if (step === 7) return 6;
+  if (mergeGraphicsAplusSteps) {
+    if (step === 6) return 4;
   }
   return Math.max(1, step - 1) as BuildBrandWorkflowStepId;
+}
+
+export function buildBrandStepperActiveStep(
+  activeStep: BuildBrandWorkflowStepId,
+  mergeGraphicsAplusSteps: boolean,
+): BuildBrandWorkflowStepId {
+  return coalesceMergedGraphicsAplusUiStep(activeStep, mergeGraphicsAplusSteps);
 }
 
 export function resolveBuildBrandResumeUiStep(audit: {
@@ -74,7 +77,7 @@ export function resolveBuildBrandResumeUiStep(audit: {
   generatedContent?: { title?: string | null } | null;
   imageRecords?: Array<{ currentUrl?: string | null }> | null;
   generatedImages?: unknown;
-}, options?: { mergeContentSteps?: boolean }): BuildBrandWorkflowStepId {
+}, options?: { mergeGraphicsAplusSteps?: boolean }): BuildBrandWorkflowStepId {
   const fromApi = apiStepToUiStep(audit.currentStep);
   let fromData: BuildBrandWorkflowStepId = 2;
 
@@ -95,7 +98,7 @@ export function resolveBuildBrandResumeUiStep(audit: {
 
   const merged = Math.max(fromApi, fromData);
   const step = Math.min(7, Math.max(2, merged)) as BuildBrandWorkflowStepId;
-  return coalesceMergedContentUiStep(step, Boolean(options?.mergeContentSteps));
+  return coalesceMergedGraphicsAplusUiStep(step, Boolean(options?.mergeGraphicsAplusSteps));
 }
 
 export function buildBrandStepCompletedFromCurrentStep(
@@ -122,8 +125,8 @@ interface BuildBrandWorkflowStepperProps {
   onStepClick?: (stepId: BuildBrandWorkflowStepId) => void;
   /** Build Your Brand “Create from scratch” — hide SELECT and show Upload as step 1 of 6. */
   hideSelectStep?: boolean;
-  /** From scratch: one step for listing + graphics + A+ (Product Explorer–style). */
-  mergeContentSteps?: boolean;
+  /** From scratch: product graphics + A+ on one Graphics step (listing stays separate). */
+  mergeGraphicsAplusSteps?: boolean;
   className?: string;
 }
 
@@ -132,32 +135,35 @@ export function BuildBrandWorkflowStepper({
   stepCompleted = {},
   onStepClick,
   hideSelectStep = false,
-  mergeContentSteps = false,
+  mergeGraphicsAplusSteps = false,
   className,
 }: BuildBrandWorkflowStepperProps) {
   const activeStepRef = useRef<HTMLButtonElement>(null);
+  const stepperActiveStep = buildBrandStepperActiveStep(activeStep, mergeGraphicsAplusSteps);
   let visibleSteps = hideSelectStep
     ? BUILD_BRAND_WORKFLOW_STEPS.filter((s) => s.id !== 1)
     : BUILD_BRAND_WORKFLOW_STEPS;
-  if (mergeContentSteps) {
+  if (mergeGraphicsAplusSteps) {
     visibleSteps = visibleSteps
-      .filter((s) => s.id !== 4 && s.id !== 5)
+      .filter((s) => s.id !== 5)
       .map((s) =>
-        s.id === 3
+        s.id === 4
           ? {
               ...s,
-              label: "OPTIMIZE & CREATE",
-              shortLabel: "Create",
-              sub: "Listing, graphics & A+",
+              label: "GRAPHICS",
+              shortLabel: "Graphics",
+              sub: "Product graphics & A+",
             }
           : s,
       );
   }
   const totalSteps = visibleSteps.length;
-  const displayStepIndex = hideSelectStep
-    ? Math.max(1, activeStep - 1)
-    : activeStep;
-  const activeMeta = visibleSteps.find((s) => s.id === activeStep) ?? visibleSteps[0];
+  const displayStepIndex = mergeGraphicsAplusSteps
+    ? Math.max(1, visibleSteps.findIndex((s) => s.id === stepperActiveStep) + 1)
+    : hideSelectStep
+      ? Math.max(1, activeStep - 1)
+      : activeStep;
+  const activeMeta = visibleSteps.find((s) => s.id === stepperActiveStep) ?? visibleSteps[0];
   const progressPct = Math.round((displayStepIndex / totalSteps) * 100);
 
   useEffect(() => {
@@ -193,7 +199,7 @@ export function BuildBrandWorkflowStepper({
       >
         <div className="flex items-stretch w-max min-w-full sm:w-full sm:min-w-0 px-1 sm:px-0">
           {visibleSteps.map((s, index) => {
-            const isActive = activeStep === s.id;
+            const isActive = stepperActiveStep === s.id;
             const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
             const clickable = Boolean(onStepClick);
             const displayNumber = hideSelectStep ? index + 1 : s.id;

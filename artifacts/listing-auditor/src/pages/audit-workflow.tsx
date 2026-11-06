@@ -394,30 +394,25 @@ const LOADING_MESSAGES: Record<StepId, string[]> = {
 /* ═══════════════════════════════════════════════════════════════════════════
    Loading Panel Component
 ═══════════════════════════════════════════════════════════════════════════ */
-type BuildBrandMergedContentPanel = "listing" | "graphics" | "aplus";
+type BuildBrandGraphicsStepPanel = "graphics" | "aplus";
 
 function resolveBuildBrandEffectiveStep(
   activeStep: StepId,
-  mergeContentSteps: boolean,
-  mergedContentPanel: BuildBrandMergedContentPanel,
+  mergeGraphicsAplusSteps: boolean,
+  graphicsStepPanel: BuildBrandGraphicsStepPanel,
 ): StepId {
-  if (mergeContentSteps && activeStep === 3) {
-    if (mergedContentPanel === "graphics") return 4;
-    if (mergedContentPanel === "aplus") return 5;
-    return 3;
-  }
+  if (mergeGraphicsAplusSteps && activeStep === 4 && graphicsStepPanel === "aplus") return 5;
   return activeStep;
 }
 
-function BuildBrandMergedContentSubTabs({
+function BuildBrandGraphicsAplusSubTabs({
   active,
   onChange,
 }: {
-  active: BuildBrandMergedContentPanel;
-  onChange: (panel: BuildBrandMergedContentPanel) => void;
+  active: BuildBrandGraphicsStepPanel;
+  onChange: (panel: BuildBrandGraphicsStepPanel) => void;
 }) {
-  const tabs: { id: BuildBrandMergedContentPanel; label: string }[] = [
-    { id: "listing", label: "Optimize listing" },
+  const tabs: { id: BuildBrandGraphicsStepPanel; label: string }[] = [
     { id: "graphics", label: "Product graphics" },
     { id: "aplus", label: "A+ Content" },
   ];
@@ -634,8 +629,8 @@ export default function AuditWorkflow() {
   }, [creditRules]);
 
   const [workflowEntry] = useState(() => parseWorkflowEntry(search));
-  const mergeContentSteps = workflowEntry === "scratch";
-  const [mergedContentPanel, setMergedContentPanel] = useState<BuildBrandMergedContentPanel>("listing");
+  const mergeGraphicsAplusSteps = workflowEntry === "scratch";
+  const [graphicsStepPanel, setGraphicsStepPanel] = useState<BuildBrandGraphicsStepPanel>("graphics");
 
   useEffect(() => {
     if (workflowEntry === "import-link") {
@@ -661,15 +656,12 @@ export default function AuditWorkflow() {
   });
 
   useEffect(() => {
-    if (!mergeContentSteps) return;
-    if (activeStep === 4) {
-      setMergedContentPanel("graphics");
-      setActiveStep(3);
-    } else if (activeStep === 5) {
-      setMergedContentPanel("aplus");
-      setActiveStep(3);
+    if (!mergeGraphicsAplusSteps) return;
+    if (activeStep === 5) {
+      setGraphicsStepPanel("aplus");
+      setActiveStep(4);
     }
-  }, [activeStep, mergeContentSteps]);
+  }, [activeStep, mergeGraphicsAplusSteps]);
 
   const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const [selectedProduct, setSelectedProduct] = useState<BuildBrandProductPick | null>(null);
@@ -872,8 +864,8 @@ export default function AuditWorkflow() {
       setAplusProgress(savedAplus.progress);
       setIsCreating(true);
       setCreatingStep(5);
-      setMergedContentPanel("aplus");
-      setActiveStep(mergeContentSteps ? 3 : 5);
+      setGraphicsStepPanel("aplus");
+      setActiveStep(mergeGraphicsAplusSteps ? 4 : 5);
     } else {
       setAplusStatus(savedAplus.status === "failed" ? "failed" : savedAplus.modules.length ? "completed" : "idle");
       setAplusProgress(savedAplus.progress);
@@ -890,21 +882,20 @@ export default function AuditWorkflow() {
               imageRecords: auditData.imageRecords as Array<{ currentUrl?: string | null }> | undefined,
               generatedImages: auditData.generatedImages,
             },
-            { mergeContentSteps },
+            { mergeGraphicsAplusSteps },
           );
           setActiveStep(resumeStep);
-          if (mergeContentSteps) {
+          if (mergeGraphicsAplusSteps) {
             const raw = apiStepToUiStep(auditData.currentStep);
-            if (raw === 4) setMergedContentPanel("graphics");
-            else if (raw === 5) setMergedContentPanel("aplus");
-            else if (auditData.generatedContent?.title?.trim()) setMergedContentPanel("listing");
+            if (raw === 5) setGraphicsStepPanel("aplus");
+            else if (raw >= 4) setGraphicsStepPanel("graphics");
           }
         }
         stepRestoredForAuditIdRef.current = currentAuditId;
       }
     }
     setIsDirty(false);
-  }, [auditData, currentAuditId, mergeContentSteps]);
+  }, [auditData, currentAuditId, mergeGraphicsAplusSteps]);
 
   /* ── Graphics step state ── */
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
@@ -1596,7 +1587,7 @@ export default function AuditWorkflow() {
 
   /* ── Execute create for current step ── */
   const handleCreate = useCallback(() => {
-    const step = resolveBuildBrandEffectiveStep(activeStep, mergeContentSteps, mergedContentPanel);
+    const step = resolveBuildBrandEffectiveStep(activeStep, mergeGraphicsAplusSteps, graphicsStepPanel);
     setCreatingStep(step);
     setIsCreating(true);
 
@@ -1727,7 +1718,7 @@ export default function AuditWorkflow() {
       });
 
     }
-  }, [activeStep, mergeContentSteps, mergedContentPanel, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast, isTeamMember, memberCredits?.imageCredits, accountImageCredits, aplusImageCostPerModule]);
+  }, [activeStep, mergeGraphicsAplusSteps, graphicsStepPanel, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast, isTeamMember, memberCredits?.imageCredits, accountImageCredits, aplusImageCostPerModule]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!productName.trim()) {
@@ -1766,8 +1757,8 @@ export default function AuditWorkflow() {
         return;
       }
       setCreatingStep(5);
-      setMergedContentPanel("aplus");
-      setActiveStep(mergeContentSteps ? 3 : 5);
+      setGraphicsStepPanel("aplus");
+      setActiveStep(mergeGraphicsAplusSteps ? 4 : 5);
       setIsCreating(true);
       patchAudit.mutate({ id: auditId, data: { currentStep: uiStepToApiStep(5) } });
       generateAplus.mutate({
@@ -1776,7 +1767,7 @@ export default function AuditWorkflow() {
         ...aplusGenerateOptions,
       });
     })();
-  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, accountImageCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit, mergeContentSteps]);
+  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, accountImageCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit, mergeGraphicsAplusSteps]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -1889,7 +1880,7 @@ export default function AuditWorkflow() {
       nav(returnTo);
       return;
     }
-    const prev = prevBuildBrandUiStep(activeStep, mergeContentSteps);
+    const prev = prevBuildBrandUiStep(activeStep, mergeGraphicsAplusSteps);
     autoSave(prev);
     setActiveStep(prev);
   }
@@ -1938,7 +1929,7 @@ export default function AuditWorkflow() {
         return;
       }
     }
-    const next = nextBuildBrandUiStep(activeStep, mergeContentSteps);
+    const next = nextBuildBrandUiStep(activeStep, mergeGraphicsAplusSteps);
     if (next) {
       autoSave(next);
       setActiveStep(next);
@@ -1956,14 +1947,14 @@ export default function AuditWorkflow() {
   const stepCompleted = useMemo((): Record<StepId, boolean> => ({
     1: activeStep > 1 || currentAuditId !== null,
     2: uploadedImages.length > 0 || currentAuditId !== null,
-    3: mergeContentSteps
+    3: generatedContent !== null,
+    4: mergeGraphicsAplusSteps
       ? activeStep >= 6
-      : generatedContent !== null,
-    4: generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
+      : generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
     5: aplusModules.length > 0 || aplusStatus === "completed",
     6: generatedContent !== null,
     7: generatedContent !== null,
-  }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus, mergeContentSteps]);
+  }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus, mergeGraphicsAplusSteps]);
 
   const workflowUploadReady = Boolean(productName.trim() && category);
 
@@ -1995,7 +1986,7 @@ export default function AuditWorkflow() {
               stepCompleted={stepCompleted}
               onStepClick={handleStepClick}
               hideSelectStep={hideSelectStepInStepper}
-              mergeContentSteps={mergeContentSteps}
+              mergeGraphicsAplusSteps={mergeGraphicsAplusSteps}
             />
           </div>
         </div>
@@ -2250,15 +2241,8 @@ export default function AuditWorkflow() {
             </div>
           )}
 
-          {mergeContentSteps && activeStep === 3 && (
-            <BuildBrandMergedContentSubTabs
-              active={mergedContentPanel}
-              onChange={setMergedContentPanel}
-            />
-          )}
-
           {/* STEP 3: Listing ── */}
-          {activeStep === 3 && (!mergeContentSteps || mergedContentPanel === "listing") && (
+          {activeStep === 3 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
@@ -2437,8 +2421,11 @@ export default function AuditWorkflow() {
           )}
 
           {/* STEP 4: Graphics ── */}
-          {(activeStep === 4 || (mergeContentSteps && activeStep === 3 && mergedContentPanel === "graphics")) && (
+          {(activeStep === 4 && (!mergeGraphicsAplusSteps || graphicsStepPanel === "graphics")) && (
             <div className="space-y-8">
+              {mergeGraphicsAplusSteps && activeStep === 4 && (
+                <BuildBrandGraphicsAplusSubTabs active={graphicsStepPanel} onChange={setGraphicsStepPanel} />
+              )}
               {!canEditGraphics && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   Your workspace role does not include permission to create graphics. Ask your workspace owner to enable
@@ -2649,8 +2636,11 @@ export default function AuditWorkflow() {
           )}
 
           {/* STEP 5: A+ Content ── */}
-          {(activeStep === 5 || (mergeContentSteps && activeStep === 3 && mergedContentPanel === "aplus")) && (
+          {(activeStep === 5 || (mergeGraphicsAplusSteps && activeStep === 4 && graphicsStepPanel === "aplus")) && (
             <div className="space-y-8">
+              {mergeGraphicsAplusSteps && activeStep === 4 && (
+                <BuildBrandGraphicsAplusSubTabs active={graphicsStepPanel} onChange={setGraphicsStepPanel} />
+              )}
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
                   <Sparkles className="w-6 h-6 text-orange-500" />
