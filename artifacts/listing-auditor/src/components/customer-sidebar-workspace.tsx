@@ -25,18 +25,18 @@ function StaticWorkspaceBlock({
     <div
       className={cn(
         "flex items-center gap-2 rounded-xl border border-sidebar-border/40 bg-sidebar-accent/30 transition-colors",
-        collapsed ? "w-10 h-10 justify-center mx-auto" : "w-full px-2.5 py-2 min-h-10",
+        collapsed ? "w-10 h-10 justify-center mx-auto" : "w-full px-2.5 py-2 min-h-11",
       )}
       title={name}
     >
       <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
       {!collapsed && (
         <>
-          <div className="min-w-0 flex-1 text-left">
+          <div className="min-w-0 flex-1 text-left flex flex-col gap-0.5 py-0.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-sidebar-foreground/55 leading-none">
               Workspace
             </p>
-            <p className="text-sm font-semibold text-sidebar-foreground leading-tight truncate">{name}</p>
+            <p className="text-sm font-semibold text-sidebar-foreground leading-snug truncate">{name}</p>
           </div>
           {showUpgrade && (
             <Link

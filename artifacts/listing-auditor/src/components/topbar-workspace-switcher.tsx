@@ -371,10 +371,11 @@ export function TopbarWorkspaceSwitcher({
       >
         <div
           className={cn(
-            "flex items-center h-10 rounded-md border-0 shadow-none transition-colors w-full",
+            "flex items-stretch rounded-md border-0 shadow-none transition-colors w-full",
+            isSidebar ? "h-auto min-h-11 py-1" : "items-center h-10",
             isSidebar
               ? cn(
-                  "rounded-xl border border-sidebar-border/40 bg-sidebar-accent/30 min-h-10",
+                  "rounded-xl border border-sidebar-border/40 bg-sidebar-accent/30",
                   open ? "bg-sidebar-accent/50" : "hover:bg-sidebar-accent/45",
                 )
               : cn("bg-transparent", open ? "bg-muted/60" : "hover:bg-muted/45"),
@@ -384,8 +385,8 @@ export function TopbarWorkspaceSwitcher({
             type="button"
             onClick={openActiveWorkspace}
             className={cn(
-              "flex items-center gap-2 pl-2.5 pr-1 h-full min-w-0 flex-1 rounded-l-md focus:outline-none focus-visible:outline-none transition-colors",
-              !isSidebar && "max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]",
+              "flex items-center gap-2 pl-2.5 pr-1 min-w-0 flex-1 rounded-l-md focus:outline-none focus-visible:outline-none transition-colors",
+              isSidebar ? "py-0.5 self-center" : "h-full max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]",
             )}
             aria-label={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? `, ${pillSubtitle}` : ""}`}
             title={isAccountOwner ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? ` (${pillSubtitle})` : ""}`}
@@ -397,7 +398,13 @@ export function TopbarWorkspaceSwitcher({
             ) : (
               <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
             )}
-            <div className={cn("min-w-0 text-left flex-1", !isSidebar && "hidden md:block")}>
+            <div
+              className={cn(
+                "min-w-0 text-left flex-1",
+                !isSidebar && "hidden md:block",
+                isSidebar && "flex flex-col gap-0.5 py-0.5",
+              )}
+            >
               <p
                 className={cn(
                   "text-[10px] font-semibold uppercase tracking-wide leading-none",
@@ -408,8 +415,8 @@ export function TopbarWorkspaceSwitcher({
               </p>
               <p
                 className={cn(
-                  "text-sm font-semibold leading-tight truncate",
-                  isSidebar ? "text-sidebar-foreground" : "text-slate-900",
+                  "text-sm font-semibold truncate",
+                  isSidebar ? "leading-snug text-sidebar-foreground" : "leading-tight text-slate-900",
                 )}
               >
                 {pillName}
@@ -417,8 +424,10 @@ export function TopbarWorkspaceSwitcher({
               {pillSubtitle && (
                 <p
                   className={cn(
-                    "text-[10px] leading-tight truncate",
-                    isSidebar ? "text-sidebar-foreground/50" : "text-slate-400",
+                    "text-[10px] truncate",
+                    isSidebar
+                      ? "leading-snug text-sidebar-foreground/50"
+                      : "leading-tight text-slate-400",
                   )}
                 >
                   {pillSubtitle}
@@ -436,7 +445,10 @@ export function TopbarWorkspaceSwitcher({
           <button
             type="button"
             onClick={toggleDropdown}
-            className="flex items-center justify-center w-8 h-full transition-colors focus:outline-none focus-visible:outline-none"
+            className={cn(
+              "flex items-center justify-center w-8 transition-colors focus:outline-none focus-visible:outline-none",
+              isSidebar ? "self-stretch shrink-0" : "h-full",
+            )}
             aria-expanded={open}
             aria-haspopup="listbox"
             aria-label="Switch workspace"
@@ -446,7 +458,7 @@ export function TopbarWorkspaceSwitcher({
           )}
           {canCreate ? (
             <>
-              <div className="w-px h-5 bg-border/80 flex-shrink-0" />
+              <div className="w-px self-stretch min-h-[1.25rem] my-auto bg-border/80 flex-shrink-0" />
               <button
                 type="button"
                 title="Create workspace"
@@ -455,19 +467,25 @@ export function TopbarWorkspaceSwitcher({
                   setForm({ name: "", description: "", clientLabel: "" });
                   setCreateOpen(true);
                 }}
-                className="flex items-center justify-center w-9 h-full text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-r-lg transition-colors focus:outline-none focus-visible:outline-none"
+                className={cn(
+                  "flex items-center justify-center w-9 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-r-lg transition-colors focus:outline-none focus-visible:outline-none",
+                  isSidebar ? "self-stretch shrink-0" : "h-full",
+                )}
               >
                 <Plus className="w-4 h-4" />
               </button>
             </>
           ) : workspacesLocked ? (
             <>
-              <div className="w-px h-5 bg-border/80 flex-shrink-0" />
+              <div className="w-px self-stretch min-h-[1.25rem] my-auto bg-border/80 flex-shrink-0" />
               <button
                 type="button"
                 title={upgradeShort}
                 disabled
-                className="flex items-center justify-center w-9 h-full text-slate-300 cursor-not-allowed rounded-r-lg"
+                className={cn(
+                  "flex items-center justify-center w-9 text-slate-300 cursor-not-allowed rounded-r-lg",
+                  isSidebar ? "self-stretch shrink-0" : "h-full",
+                )}
                 onClick={() => toast({ title: "Upgrade required", description: upgradeShort })}
               >
                 <Plus className="w-4 h-4" />
