@@ -5,6 +5,7 @@ import { ArrowLeft, FileUp, Images, Loader2, Play, Trash2 } from "lucide-react";
 import { CategoryReferenceLibraryDialog } from "@/components/admin-overview-image-library";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,11 @@ import {
   parseTemplateCategoryFromInstructions,
   parseTemplateSlugFromInstructions,
 } from "@/lib/admin-image-style-skill";
-import { stripImagePromptSkillSuffix } from "@/lib/admin-skill-rename";
+import {
+  imagePromptSkillCatalogTitle,
+  setSkillInstructionsNameLine,
+  stripImagePromptSkillSuffix,
+} from "@/lib/admin-skill-rename";
 import { skillCatalogFilename } from "@/lib/admin-skills-catalog";
 import {
   configuredProductCategoryNames,
@@ -174,8 +179,33 @@ export default function AdminAiSkillEditorPage() {
   const isAuditSkillEditor =
     !isMarketplaceSkill && !isImageSkillEditor && (skillEditorMode === "audit" || skillType === "listing_audit");
   const skillRecord = skillData?.skill;
+  const skillNameFieldValue = useMemo(() => {
+    const raw = parsed.name.trim();
+    if (isImagePromptSkill) return stripImagePromptSkillSuffix(raw);
+    if (isNew && raw === "New skill") return "";
+    return raw;
+  }, [parsed.name, isImagePromptSkill, isNew]);
+
+  const applySkillName = useCallback(
+    (nextRaw: string) => {
+      const trimmed = nextRaw.trim();
+      const instructionsName = isImagePromptSkill
+        ? imagePromptSkillCatalogTitle(trimmed || "New skill")
+        : trimmed || "New skill";
+      setInstructionsText((prev) => setSkillInstructionsNameLine(prev, instructionsName));
+      if (isImagePromptSkill && imagePromptMeta) {
+        setImagePromptMeta({
+          ...imagePromptMeta,
+          name: stripImagePromptSkillSuffix(instructionsName),
+        });
+      }
+    },
+    [imagePromptMeta, isImagePromptSkill],
+  );
+
   const displayTitle =
-    skillRecord?.name?.trim()
+    (skillNameFieldValue.trim() || stripImagePromptSkillSuffix(skillRecord?.name?.trim() ?? ""))
+    || skillRecord?.name?.trim()
     || parsed.name
     || (isNew ? "New skill" : "Edit skill");
   const skillFileLabel =
@@ -498,6 +528,32 @@ export default function AdminAiSkillEditorPage() {
       <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Left column */}
         <div className="space-y-6">
+          <Card className="border-orange-200/70 bg-orange-50/20">
+            <CardContent className="pt-5 pb-4 space-y-2">
+              <Label htmlFor="admin-skill-name" className="text-xs font-semibold text-orange-950">
+                Skill name
+              </Label>
+              <Input
+                id="admin-skill-name"
+                value={skillNameFieldValue}
+                onChange={(e) => applySkillName(e.target.value)}
+                placeholder={
+                  isImagePromptSkill
+                    ? "e.g. Hero Shot"
+                    : skillType === "product_content"
+                      ? "e.g. Amazon title & bullets"
+                      : "e.g. Supplements listing rules"
+                }
+                className="bg-white border-orange-200/80"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {isImagePromptSkill
+                  ? "Updates the Skills list and Image library module title."
+                  : "Updates the Skills table and the name: line in instructions below."}
+              </p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Skill file</CardTitle>
