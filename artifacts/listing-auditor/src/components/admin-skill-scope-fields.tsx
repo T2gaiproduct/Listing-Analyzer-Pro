@@ -24,7 +24,6 @@ import type { SkillType } from "@/lib/admin-skill-editor";
 import {
   findAdminSkillType,
   type AdminSkillType,
-  type AdminSkillTypeEditorMode,
 } from "@/lib/admin-skill-types";
 
 const AI_MODELS = [
@@ -68,7 +67,6 @@ export function AdminSkillScopeFields({
   contentMarketplaceId,
 }: AdminSkillScopeFieldsProps) {
   const typeMeta = findAdminSkillType(skillTypeOptions, skillType);
-  const editorMode: AdminSkillTypeEditorMode | undefined = typeMeta?.editorMode;
   const { toast } = useToast();
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
@@ -88,20 +86,10 @@ export function AdminSkillScopeFields({
   const selectedMarketplace = marketplaces.find((m) => m.slug === marketplace);
 
   const skillTypeSelectOptions = useMemo(() => {
-    if (imageSkillEditorMode) {
-      const imageTypes = skillTypeOptions.filter((t) => t.editorMode === "image");
-      if (imageTypes.some((t) => t.slug === skillType)) return imageTypes;
-      if (typeMeta) return [typeMeta, ...imageTypes.filter((t) => t.slug !== typeMeta.slug)];
-      return imageTypes;
-    }
-    if (editorMode === "audit") {
-      const auditTypes = skillTypeOptions.filter((t) => t.editorMode === "audit");
-      if (auditTypes.some((t) => t.slug === skillType)) return auditTypes;
-      if (typeMeta) return [typeMeta, ...auditTypes.filter((t) => t.slug !== typeMeta.slug)];
-      return auditTypes;
-    }
+    if (skillTypeOptions.some((t) => t.slug === skillType)) return skillTypeOptions;
+    if (typeMeta) return [typeMeta, ...skillTypeOptions];
     return skillTypeOptions;
-  }, [editorMode, imageSkillEditorMode, skillType, skillTypeOptions, typeMeta]);
+  }, [skillType, skillTypeOptions, typeMeta]);
 
   return (
     <div className="space-y-4">
