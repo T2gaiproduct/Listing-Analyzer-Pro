@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { ProtectedAppImage } from "@/components/protected-app-image";
-import { parseImageStyleSkillKeys } from "@/lib/admin-image-style-skill";
 import { useAdminGraphicsModuleExamples } from "@/lib/graphics-module-examples";
 import { useAdminImagePromptTemplates } from "@/lib/image-prompt-templates";
 import type { ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
@@ -15,12 +13,11 @@ type Props = {
 };
 
 export function AdminImageSkillEditorPreview({
-  instructionsText,
+  instructionsText: _instructionsText,
   category,
   templateSlug,
   templateCategory = "graphics",
 }: Props) {
-  const keys = useMemo(() => parseImageStyleSkillKeys(instructionsText), [instructionsText]);
   const cat = category.trim();
 
   const { data: examplesData, isLoading: examplesLoading } = useAdminGraphicsModuleExamples(
@@ -56,18 +53,6 @@ export function AdminImageSkillEditorPreview({
 
   return (
     <div className="space-y-4 flex-1">
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="outline" className="bg-orange-50 text-orange-900 border-orange-200 font-medium">
-          {keys.aspect}
-        </Badge>
-        <Badge variant="outline" className="bg-slate-50 text-slate-800 border-slate-200">
-          {keys.imagesPerRun} per run
-        </Badge>
-        <Badge variant="outline" className="bg-slate-50 text-slate-800 border-slate-200">
-          {keys.referenceLock}
-        </Badge>
-      </div>
-
       {!cat ? (
         <p className="text-sm text-muted-foreground py-12 text-center">
           Select a configured category above to load reference previews.
