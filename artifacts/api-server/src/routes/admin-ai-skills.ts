@@ -29,6 +29,10 @@ import {
 } from "../lib/image-prompt-skill-sync.js";
 import { getImagePromptTemplateById } from "../lib/image-prompt-template-service.js";
 import { ensureAiSkillTypesReady, isEnabledSkillTypeSlug } from "../lib/ensure-ai-skill-types.js";
+import {
+  listSkillChatModelOptions,
+  skillTypeToAiUseCase,
+} from "../lib/admin-skill-chat-models.js";
 
 const router: IRouter = Router();
 
@@ -155,6 +159,19 @@ router.get(
   requireAdminPermission("manage_settings"),
   (_req, res): void => {
     res.json({ products: listAdminSkillSampleProducts() });
+  },
+);
+
+router.get(
+  "/admin/ai-skills/chat-models",
+  requireAdmin,
+  requireAdminPermission("manage_settings"),
+  async (req, res): Promise<void> => {
+    const skillType =
+      typeof req.query.skillType === "string" ? req.query.skillType.trim() : "product_content";
+    const useCase = skillTypeToAiUseCase(skillType);
+    const payload = await listSkillChatModelOptions(useCase);
+    res.json(payload);
   },
 );
 
@@ -307,6 +324,7 @@ async function handleAdminSkillTest(req: import("express").Request, res: import(
         instructionsText,
         sampleProductId,
         category,
+        aiModel,
       });
       res.json(audit);
       return;

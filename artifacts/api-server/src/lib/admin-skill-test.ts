@@ -179,10 +179,12 @@ export async function runAdminListingAuditSkillTest(params: {
   instructionsText: string;
   sampleProductId?: string;
   category?: string;
+  aiModel?: string;
 }): Promise<ListingAuditSkillTestOutput> {
   const product = getAdminSkillSampleProduct(params.sampleProductId);
   const category = params.category?.trim() || product.category;
   const skillConfig = parseListingAuditSkillInstructions(params.instructionsText);
+  if (params.aiModel?.trim()) skillConfig.aiModel = params.aiModel.trim();
   const result = await analyzeListingWithAI({
     title: product.title,
     bulletPoints: [...product.bullets],

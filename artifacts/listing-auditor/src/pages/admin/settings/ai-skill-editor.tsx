@@ -68,13 +68,10 @@ import {
   type SkillTestOutput,
 } from "@/lib/admin-ai-skills-api";
 import { AdminAuditSkillTestPreview } from "@/components/admin-audit-skill-test-preview";
-
-const AI_MODELS = [
-  "Claude Sonnet 5.5",
-  "GPT-5.4",
-  "Gemini 2.5 Flash",
-  "OpenAI GPT-4o",
-] as const;
+import {
+  normalizeLegacySkillAiModel,
+  useAdminSkillChatModels,
+} from "@/lib/admin-skill-chat-models";
 
 export default function AdminAiSkillEditorPage() {
   const { toast } = useToast();
@@ -87,7 +84,7 @@ export default function AdminAiSkillEditorPage() {
   const [skillType, setSkillType] = useState<SkillType>(DEFAULT_SKILL_TYPE_SLUG);
   const [category, setCategory] = useState("");
   const [marketplace, setMarketplace] = useState("amazon");
-  const [aiModel, setAiModel] = useState<string>(AI_MODELS[0]);
+  const [aiModel, setAiModel] = useState<string>("");
   const [sampleProductId, setSampleProductId] = useState<string>(SAMPLE_PRODUCTS[0].id);
   const [testOutput, setTestOutput] = useState<SkillTestOutput | null>(null);
   const [auditTestPayload, setAuditTestPayload] = useState<ListingAuditSkillTestPayload | null>(null);
@@ -109,6 +106,7 @@ export default function AdminAiSkillEditorPage() {
   const invalidateSkills = useInvalidateAdminAiSkills();
   const { data: skillTypeRegistry = [] } = useAdminSkillTypes();
   const skillEditorMode = skillTypeEditorMode(skillTypeRegistry, skillType);
+  const { data: chatModelsData } = useAdminSkillChatModels(skillType);
 
   const marketplaces = mpData?.marketplaces ?? [];
   const sampleProductOptions = sampleProductsData?.products ?? SAMPLE_PRODUCTS.map((p) => ({
@@ -141,11 +139,12 @@ export default function AdminAiSkillEditorPage() {
         : hydratedCategory,
     );
     setMarketplace(skill.marketplaceSlug);
-    setAiModel(skill.aiModel || AI_MODELS[0]);
+    const optionValues = chatModelsData?.options ?? [];
+    setAiModel(normalizeLegacySkillAiModel(skill.aiModel, optionValues));
     setStatus(skill.status);
     setPersistedKey(skill.slug);
     setHydratedFromServer(true);
-  }, [skillData?.skill, hydratedFromServer]);
+  }, [skillData?.skill, hydratedFromServer, chatModelsData?.options]);
 
   useEffect(() => {
     const mpId = skillData?.skill?.contentMarketplaceId;

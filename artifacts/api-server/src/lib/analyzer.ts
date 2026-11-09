@@ -78,7 +78,11 @@ Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.
 
   const { content } = await generateChatCompletion(
     [{ role: "user", content: prompt }],
-    { maxTokens: 2048, useCase: "listing_audit" },
+    {
+      maxTokens: 2048,
+      useCase: "listing_audit",
+      skillChatRoute: skillCfg?.aiModel,
+    },
   );
 
   try {

@@ -12,6 +12,7 @@ import {
   getCustomOpenAIClient,
   resolveAiBackend,
 } from "./ai-custom-providers.js";
+import { resolveSkillChatBackend } from "./admin-skill-chat-models.js";
 import type { AIProvider } from "./ai-provider-types.js";
 
 export type { AIProvider } from "./ai-provider-types.js";
@@ -118,9 +119,14 @@ export async function generateChatCompletion(
     maxTokens?: number;
     temperature?: number;
     useCase?: AiUseCase;
+    /** ai_skills.ai_model route override (empty uses AI Settings routing). */
+    skillChatRoute?: string;
   } = {},
 ): Promise<ChatCompletionResult> {
-  const backend = await resolveAiBackend(options.useCase);
+  const backend =
+    (options.skillChatRoute
+      ? (await resolveSkillChatBackend(options.skillChatRoute)) ?? (await resolveAiBackend(options.useCase))
+      : await resolveAiBackend(options.useCase));
 
   if (backend.mode === "custom") {
     const client = await getCustomOpenAIClient(backend.profile, backend.apiKey);

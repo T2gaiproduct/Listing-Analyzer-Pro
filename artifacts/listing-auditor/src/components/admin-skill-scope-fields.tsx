@@ -16,13 +16,8 @@ import {
   findAdminSkillType,
   type AdminSkillType,
 } from "@/lib/admin-skill-types";
-
-const AI_MODELS = [
-  "Claude Sonnet 5.5",
-  "GPT-5.4",
-  "Gemini 2.5 Flash",
-  "OpenAI GPT-4o",
-] as const;
+import { useAdminSkillChatModels } from "@/lib/admin-skill-chat-models";
+import { Loader2 } from "lucide-react";
 
 type AdminSkillScopeFieldsProps = {
   skillType: SkillType;
@@ -80,6 +75,11 @@ export function AdminSkillScopeFields({
     return skillTypeOptions;
   }, [skillType, skillTypeOptions, typeMeta]);
 
+  const { data: chatModelsData, isLoading: chatModelsLoading } = useAdminSkillChatModels(skillType);
+  const chatModelOptions = chatModelsData?.options ?? [];
+  const emptyRouteValue = "__ai_settings__";
+  const selectAiModel = aiModel.trim() ? aiModel : emptyRouteValue;
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -113,18 +113,40 @@ export function AdminSkillScopeFields({
         {!imageSkillEditorMode && (
           <div>
             <Label className="text-xs text-muted-foreground">AI model</Label>
-            <Select value={aiModel} onValueChange={onAiModelChange}>
+            <Select
+              value={selectAiModel}
+              onValueChange={(v) => onAiModelChange(v === emptyRouteValue ? "" : v)}
+              disabled={chatModelsLoading}
+            >
               <SelectTrigger className="mt-1.5">
-                <SelectValue />
+                {chatModelsLoading ? (
+                  <span className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Loading from AI Settings…
+                  </span>
+                ) : (
+                  <SelectValue placeholder="Use AI Settings" />
+                )}
               </SelectTrigger>
               <SelectContent>
-                {AI_MODELS.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
+                {chatModelOptions.map((m) => (
+                  <SelectItem
+                    key={m.value || "default"}
+                    value={m.value.trim() ? m.value : emptyRouteValue}
+                  >
+                    <span className="block font-medium">{m.label}</span>
+                    <span className="block text-[10px] text-muted-foreground leading-snug">{m.detail}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-[10px] text-muted-foreground mt-1.5">
+              Options come from{" "}
+              <Link href="/admin/settings/ai" className="text-orange-600 underline">
+                Admin → AI Settings
+              </Link>
+              . Default follows use-case routing for this skill type.
+            </p>
           </div>
         )}
         <div className="sm:col-span-2">
