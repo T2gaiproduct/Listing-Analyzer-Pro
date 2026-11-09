@@ -40,6 +40,53 @@ function skillStatusForCategory(
   return "Missing";
 }
 
+const IMAGE_SKILL_TYPES: AiSkillRecord["skillType"][] = ["product_images", "aplus_content"];
+
+/** Match runtime: per-category custom skill, then Default, then global image-prompt templates. */
+function imageSkillStatusForCategory(
+  skills: AiSkillRecord[],
+  category: string,
+): "Live" | "Draft" | "Missing" {
+  let label = skillStatusForCategory(skills, category, IMAGE_SKILL_TYPES);
+  if (label === "Missing") {
+    label = skillStatusForCategory(skills, "Default", IMAGE_SKILL_TYPES);
+  }
+  if (label !== "Missing") return label;
+
+  const globalPrompts = skills.filter(
+    (s) =>
+      s.skillKind === "image_prompt"
+      && IMAGE_SKILL_TYPES.includes(s.skillType)
+      && !s.category?.trim(),
+  );
+  if (globalPrompts.some((s) => s.status === "published")) return "Live";
+  if (globalPrompts.some((s) => s.status === "draft")) return "Draft";
+  return "Missing";
+}
+
+/** Match runtime resolver: category, Default, empty category, then any published audit skill. */
+function auditSkillStatusForCategory(
+  skills: AiSkillRecord[],
+  category: string,
+): "Live" | "Draft" | "Missing" {
+  let label = skillStatusForCategory(skills, category, ["listing_audit"]);
+  if (label === "Missing") {
+    label = skillStatusForCategory(skills, "Default", ["listing_audit"]);
+  }
+  if (label !== "Missing") return label;
+
+  const unscoped = skills.filter(
+    (s) => s.skillType === "listing_audit" && !s.category?.trim(),
+  );
+  if (unscoped.some((s) => s.status === "published")) return "Live";
+  if (unscoped.some((s) => s.status === "draft")) return "Draft";
+
+  const anyAudit = skills.filter((s) => s.skillType === "listing_audit");
+  if (anyAudit.some((s) => s.status === "published")) return "Live";
+  if (anyAudit.some((s) => s.status === "draft")) return "Draft";
+  return "Missing";
+}
+
 async function fetchCategoryExamples(category: string): Promise<GraphicsModuleExamplesPayload> {
   const res = await fetch(
     `${basePath}/api/admin/graphics-module-examples?category=${encodeURIComponent(category)}`,
@@ -91,14 +138,8 @@ export function useAdminAiSkillsOverview() {
       const contentSkillLabel = skillStatusForCategory(skills, category, ["product_content"], {
         includeMarketplaceContent: true,
       });
-      const imageSkillLabel = skillStatusForCategory(skills, category, [
-        "product_images",
-        "aplus_content",
-      ]);
-      let auditSkillLabel = skillStatusForCategory(skills, category, ["listing_audit"]);
-      if (auditSkillLabel === "Missing") {
-        auditSkillLabel = skillStatusForCategory(skills, "Default", ["listing_audit"]);
-      }
+      const imageSkillLabel = imageSkillStatusForCategory(skills, category);
+      const auditSkillLabel = auditSkillStatusForCategory(skills, category);
 
       const ready =
         contentSkillLabel === "Live"
