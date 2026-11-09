@@ -61,7 +61,7 @@ export function AdminOverviewSkillsTable({ skills }: { skills: AiSkillRecord[] }
 
   const connectHref = (skill: AiSkillRecord) => {
     if (skill.status === "draft") return `/admin/settings/ai/skills/${skill.slug}`;
-    if (skill.skillKind === "marketplace_content") return "/admin/settings/ai";
+    if (skill.skillKind === "marketplace_content") return `/admin/settings/ai/skills/${skill.slug}`;
     return `/admin/settings/ai/skills/${skill.slug}`;
   };
 

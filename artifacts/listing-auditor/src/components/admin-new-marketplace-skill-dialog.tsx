@@ -104,7 +104,7 @@ export function AdminNewMarketplaceSkillDialog({ open, onOpenChange }: Props) {
           </Button>
           <Button
             type="button"
-            className="bg-teal-700 hover:bg-teal-800 text-white"
+            className="bg-orange-500 hover:bg-orange-600 text-white"
             onClick={handleCreate}
             disabled={saving}
           >

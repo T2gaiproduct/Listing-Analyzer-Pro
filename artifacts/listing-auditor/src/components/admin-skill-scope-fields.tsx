@@ -89,7 +89,7 @@ export function AdminSkillScopeFields({
             <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
               {typeMeta?.label ?? "Product content"}
               <span className="text-xs text-muted-foreground font-normal block mt-0.5">
-                Synced from Seller marketplace settings — type cannot be changed here.
+                Linked sales channel — type cannot be changed here. Edit marketplace fields in this skill.
               </span>
             </p>
           ) : (

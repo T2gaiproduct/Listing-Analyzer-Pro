@@ -92,9 +92,7 @@ export function AdminAiSettingsNavGroup({
             const childActive =
               child.href.endsWith("/skills")
                 ? isAdminAiSkillsPath(location)
-                : child.href.endsWith("/content-marketplaces")
-                  ? location.split("?")[0] === child.href
-                  : location === child.href;
+                : location === child.href;
             return (
               <Link
                 key={child.href}

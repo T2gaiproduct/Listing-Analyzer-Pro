@@ -134,7 +134,6 @@ import {
   AdminSettingsSecurity,
   AdminSettingsPaymentGateway,
   AdminSettingsEmail,
-  AdminSettingsContentMarketplaces,
   AdminSettingsImagePromptTemplates,
   AdminMarketingHomepage,
   AdminMarketingPages,
@@ -859,7 +858,7 @@ function Router() {
         <Redirect to="/admin/settings/ai/skills" />
       </Route>
       <Route path="/admin/settings/content-marketplaces">
-        <AdminRoute><AdminSettingsContentMarketplaces /></AdminRoute>
+        <Redirect to="/admin/settings/ai/skills" />
       </Route>
 
       {/* Marketing */}
