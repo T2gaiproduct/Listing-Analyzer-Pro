@@ -98,9 +98,10 @@ export function AdminImageSkillEditorPreview({
       {cat && (
       <p className="text-[11px] text-muted-foreground">
         Previews use reference images for <strong>{cat}</strong>
-        {templateSlug ? ` · ${templateSlug}` : ""}. Upload refs in{" "}
+        {templateSlug ? ` · ${templateSlug}` : ""}. Use <strong>Reference images</strong> above to upload per
+        category, or{" "}
         <a href="/admin/settings/ai/overview" className="text-orange-600 underline">
-          Overview → Image library
+          Overview → category row
         </a>
         .
       </p>

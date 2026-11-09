@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
-import { ArrowLeft, FileUp, Loader2, Play, Trash2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, FileUp, Images, Loader2, Play, Trash2 } from "lucide-react";
+import { CategoryReferenceLibraryDialog } from "@/components/admin-overview-image-library";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -75,7 +77,9 @@ import {
 
 export default function AdminAiSkillEditorPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [, navigate] = useLocation();
+  const [refLibraryOpen, setRefLibraryOpen] = useState(false);
   const [, params] = useRoute("/admin/settings/ai/skills/:skillId");
   const routeSkillId = params?.skillId ?? "new";
   const isNew = routeSkillId === "new";
@@ -629,16 +633,11 @@ export default function AdminAiSkillEditorPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="gap-1.5"
-                onClick={() => {
-                  toast({
-                    title: "Preview updated",
-                    description: "Reference previews reflect the category and skill keys above.",
-                  });
-                }}
+                className="gap-1.5 border-orange-200 text-orange-900 hover:bg-orange-50"
+                onClick={() => setRefLibraryOpen(true)}
               >
-                <Play className="w-3.5 h-3.5" />
-                Run test
+                <Images className="w-3.5 h-3.5" />
+                Reference images
               </Button>
             )}
           </CardHeader>
@@ -764,6 +763,22 @@ export default function AdminAiSkillEditorPage() {
           </CardContent>
         </Card>
       </div>
+
+      {isImageSkillEditor && (
+        <CategoryReferenceLibraryDialog
+          open={refLibraryOpen}
+          onOpenChange={(open) => {
+            setRefLibraryOpen(open);
+            if (!open) {
+              void queryClient.invalidateQueries({ queryKey: ["admin", "graphics-module-examples"] });
+            }
+          }}
+          initialCategory={previewCategory || category.trim() || "Default"}
+          initialTemplateCategory={imageTemplateCategory}
+          initialFilterSlug={imageTemplateSlug ?? undefined}
+          coverageRows={[]}
+        />
+      )}
     </div>
   );
 }

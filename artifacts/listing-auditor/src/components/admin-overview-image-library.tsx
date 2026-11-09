@@ -19,7 +19,7 @@ import {
   useAdminProductCategoryMutations,
   type GraphicsModuleExampleItem,
 } from "@/lib/graphics-module-examples";
-import { useAdminImagePromptTemplates } from "@/lib/image-prompt-templates";
+import { useAdminImagePromptTemplates, type ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
 import type { CategoryCoverageRow } from "@/lib/admin-ai-skills-overview";
 import { GraphicsModuleExamplesGrid } from "@/components/graphics-module-examples-grid";
 
@@ -30,6 +30,9 @@ type CategoryReferenceLibraryDialogProps = {
   onOpenChange: (open: boolean) => void;
   initialCategory: string;
   coverageRows: CategoryCoverageRow[];
+  initialTemplateCategory?: ImagePromptTemplateCategory;
+  /** When set, module filter preselects this template slug (e.g. brand_story). */
+  initialFilterSlug?: string;
 };
 
 function visibleTypeCount(examples: GraphicsModuleExampleItem[]) {
@@ -43,12 +46,19 @@ export function CategoryReferenceLibraryDialog({
   onOpenChange,
   initialCategory,
   coverageRows,
+  initialTemplateCategory = "graphics",
+  initialFilterSlug,
 }: CategoryReferenceLibraryDialogProps) {
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [templateCategory, setTemplateCategory] =
+    useState<ImagePromptTemplateCategory>(initialTemplateCategory);
 
   useEffect(() => {
-    if (open) setSelectedCategory(initialCategory);
-  }, [open, initialCategory]);
+    if (open) {
+      setSelectedCategory(initialCategory);
+      setTemplateCategory(initialTemplateCategory);
+    }
+  }, [open, initialCategory, initialTemplateCategory]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,10 +66,10 @@ export function CategoryReferenceLibraryDialog({
         <DialogHeader className="px-6 pt-6 pb-0 space-y-1">
           <DialogTitle>Image library</DialogTitle>
           <DialogDescription>
-            Upload reference images per graphics module and category. To <strong>add, rename, or remove</strong> modules
-            (Hero Shot, Lifestyle, …), use{" "}
-            <Link href="/admin/settings/ai/skills#graphics-image-prompts" className="text-orange-600 underline">
-              Skills → Graphics image prompts
+            Upload reference images per category and module. Switch <strong>Product graphics</strong> or{" "}
+            <strong>A+ modules</strong> below. To add or edit module prompts, use{" "}
+            <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
+              Skills
             </Link>
             .
           </DialogDescription>
@@ -70,6 +80,9 @@ export function CategoryReferenceLibraryDialog({
             onSelectedCategoryChange={setSelectedCategory}
             coverageRows={coverageRows}
             enabled={open}
+            templateCategory={templateCategory}
+            onTemplateCategoryChange={setTemplateCategory}
+            initialFilterSlug={initialFilterSlug}
           />
         </div>
       </DialogContent>
@@ -82,6 +95,9 @@ type BodyProps = {
   onSelectedCategoryChange: (name: string) => void;
   coverageRows: CategoryCoverageRow[];
   enabled: boolean;
+  templateCategory: ImagePromptTemplateCategory;
+  onTemplateCategoryChange: (v: ImagePromptTemplateCategory) => void;
+  initialFilterSlug?: string;
 };
 
 function CategoryReferenceLibraryBody({
@@ -89,6 +105,9 @@ function CategoryReferenceLibraryBody({
   onSelectedCategoryChange,
   coverageRows,
   enabled,
+  templateCategory,
+  onTemplateCategoryChange,
+  initialFilterSlug,
 }: BodyProps) {
   const { toast } = useToast();
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -123,12 +142,17 @@ function CategoryReferenceLibraryBody({
 
   const { data: examplesData, isLoading } = useAdminGraphicsModuleExamples(
     enabled ? selectedCategory : null,
-    "graphics",
+    templateCategory,
   );
-  const { data: templatesData } = useAdminImagePromptTemplates("graphics");
+  const { data: templatesData } = useAdminImagePromptTemplates(templateCategory);
   const { createCategory, addExample, removeExample } = useAdminProductCategoryMutations();
 
   const [filterSlug, setFilterSlug] = useState<string>("all");
+
+  useEffect(() => {
+    if (initialFilterSlug) setFilterSlug(initialFilterSlug);
+    else setFilterSlug("all");
+  }, [initialFilterSlug, templateCategory, selectedCategory]);
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
 
   const examples = examplesData?.examples ?? [];
@@ -168,7 +192,7 @@ function CategoryReferenceLibraryBody({
         productCategoryName: selectedCategory,
         templateSlug,
         exampleImageUrl: url,
-        templateCategory: "graphics",
+        templateCategory,
       });
       toast({ title: "Example added", description: `${templateSlug} · ${selectedCategory}` });
     } catch (e) {
@@ -189,7 +213,7 @@ function CategoryReferenceLibraryBody({
         productCategoryName: selectedCategory,
         templateSlug,
         exampleId,
-        templateCategory: "graphics",
+        templateCategory,
       });
       toast({ title: "Image removed" });
     } catch (e) {
@@ -210,7 +234,7 @@ function CategoryReferenceLibraryBody({
       await removeExample.mutateAsync({
         productCategoryName: selectedCategory,
         templateSlug,
-        templateCategory: "graphics",
+        templateCategory,
       });
       toast({ title: "Module hidden", description: "No images left for this type in this category." });
     } catch (e) {
@@ -330,19 +354,41 @@ function CategoryReferenceLibraryBody({
       </div>
 
       <div className="space-y-4 min-w-0">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={templateCategory === "graphics" ? "default" : "outline"}
+            className={templateCategory === "graphics" ? "bg-orange-500 hover:bg-orange-600" : "border-orange-200"}
+            onClick={() => onTemplateCategoryChange("graphics")}
+          >
+            Product graphics
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={templateCategory === "aplus" ? "default" : "outline"}
+            className={templateCategory === "aplus" ? "bg-orange-500 hover:bg-orange-600" : "border-orange-200"}
+            onClick={() => onTemplateCategoryChange("aplus")}
+          >
+            A+ modules
+          </Button>
+        </div>
+
         <div
           className="rounded-lg border border-orange-200 bg-orange-50/80 px-3 py-2 text-sm text-orange-950"
           role="status"
         >
-          Uploads apply only to <span className="font-semibold">{selectedCategory}</span>. Pick that category on the
-          left before adding Hero Shot or other module images.
+          References for <span className="font-semibold">{selectedCategory}</span> only. Pick that category on the left,
+          then upload one image per {templateCategory === "aplus" ? "A+ module" : "graphics type"}.
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold text-lg">{selectedCategory}</h3>
             <p className="text-xs text-muted-foreground">
-              {visibleToUsers} of {totalTypes || "—"} graphics types have reference images
+              {visibleToUsers} of {totalTypes || "—"}{" "}
+              {templateCategory === "aplus" ? "A+ modules" : "graphics types"} have reference images
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -358,7 +404,7 @@ function CategoryReferenceLibraryBody({
                 </option>
               ))}
             </select>
-            <Link href="/admin/settings/ai/skills#graphics-image-prompts">
+            <Link href="/admin/settings/ai/skills">
               <Button
                 type="button"
                 size="sm"
