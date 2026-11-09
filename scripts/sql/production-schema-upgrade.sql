@@ -546,9 +546,17 @@ CREATE TABLE IF NOT EXISTS ai_skills (
   marketplace_slug text NOT NULL DEFAULT 'amazon',
   ai_model text NOT NULL DEFAULT '',
   instructions_text text NOT NULL DEFAULT '',
+  content_marketplace_id integer,
   created_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now()
 );
+
+ALTER TABLE ai_skills
+  ADD COLUMN IF NOT EXISTS content_marketplace_id integer;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ai_skills_content_marketplace_id_key
+  ON ai_skills (content_marketplace_id)
+  WHERE content_marketplace_id IS NOT NULL;
 
 COMMIT;
 --   SELECT column_name FROM information_schema.columns

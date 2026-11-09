@@ -90,6 +90,9 @@ export default function AdminAiSkillEditorPage() {
 
   const parsed = useMemo(() => parseSkillInstructions(instructionsText), [instructionsText]);
   const pageTitle = parsed.name || (isNew ? "New skill" : "Edit skill");
+  const isMarketplaceSkill =
+    skillData?.skill?.skillKind === "marketplace_content"
+    || skillData?.skill?.contentMarketplaceId != null;
 
   const buildPayload = useCallback(
     (nextStatus: "draft" | "published") => ({
@@ -207,6 +210,18 @@ export default function AdminAiSkillEditorPage() {
           </div>
         </div>
       </header>
+
+      {isMarketplaceSkill && (
+        <div className="max-w-7xl mx-auto px-6 pt-4">
+          <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-950">
+            This skill is linked to{" "}
+            <Link href="/admin/settings/content-marketplaces" className="underline font-medium">
+              Marketplace Content
+            </Link>
+            . Saving or publishing updates the marketplace instructions used for listing generation.
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Left column */}

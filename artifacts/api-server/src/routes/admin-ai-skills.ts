@@ -3,6 +3,11 @@ import { asc, eq } from "drizzle-orm";
 import { aiSkillsTable, db, type AiSkillType, type AiSkillStatus } from "@workspace/db";
 import { requireAdmin, requireAdminPermission } from "../lib/admin-auth.js";
 import { listAdminSkillSampleProducts, runAdminSkillTest } from "../lib/admin-skill-test.js";
+import {
+  applySkillTextToContentMarketplace,
+  isMarketplaceContentSkillSlug,
+  syncAllContentMarketplacesToSkills,
+} from "../lib/content-marketplace-skill-sync.js";
 
 const router: IRouter = Router();
 
@@ -17,6 +22,11 @@ function serializeSkill(row: typeof aiSkillsTable.$inferSelect) {
     marketplaceSlug: row.marketplaceSlug,
     aiModel: row.aiModel,
     instructionsText: row.instructionsText,
+    contentMarketplaceId: row.contentMarketplaceId ?? null,
+    skillKind:
+      row.contentMarketplaceId != null || isMarketplaceContentSkillSlug(row.slug)
+        ? "marketplace_content"
+        : "custom",
     createdAt: row.createdAt?.toISOString(),
     updatedAt: row.updatedAt?.toISOString(),
   };
@@ -96,6 +106,7 @@ router.get(
   requireAdmin,
   requireAdminPermission("manage_settings"),
   async (_req, res): Promise<void> => {
+    await syncAllContentMarketplacesToSkills();
     const rows = await db
       .select()
       .from(aiSkillsTable)
@@ -179,7 +190,15 @@ router.patch(
       })
       .where(eq(aiSkillsTable.id, existing.id))
       .returning();
-    res.json({ skill: serializeSkill(updated!) });
+    const row = updated!;
+    if (row.contentMarketplaceId != null) {
+      await applySkillTextToContentMarketplace(
+        row.contentMarketplaceId,
+        row.instructionsText,
+        row.status as "draft" | "published",
+      );
+    }
+    res.json({ skill: serializeSkill(row) });
   },
 );
 

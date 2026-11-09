@@ -21,7 +21,8 @@ export default function AdminAiSkillsPage() {
             Skills
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Define content and image skills per category and marketplace. Open a skill to edit rules and run tests.
+            Marketplace Content configs appear here as product content skills. Category skills and marketplace skills
+            both drive listing generation when published.
           </p>
         </div>
         <Link href="/admin/settings/ai/skills/new">
@@ -59,8 +60,10 @@ export default function AdminAiSkillsPage() {
                 <div>
                   <p className="font-medium text-sm">{skill.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {skill.category || "Uncategorized"} · {formatSkillType(skill.skillType)} ·{" "}
-                    {skill.marketplaceSlug}
+                    {skill.skillKind === "marketplace_content"
+                      ? "Marketplace content"
+                      : skill.category || "Uncategorized"}{" "}
+                    · {formatSkillType(skill.skillType)} · {skill.marketplaceSlug}
                   </p>
                 </div>
                 <span

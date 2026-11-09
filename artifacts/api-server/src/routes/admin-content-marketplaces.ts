@@ -11,6 +11,11 @@ import {
   listAllContentMarketplacesAdmin,
   serializeContentMarketplaceAdmin,
 } from "../lib/content-marketplace-service.js";
+import {
+  deleteSkillForContentMarketplace,
+  marketplaceContentSkillSlug,
+  syncContentMarketplaceToSkill,
+} from "../lib/content-marketplace-skill-sync.js";
 
 const router: IRouter = Router();
 
@@ -135,7 +140,13 @@ router.post(
       })
       .returning();
 
-    res.status(201).json(serializeContentMarketplaceAdmin(created!));
+    await syncContentMarketplaceToSkill(created!);
+    res
+      .status(201)
+      .json({
+        ...serializeContentMarketplaceAdmin(created!),
+        skillSlug: marketplaceContentSkillSlug(created!.slug),
+      });
   },
 );
 
@@ -186,7 +197,11 @@ router.patch(
       .returning();
 
     const row = updated ?? (await getContentMarketplaceById(id));
-    res.json(serializeContentMarketplaceAdmin(row!));
+    if (row) await syncContentMarketplaceToSkill(row);
+    res.json({
+      ...serializeContentMarketplaceAdmin(row!),
+      skillSlug: marketplaceContentSkillSlug(row!.slug),
+    });
   },
 );
 
@@ -212,6 +227,7 @@ router.delete(
       return;
     }
 
+    await deleteSkillForContentMarketplace(id);
     await db.delete(contentMarketplacesTable).where(eq(contentMarketplacesTable.id, id));
     res.json({ ok: true });
   },

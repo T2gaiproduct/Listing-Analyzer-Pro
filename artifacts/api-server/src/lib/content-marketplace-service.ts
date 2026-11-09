@@ -118,6 +118,7 @@ export function serializeContentMarketplaceForClient(row: ContentMarketplace) {
 export function serializeContentMarketplaceAdmin(row: ContentMarketplace) {
   return {
     ...serializeContentMarketplaceForClient(row),
+    skillSlug: `marketplace-content-${row.slug}`,
     enabled: row.enabled === 1,
     isDefault: row.isDefault === 1,
     aiInstructions: row.aiInstructions,

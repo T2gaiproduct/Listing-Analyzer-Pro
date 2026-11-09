@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Save, Store, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +63,7 @@ export default function AdminSettingsContentMarketplaces() {
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: ["admin", "content-marketplaces"] });
       await queryClient.invalidateQueries({ queryKey: ["content-marketplaces"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "ai-skills"] });
       setSelectedId(saved.id);
       setDraft(saved);
       toast({ title: "Saved", description: `${saved.name} marketplace configuration updated.` });
@@ -76,6 +78,7 @@ export default function AdminSettingsContentMarketplaces() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin", "content-marketplaces"] });
       await queryClient.invalidateQueries({ queryKey: ["content-marketplaces"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "ai-skills"] });
       setSelectedId(null);
       toast({ title: "Deleted", description: "Marketplace removed." });
     },
@@ -102,8 +105,8 @@ export default function AdminSettingsContentMarketplaces() {
           Marketplace content generation
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Manage marketplace-specific AI instructions for Build Your Brand and Product Explorer listing content.
-          Enabled marketplaces appear in the user Marketplace dropdown.
+          Each marketplace here is synced as a <strong>product content skill</strong> (Skills under AI Settings).
+          Saving updates the linked skill; publishing a skill enables the marketplace for listing generation.
         </p>
       </div>
 
@@ -151,6 +154,18 @@ export default function AdminSettingsContentMarketplaces() {
               <p className="text-sm text-muted-foreground">Choose a marketplace from the list or create a new one.</p>
             ) : (
               <>
+                {active?.skillSlug && (
+                  <div className="rounded-lg border border-teal-200 bg-teal-50/50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm text-teal-900">
+                      Linked skill: open the Skills editor to test output or publish rules.
+                    </p>
+                    <Link href={`/admin/settings/ai/skills/${active.skillSlug}`}>
+                      <Button type="button" size="sm" variant="outline" className="border-teal-400">
+                        Open skill editor
+                      </Button>
+                    </Link>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Name</Label>

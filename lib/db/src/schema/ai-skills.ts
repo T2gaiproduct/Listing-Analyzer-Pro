@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -18,6 +18,8 @@ export const aiSkillsTable = pgTable("ai_skills", {
   marketplaceSlug: text("marketplace_slug").notNull().default("amazon"),
   aiModel: text("ai_model").notNull().default(""),
   instructionsText: text("instructions_text").notNull().default(""),
+  /** When set, this skill mirrors admin Marketplace Content for that row. */
+  contentMarketplaceId: integer("content_marketplace_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

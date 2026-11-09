@@ -8,10 +8,12 @@ export type AiSkillRecord = {
   name: string;
   status: "draft" | "published";
   skillType: SkillType;
+  skillKind?: "custom" | "marketplace_content";
   category: string;
   marketplaceSlug: string;
   aiModel: string;
   instructionsText: string;
+  contentMarketplaceId?: number | null;
   createdAt?: string;
   updatedAt?: string;
 };

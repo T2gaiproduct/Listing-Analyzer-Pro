@@ -20,12 +20,22 @@ function skillStatusForCategory(
   skills: AiSkillRecord[],
   category: string,
   types: AiSkillRecord["skillType"][],
+  opts?: { includeMarketplaceContent?: boolean },
 ): "Live" | "Draft" | "Missing" {
   const scoped = skills.filter(
     (s) => s.category === category && types.includes(s.skillType),
   );
   if (scoped.some((s) => s.status === "published")) return "Live";
   if (scoped.some((s) => s.status === "draft")) return "Draft";
+
+  if (opts?.includeMarketplaceContent && types.includes("product_content")) {
+    const mp = skills.filter(
+      (s) => s.skillKind === "marketplace_content" && s.skillType === "product_content",
+    );
+    if (mp.some((s) => s.status === "published")) return "Live";
+    if (mp.some((s) => s.status === "draft")) return "Draft";
+  }
+
   return "Missing";
 }
 
@@ -77,7 +87,9 @@ export function useAdminAiSkillsOverview() {
       const examplesPayload = exampleQueries[idx]?.data;
       const approvedRefCount = examplesPayload ? countApprovedRefs(examplesPayload) : 0;
 
-      const contentSkillLabel = skillStatusForCategory(skills, category, ["product_content"]);
+      const contentSkillLabel = skillStatusForCategory(skills, category, ["product_content"], {
+        includeMarketplaceContent: true,
+      });
       const imageSkillLabel = skillStatusForCategory(skills, category, [
         "product_images",
         "aplus_content",

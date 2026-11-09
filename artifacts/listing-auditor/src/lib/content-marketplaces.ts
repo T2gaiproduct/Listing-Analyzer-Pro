@@ -28,6 +28,7 @@ export type ContentMarketplaceAdmin = ContentMarketplaceOption & {
   enabled: boolean;
   isDefault: boolean;
   aiInstructions: string;
+  skillSlug?: string;
   createdAt?: string;
   updatedAt?: string;
 };

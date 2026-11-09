@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { contentMarketplacesTable, db } from "@workspace/db";
 import { DEFAULT_CONTENT_MARKETPLACE_SEEDS } from "./content-marketplace-defaults.js";
+import { syncAllContentMarketplacesToSkills } from "./content-marketplace-skill-sync.js";
 
 let migrated = false;
 
@@ -53,4 +54,6 @@ export async function ensureDefaultContentMarketplacesSeeded(): Promise<void> {
       rules: seed.rules ?? null,
     });
   }
+
+  await syncAllContentMarketplacesToSkills();
 }

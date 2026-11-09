@@ -10,6 +10,7 @@ import {
   formatContentMarketplaceRulesForPrompt,
   resolveContentMarketplaceForGeneration,
 } from "./content-marketplace-service.js";
+import { resolveContentMarketplaceAiInstructions } from "./content-marketplace-skill-sync.js";
 
 /** Remove "Why You'll Love It" (and common variants) from generated HTML descriptions. */
 export function stripWhyYoullLoveItSection(html: string): string {
@@ -111,13 +112,14 @@ export async function generateListingContent(data: {
     contentMarketplaceSlug: data.contentMarketplaceSlug,
   });
 
+  const marketplaceInstructions = await resolveContentMarketplaceAiInstructions(marketplace);
   const rulesBlock = formatContentMarketplaceRulesForPrompt(marketplace.rules);
   const productBlock = buildProductContextBlock({ ...data, marketplaceName: marketplace.name });
 
   const prompt = `You are an expert ${marketplace.name} listing copywriter and SEO specialist. Create optimized, compliant listing content for the following product on ${marketplace.name}. You MUST follow every rule below exactly.
 
---- MARKETPLACE-SPECIFIC INSTRUCTIONS ---
-${marketplace.aiInstructions}
+--- MARKETPLACE-SPECIFIC INSTRUCTIONS (admin skill) ---
+${marketplaceInstructions}
 
 ${rulesBlock}
 --- PRODUCT CONTEXT ---
