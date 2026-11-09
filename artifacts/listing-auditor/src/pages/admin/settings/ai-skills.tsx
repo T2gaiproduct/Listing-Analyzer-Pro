@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ImageIcon, Plus, SlidersHorizontal, Sparkles, Store } from "lucide-react";
+import { ImageIcon, Plus, SlidersHorizontal, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminSkillsCatalogTable } from "@/components/admin-skills-catalog-table";
 import { AdminNewMarketplaceSkillDialog } from "@/components/admin-new-marketplace-skill-dialog";
 import { AdminNewImagePromptSkillDialog } from "@/components/admin-new-image-prompt-skill-dialog";
-import { type ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
-import { AdminGraphicsModuleExamplesPanel } from "@/pages/admin/settings/graphics-module-examples-panel";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
 
 export default function AdminAiSkillsPage() {
@@ -15,8 +13,6 @@ export default function AdminAiSkillsPage() {
   const [newMarketplaceOpen, setNewMarketplaceOpen] = useState(false);
   const [newGraphicsPromptOpen, setNewGraphicsPromptOpen] = useState(false);
   const [newAplusPromptOpen, setNewAplusPromptOpen] = useState(false);
-  const [studioCategory, setStudioCategory] = useState("Default");
-  const [studioTab, setStudioTab] = useState<ImagePromptTemplateCategory>("graphics");
 
   return (
     <div className="min-h-full bg-slate-50/80">
@@ -82,48 +78,13 @@ export default function AdminAiSkillsPage() {
 
         <AdminSkillsCatalogTable skills={skills} isLoading={isLoading} />
 
-        <div id="studio-references" className="scroll-mt-6 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-orange-500" />
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Studio references by product category
-              </h2>
-            </div>
-            <div className="flex gap-1 rounded-lg border border-slate-200 p-0.5 bg-white">
-              <Button
-                type="button"
-                size="sm"
-                variant={studioTab === "graphics" ? "default" : "ghost"}
-                className={studioTab === "graphics" ? "bg-teal-700 hover:bg-teal-800 h-8" : "h-8"}
-                onClick={() => setStudioTab("graphics")}
-              >
-                Graphics
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={studioTab === "aplus" ? "default" : "ghost"}
-                className={studioTab === "aplus" ? "bg-teal-700 hover:bg-teal-800 h-8" : "h-8"}
-                onClick={() => setStudioTab("aplus")}
-              >
-                A+
-              </Button>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground max-w-3xl">
-            Reference images per category (not listed as skills above). Use{" "}
-            <Link href="/admin/settings/ai/overview" className="text-orange-600 underline">
-              Overview → Image library
-            </Link>{" "}
-            for quick access.
-          </p>
-          <AdminGraphicsModuleExamplesPanel
-            selectedCategory={studioCategory}
-            onSelectedCategoryChange={setStudioCategory}
-            templateCategory={studioTab}
-          />
-        </div>
+        <p className="text-xs text-muted-foreground">
+          Category reference images (Hero Shot, lifestyle, etc.) are not skills—they live in{" "}
+          <Link href="/admin/settings/ai/overview" className="text-orange-600 underline font-medium">
+            Admin Overview → Category coverage → Image library
+          </Link>
+          .
+        </p>
 
         <AdminNewMarketplaceSkillDialog open={newMarketplaceOpen} onOpenChange={setNewMarketplaceOpen} />
         <AdminNewImagePromptSkillDialog

@@ -119,7 +119,7 @@ export function AdminSkillScopeFields({
             <p className="text-sm text-muted-foreground mt-1.5 rounded-md border border-violet-200 bg-violet-50/40 px-3 py-2">
               This skill is global for one graphics/A+ type (
               <span className="font-mono text-[11px]">template_slug</span> in instructions). Per-category{" "}
-              <Link href="/admin/settings/ai/skills#studio-references" className="text-teal-700 underline">
+              <Link href="/admin/settings/ai/overview" className="text-orange-600 underline">
                 reference images
               </Link>{" "}
               and optional category <strong>Product images</strong> skills are configured on the Skills list page.
