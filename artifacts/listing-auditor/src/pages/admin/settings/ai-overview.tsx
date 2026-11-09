@@ -102,14 +102,14 @@ export default function AdminAiOverviewPage() {
           </p>
         </div>
         <Link href="/admin/settings/ai/skills/new">
-          <Button className="gap-2 bg-teal-700 hover:bg-teal-800">
+          <Button className="gap-2 bg-orange-500 hover:bg-orange-600">
             <Plus className="w-4 h-4" />
             New skill
           </Button>
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Live skills</CardTitle>
@@ -128,24 +128,6 @@ export default function AdminAiOverviewPage() {
             <p className="text-2xl font-bold">
               {isLoading ? "…" : `${stats.categoriesReady} / ${stats.categoryTotal}`}
             </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Generations this month</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-muted-foreground">—</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Usage reporting coming soon</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Credits consumed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-muted-foreground">—</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Usage reporting coming soon</p>
           </CardContent>
         </Card>
       </div>
