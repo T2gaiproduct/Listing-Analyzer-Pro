@@ -16,6 +16,7 @@ import { like, or, ilike } from "drizzle-orm";
 import { clearProviderCache } from "../lib/ai-provider";
 import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
+import { clearClaudeCache } from "../lib/claude-client";
 import {
   loadDefaultAgentTemplates,
   normalizeTemplates,
@@ -1779,6 +1780,7 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
     "paypal_client_secret",
     "openai_api_key",
     "gemini_api_key",
+    "claude_api_key",
     "smtp_password",
     "amazon_sp_client_secret",
     "amazon_aws_secret_access_key",
@@ -1853,6 +1855,7 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
   clearProviderCache();
   clearOpenAICache();
   clearGeminiCache();
+  clearClaudeCache();
 
   if (category === "ai") {
     const aiSettings = settings as Record<string, string>;
@@ -2045,6 +2048,32 @@ router.post("/admin/test-gemini-key", requireAdmin, async (req, res): Promise<vo
     } else {
       res.json({ valid: false, error: "No models available. Check your API key permissions." });
     }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Invalid key";
+    res.json({ valid: false, error: message });
+  }
+});
+
+import Anthropic from "@anthropic-ai/sdk";
+import { CLAUDE_DEFAULT_CHAT_MODEL } from "../lib/claude-client";
+
+router.post("/admin/test-claude-key", requireAdmin, async (req, res): Promise<void> => {
+  const body = req.body as { key?: string; model?: string };
+  const key = body.key?.trim();
+  if (!key) {
+    res.status(400).json({ valid: false, error: "Key is required" });
+    return;
+  }
+  const model = body.model?.trim() || CLAUDE_DEFAULT_CHAT_MODEL;
+  try {
+    const client = new Anthropic({ apiKey: key });
+    const response = await client.messages.create({
+      model,
+      max_tokens: 16,
+      messages: [{ role: "user", content: "Say hello" }],
+    });
+    const ok = response.content.some((b) => b.type === "text" && b.text.length > 0);
+    res.json({ valid: ok });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid key";
     res.json({ valid: false, error: message });

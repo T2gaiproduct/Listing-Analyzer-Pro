@@ -9,6 +9,7 @@ import { db, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { customProviderApiKeySettingKey } from "./ai-use-cases.js";
 import type { AIProvider } from "./ai-provider-types.js";
+import { getClaudeChatModel, CLAUDE_DEFAULT_CHAT_MODEL } from "./claude-client.js";
 
 export type SkillChatModelOption = {
   value: string;
@@ -19,6 +20,7 @@ export type SkillChatModelOption = {
 const BUILTIN_CHAT: Record<AIProvider, { label: string; model: string }> = {
   openai: { label: "OpenAI", model: "gpt-5.4" },
   gemini: { label: "Google Gemini", model: "gemini-2.5-flash" },
+  claude: { label: "Anthropic Claude", model: CLAUDE_DEFAULT_CHAT_MODEL },
   replit: { label: "Replit AI", model: "gpt-5.4" },
 };
 
@@ -30,7 +32,7 @@ export function skillTypeToAiUseCase(skillType: string): AiUseCase {
 }
 
 function routeToOptionLabel(route: string): string {
-  if (route === "openai" || route === "gemini" || route === "replit") {
+  if (route === "openai" || route === "gemini" || route === "claude" || route === "replit") {
     const meta = BUILTIN_CHAT[route];
     return `${meta.label} (${meta.model})`;
   }
@@ -42,6 +44,10 @@ export async function describeResolvedAiSettingsRoute(useCase: AiUseCase): Promi
   const backend = await resolveAiBackend(useCase);
   if (backend.mode === "custom") {
     return `${backend.profile.label} · ${backend.profile.chatModel}`;
+  }
+  if (backend.provider === "claude") {
+    const model = await getClaudeChatModel();
+    return `${BUILTIN_CHAT.claude.label} · ${model}`;
   }
   const meta = BUILTIN_CHAT[backend.provider];
   return `${meta.label} · ${meta.model}`;
@@ -66,12 +72,13 @@ export async function listSkillChatModelOptions(useCase: AiUseCase): Promise<{
     },
   ];
 
-  for (const id of ["openai", "gemini", "replit"] as const) {
+  for (const id of ["openai", "gemini", "claude", "replit"] as const) {
     const meta = BUILTIN_CHAT[id];
+    const model = id === "claude" ? await getClaudeChatModel() : meta.model;
     options.push({
       value: `route:${id}`,
       label: meta.label,
-      detail: `Chat model: ${meta.model}`,
+      detail: `Chat model: ${model}`,
     });
   }
 
@@ -96,7 +103,7 @@ export async function resolveSkillChatBackend(
 
   if (raw.startsWith("route:")) {
     const route = raw.slice("route:".length);
-    if (route === "openai" || route === "gemini" || route === "replit") {
+    if (route === "openai" || route === "gemini" || route === "claude" || route === "replit") {
       return { mode: "builtin", provider: route };
     }
     if (route.startsWith("custom:")) {

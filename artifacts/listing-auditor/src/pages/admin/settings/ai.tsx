@@ -35,6 +35,14 @@ function testGeminiKey(key: string): Promise<{ valid: boolean; error?: string }>
   }).then((r) => r.json());
 }
 
+function testClaudeKey(key: string, model: string): Promise<{ valid: boolean; error?: string }> {
+  return fetch("/api/admin/test-claude-key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, model }),
+  }).then((r) => r.json());
+}
+
 function testReplitAI(): Promise<{ valid: boolean; error?: string }> {
   return fetch("/api/admin/test-replit-ai", {
     method: "POST",
@@ -54,6 +62,12 @@ const PROVIDERS = [
     label: "Google Gemini",
     subtitle: "Gemini 2.5 Flash + Image",
     icon: "gemini",
+  },
+  {
+    value: "claude",
+    label: "Anthropic Claude",
+    subtitle: "Claude 4 Sonnet (chat)",
+    icon: "claude",
   },
   {
     value: "replit",
@@ -80,6 +94,13 @@ const REPLIT_IMAGE_MODELS = [
   { value: "gpt-image-1", label: "GPT Image 1" },
 ];
 
+const CLAUDE_CHAT_MODELS = [
+  { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4 (Recommended)" },
+  { value: "claude-3-5-haiku-latest", label: "Claude 3.5 Haiku (Faster)" },
+  { value: "claude-3-5-sonnet-latest", label: "Claude 3.5 Sonnet" },
+  { value: "claude-opus-4-20250514", label: "Claude Opus 4" },
+];
+
 const MODEL_OPTIONS: Record<string, { value: string; label: string }[]> = {
   openai: OPENAI_IMAGE_MODELS,
   gemini: GEMINI_IMAGE_MODELS,
@@ -94,12 +115,15 @@ export default function AdminSettingsAI() {
     openai_base_url: "https://api.openai.com/v1",
     openai_low_balance_usd: "25",
     gemini_api_key: "",
+    claude_api_key: "",
+    claude_chat_model: "claude-sonnet-4-20250514",
     openai_image_model: "gpt-image-1.5",
     gemini_image_model: "gemini-2.5-flash-image",
     replit_image_model: "gpt-image-1",
   });
   const [openaiTestStatus, setOpenaiTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
   const [geminiTestStatus, setGeminiTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
+  const [claudeTestStatus, setClaudeTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
   const [replitTestStatus, setReplitTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
   const [customProviders, setCustomProviders] = useState<CustomAiProviderForm[]>([]);
   const [useCaseRouting, setUseCaseRouting] = useState<Partial<Record<AiUseCase, string>>>({});
@@ -121,7 +145,7 @@ export default function AdminSettingsAI() {
     detail?: string;
   };
 
-  const provider = (form.ai_provider ?? "openai") as "openai" | "gemini" | "replit";
+  const provider = (form.ai_provider ?? "openai") as "openai" | "gemini" | "claude" | "replit";
 
   const billingQuery = useQuery({
     queryKey: ["admin", "openai", "billing-status"],
@@ -167,6 +191,21 @@ export default function AdminSettingsAI() {
     });
   };
 
+  const handleTestClaude = async () => {
+    if (!form.claude_api_key.trim()) {
+      toast({ title: "Please enter a Claude API key", variant: "destructive" });
+      return;
+    }
+    setClaudeTestStatus("testing");
+    const result = await testClaudeKey(form.claude_api_key, form.claude_chat_model);
+    setClaudeTestStatus(result.valid ? "valid" : "invalid");
+    toast({
+      title: result.valid ? "Claude API key is valid" : "Claude API key is invalid",
+      description: result.error,
+      variant: result.valid ? "default" : "destructive",
+    });
+  };
+
   const handleTestReplit = async () => {
     setReplitTestStatus("testing");
     const result = await testReplitAI();
@@ -187,6 +226,7 @@ export default function AdminSettingsAI() {
       toast({ title: "AI settings saved" });
       setOpenaiTestStatus("idle");
       setGeminiTestStatus("idle");
+      setClaudeTestStatus("idle");
       setReplitTestStatus("idle");
       if (provider === "openai") {
         void billingQuery.refetch();
@@ -222,10 +262,10 @@ export default function AdminSettingsAI() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Global default when a use case has no override below. Keys for OpenAI, Gemini, and Replit stay in each
-              provider&apos;s section.
+              Global default when a use case has no override below. Keys for each provider stay in that provider&apos;s
+              section (select the card to configure).
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {PROVIDERS.map((p) => (
                 <label
                   key={p.value}
@@ -404,6 +444,79 @@ export default function AdminSettingsAI() {
           </Card>
         )}
 
+        {provider === "claude" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between text-base">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="h-5 w-5" />
+                  Configure Anthropic Claude
+                </div>
+                {claudeTestStatus === "valid" && (
+                  <span className="flex items-center gap-1 text-sm text-green-600 font-medium">
+                    <CheckCircle className="h-4 w-4" /> Connected
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border border-amber-100 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+                Claude powers text (audits, content, agents). It does not generate images — keep OpenAI or Gemini keys
+                for graphics, or route <span className="font-medium">Product &amp; graphics images</span> below.
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">API Key</label>
+                <Input
+                  type="password"
+                  placeholder="sk-ant-..."
+                  value={form.claude_api_key}
+                  onChange={(e) => setForm({ ...form, claude_api_key: e.target.value })}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Your Anthropic API key. Create one in the{" "}
+                  <a
+                    href="https://console.anthropic.com/settings/keys"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-orange-500 hover:underline"
+                  >
+                    Anthropic Console
+                  </a>
+                  .
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Chat model</label>
+                <select
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white"
+                  value={form.claude_chat_model}
+                  onChange={(e) => setForm({ ...form, claude_chat_model: e.target.value })}
+                >
+                  {CLAUDE_CHAT_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Model used for listing audits, content generation, and agents when Claude is selected.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleTestClaude}
+                  disabled={claudeTestStatus === "testing" || !form.claude_api_key.trim()}
+                >
+                  {claudeTestStatus === "testing" ? "Testing..." : "Test Connection"}
+                </Button>
+                {claudeTestStatus === "valid" && <CheckCircle className="h-5 w-5 text-green-500" />}
+                {claudeTestStatus === "invalid" && <AlertCircle className="h-5 w-5 text-red-500" />}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {provider === "gemini" && (
           <Card>
             <CardHeader>
@@ -539,6 +652,8 @@ export default function AdminSettingsAI() {
                 openai_api_key: "",
                 openai_base_url: "https://api.openai.com/v1",
                 gemini_api_key: "",
+                claude_api_key: "",
+                claude_chat_model: "claude-sonnet-4-20250514",
                 openai_image_model: "gpt-image-1.5",
                 gemini_image_model: "gemini-2.5-flash-image",
                 replit_image_model: "gpt-image-1",

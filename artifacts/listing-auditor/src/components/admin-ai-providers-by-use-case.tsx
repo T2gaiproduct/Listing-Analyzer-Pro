@@ -20,6 +20,7 @@ const BUILTIN_ROUTE_OPTIONS = [
   { value: "default", label: "Use global default" },
   { value: "openai", label: "OpenAI" },
   { value: "gemini", label: "Google Gemini" },
+  { value: "claude", label: "Anthropic Claude" },
   { value: "replit", label: "Replit AI" },
 ] as const;
 

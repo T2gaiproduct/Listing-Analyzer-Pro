@@ -84,7 +84,7 @@ export async function resolveAiBackend(useCase?: AiUseCase): Promise<ResolvedAiB
     return { mode: "builtin", provider: await readGlobalBuiltinProvider() };
   }
 
-  if (route === "openai" || route === "gemini" || route === "replit") {
+  if (route === "openai" || route === "gemini" || route === "claude" || route === "replit") {
     return { mode: "builtin", provider: route };
   }
 

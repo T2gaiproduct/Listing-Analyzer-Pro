@@ -1,10 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
+import type Anthropic from "@anthropic-ai/sdk";
 import type OpenAI from "openai";
 import { db, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getOpenAIClient } from "./openai-client";
 import { getGeminiClient } from "./gemini-client";
+import { getClaudeClient, getClaudeChatModel } from "./claude-client";
 import { getReplitClient } from "./replit-client";
+import { resolveImageBuiltinProvider } from "./ai-image-provider-fallback.js";
 import { notifyAdminsOpenAiBillingFromError } from "./openai-balance-notify.js";
 import type { AiUseCase } from "./ai-use-cases.js";
 import {
@@ -48,6 +51,7 @@ export async function getImageModel(provider: AIProvider): Promise<string> {
   const defaults: Record<AIProvider, string> = {
     openai: "gpt-image-1.5",
     gemini: "gemini-2.5-flash-image",
+    claude: "gpt-image-1.5",
     replit: "gpt-image-1",
   };
 
@@ -97,10 +101,13 @@ function mapSizeForGptImage(size: ImageSize): "1024x1024" | "1536x1024" | "1024x
   return "auto";
 }
 
-export async function getAIClient(): Promise<OpenAI | GoogleGenAI> {
+export async function getAIClient(): Promise<OpenAI | GoogleGenAI | Anthropic> {
   const provider = await getActiveProvider();
   if (provider === "gemini") {
     return getGeminiClient();
+  }
+  if (provider === "claude") {
+    return getClaudeClient();
   }
   if (provider === "replit") {
     return getReplitClient();
@@ -183,6 +190,37 @@ export async function generateChatCompletion(
     };
   }
 
+  if (provider === "claude") {
+    const client = await getClaudeClient();
+    const model = await getClaudeChatModel();
+    const systemInstruction = messages
+      .filter((m) => m.role === "system")
+      .map((m) => m.content)
+      .join("\n\n");
+    const userContent = messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join("\n\n");
+
+    const response = await client.messages.create({
+      model,
+      max_tokens: options.maxTokens ?? 2048,
+      ...(systemInstruction ? { system: systemInstruction } : {}),
+      messages: [{ role: "user", content: userContent }],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
+    return {
+      content: text,
+      usage: {
+        promptTokens: response.usage.input_tokens,
+        completionTokens: response.usage.output_tokens,
+        totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+      },
+    };
+  }
+
   // Replit path — uses Replit AI Integrations proxy (OpenAI-compatible)
   const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
   try {
@@ -243,7 +281,8 @@ export async function generateImage(
     }
   }
 
-  const provider = backend.mode === "builtin" ? backend.provider : await getActiveProvider();
+  let provider = backend.mode === "builtin" ? backend.provider : await getActiveProvider();
+  provider = await resolveImageBuiltinProvider(provider);
   const model = await getImageModel(provider);
 
   try {
@@ -307,7 +346,8 @@ export async function generateImageWithReference(
   options?: ImageGenerateOptions,
 ): Promise<Buffer> {
   const fs = await import("node:fs");
-  const provider = await getActiveProvider();
+  let provider = await getActiveProvider();
+  provider = await resolveImageBuiltinProvider(provider);
   const model = await getImageModel(provider);
 
   try {
@@ -380,7 +420,8 @@ export async function editImages(
 ): Promise<Buffer> {
   const fs = await import("node:fs");
   const path = await import("node:path");
-  const provider = await getActiveProvider();
+  let provider = await getActiveProvider();
+  provider = await resolveImageBuiltinProvider(provider);
   const model = await getImageModel(provider);
 
   try {

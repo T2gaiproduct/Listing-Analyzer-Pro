@@ -1,1 +1,1 @@
-export type AIProvider = "openai" | "gemini" | "replit";
+export type AIProvider = "openai" | "gemini" | "claude" | "replit";

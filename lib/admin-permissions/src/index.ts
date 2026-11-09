@@ -274,6 +274,7 @@ const API_PERMISSION_RULES: ApiPermissionRule[] = [
   { match: /^\/admin\/settings/, permissions: "manage_settings" },
   { match: /^\/admin\/test-openai-key$/, permissions: "manage_settings" },
   { match: /^\/admin\/test-gemini-key$/, permissions: "manage_settings" },
+  { match: /^\/admin\/test-claude-key$/, permissions: "manage_settings" },
   { match: /^\/admin\/test-replit-ai$/, permissions: "manage_settings" },
   { match: /^\/admin\/cms-pages/, permissions: "manage_pages_cms" },
   { match: /^\/admin\/cms\/help$/, permissions: ["manage_homepage_cms", "manage_faqs"] },
