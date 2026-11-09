@@ -38,6 +38,10 @@ import {
 } from "@/lib/admin-image-style-skill";
 import { skillCatalogFilename } from "@/lib/admin-skills-catalog";
 import {
+  configuredProductCategoryNames,
+  useAdminProductCategories,
+} from "@/lib/graphics-module-examples";
+import {
   deleteAdminImagePromptTemplate,
   saveAdminImagePromptTemplate,
   useAdminImagePromptTemplates,
@@ -92,6 +96,7 @@ export default function AdminAiSkillEditorPage() {
 
   const { data: mpData } = useAdminContentMarketplaces();
   const { data: imageTemplatesData } = useAdminImagePromptTemplates();
+  const { data: productCatData } = useAdminProductCategories();
   const { data: skillData, isLoading: skillLoading } = useAdminAiSkill(routeSkillId, !isNew);
   const { data: sampleProductsData } = useAdminAiSkillSampleProducts();
   const invalidateSkills = useInvalidateAdminAiSkills();
@@ -117,7 +122,12 @@ export default function AdminAiSkillEditorPage() {
     if (!skill || hydratedFromServer) return;
     setInstructionsText(skill.instructionsText || DEFAULT_SKILL_INSTRUCTIONS_TEXT);
     setSkillType(skill.skillType);
-    setCategory(skill.category);
+    const hydratedCategory = skill.category?.trim() ?? "";
+    setCategory(
+      hydratedCategory === "Default" && (skill.skillType === "product_images" || skill.skillType === "aplus_content")
+        ? ""
+        : hydratedCategory,
+    );
     setMarketplace(skill.marketplaceSlug);
     setAiModel(skill.aiModel || AI_MODELS[0]);
     setStatus(skill.status);
@@ -165,6 +175,21 @@ export default function AdminAiSkillEditorPage() {
     imagePromptMeta?.category
     ?? parseTemplateCategoryFromInstructions(instructionsText)
     ?? (skillType === "aplus_content" ? "aplus" : "graphics");
+  const lockImageCategory =
+    isImageSkillEditor
+    && !isImagePromptSkill
+    && Boolean(skillRecord?.category?.trim());
+  const configuredCategorySet = useMemo(
+    () => new Set(configuredProductCategoryNames(productCatData?.categories ?? [])),
+    [productCatData?.categories],
+  );
+  const previewCategory = useMemo(() => {
+    const raw = category.trim() || skillRecord?.category?.trim() || "";
+    if (!isImageSkillEditor) return raw;
+    if (raw && configuredCategorySet.has(raw)) return raw;
+    if (lockImageCategory && raw) return raw;
+    return "";
+  }, [category, configuredCategorySet, isImageSkillEditor, lockImageCategory, skillRecord?.category]);
 
   useEffect(() => {
     const tplId = skillData?.skill?.imagePromptTemplateId;
@@ -496,6 +521,7 @@ export default function AdminAiSkillEditorPage() {
                 isMarketplaceSkill={isMarketplaceSkill}
                 isImagePromptSkill={isImagePromptSkill}
                 imageSkillEditorMode={isImageSkillEditor}
+                lockImageCategory={lockImageCategory}
                 contentMarketplaceId={skillData?.skill?.contentMarketplaceId}
               />
             </CardContent>
@@ -548,7 +574,7 @@ export default function AdminAiSkillEditorPage() {
             {isImageSkillEditor ? (
               <AdminImageSkillEditorPreview
                 instructionsText={instructionsText}
-                category={category}
+                category={previewCategory}
                 templateSlug={imageTemplateSlug}
                 templateCategory={imageTemplateCategory}
               />

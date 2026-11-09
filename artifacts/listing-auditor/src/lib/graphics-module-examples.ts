@@ -60,10 +60,14 @@ export const DEFAULT_CATEGORY_FOR_ADMIN = "Default";
 export function useAdminGraphicsModuleExamples(
   productCategory: string | null | undefined,
   templateCategory: ImagePromptTemplateCategory = "graphics",
+  opts?: { enabled?: boolean },
 ) {
-  const categoryKey = productCategory?.trim() || DEFAULT_CATEGORY_FOR_ADMIN;
+  const trimmed = productCategory?.trim() ?? "";
+  const categoryKey = trimmed || DEFAULT_CATEGORY_FOR_ADMIN;
+  const enabled = opts?.enabled ?? true;
   return useQuery({
     queryKey: ["admin", "graphics-module-examples", templateCategory, categoryKey],
+    enabled: enabled && Boolean(trimmed),
     queryFn: () =>
       fetchJson<GraphicsModuleExamplesPayload>(
         `${basePath}/api/admin/graphics-module-examples?category=${encodeURIComponent(categoryKey)}${examplesQuerySuffix(templateCategory)}`,
@@ -78,6 +82,19 @@ export type AdminProductCategory = {
   isSystem: boolean;
   sortOrder: number;
 };
+
+/** Admin-configured product categories (image library / skills), excluding system Default. */
+export function isConfiguredProductCategory(cat: AdminProductCategory): boolean {
+  const name = cat.name.trim();
+  return !cat.isSystem && name.length > 0 && name !== "Default";
+}
+
+export function configuredProductCategoryNames(categories: AdminProductCategory[]): string[] {
+  return categories
+    .filter(isConfiguredProductCategory)
+    .map((c) => c.name)
+    .sort((a, b) => a.localeCompare(b));
+}
 
 export function useAdminProductCategories() {
   return useQuery({

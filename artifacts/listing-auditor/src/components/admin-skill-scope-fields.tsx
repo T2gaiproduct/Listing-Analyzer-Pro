@@ -14,6 +14,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { ContentMarketplaceAdmin } from "@/lib/content-marketplaces";
 import {
+  configuredProductCategoryNames,
+  isConfiguredProductCategory,
   useAdminProductCategories,
   useAdminProductCategoryMutations,
 } from "@/lib/graphics-module-examples";
@@ -39,6 +41,7 @@ type AdminSkillScopeFieldsProps = {
   isMarketplaceSkill: boolean;
   isImagePromptSkill?: boolean;
   imageSkillEditorMode?: boolean;
+  lockImageCategory?: boolean;
   contentMarketplaceId?: number | null;
 };
 
@@ -55,11 +58,22 @@ export function AdminSkillScopeFields({
   isMarketplaceSkill,
   isImagePromptSkill = false,
   imageSkillEditorMode = false,
+  lockImageCategory = false,
   contentMarketplaceId,
 }: AdminSkillScopeFieldsProps) {
   const { toast } = useToast();
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
+  const configuredCategoryNames = configuredProductCategoryNames(categories);
+  const categorySelectOptions = (() => {
+    const names = [...configuredCategoryNames];
+    const current = category.trim();
+    if (current && !names.includes(current)) {
+      names.push(current);
+      names.sort((a, b) => a.localeCompare(b));
+    }
+    return names;
+  })();
   const { createCategory, removeCategory } = useAdminProductCategoryMutations();
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -134,96 +148,126 @@ export function AdminSkillScopeFields({
               </Link>{" "}
               and optional category <strong>Product images</strong> skills are configured on the Skills list page.
             </p>
+          ) : lockImageCategory && category.trim() ? (
+            <p className="text-sm font-medium mt-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+              {category.trim()}
+              <span className="text-xs text-muted-foreground font-normal block mt-0.5">
+                This image skill is scoped to one configured category. Add categories under{" "}
+                <Link href="/admin/settings/ai/overview" className="text-orange-600 underline">
+                  Overview → Image library
+                </Link>
+                .
+              </span>
+            </p>
           ) : (
             <>
               <Select value={category || undefined} onValueChange={onCategoryChange}>
                 <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue
+                    placeholder={
+                      imageSkillEditorMode ? "Select configured category" : "Select category"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+                  {(imageSkillEditorMode ? categorySelectOptions : categories.map((c) => c.name)).map(
+                    (name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="New category name"
-                  className="text-sm h-9"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  disabled={!newCategoryName.trim() || createCategory.isPending}
-                  onClick={() => {
-                    const name = newCategoryName.trim();
-                    createCategory.mutate(name, {
-                      onSuccess: () => {
-                        setNewCategoryName("");
-                        onCategoryChange(name);
-                        toast({ title: "Category added", description: name });
-                      },
-                      onError: (err: Error) => {
-                        toast({
-                          title: "Could not add category",
-                          description: err.message,
-                          variant: "destructive",
-                        });
-                      },
-                    });
-                  }}
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              {categories.filter((c) => !c.isSystem && c.name !== "Default").length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {categories
-                    .filter((c) => !c.isSystem)
-                    .map((c) => (
-                      <span
-                        key={c.id}
-                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-0.5 text-[11px]"
-                      >
-                        {c.name}
-                        <button
-                          type="button"
-                          className="text-slate-400 hover:text-red-600"
-                          title={`Delete category ${c.name}`}
-                          onClick={() => {
-                            if (
-                              !window.confirm(
-                                `Delete category “${c.name}” and its reference images?`,
-                              )
-                            ) {
-                              return;
-                            }
-                            removeCategory.mutate(c.id, {
-                              onSuccess: () => {
-                                if (category === c.name) onCategoryChange("");
-                                toast({ title: "Category deleted" });
-                              },
-                              onError: (err: Error) => {
-                                toast({
-                                  title: "Delete failed",
-                                  description: err.message,
-                                  variant: "destructive",
-                                });
-                              },
+              {!imageSkillEditorMode && (
+                <>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="New category name"
+                      className="text-sm h-9"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={!newCategoryName.trim() || createCategory.isPending}
+                      onClick={() => {
+                        const name = newCategoryName.trim();
+                        createCategory.mutate(name, {
+                          onSuccess: () => {
+                            setNewCategoryName("");
+                            onCategoryChange(name);
+                            toast({ title: "Category added", description: name });
+                          },
+                          onError: (err: Error) => {
+                            toast({
+                              title: "Could not add category",
+                              description: err.message,
+                              variant: "destructive",
                             });
-                          }}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                </div>
+                          },
+                        });
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {configuredCategoryNames.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {categories
+                        .filter((c) => isConfiguredProductCategory(c))
+                        .map((c) => (
+                          <span
+                            key={c.id}
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-0.5 text-[11px]"
+                          >
+                            {c.name}
+                            <button
+                              type="button"
+                              className="text-slate-400 hover:text-red-600"
+                              title={`Delete category ${c.name}`}
+                              onClick={() => {
+                                if (
+                                  !window.confirm(
+                                    `Delete category “${c.name}” and its reference images?`,
+                                  )
+                                ) {
+                                  return;
+                                }
+                                removeCategory.mutate(c.id, {
+                                  onSuccess: () => {
+                                    if (category === c.name) onCategoryChange("");
+                                    toast({ title: "Category deleted" });
+                                  },
+                                  onError: (err: Error) => {
+                                    toast({
+                                      title: "Delete failed",
+                                      description: err.message,
+                                      variant: "destructive",
+                                    });
+                                  },
+                                });
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {imageSkillEditorMode && categorySelectOptions.length === 0 && (
+                <p className="text-xs text-amber-800 mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5">
+                  No configured categories yet. Add one from{" "}
+                  <Link href="/admin/settings/ai/overview" className="underline">
+                    Overview → Image library
+                  </Link>
+                  .
+                </p>
               )}
             </>
           )}

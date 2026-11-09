@@ -21,11 +21,12 @@ export function AdminImageSkillEditorPreview({
   templateCategory = "graphics",
 }: Props) {
   const keys = useMemo(() => parseImageStyleSkillKeys(instructionsText), [instructionsText]);
-  const cat = category.trim() || "Default";
+  const cat = category.trim();
 
   const { data: examplesData, isLoading: examplesLoading } = useAdminGraphicsModuleExamples(
-    cat,
+    cat || null,
     templateCategory,
+    { enabled: Boolean(cat) },
   );
   const { data: templatesData } = useAdminImagePromptTemplates(templateCategory);
 
@@ -67,7 +68,11 @@ export function AdminImageSkillEditorPreview({
         </Badge>
       </div>
 
-      {examplesLoading ? (
+      {!cat ? (
+        <p className="text-sm text-muted-foreground py-12 text-center">
+          Select a configured category above to load reference previews.
+        </p>
+      ) : examplesLoading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
           Loading category references…
@@ -105,6 +110,7 @@ export function AdminImageSkillEditorPreview({
         </p>
       )}
 
+      {cat && (
       <p className="text-[11px] text-muted-foreground">
         Previews use reference images for <strong>{cat}</strong>
         {templateSlug ? ` · ${templateSlug}` : ""}. Upload refs in{" "}
@@ -113,6 +119,7 @@ export function AdminImageSkillEditorPreview({
         </a>
         .
       </p>
+      )}
     </div>
   );
 }
