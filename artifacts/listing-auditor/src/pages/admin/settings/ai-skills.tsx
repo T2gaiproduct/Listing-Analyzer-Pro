@@ -19,8 +19,8 @@ export default function AdminAiSkillsPage() {
               Skills
             </h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-              All prompts and rubrics stored in the database. Publish a skill to set status{" "}
-              <span className="font-medium text-orange-800">Live</span> for generation and audits.
+              Instructions and checklists that guide AI for your sellers. Publish a skill to mark it{" "}
+              <span className="font-medium text-orange-800">Live</span> when it should run in the product.
             </p>
           </div>
           <Link href="/admin/settings/ai/skills/new">

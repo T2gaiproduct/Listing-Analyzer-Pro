@@ -38,14 +38,15 @@ import {
   type AdminSkillTypeEditorMode,
 } from "@/lib/admin-skill-types";
 
+/** Plain-language labels for admins (stored values stay technical in the database). */
 function catalogLabel(group: AdminSkillTypeCatalogGroup): string {
   switch (group) {
     case "content":
-      return "Product content";
+      return "Product text";
     case "image":
-      return "Image";
+      return "Images & A+";
     case "audit":
-      return "Audit";
+      return "Listing audit";
     default:
       return "Other";
   }
@@ -54,13 +55,32 @@ function catalogLabel(group: AdminSkillTypeCatalogGroup): string {
 function editorLabel(mode: AdminSkillTypeEditorMode): string {
   switch (mode) {
     case "content":
-      return "Content test";
+      return "Product text editor";
     case "image":
-      return "Image preview";
+      return "Image & A+ editor";
     case "audit":
-      return "Audit keys";
+      return "Audit results editor";
     default:
-      return "Generic";
+      return "Instructions only";
+  }
+}
+
+function appUsageLabel(type: AdminSkillType): string {
+  switch (type.handlerKey) {
+    case "product_content":
+      return "Live in product copy";
+    case "listing_audit":
+      return "Live in listing audits";
+    case "product_images":
+      return "Live in product images";
+    case "aplus_content":
+      return "Live in A+ content";
+    case null:
+    case undefined:
+    case "":
+      return type.isBuiltin ? "Live" : "Not live yet";
+    default:
+      return "Live";
   }
 }
 
@@ -82,19 +102,19 @@ function CatalogBadge({ group }: { group: AdminSkillTypeCatalogGroup }) {
 
 const catalogSelect = (
   <SelectContent>
-    <SelectItem value="content">Product content</SelectItem>
-    <SelectItem value="image">Image</SelectItem>
-    <SelectItem value="audit">Audit</SelectItem>
+    <SelectItem value="content">Product text — titles, bullets, descriptions</SelectItem>
+    <SelectItem value="image">Images & A+ — graphics prompts</SelectItem>
+    <SelectItem value="audit">Listing audit — scores & feedback</SelectItem>
     <SelectItem value="other">Other</SelectItem>
   </SelectContent>
 );
 
 const editorSelect = (
   <SelectContent>
-    <SelectItem value="content">Content test</SelectItem>
-    <SelectItem value="image">Image preview</SelectItem>
-    <SelectItem value="audit">Audit keys</SelectItem>
-    <SelectItem value="generic">Generic</SelectItem>
+    <SelectItem value="content">Product text — preview titles & bullets</SelectItem>
+    <SelectItem value="image">Images & A+ — prompt preview</SelectItem>
+    <SelectItem value="audit">Listing audit — seller-style scores</SelectItem>
+    <SelectItem value="generic">Instructions only — no preview yet</SelectItem>
   </SelectContent>
 );
 
@@ -127,7 +147,7 @@ export function AdminSkillTypesPanel() {
     const s = slug.trim();
     const l = label.trim();
     if (!s || !l) {
-      toast({ title: "Enter slug and label", variant: "destructive" });
+      toast({ title: "Enter a type ID and display name", variant: "destructive" });
       return;
     }
     createType.mutate(
@@ -205,9 +225,9 @@ export function AdminSkillTypesPanel() {
           Skill types
         </h2>
         <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
-          Admin-defined types for the skill catalog. Built-ins map to live product handlers; add types like{" "}
-          <code className="text-[11px] text-orange-800/90">video</code> with a{" "}
-          <strong>Generic</strong> editor until engineering wires a handler.
+          Each type is a bucket for your skills (for example “Product text” or “Listing audit”). When you create a
+          skill, you pick a type so the right editing screen and test preview appear. System defaults are already wired
+          into the product; new types are for future features until your team marks them live.
         </p>
       </div>
 
@@ -215,11 +235,11 @@ export function AdminSkillTypesPanel() {
         <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="border-b border-slate-100 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              <th className="py-3 pl-5 pr-3">Label</th>
-              <th className="py-3 pr-3">Slug</th>
-              <th className="py-3 pr-3">Catalog</th>
-              <th className="py-3 pr-3">Editor</th>
-              <th className="py-3 pr-3">Handler</th>
+              <th className="py-3 pl-5 pr-3">Name</th>
+              <th className="py-3 pr-3">Type ID</th>
+              <th className="py-3 pr-3">Listed as</th>
+              <th className="py-3 pr-3">Editing screen</th>
+              <th className="py-3 pr-3">In the product</th>
               <th className="py-3 pr-5 text-right w-[5.5rem]">Actions</th>
             </tr>
           </thead>
@@ -240,7 +260,7 @@ export function AdminSkillTypesPanel() {
                       <span className="font-medium text-slate-900">{t.label}</span>
                       {t.isBuiltin && (
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-800 border border-orange-200 bg-orange-50 rounded px-1.5 py-0">
-                          Built-in
+                          System default
                         </span>
                       )}
                     </div>
@@ -250,8 +270,8 @@ export function AdminSkillTypesPanel() {
                     <CatalogBadge group={t.catalogGroup} />
                   </td>
                   <td className="py-3 pr-3 text-slate-600 text-xs">{editorLabel(t.editorMode)}</td>
-                  <td className="py-3 pr-3 font-mono text-[11px] text-slate-500">
-                    {t.handlerKey ?? "—"}
+                  <td className="py-3 pr-3 text-xs text-slate-600">
+                    {appUsageLabel(t)}
                   </td>
                   <td className="py-3 pr-5 text-right">
                     <div className="inline-flex items-center justify-end gap-0.5">
@@ -286,23 +306,28 @@ export function AdminSkillTypesPanel() {
       </div>
 
       <div className="px-5 py-4 border-t border-orange-100/80 bg-orange-50/30">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-orange-900/80 mb-3">Add skill type</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-orange-900/80 mb-1">Add a new type</p>
+        <p className="text-[11px] text-muted-foreground mb-3">
+          Use this when you need a new category of skill later (for example ads or video). Pick{" "}
+          <strong>Instructions only</strong> until a preview is available.
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
           <div>
-            <Label className="text-xs text-slate-600">Slug</Label>
+            <Label className="text-xs text-slate-600">Type ID</Label>
             <Input
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="video"
+              placeholder="video_ads"
               className="mt-1 font-mono text-xs bg-white"
             />
+            <p className="text-[10px] text-muted-foreground mt-1">Short internal name. Use letters, numbers, underscores.</p>
           </div>
           <div>
-            <Label className="text-xs text-slate-600">Label</Label>
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Video" className="mt-1 bg-white" />
+            <Label className="text-xs text-slate-600">Display name</Label>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Video ads" className="mt-1 bg-white" />
           </div>
           <div>
-            <Label className="text-xs text-slate-600">Catalog group</Label>
+            <Label className="text-xs text-slate-600">Listed as in skills table</Label>
             <Select value={catalogGroup} onValueChange={(v) => setCatalogGroup(v as AdminSkillTypeCatalogGroup)}>
               <SelectTrigger className="mt-1 bg-white">
                 <SelectValue />
@@ -311,7 +336,7 @@ export function AdminSkillTypesPanel() {
             </Select>
           </div>
           <div>
-            <Label className="text-xs text-slate-600">Editor</Label>
+            <Label className="text-xs text-slate-600">Editing screen</Label>
             <Select value={editorMode} onValueChange={(v) => setEditorMode(v as AdminSkillTypeEditorMode)}>
               <SelectTrigger className="mt-1 bg-white">
                 <SelectValue />
@@ -341,21 +366,22 @@ export function AdminSkillTypesPanel() {
           {editTarget && (
             <div className="space-y-4 py-1">
               <div>
-                <Label className="text-xs text-muted-foreground">Slug (read-only)</Label>
+                <Label className="text-xs text-muted-foreground">Type ID (cannot change)</Label>
                 <Input value={editTarget.slug} readOnly className="mt-1 font-mono text-xs bg-slate-50" />
                 {editTarget.isBuiltin && (
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Built-in slug and handler are fixed in code; you can still change label, catalog, and editor.
+                    System defaults stay tied to core features. You can still change the display name, how it appears in
+                    the list, and which editing screen opens.
                   </p>
                 )}
               </div>
               <div>
-                <Label className="text-xs">Label</Label>
+                <Label className="text-xs">Display name</Label>
                 <Input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="mt-1" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Catalog group</Label>
+                  <Label className="text-xs">Listed as in skills table</Label>
                   <Select value={editCatalog} onValueChange={(v) => setEditCatalog(v as AdminSkillTypeCatalogGroup)}>
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -364,28 +390,32 @@ export function AdminSkillTypesPanel() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Editor</Label>
+                  <Label className="text-xs">Editing screen</Label>
                   <Select value={editEditor} onValueChange={(v) => setEditEditor(v as AdminSkillTypeEditorMode)}>
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     {editorSelect}
                   </Select>
+                  <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                    What admins see when they open a skill of this type—including any “Run test” preview.
+                  </p>
                 </div>
               </div>
               {!editTarget.isBuiltin && (
                 <div>
-                  <Label className="text-xs">Handler key (optional)</Label>
+                  <Label className="text-xs">Technical connection (optional)</Label>
                   <Input
                     value={editHandler}
                     onChange={(e) => setEditHandler(e.target.value)}
-                    placeholder="Leave empty until wired in code"
+                    placeholder="Leave blank — your dev team connects new types"
                     className="mt-1 font-mono text-xs"
                   />
+                  <p className="text-[10px] text-muted-foreground mt-1">Only needed when engineering hooks this type into the app.</p>
                 </div>
               )}
               <div>
-                <Label className="text-xs">Description (optional)</Label>
+                <Label className="text-xs">Notes for your team (optional)</Label>
                 <Textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
@@ -415,8 +445,8 @@ export function AdminSkillTypesPanel() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete skill type?</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove <strong>{deleteTarget?.label}</strong> (<code>{deleteTarget?.slug}</code>) from the registry. Skills
-              still using this slug must be deleted or reassigned first.
+              Remove <strong>{deleteTarget?.label}</strong> from the list. Delete or change any skills that still use
+              this type first.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

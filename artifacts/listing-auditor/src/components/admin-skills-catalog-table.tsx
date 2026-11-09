@@ -214,10 +214,8 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
         </table>
       </div>
       <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-slate-100 bg-slate-50/40">
-        Data from{" "}
-        <code className="text-slate-600">GET /api/admin/ai-skills</code>. Click a row to edit; publish in the skill
-        editor to set status to Live. Delete removes custom skills; marketplace and image prompts remove their linked
-        records too (system image prompts cannot be deleted).
+        Click a row to open the skill editor. Publish to mark it Live. Delete removes the skill; marketplace and image
+        entries also remove their linked marketplace or template (system image presets cannot be deleted).
       </p>
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}>
