@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { formatDistanceToNow } from "date-fns";
 import { Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,6 @@ import {
   skillCatalogFilename,
   skillCatalogMarketplace,
   skillCatalogType,
-  skillCatalogVersion,
 } from "@/lib/admin-skills-catalog";
 import { useAdminSkillTypes, type SkillCatalogTypeLabel } from "@/lib/admin-skill-types";
 
@@ -74,16 +72,6 @@ function StatusBadge({ status }: { status: AiSkillRecord["status"] }) {
   );
 }
 
-function formatUpdated(skill: AiSkillRecord): string {
-  const raw = skill.updatedAt ?? skill.createdAt;
-  if (!raw) return "—";
-  try {
-    return formatDistanceToNow(new Date(raw), { addSuffix: true });
-  } catch {
-    return "—";
-  }
-}
-
 type Props = {
   skills: AiSkillRecord[];
   isLoading?: boolean;
@@ -125,7 +113,7 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[900px]">
+        <table className="w-full text-sm min-w-[760px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               <th className="py-3 pl-5 pr-4">Skill</th>
@@ -133,23 +121,21 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
               <th className="py-3 pr-4">Category</th>
               <th className="py-3 pr-4">Marketplace</th>
               <th className="py-3 pr-4">AI model</th>
-              <th className="py-3 pr-4">Version</th>
               <th className="py-3 pr-4">Status</th>
-              <th className="py-3 pr-4 text-right">Updated</th>
               <th className="py-3 pr-5 text-right w-[4.5rem]">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                <td colSpan={7} className="py-12 text-center text-muted-foreground">
                   Loading skills…
                 </td>
               </tr>
             )}
             {!isLoading && sorted.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                <td colSpan={7} className="py-12 text-center text-muted-foreground">
                   No skills yet. Create a marketplace, audit, image prompt, or category skill.
                 </td>
               </tr>
@@ -183,14 +169,8 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
                     <td className="py-3.5 pr-4 text-slate-700">{category}</td>
                     <td className="py-3.5 pr-4 text-slate-600">{marketplace}</td>
                     <td className="py-3.5 pr-4 text-slate-700 whitespace-nowrap">{model}</td>
-                    <td className="py-3.5 pr-4 text-slate-500 tabular-nums font-mono text-xs">
-                      {skillCatalogVersion(skill)}
-                    </td>
                     <td className="py-3.5 pr-4">
                       <StatusBadge status={skill.status} />
-                    </td>
-                    <td className="py-3.5 pr-4 text-right text-slate-500 text-xs whitespace-nowrap">
-                      {formatUpdated(skill)}
                     </td>
                     <td className="py-3.5 pr-5 text-right">
                       <Button
