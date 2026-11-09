@@ -1,35 +1,80 @@
 import type { ReactNode } from "react";
-import { Link } from "wouter";
+import { useRef, useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Plus, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAdminAiSkillsOverview } from "@/lib/admin-ai-skills-overview";
+import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
+import { AdminOverviewImageLibrary } from "@/components/admin-overview-image-library";
+import { AdminOverviewSkillsTable } from "@/components/admin-overview-skills-table";
+import { findCategorySkillSlug } from "@/lib/admin-overview-skill-links";
 
 function StatusPill({
   tone,
   children,
+  asButton,
+  onClick,
+  title,
 }: {
   tone: "ok" | "warn" | "muted";
   children: ReactNode;
+  asButton?: boolean;
+  onClick?: () => void;
+  title?: string;
 }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold",
-        tone === "ok" && "bg-emerald-50 text-emerald-800 border border-emerald-200",
-        tone === "warn" && "bg-amber-50 text-amber-900 border border-amber-200",
-        tone === "muted" && "bg-rose-50 text-rose-800 border border-rose-200",
-      )}
-    >
-      {children}
-    </span>
+  const className = cn(
+    "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold transition-colors",
+    tone === "ok" && "bg-emerald-50 text-emerald-800 border border-emerald-200",
+    tone === "warn" && "bg-amber-50 text-amber-900 border border-amber-200",
+    tone === "muted" && "bg-rose-50 text-rose-800 border border-rose-200",
+    asButton && "cursor-pointer hover:ring-2 hover:ring-teal-300 hover:ring-offset-1",
   );
+  if (asButton) {
+    return (
+      <button type="button" className={className} onClick={onClick} title={title}>
+        {children}
+      </button>
+    );
+  }
+  return <span className={className}>{children}</span>;
 }
 
 export default function AdminAiOverviewPage() {
+  const [, navigate] = useLocation();
   const { isLoading, stats, coverageRows } = useAdminAiSkillsOverview();
+  const { data: skillsData } = useAdminAiSkills();
+  const skills = skillsData?.skills ?? [];
+
+  const [libraryCategory, setLibraryCategory] = useState("Default");
+  const libraryRef = useRef<HTMLDivElement>(null);
+
+  function scrollToImageLibrary(category: string) {
+    setLibraryCategory(category);
+    requestAnimationFrame(() => {
+      libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function openContentSkill(category: string) {
+    const slug = findCategorySkillSlug(skills, category, "product_content");
+    if (slug) {
+      navigate(`/admin/settings/ai/skills/${slug}`);
+      return;
+    }
+    navigate("/admin/settings/ai/skills/new");
+  }
+
+  function openImageSkill(category: string) {
+    const slug = findCategorySkillSlug(skills, category, "product_images");
+    if (slug) {
+      navigate(`/admin/settings/ai/skills/${slug}`);
+      return;
+    }
+    scrollToImageLibrary(category);
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -92,11 +137,14 @@ export default function AdminAiOverviewPage() {
         </Card>
       </div>
 
+      <AdminOverviewSkillsTable skills={skills} />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Category coverage</CardTitle>
           <p className="text-sm text-muted-foreground">
-            A category is ready when it has a published product content skill, a published image skill, and at least one approved reference image.
+            Click a row to manage that category. A category is ready when it has a published product content
+            skill, a published category image skill, and at least one approved reference image.
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -121,15 +169,29 @@ export default function AdminAiOverviewPage() {
               {!isLoading && coverageRows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                    No product categories yet. Add categories under Image Prompts → reference images.
+                    No product categories yet. Add categories on the Skills page under Studio references.
                   </td>
                 </tr>
               )}
               {coverageRows.map((row) => (
-                <tr key={row.category} className="border-b border-border/60">
-                  <td className="py-3 pr-4 font-medium">{row.category}</td>
+                <tr
+                  key={row.category}
+                  className="border-b border-border/60 hover:bg-slate-50/80 transition-colors"
+                >
+                  <td className="py-3 pr-4 font-medium">
+                    <button
+                      type="button"
+                      className="text-left hover:text-teal-800 hover:underline"
+                      onClick={() => scrollToImageLibrary(row.category)}
+                    >
+                      {row.category}
+                    </button>
+                  </td>
                   <td className="py-3 pr-4">
                     <StatusPill
+                      asButton
+                      title="Set up content skill"
+                      onClick={() => openContentSkill(row.category)}
                       tone={
                         row.contentSkillLabel === "Live"
                           ? "ok"
@@ -143,6 +205,9 @@ export default function AdminAiOverviewPage() {
                   </td>
                   <td className="py-3 pr-4">
                     <StatusPill
+                      asButton
+                      title="Category image skill or image library"
+                      onClick={() => openImageSkill(row.category)}
                       tone={
                         row.imageSkillLabel === "Live"
                           ? "ok"
@@ -154,18 +219,32 @@ export default function AdminAiOverviewPage() {
                       {row.imageSkillLabel}
                     </StatusPill>
                   </td>
-                  <td className="py-3 pr-4 tabular-nums">{row.approvedRefCount}</td>
-                  <td className="py-3">
-                    <Badge
-                      variant="outline"
+                  <td className="py-3 pr-4 tabular-nums">
+                    <button
+                      type="button"
                       className={cn(
-                        row.status === "ready"
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                          : "border-amber-300 bg-amber-50 text-amber-900",
+                        "hover:text-teal-800 hover:underline",
+                        row.approvedRefCount === 0 && "text-rose-700 font-medium",
                       )}
+                      onClick={() => scrollToImageLibrary(row.category)}
                     >
-                      {row.status === "ready" ? "Ready for users" : "Needs setup"}
-                    </Badge>
+                      {row.approvedRefCount}
+                    </button>
+                  </td>
+                  <td className="py-3">
+                    <button type="button" onClick={() => scrollToImageLibrary(row.category)}>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "cursor-pointer",
+                          row.status === "ready"
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                            : "border-amber-300 bg-amber-50 text-amber-900",
+                        )}
+                      >
+                        {row.status === "ready" ? "Ready for users" : "Needs setup"}
+                      </Badge>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -174,18 +253,22 @@ export default function AdminAiOverviewPage() {
         </CardContent>
       </Card>
 
+      <div ref={libraryRef}>
+        <AdminOverviewImageLibrary
+          selectedCategory={libraryCategory}
+          onSelectedCategoryChange={setLibraryCategory}
+          coverageRows={coverageRows}
+        />
+      </div>
+
       <p className="text-xs text-muted-foreground">
-        Create and publish skills under{" "}
-        <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
-          Skills
-        </Link>
-        , add reference images in{" "}
-        <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
-          Image Prompts
-        </Link>
-        , and set provider keys under{" "}
+        Provider keys and models:{" "}
         <Link href="/admin/settings/ai" className="text-orange-600 underline">
           AI Settings
+        </Link>
+        . Full skill list:{" "}
+        <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
+          Skills
         </Link>
         .
       </p>
