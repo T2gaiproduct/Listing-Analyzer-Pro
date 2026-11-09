@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Plus, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { useAdminAiSkillsOverview } from "@/lib/admin-ai-skills-overview";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
 import { CategoryReferenceLibraryDialog } from "@/components/admin-overview-image-library";
 import { findCategorySkillSlug } from "@/lib/admin-overview-skill-links";
+
+const COVERAGE_ROWS_PER_PAGE = 12;
 
 function StatusPill({
   tone,
@@ -29,7 +31,7 @@ function StatusPill({
     tone === "ok" && "bg-emerald-50 text-emerald-800 border border-emerald-200",
     tone === "warn" && "bg-amber-50 text-amber-900 border border-amber-200",
     tone === "muted" && "bg-rose-50 text-rose-800 border border-rose-200",
-    asButton && "cursor-pointer hover:ring-2 hover:ring-teal-300 hover:ring-offset-1",
+    asButton && "cursor-pointer hover:ring-2 hover:ring-orange-300 hover:ring-offset-1",
   );
   if (asButton) {
     return (
@@ -49,6 +51,14 @@ export default function AdminAiOverviewPage() {
 
   const [refLibraryOpen, setRefLibraryOpen] = useState(false);
   const [refLibraryCategory, setRefLibraryCategory] = useState("Default");
+  const [coveragePage, setCoveragePage] = useState(0);
+
+  const coveragePageCount = Math.max(1, Math.ceil(coverageRows.length / COVERAGE_ROWS_PER_PAGE));
+
+  const pagedCoverageRows = useMemo(() => {
+    const start = coveragePage * COVERAGE_ROWS_PER_PAGE;
+    return coverageRows.slice(start, start + COVERAGE_ROWS_PER_PAGE);
+  }, [coverageRows, coveragePage]);
 
   function openReferenceLibrary(category: string) {
     setRefLibraryCategory(category);
@@ -163,7 +173,7 @@ export default function AdminAiOverviewPage() {
                   </td>
                 </tr>
               )}
-              {coverageRows.map((row) => (
+              {pagedCoverageRows.map((row) => (
                 <tr
                   key={row.category}
                   className="border-b border-border/60 hover:bg-slate-50/80 transition-colors"
@@ -171,7 +181,7 @@ export default function AdminAiOverviewPage() {
                   <td className="py-3 pr-4 font-medium">
                     <button
                       type="button"
-                      className="text-left hover:text-teal-800 hover:underline"
+                      className="text-left hover:text-orange-700 hover:underline"
                       onClick={() => openReferenceLibrary(row.category)}
                     >
                       {row.category}
@@ -213,7 +223,7 @@ export default function AdminAiOverviewPage() {
                     <button
                       type="button"
                       className={cn(
-                        "hover:text-teal-800 hover:underline",
+                        "hover:text-orange-700 hover:underline",
                         row.approvedRefCount === 0 && "text-rose-700 font-medium",
                       )}
                       onClick={() => openReferenceLibrary(row.category)}
@@ -240,6 +250,42 @@ export default function AdminAiOverviewPage() {
               ))}
             </tbody>
           </table>
+          {coverageRows.length > COVERAGE_ROWS_PER_PAGE ? (
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-orange-100 mt-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {coveragePage * COVERAGE_ROWS_PER_PAGE + 1}–
+                {Math.min((coveragePage + 1) * COVERAGE_ROWS_PER_PAGE, coverageRows.length)} of{" "}
+                {coverageRows.length} categories
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 border-orange-200 text-orange-900 hover:bg-orange-50"
+                  disabled={coveragePage <= 0}
+                  onClick={() => setCoveragePage((p) => Math.max(0, p - 1))}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                <span className="text-xs text-orange-900/80 tabular-nums px-2">
+                  {coveragePage + 1} / {coveragePageCount}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 border-orange-200 text-orange-900 hover:bg-orange-50"
+                  disabled={coveragePage >= coveragePageCount - 1}
+                  onClick={() => setCoveragePage((p) => Math.min(coveragePageCount - 1, p + 1))}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

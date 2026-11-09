@@ -22,16 +22,44 @@ type ViewProps = {
   onToggleStudioReference?: (templateSlug: string, imageUrl: string) => void;
 };
 
+export type AdminStudioAccent = "teal" | "orange";
+
 type AdminProps = {
   mode: "admin";
   examples: GraphicsModuleExampleItem[];
   resolvedCategory: string;
   isLoading?: boolean;
   savingSlug?: string | null;
+  adminAccent?: AdminStudioAccent;
   onUpload: (templateSlug: string, dataUrl: string) => void | Promise<void>;
   onRemoveExample: (templateSlug: string, exampleId: number) => void | Promise<void>;
   onClearAll: (templateSlug: string) => void | Promise<void>;
 };
+
+function studioAccentStyle(accent: AdminStudioAccent) {
+  if (accent === "orange") {
+    return {
+      panel: "border-orange-200/90 bg-orange-50/50",
+      label: "text-orange-800/85",
+      category: "text-orange-950",
+      cardHover: "hover:border-orange-300/80",
+      gradient: "from-orange-950/40",
+      primaryBtn: "bg-orange-600 hover:bg-orange-700",
+      uploadCircle: "bg-orange-600 group-hover:bg-orange-700",
+      thumbRemove: "bg-orange-900/75",
+    };
+  }
+  return {
+    panel: "border-teal-200/80 bg-teal-50/30",
+    label: "text-teal-800/80",
+    category: "text-teal-900",
+    cardHover: "hover:border-teal-200/80",
+    gradient: "from-teal-950/45",
+    primaryBtn: "bg-teal-700 hover:bg-teal-800",
+    uploadCircle: "bg-teal-700 group-hover:bg-teal-800",
+    thumbRemove: "bg-teal-900/70",
+  };
+}
 
 export type GraphicsModuleExamplesGridProps = ViewProps | AdminProps;
 
@@ -58,12 +86,13 @@ export function GraphicsModuleExamplesGrid(props: GraphicsModuleExamplesGridProp
   if (!showGrid) return null;
 
   const adminChrome = props.mode === "admin";
+  const accent = adminChrome ? studioAccentStyle(props.adminAccent ?? "teal") : null;
 
   return (
     <div
       className={cn(
         "space-y-3 rounded-xl border p-4",
-        adminChrome ? "border-teal-200/80 bg-teal-50/30" : "border-slate-200 bg-slate-50/50",
+        adminChrome && accent ? accent.panel : "border-slate-200 bg-slate-50/50",
       )}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -71,14 +100,14 @@ export function GraphicsModuleExamplesGrid(props: GraphicsModuleExamplesGridProp
           <p
             className={cn(
               "text-xs font-semibold uppercase tracking-wide",
-              adminChrome ? "text-teal-800/80" : "text-slate-500",
+              adminChrome && accent ? accent.label : "text-slate-500",
             )}
           >
             Studio examples
           </p>
           <p className="text-sm text-slate-700">
             Category:{" "}
-            <span className={cn("font-medium", adminChrome && "text-teal-900")}>{resolvedCategory}</span>
+            <span className={cn("font-medium", adminChrome && accent && accent.category)}>{resolvedCategory}</span>
           </p>
           {props.mode === "admin" ? (
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -161,12 +190,16 @@ function ExampleCard(
     props.mode === "view" && Boolean(props.onToggleStudioReference);
 
   const adminCard = props.mode === "admin";
+  const accent =
+    props.mode === "admin" ? studioAccentStyle(props.adminAccent ?? "teal") : null;
 
   return (
     <div
       className={cn(
         "rounded-lg border bg-white overflow-hidden flex flex-col shadow-sm",
-        adminCard ? "border-slate-200 hover:border-teal-200/80 transition-colors" : "border-slate-200",
+        adminCard && accent
+          ? cn("border-slate-200 transition-colors", accent.cardHover)
+          : "border-slate-200",
       )}
     >
       <div className="aspect-square relative bg-slate-100 flex items-center justify-center">
@@ -260,11 +293,16 @@ function ExampleCard(
               }}
             />
             {hasImages ? (
-              <div className="absolute inset-x-0 bottom-0 flex justify-end gap-1.5 p-2 bg-gradient-to-t from-teal-950/45 to-transparent">
+              <div
+                className={cn(
+                  "absolute inset-x-0 bottom-0 flex justify-end gap-1.5 p-2 bg-gradient-to-t to-transparent",
+                  accent?.gradient ?? "from-teal-950/45",
+                )}
+              >
                 <Button
                   type="button"
                   size="icon"
-                  className="h-8 w-8 bg-teal-700 hover:bg-teal-800 text-white shadow-sm"
+                  className={cn("h-8 w-8 text-white shadow-sm", accent?.primaryBtn)}
                   disabled={isSaving || atMax}
                   title={atMax ? `Maximum ${MAX_EXAMPLES_HINT} images` : "Add another image"}
                   aria-label="Add another image"
@@ -298,7 +336,12 @@ function ExampleCard(
                 aria-label="Upload image"
                 onClick={() => inputRef.current?.click()}
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-teal-700 text-white shadow-md ring-2 ring-white/80 transition group-hover:bg-teal-800 group-hover:scale-105">
+                <span
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-full text-white shadow-md ring-2 ring-white/80 transition group-hover:scale-105",
+                    accent?.uploadCircle,
+                  )}
+                >
                   {isSaving ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
@@ -344,7 +387,10 @@ function ExampleCard(
               <ProtectedAppImage src={img.url} alt="" className="w-full h-full object-cover" />
               <button
                 type="button"
-                className="absolute top-0.5 right-0.5 rounded-md bg-teal-900/70 text-white p-0.5 hover:bg-rose-600 disabled:opacity-50"
+                className={cn(
+                  "absolute top-0.5 right-0.5 rounded-md text-white p-0.5 hover:bg-rose-600 disabled:opacity-50",
+                  accent?.thumbRemove,
+                )}
                 disabled={isSaving || img.id <= 0}
                 title={img.id <= 0 ? "Refresh the page to remove" : "Remove this image"}
                 aria-label="Remove this image"

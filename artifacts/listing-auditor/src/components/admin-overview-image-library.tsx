@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +21,8 @@ import {
 import { useAdminImagePromptTemplates } from "@/lib/image-prompt-templates";
 import type { CategoryCoverageRow } from "@/lib/admin-ai-skills-overview";
 import { GraphicsModuleExamplesGrid } from "@/components/graphics-module-examples-grid";
+
+const CATEGORIES_PER_PAGE = 12;
 
 type CategoryReferenceLibraryDialogProps = {
   open: boolean;
@@ -85,6 +87,7 @@ function CategoryReferenceLibraryBody({
 }: BodyProps) {
   const { toast } = useToast();
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryPage, setCategoryPage] = useState(0);
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
   const categoryNames = useMemo(() => {
@@ -98,6 +101,20 @@ function CategoryReferenceLibraryBody({
     for (const row of coverageRows) m.set(row.category, row.approvedRefCount);
     return m;
   }, [coverageRows]);
+
+  const categoryPageCount = Math.max(1, Math.ceil(categoryNames.length / CATEGORIES_PER_PAGE));
+
+  useEffect(() => {
+    const idx = categoryNames.indexOf(selectedCategory);
+    if (idx >= 0) {
+      setCategoryPage(Math.floor(idx / CATEGORIES_PER_PAGE));
+    }
+  }, [selectedCategory, categoryNames]);
+
+  const pagedCategoryNames = useMemo(() => {
+    const start = categoryPage * CATEGORIES_PER_PAGE;
+    return categoryNames.slice(start, start + CATEGORIES_PER_PAGE);
+  }, [categoryNames, categoryPage]);
 
   const { data: examplesData, isLoading } = useAdminGraphicsModuleExamples(
     enabled ? selectedCategory : null,
@@ -204,12 +221,12 @@ function CategoryReferenceLibraryBody({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 min-h-[420px]">
-      <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 flex flex-col gap-2 max-h-[min(560px,70vh)]">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 pb-1">
+      <div className="rounded-lg border border-orange-200/70 bg-orange-50/30 p-3 flex flex-col gap-2">
+        <p className="text-xs font-semibold text-orange-900/80 uppercase tracking-wide px-2 pb-1">
           Categories
         </p>
-        <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
-          {categoryNames.map((name) => {
+        <div className="space-y-1 min-h-[min(360px,44vh)]">
+          {pagedCategoryNames.map((name) => {
             const count = refCountByCategory.get(name) ?? 0;
             const active = name === selectedCategory;
             return (
@@ -220,15 +237,15 @@ function CategoryReferenceLibraryBody({
                 className={cn(
                   "w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors",
                   active
-                    ? "bg-teal-50 border border-teal-200 font-medium text-teal-900"
-                    : "hover:bg-white border border-transparent",
+                    ? "bg-orange-100 border border-orange-300 font-medium text-orange-950 shadow-sm"
+                    : "hover:bg-white/90 border border-transparent hover:border-orange-100",
                 )}
               >
                 <span className="truncate">{name}</span>
                 <span
                   className={cn(
                     "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
-                    count > 0 ? "bg-slate-200 text-slate-700" : "bg-rose-100 text-rose-800",
+                    count > 0 ? "bg-orange-200/80 text-orange-950" : "bg-rose-100 text-rose-800",
                   )}
                 >
                   {count}
@@ -237,7 +254,36 @@ function CategoryReferenceLibraryBody({
             );
           })}
         </div>
-        <div className="pt-2 border-t border-slate-200 space-y-2">
+        {categoryNames.length > CATEGORIES_PER_PAGE ? (
+          <div className="flex items-center justify-between gap-1 border-t border-orange-200/60 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-orange-900 hover:bg-orange-100"
+              disabled={categoryPage <= 0}
+              aria-label="Previous categories"
+              onClick={() => setCategoryPage((p) => Math.max(0, p - 1))}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-[10px] text-orange-900/70 tabular-nums">
+              {categoryPage + 1} / {categoryPageCount}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-orange-900 hover:bg-orange-100"
+              disabled={categoryPage >= categoryPageCount - 1}
+              aria-label="Next categories"
+              onClick={() => setCategoryPage((p) => Math.min(categoryPageCount - 1, p + 1))}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        ) : null}
+        <div className="pt-2 border-t border-orange-200/60 space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">
             Add category
           </p>
@@ -251,8 +297,7 @@ function CategoryReferenceLibraryBody({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="shrink-0 px-2"
+              className="shrink-0 px-2 bg-orange-600 hover:bg-orange-700 text-white"
               disabled={!newCategoryName.trim() || createCategory.isPending}
               title="Create category"
               onClick={() => {
@@ -317,6 +362,7 @@ function CategoryReferenceLibraryBody({
         ) : (
           <GraphicsModuleExamplesGrid
             mode="admin"
+            adminAccent="orange"
             examples={filteredExamples}
             resolvedCategory={examplesData?.resolvedCategory ?? selectedCategory}
             isLoading={false}
