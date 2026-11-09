@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { Fragment, ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -6,7 +6,7 @@ import {
   Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Settings,
   BadgePercent, ClipboardList,
-  BrainCircuit, Bot, KeyRound, Lock, Wallet,
+  Bot, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
   Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen, Store,
@@ -19,6 +19,8 @@ import type { RecentItem } from "@workspace/api-client-react";
 import type { AdminPermission } from "@workspace/admin-permissions";
 import { AdminNotificationBell } from "@/components/admin-notification-bell";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { AdminAiSettingsNavGroup } from "@/components/admin-ai-settings-nav";
+import { ADMIN_AI_NAV_ITEMS, isAdminAiSettingsPath } from "@/lib/admin-ai-settings-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -115,7 +117,6 @@ const navSections: Array<{
     collapsible: true,
     items: [
       { href: "/admin/settings/platform", label: "Company Settings", icon: Settings, permission: "manage_settings" },
-      { href: "/admin/settings/ai", label: "AI Settings", icon: BrainCircuit, permission: "manage_settings" },
       { href: "/admin/settings/content-marketplaces", label: "Marketplace Content", icon: Store, permission: "manage_settings" },
       { href: "/admin/settings/image-prompt-templates", label: "Image Prompts", icon: Image, permission: "manage_settings" },
       { href: "/admin/settings/default-agents", label: "Default Ecommerce Guru Agents", icon: Bot, permission: "manage_settings" },
@@ -130,15 +131,24 @@ const navSections: Array<{
 
 type AdminSearchScope = "all" | "customers" | "settings" | "billing" | "marketing" | "content" | "reports" | "support";
 
-const ADMIN_NAV_INDEX = navSections.flatMap((section) =>
-  section.items.map((item) => ({
-    name: item.label,
-    url: item.href.split("?")[0],
-    section: section.label,
-    permission: item.permission,
-    searchText: `${section.label} ${item.label} ${item.href}`.toLowerCase(),
+const ADMIN_NAV_INDEX = [
+  ...navSections.flatMap((section) =>
+    section.items.map((item) => ({
+      name: item.label,
+      url: item.href.split("?")[0],
+      section: section.label,
+      permission: item.permission,
+      searchText: `${section.label} ${item.label} ${item.href}`.toLowerCase(),
+    })),
+  ),
+  ...ADMIN_AI_NAV_ITEMS.map((child) => ({
+    name: child.label,
+    url: child.href,
+    section: "Settings",
+    permission: "manage_settings" as AdminPermission,
+    searchText: `settings ai settings ${child.label} ${child.href}`.toLowerCase(),
   })),
-);
+];
 
 function getAdminSearchContext(location: string): { placeholder: string; scope: AdminSearchScope } {
   const path = location.split("?")[0];
@@ -223,6 +233,8 @@ function AdminNavSections({
   toggleSection,
   onNavigate,
   can,
+  aiSettingsNavOpen,
+  onToggleAiSettingsNav,
 }: {
   location: string;
   collapsed: boolean;
@@ -230,6 +242,8 @@ function AdminNavSections({
   toggleSection: (label: string) => void;
   onNavigate?: () => void;
   can: (required: AdminPermission | AdminPermission[]) => boolean;
+  aiSettingsNavOpen: boolean;
+  onToggleAiSettingsNav: () => void;
 }) {
   const visibleSections = navSections
     .map((section) => ({
@@ -267,24 +281,38 @@ function AdminNavSections({
               {section.items.map((item) => {
                 const itemPath = item.href.split("?")[0];
                 const isActive = location.startsWith(itemPath);
+                const showAiGroupAfterPlatform =
+                  section.label === "Settings"
+                  && item.href === "/admin/settings/platform"
+                  && can("manage_settings");
                 return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    title={collapsed ? item.label : undefined}
-                    onClick={onNavigate}
-                    className={cn(
-                      "flex items-center rounded-md text-xs font-medium transition-all group min-h-9",
-                      collapsed ? "justify-center px-2 py-1.5" : "gap-2.5 px-3 py-1.5",
-                      isActive
-                        ? "bg-orange-500 text-white shadow-sm"
-                        : "text-white/90 hover:bg-slate-800 hover:text-white"
+                  <Fragment key={item.label}>
+                    <Link
+                      href={item.href}
+                      title={collapsed ? item.label : undefined}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex items-center rounded-md text-xs font-medium transition-all group min-h-9",
+                        collapsed ? "justify-center px-2 py-1.5" : "gap-2.5 px-3 py-1.5",
+                        isActive
+                          ? "bg-orange-500 text-white shadow-sm"
+                          : "text-white/90 hover:bg-slate-800 hover:text-white"
+                      )}
+                    >
+                      <item.icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-white/70 group-hover:text-white")} />
+                      {!collapsed && item.label}
+                      {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
+                    </Link>
+                    {showAiGroupAfterPlatform && (
+                      <AdminAiSettingsNavGroup
+                        location={location}
+                        collapsed={collapsed}
+                        expanded={aiSettingsNavOpen}
+                        onToggle={onToggleAiSettingsNav}
+                        onNavigate={onNavigate}
+                      />
                     )}
-                  >
-                    <item.icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-white/70 group-hover:text-white")} />
-                    {!collapsed && item.label}
-                    {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
-                  </Link>
+                  </Fragment>
                 );
               })}
             </div>
@@ -305,8 +333,15 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [aiSettingsNavOpen, setAiSettingsNavOpen] = useState(true);
   const toggleSection = (label: string) =>
     setCollapsedSections((s) => ({ ...s, [label]: !s[label] }));
+
+  useEffect(() => {
+    if (isAdminAiSettingsPath(location)) {
+      setAiSettingsNavOpen(true);
+    }
+  }, [location]);
 
   const { placeholder: searchPlaceholder, scope: searchScope } = getAdminSearchContext(location);
 
@@ -427,6 +462,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             collapsedSections={collapsedSections}
             toggleSection={toggleSection}
             can={can}
+            aiSettingsNavOpen={aiSettingsNavOpen}
+            onToggleAiSettingsNav={() => setAiSettingsNavOpen((v) => !v)}
           />
         </nav>
 
@@ -480,6 +517,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               toggleSection={toggleSection}
               onNavigate={() => setMobileNavOpen(false)}
               can={can}
+              aiSettingsNavOpen={aiSettingsNavOpen}
+              onToggleAiSettingsNav={() => setAiSettingsNavOpen((v) => !v)}
             />
           </nav>
           <div className="p-3 border-t border-slate-700/50">

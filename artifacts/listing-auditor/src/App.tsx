@@ -126,6 +126,8 @@ import {
   AdminArchivePage,
   AdminSettingsPlatform,
   AdminSettingsAI,
+  AdminAiOverview,
+  AdminAiSkills,
   AdminSettingsDefaultAgents,
   AdminSettingsAPI,
   AdminSettingsSecurity,
@@ -820,6 +822,15 @@ function Router() {
         <AdminRoute><AdminSettingsPlatform /></AdminRoute>
       </Route>
       <Route path="/admin/settings/ai">
+        <Redirect to="/admin/settings/ai/overview" />
+      </Route>
+      <Route path="/admin/settings/ai/overview">
+        <AdminRoute><AdminAiOverview /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/ai/skills">
+        <AdminRoute><AdminAiSkills /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/ai/providers">
         <AdminRoute><AdminSettingsAI /></AdminRoute>
       </Route>
       <Route path="/admin/settings/default-agents">
