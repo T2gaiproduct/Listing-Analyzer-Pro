@@ -2,13 +2,18 @@ import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const AI_SKILL_TYPES = [
+/** Built-in handler keys; ai_skills.skill_type may be any admin-registered slug in ai_skill_types. */
+export const AI_SKILL_BUILTIN_HANDLER_KEYS = [
   "product_content",
   "product_images",
   "aplus_content",
   "listing_audit",
 ] as const;
-export type AiSkillType = (typeof AI_SKILL_TYPES)[number];
+export type AiSkillBuiltinHandlerKey = (typeof AI_SKILL_BUILTIN_HANDLER_KEYS)[number];
+
+/** @deprecated Prefer skill type slug from ai_skill_types registry. */
+export const AI_SKILL_TYPES = [...AI_SKILL_BUILTIN_HANDLER_KEYS] as const;
+export type AiSkillType = string;
 
 export const AI_SKILL_STATUSES = ["draft", "published"] as const;
 export type AiSkillStatus = (typeof AI_SKILL_STATUSES)[number];

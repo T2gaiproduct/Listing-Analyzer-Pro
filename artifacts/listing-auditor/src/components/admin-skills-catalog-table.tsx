@@ -10,8 +10,9 @@ import {
   skillCatalogType,
   skillCatalogVersion,
 } from "@/lib/admin-skills-catalog";
+import { useAdminSkillTypes, type SkillCatalogTypeLabel } from "@/lib/admin-skill-types";
 
-function TypeBadge({ type }: { type: ReturnType<typeof skillCatalogType> }) {
+function TypeBadge({ type }: { type: SkillCatalogTypeLabel }) {
   if (type === "Image") {
     return (
       <span className="inline-flex rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[11px] font-semibold text-teal-800">
@@ -26,9 +27,16 @@ function TypeBadge({ type }: { type: ReturnType<typeof skillCatalogType> }) {
       </span>
     );
   }
+  if (type === "Product content") {
+    return (
+      <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+        Product content
+      </span>
+    );
+  }
   return (
-    <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
-      Product content
+    <span className="inline-flex rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-900">
+      {type}
     </span>
   );
 }
@@ -67,6 +75,7 @@ type Props = {
 
 export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Props) {
   const [, navigate] = useLocation();
+  const { data: skillTypes = [] } = useAdminSkillTypes();
 
   const sorted = useMemo(
     () => [...skills].sort((a, b) => a.name.localeCompare(b.name)),
@@ -107,7 +116,7 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
             {!isLoading &&
               sorted.map((skill) => {
                 const active = selectedSlug === skill.slug;
-                const type = skillCatalogType(skill);
+                const type = skillCatalogType(skill, skillTypes);
                 const category = skillCatalogCategory(skill);
                 const marketplace = skillCatalogMarketplace(skill);
                 const model = skill.aiModel?.trim() || "—";

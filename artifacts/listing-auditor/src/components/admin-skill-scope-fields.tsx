@@ -21,6 +21,11 @@ import {
   useAdminProductCategoryMutations,
 } from "@/lib/graphics-module-examples";
 import type { SkillType } from "@/lib/admin-skill-editor";
+import {
+  findAdminSkillType,
+  type AdminSkillType,
+  type AdminSkillTypeEditorMode,
+} from "@/lib/admin-skill-types";
 
 const AI_MODELS = [
   "Claude Sonnet 5.5",
@@ -43,6 +48,7 @@ type AdminSkillScopeFieldsProps = {
   isImagePromptSkill?: boolean;
   imageSkillEditorMode?: boolean;
   lockImageCategory?: boolean;
+  skillTypeOptions?: AdminSkillType[];
   contentMarketplaceId?: number | null;
 };
 
@@ -60,8 +66,11 @@ export function AdminSkillScopeFields({
   isImagePromptSkill = false,
   imageSkillEditorMode = false,
   lockImageCategory = false,
+  skillTypeOptions = [],
   contentMarketplaceId,
 }: AdminSkillScopeFieldsProps) {
+  const typeMeta = findAdminSkillType(skillTypeOptions, skillType);
+  const editorMode: AdminSkillTypeEditorMode | undefined = typeMeta?.editorMode;
   const { toast } = useToast();
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
@@ -87,7 +96,11 @@ export function AdminSkillScopeFields({
           <Label className="text-xs text-muted-foreground">Skill type</Label>
           {imageSkillEditorMode ? (
             <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
-              Image generation
+              {typeMeta?.label ?? "Image generation"}
+            </p>
+          ) : editorMode === "image" && isImagePromptSkill ? (
+            <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
+              {typeMeta?.label ?? "Image generation"}
             </p>
           ) : (
             <Select
@@ -96,13 +109,14 @@ export function AdminSkillScopeFields({
               disabled={isMarketplaceSkill || isImagePromptSkill}
             >
               <SelectTrigger className="mt-1.5">
-                <SelectValue />
+                <SelectValue placeholder="Select skill type" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="listing_audit">Listing audit</SelectItem>
-                <SelectItem value="product_content">Product content</SelectItem>
-                <SelectItem value="product_images">Product images</SelectItem>
-                <SelectItem value="aplus_content">A+ content</SelectItem>
+              <SelectContent className="max-h-72">
+                {skillTypeOptions.map((t) => (
+                  <SelectItem key={t.slug} value={t.slug}>
+                    {t.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           )}

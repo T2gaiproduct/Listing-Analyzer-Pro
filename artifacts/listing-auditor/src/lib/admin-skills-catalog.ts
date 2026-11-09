@@ -1,17 +1,14 @@
 import type { AiSkillRecord } from "@/lib/admin-ai-skills-api";
+import {
+  skillCatalogTypeFromRegistry,
+  type AdminSkillType,
+  type SkillCatalogTypeLabel,
+} from "@/lib/admin-skill-types";
 
-export type SkillCatalogTypeLabel = "Product content" | "Image" | "Audit";
+export type { SkillCatalogTypeLabel };
 
-export function skillCatalogType(skill: AiSkillRecord): SkillCatalogTypeLabel {
-  if (skill.skillType === "listing_audit") return "Audit";
-  if (
-    skill.skillKind === "image_prompt"
-    || skill.skillType === "product_images"
-    || skill.skillType === "aplus_content"
-  ) {
-    return "Image";
-  }
-  return "Product content";
+export function skillCatalogType(skill: AiSkillRecord, registry: AdminSkillType[]): SkillCatalogTypeLabel {
+  return skillCatalogTypeFromRegistry(skill.skillType, registry, skill.skillKind);
 }
 
 export function skillCatalogMarketplace(skill: AiSkillRecord): string {

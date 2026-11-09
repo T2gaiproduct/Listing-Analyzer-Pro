@@ -1,4 +1,7 @@
-export type SkillType = "product_content" | "product_images" | "aplus_content" | "listing_audit";
+/** Skill type slug — must exist in admin Skill types registry (ai_skill_types). */
+export type SkillType = string;
+
+export const DEFAULT_SKILL_TYPE_SLUG = "product_content";
 
 export const DEFAULT_LISTING_AUDIT_SKILL_TEXT = `name: Global listing audit
 title_weight: 25

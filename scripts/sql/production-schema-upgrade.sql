@@ -565,6 +565,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS ai_skills_image_prompt_template_id_key
   ON ai_skills (image_prompt_template_id)
   WHERE image_prompt_template_id IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS ai_skill_types (
+  id serial PRIMARY KEY,
+  slug text NOT NULL UNIQUE,
+  label text NOT NULL,
+  catalog_group text NOT NULL DEFAULT 'other',
+  editor_mode text NOT NULL DEFAULT 'generic',
+  handler_key text,
+  description text,
+  enabled integer NOT NULL DEFAULT 1,
+  is_builtin integer NOT NULL DEFAULT 0,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

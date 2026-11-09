@@ -50,10 +50,12 @@ import {
 import {
   DEFAULT_LISTING_AUDIT_SKILL_TEXT,
   DEFAULT_SKILL_INSTRUCTIONS_TEXT,
+  DEFAULT_SKILL_TYPE_SLUG,
   SAMPLE_PRODUCTS,
   type SkillType,
   parseSkillInstructions,
 } from "@/lib/admin-skill-editor";
+import { skillTypeEditorMode, useAdminSkillTypes } from "@/lib/admin-skill-types";
 import {
   createAdminAiSkill,
   runAdminAiSkillTest,
@@ -79,7 +81,7 @@ export default function AdminAiSkillEditorPage() {
   const isNew = routeSkillId === "new";
 
   const [instructionsText, setInstructionsText] = useState(DEFAULT_SKILL_INSTRUCTIONS_TEXT);
-  const [skillType, setSkillType] = useState<SkillType>("product_content");
+  const [skillType, setSkillType] = useState<SkillType>(DEFAULT_SKILL_TYPE_SLUG);
   const [category, setCategory] = useState("");
   const [marketplace, setMarketplace] = useState("amazon");
   const [aiModel, setAiModel] = useState<string>(AI_MODELS[0]);
@@ -100,6 +102,8 @@ export default function AdminAiSkillEditorPage() {
   const { data: skillData, isLoading: skillLoading } = useAdminAiSkill(routeSkillId, !isNew);
   const { data: sampleProductsData } = useAdminAiSkillSampleProducts();
   const invalidateSkills = useInvalidateAdminAiSkills();
+  const { data: skillTypeRegistry = [] } = useAdminSkillTypes();
+  const skillEditorMode = skillTypeEditorMode(skillTypeRegistry, skillType);
 
   const marketplaces = mpData?.marketplaces ?? [];
   const sampleProductOptions = sampleProductsData?.products ?? SAMPLE_PRODUCTS.map((p) => ({
@@ -110,9 +114,12 @@ export default function AdminAiSkillEditorPage() {
   useEffect(() => {
     if (isNew && !hydratedFromServer) {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("skillType") === "listing_audit") {
-        setSkillType("listing_audit");
-        setInstructionsText(DEFAULT_LISTING_AUDIT_SKILL_TEXT);
+      const typeParam = params.get("skillType")?.trim();
+      if (typeParam) {
+        setSkillType(typeParam);
+        if (typeParam === "listing_audit") {
+          setInstructionsText(DEFAULT_LISTING_AUDIT_SKILL_TEXT);
+        }
       }
     }
   }, [isNew, hydratedFromServer]);
@@ -153,13 +160,8 @@ export default function AdminAiSkillEditorPage() {
     skillData?.skill?.skillKind === "image_prompt"
     || skillData?.skill?.imagePromptTemplateId != null;
   const isImageSkillEditor =
-  isImagePromptSkill
-  || (
-    !isMarketplaceSkill
-    && skillType !== "listing_audit"
-    && skillType !== "product_content"
-    && (skillType === "product_images" || skillType === "aplus_content")
-  );
+    isImagePromptSkill
+    || (!isMarketplaceSkill && skillEditorMode === "image");
   const skillRecord = skillData?.skill;
   const displayTitle =
     skillRecord?.name?.trim()
@@ -493,11 +495,13 @@ export default function AdminAiSkillEditorPage() {
                   spellCheck={false}
                 />
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  {skillType === "listing_audit"
+                  {skillEditorMode === "audit" || skillType === "listing_audit"
                     ? "Keys: title_weight, bullet_weight, image_weight, keyword_weight, show_title/show_bullets/show_images/show_keywords (yes/no), score_offset, score_floor, score_ceiling. Rubric text under # Generation instructions. Re-run audits to apply changes."
                     : isImageSkillEditor
                       ? "One rule per line as key: value. Try changing aspect, images_per_run, or reference_lock and watch the test output."
-                      : "One rule per line as key: value. Try changing bullets or title_max and watch the test output."}
+                      : skillEditorMode === "generic"
+                        ? "One rule per line as key: value. This type is admin-configured; wire a product handler before it affects live Video/Ads flows."
+                        : "One rule per line as key: value. Try changing bullets or title_max and watch the test output."}
                 </p>
               </div>
             </CardContent>
@@ -522,6 +526,7 @@ export default function AdminAiSkillEditorPage() {
                 isImagePromptSkill={isImagePromptSkill}
                 imageSkillEditorMode={isImageSkillEditor}
                 lockImageCategory={lockImageCategory}
+                skillTypeOptions={skillTypeRegistry}
                 contentMarketplaceId={skillData?.skill?.contentMarketplaceId}
               />
             </CardContent>

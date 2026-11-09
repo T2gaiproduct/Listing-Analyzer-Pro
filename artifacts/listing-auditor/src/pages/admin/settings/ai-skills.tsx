@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { ImageIcon, Plus, SlidersHorizontal, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminSkillsCatalogTable } from "@/components/admin-skills-catalog-table";
+import { AdminSkillTypesPanel } from "@/components/admin-skill-types-panel";
 import { AdminNewMarketplaceSkillDialog } from "@/components/admin-new-marketplace-skill-dialog";
 import { AdminNewImagePromptSkillDialog } from "@/components/admin-new-image-prompt-skill-dialog";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
@@ -77,6 +78,8 @@ export default function AdminAiSkillsPage() {
         )}
 
         <AdminSkillsCatalogTable skills={skills} isLoading={isLoading} />
+
+        <AdminSkillTypesPanel />
 
         <p className="text-xs text-muted-foreground">
           Category reference images (Hero Shot, lifestyle, etc.) are not skills—they live in{" "}

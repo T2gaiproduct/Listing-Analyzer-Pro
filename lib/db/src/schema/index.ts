@@ -26,3 +26,4 @@ export * from "./image-prompt-templates";
 export * from "./graphics-product-categories";
 export * from "./native-auth";
 export * from "./ai-skills";
+export * from "./ai-skill-types";

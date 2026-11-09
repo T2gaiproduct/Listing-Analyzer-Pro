@@ -13,6 +13,7 @@ import {
   isImagePromptSkillSlug,
   syncAllImagePromptTemplatesToSkills,
 } from "../lib/image-prompt-skill-sync.js";
+import { ensureAiSkillTypesReady, isEnabledSkillTypeSlug } from "../lib/ensure-ai-skill-types.js";
 
 const router: IRouter = Router();
 
@@ -50,14 +51,10 @@ function slugify(name: string): string {
 }
 
 function parseSkillType(raw: unknown): AiSkillType | null {
-  if (
-    raw === "product_content"
-    || raw === "product_images"
-    || raw === "aplus_content"
-    || raw === "listing_audit"
-  ) {
-    return raw;
-  }
+  if (typeof raw !== "string") return null;
+  const slug = raw.trim();
+  if (!slug) return null;
+  if (isEnabledSkillTypeSlug(slug)) return slug;
   return null;
 }
 
@@ -121,6 +118,7 @@ router.get(
   requireAdmin,
   requireAdminPermission("manage_settings"),
   async (_req, res): Promise<void> => {
+    await ensureAiSkillTypesReady();
     await syncAllContentMarketplacesToSkills();
     await syncAllImagePromptTemplatesToSkills();
     const rows = await db
@@ -150,6 +148,7 @@ router.post(
   requireAdmin,
   requireAdminPermission("manage_settings"),
   async (req, res): Promise<void> => {
+    await ensureAiSkillTypesReady();
     const body = parseBody(req.body);
     if (!body) {
       res.status(400).json({ error: "Invalid skill payload" });
@@ -182,6 +181,7 @@ router.patch(
   requireAdmin,
   requireAdminPermission("manage_settings"),
   async (req, res): Promise<void> => {
+    await ensureAiSkillTypesReady();
     const existing = await findSkillByIdOrSlug(req.params.idOrSlug ?? "");
     if (!existing) {
       res.status(404).json({ error: "Skill not found" });
