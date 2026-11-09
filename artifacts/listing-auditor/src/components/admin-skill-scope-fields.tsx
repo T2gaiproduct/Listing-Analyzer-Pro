@@ -1,10 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "wouter";
-import { Plus, Trash2 } from "lucide-react";
 import { AdminSearchableCategorySelect } from "@/components/admin-searchable-category-select";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -12,14 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import type { ContentMarketplaceAdmin } from "@/lib/content-marketplaces";
-import {
-  configuredProductCategoryNames,
-  isConfiguredProductCategory,
-  useAdminProductCategories,
-  useAdminProductCategoryMutations,
-} from "@/lib/graphics-module-examples";
+import { configuredProductCategoryNames, useAdminProductCategories } from "@/lib/graphics-module-examples";
 import type { SkillType } from "@/lib/admin-skill-editor";
 import {
   findAdminSkillType,
@@ -67,21 +58,19 @@ export function AdminSkillScopeFields({
   contentMarketplaceId,
 }: AdminSkillScopeFieldsProps) {
   const typeMeta = findAdminSkillType(skillTypeOptions, skillType);
-  const { toast } = useToast();
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
-  const configuredCategoryNames = configuredProductCategoryNames(categories);
-  const categorySelectOptions = (() => {
-    const names = [...configuredCategoryNames];
+  const categorySelectOptions = useMemo(() => {
+    const fromCatalog = categories.map((c) => c.name).filter(Boolean);
+    const configured = configuredProductCategoryNames(categories);
+    const names = [...new Set([...fromCatalog, ...configured])].sort((a, b) => a.localeCompare(b));
     const current = category.trim();
     if (current && !names.includes(current)) {
       names.push(current);
       names.sort((a, b) => a.localeCompare(b));
     }
     return names;
-  })();
-  const { createCategory, removeCategory } = useAdminProductCategoryMutations();
-  const [newCategoryName, setNewCategoryName] = useState("");
+  }, [categories, category]);
 
   const selectedMarketplace = marketplaces.find((m) => m.slug === marketplace);
 
@@ -155,108 +144,12 @@ export function AdminSkillScopeFields({
             </p>
           ) : (
             <>
-              {imageSkillEditorMode ? (
-                <AdminSearchableCategorySelect
-                  value={category}
-                  onChange={onCategoryChange}
-                  options={categorySelectOptions}
-                  placeholder="Search categories…"
-                />
-              ) : (
-                <Select value={category || undefined} onValueChange={onCategoryChange}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.name}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {!imageSkillEditorMode && (
-                <>
-                  <div className="flex gap-2 mt-2">
-                    <Input
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="New category name"
-                      className="text-sm h-9"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                      disabled={!newCategoryName.trim() || createCategory.isPending}
-                      onClick={() => {
-                        const name = newCategoryName.trim();
-                        createCategory.mutate(name, {
-                          onSuccess: () => {
-                            setNewCategoryName("");
-                            onCategoryChange(name);
-                            toast({ title: "Category added", description: name });
-                          },
-                          onError: (err: Error) => {
-                            toast({
-                              title: "Could not add category",
-                              description: err.message,
-                              variant: "destructive",
-                            });
-                          },
-                        });
-                      }}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  {configuredCategoryNames.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {categories
-                        .filter((c) => isConfiguredProductCategory(c))
-                        .map((c) => (
-                          <span
-                            key={c.id}
-                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-0.5 text-[11px]"
-                          >
-                            {c.name}
-                            <button
-                              type="button"
-                              className="text-slate-400 hover:text-red-600"
-                              title={`Delete category ${c.name}`}
-                              onClick={() => {
-                                if (
-                                  !window.confirm(
-                                    `Delete category “${c.name}” and its reference images?`,
-                                  )
-                                ) {
-                                  return;
-                                }
-                                removeCategory.mutate(c.id, {
-                                  onSuccess: () => {
-                                    if (category === c.name) onCategoryChange("");
-                                    toast({ title: "Category deleted" });
-                                  },
-                                  onError: (err: Error) => {
-                                    toast({
-                                      title: "Delete failed",
-                                      description: err.message,
-                                      variant: "destructive",
-                                    });
-                                  },
-                                });
-                              }}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </span>
-                        ))}
-                    </div>
-                  )}
-                </>
-              )}
+              <AdminSearchableCategorySelect
+                value={category}
+                onChange={onCategoryChange}
+                options={categorySelectOptions}
+                placeholder="Search categories…"
+              />
               {imageSkillEditorMode && categorySelectOptions.length === 0 && (
                 <p className="text-xs text-amber-800 mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5">
                   No configured categories yet. Add one from{" "}
