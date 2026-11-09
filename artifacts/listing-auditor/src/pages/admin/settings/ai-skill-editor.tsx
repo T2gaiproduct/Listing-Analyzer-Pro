@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ADMIN_AI_SKILLS_HREF } from "@/lib/admin-ai-settings-nav";
 import { useAdminContentMarketplaces } from "@/lib/content-marketplaces";
-import { useAdminProductCategories } from "@/lib/graphics-module-examples";
+import { AdminSkillScopeFields } from "@/components/admin-skill-scope-fields";
 import {
   DEFAULT_SKILL_INSTRUCTIONS_TEXT,
   SAMPLE_PRODUCTS,
@@ -63,13 +63,11 @@ export default function AdminAiSkillEditorPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: mpData } = useAdminContentMarketplaces();
-  const { data: catData } = useAdminProductCategories();
   const { data: skillData, isLoading: skillLoading } = useAdminAiSkill(routeSkillId, !isNew);
   const { data: sampleProductsData } = useAdminAiSkillSampleProducts();
   const invalidateSkills = useInvalidateAdminAiSkills();
 
   const marketplaces = mpData?.marketplaces ?? [];
-  const categories = catData?.categories ?? [];
   const sampleProductOptions = sampleProductsData?.products ?? SAMPLE_PRODUCTS.map((p) => ({
     id: p.id,
     label: p.label,
@@ -274,71 +272,20 @@ export default function AdminAiSkillEditorPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Where this skill applies</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Skill type</Label>
-                <Select value={skillType} onValueChange={(v) => setSkillType(v as SkillType)}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="product_content">Product content</SelectItem>
-                    <SelectItem value="product_images">Product images</SelectItem>
-                    <SelectItem value="aplus_content">A+ content</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Category</Label>
-                <Select
-                  value={category || undefined}
-                  onValueChange={setCategory}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.name}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Marketplace</Label>
-                <Select value={marketplace} onValueChange={setMarketplace}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {marketplaces.length === 0 && (
-                      <SelectItem value="amazon">Amazon</SelectItem>
-                    )}
-                    {marketplaces.map((m) => (
-                      <SelectItem key={m.id} value={m.slug}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">AI model</Label>
-                <Select value={aiModel} onValueChange={setAiModel}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AI_MODELS.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <CardContent>
+              <AdminSkillScopeFields
+                skillType={skillType}
+                onSkillTypeChange={setSkillType}
+                category={category}
+                onCategoryChange={setCategory}
+                marketplace={marketplace}
+                onMarketplaceChange={setMarketplace}
+                aiModel={aiModel}
+                onAiModelChange={setAiModel}
+                marketplaces={marketplaces}
+                isMarketplaceSkill={isMarketplaceSkill}
+                contentMarketplaceId={skillData?.skill?.contentMarketplaceId}
+              />
             </CardContent>
           </Card>
         </div>

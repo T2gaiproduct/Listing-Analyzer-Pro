@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearch } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Save, Store, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,7 @@ export default function AdminSettingsContentMarketplaces() {
   const queryClient = useQueryClient();
   const { data, isLoading } = useAdminContentMarketplaces();
   const marketplaces = data?.marketplaces ?? [];
+  const search = useSearch();
 
   const [selectedId, setSelectedId] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<ContentMarketplaceAdmin>(blankMarketplace());
@@ -96,6 +97,20 @@ export default function AdminSettingsContentMarketplaces() {
     setSelectedId("new");
     setDraft(blankMarketplace());
   }
+
+  useEffect(() => {
+    if (isLoading || marketplaces.length === 0) return;
+    const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    const idRaw = params.get("marketplaceId");
+    if (!idRaw) return;
+    const id = parseInt(idRaw, 10);
+    if (!Number.isFinite(id)) return;
+    const m = marketplaces.find((row) => row.id === id);
+    if (m) {
+      setSelectedId(m.id);
+      setDraft(m);
+    }
+  }, [isLoading, marketplaces, search]);
 
   return (
     <div className="space-y-6 max-w-6xl">
