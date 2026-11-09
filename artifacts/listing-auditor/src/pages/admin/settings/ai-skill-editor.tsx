@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Link, useRoute } from "wouter";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useRoute } from "wouter";
 import { ArrowLeft, FileUp, Play } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,16 @@ import {
   SAMPLE_PRODUCTS,
   type SkillType,
   parseSkillInstructions,
-  runSkillTest,
 } from "@/lib/admin-skill-editor";
+import {
+  createAdminAiSkill,
+  runAdminAiSkillTest,
+  updateAdminAiSkill,
+  useAdminAiSkill,
+  useAdminAiSkillSampleProducts,
+  useInvalidateAdminAiSkills,
+  type SkillTestOutput,
+} from "@/lib/admin-ai-skills-api";
 
 const AI_MODELS = [
   "Claude Sonnet 5.5",
@@ -35,28 +43,66 @@ const AI_MODELS = [
 
 export default function AdminAiSkillEditorPage() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [, params] = useRoute("/admin/settings/ai/skills/:skillId");
-  const skillId = params?.skillId ?? "new";
-  const isNew = skillId === "new";
+  const routeSkillId = params?.skillId ?? "new";
+  const isNew = routeSkillId === "new";
 
   const [instructionsText, setInstructionsText] = useState(DEFAULT_SKILL_INSTRUCTIONS_TEXT);
   const [skillType, setSkillType] = useState<SkillType>("product_content");
-  const [category, setCategory] = useState("Home Decor");
+  const [category, setCategory] = useState("");
   const [marketplace, setMarketplace] = useState("amazon");
   const [aiModel, setAiModel] = useState<string>(AI_MODELS[0]);
   const [sampleProductId, setSampleProductId] = useState<string>(SAMPLE_PRODUCTS[0].id);
-  const [testOutput, setTestOutput] = useState<ReturnType<typeof runSkillTest> | null>(null);
+  const [testOutput, setTestOutput] = useState<SkillTestOutput | null>(null);
   const [uploadName, setUploadName] = useState<string | null>(null);
+  const [status, setStatus] = useState<"draft" | "published">("draft");
+  const [persistedKey, setPersistedKey] = useState<string | null>(isNew ? null : routeSkillId);
+  const [saving, setSaving] = useState(false);
+  const [hydratedFromServer, setHydratedFromServer] = useState(isNew);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: mpData } = useAdminContentMarketplaces();
   const { data: catData } = useAdminProductCategories();
+  const { data: skillData, isLoading: skillLoading } = useAdminAiSkill(routeSkillId, !isNew);
+  const { data: sampleProductsData } = useAdminAiSkillSampleProducts();
+  const invalidateSkills = useInvalidateAdminAiSkills();
 
   const marketplaces = mpData?.marketplaces ?? [];
   const categories = catData?.categories ?? [];
+  const sampleProductOptions = sampleProductsData?.products ?? SAMPLE_PRODUCTS.map((p) => ({
+    id: p.id,
+    label: p.label,
+  }));
+
+  useEffect(() => {
+    const skill = skillData?.skill;
+    if (!skill || hydratedFromServer) return;
+    setInstructionsText(skill.instructionsText || DEFAULT_SKILL_INSTRUCTIONS_TEXT);
+    setSkillType(skill.skillType);
+    setCategory(skill.category);
+    setMarketplace(skill.marketplaceSlug);
+    setAiModel(skill.aiModel || AI_MODELS[0]);
+    setStatus(skill.status);
+    setPersistedKey(skill.slug);
+    setHydratedFromServer(true);
+  }, [skillData?.skill, hydratedFromServer]);
 
   const parsed = useMemo(() => parseSkillInstructions(instructionsText), [instructionsText]);
-  const pageTitle = isNew ? "New skill" : parsed.name || "Edit skill";
+  const pageTitle = parsed.name || (isNew ? "New skill" : "Edit skill");
+
+  const buildPayload = useCallback(
+    (nextStatus: "draft" | "published") => ({
+      name: parsed.name,
+      instructionsText,
+      skillType,
+      category,
+      marketplaceSlug: marketplace,
+      aiModel,
+      status: nextStatus,
+    }),
+    [aiModel, category, instructionsText, marketplace, parsed.name, skillType],
+  );
 
   const handleFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -68,29 +114,61 @@ export default function AdminAiSkillEditorPage() {
     reader.readAsText(file);
   }, []);
 
-  const runTest = useCallback(() => {
-    setTestOutput(
-      runSkillTest({
+  const runTest = useCallback(async () => {
+    try {
+      const output = await runAdminAiSkillTest({
+        idOrSlug: persistedKey ?? undefined,
         instructionsText,
         sampleProductId,
         aiModel,
-      }),
-    );
-  }, [aiModel, instructionsText, sampleProductId]);
+      });
+      setTestOutput(output);
+    } catch (e) {
+      toast({
+        title: "Test failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    }
+  }, [aiModel, instructionsText, persistedKey, sampleProductId, toast]);
 
-  const saveDraft = () => {
-    toast({
-      title: "Draft saved",
-      description: "Skill rules are stored locally until publishing API is connected.",
-    });
+  const persistSkill = async (nextStatus: "draft" | "published") => {
+    setSaving(true);
+    try {
+      const payload = buildPayload(nextStatus);
+      if (persistedKey) {
+        const { skill } = await updateAdminAiSkill(persistedKey, payload);
+        setStatus(skill.status);
+        setPersistedKey(skill.slug);
+        invalidateSkills();
+        toast({
+          title: nextStatus === "published" ? "Skill published" : "Draft saved",
+          description: `${skill.name} is stored on the server.`,
+        });
+      } else {
+        const { skill } = await createAdminAiSkill(payload);
+        setStatus(skill.status);
+        setPersistedKey(skill.slug);
+        invalidateSkills();
+        navigate(`/admin/settings/ai/skills/${skill.slug}`);
+        toast({
+          title: nextStatus === "published" ? "Skill published" : "Draft saved",
+          description: `${skill.name} was created.`,
+        });
+      }
+    } catch (e) {
+      toast({
+        title: "Could not save skill",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const publishSkill = () => {
-    toast({
-      title: "Skill published",
-      description: `${parsed.name} is marked live for ${skillType.replace("_", " ")}.`,
-    });
-  };
+  const saveDraft = () => void persistSkill("draft");
+  const publishSkill = () => void persistSkill("published");
 
   return (
     <div className="min-h-full bg-slate-50/80">
@@ -103,18 +181,26 @@ export default function AdminAiSkillEditorPage() {
           </Link>
           <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
             <h1 className="text-xl font-bold truncate">{pageTitle}</h1>
-            <Badge variant="outline" className="text-amber-800 bg-amber-50 border-amber-200 font-medium">
-              {pageTitle} · Draft
+            <Badge
+              variant="outline"
+              className={
+                status === "published"
+                  ? "text-emerald-800 bg-emerald-50 border-emerald-200 font-medium"
+                  : "text-amber-800 bg-amber-50 border-amber-200 font-medium"
+              }
+            >
+              {pageTitle} · {status === "published" ? "Published" : "Draft"}
             </Badge>
           </div>
           <div className="flex gap-2 ml-auto">
-            <Button type="button" variant="outline" onClick={saveDraft}>
+            <Button type="button" variant="outline" onClick={saveDraft} disabled={saving || skillLoading}>
               Save draft
             </Button>
             <Button
               type="button"
               className="bg-teal-700 hover:bg-teal-800 text-white"
               onClick={publishSkill}
+              disabled={saving || skillLoading}
             >
               Publish skill
             </Button>
@@ -189,14 +275,14 @@ export default function AdminAiSkillEditorPage() {
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Category</Label>
-                <Select value={category} onValueChange={setCategory}>
+                <Select
+                  value={category || undefined}
+                  onValueChange={setCategory}
+                >
                   <SelectTrigger className="mt-1.5">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.length === 0 && (
-                      <SelectItem value="Home Decor">Home Decor</SelectItem>
-                    )}
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.name}>
                         {c.name}
@@ -259,7 +345,7 @@ export default function AdminAiSkillEditorPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SAMPLE_PRODUCTS.map((p) => (
+                  {sampleProductOptions.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.label}
                     </SelectItem>

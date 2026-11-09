@@ -535,6 +535,21 @@ ALTER TABLE audits
 ALTER TABLE audits
   ADD COLUMN IF NOT EXISTS import_marketplace text;
 
+-- ─── Admin AI skills (content / image rules per category) ───────────────────
+CREATE TABLE IF NOT EXISTS ai_skills (
+  id serial PRIMARY KEY,
+  slug text NOT NULL UNIQUE,
+  name text NOT NULL,
+  status text NOT NULL DEFAULT 'draft',
+  skill_type text NOT NULL DEFAULT 'product_content',
+  category text NOT NULL DEFAULT '',
+  marketplace_slug text NOT NULL DEFAULT 'amazon',
+  ai_model text NOT NULL DEFAULT '',
+  instructions_text text NOT NULL DEFAULT '',
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

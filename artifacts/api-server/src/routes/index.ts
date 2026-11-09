@@ -31,6 +31,7 @@ import adminImagePromptTemplatesRouter from "./admin-image-prompt-templates";
 import productCategoriesRouter from "./product-categories";
 import graphicsModuleExamplesRouter from "./graphics-module-examples";
 import adminGraphicsModuleExamplesRouter from "./admin-graphics-module-examples";
+import adminAiSkillsRouter from "./admin-ai-skills";
 import supportTicketsRouter from "./support-tickets";
 import nativeAuthRouter from "./native-auth";
 
@@ -43,6 +44,7 @@ router.use(adminRouter);
 router.use(adminContentMarketplacesRouter);
 router.use(adminImagePromptTemplatesRouter);
 router.use(adminGraphicsModuleExamplesRouter);
+router.use(adminAiSkillsRouter);
 router.use(contentGenerationMarketplacesRouter);
 router.use(imagePromptTemplatesRouter);
 router.use(productCategoriesRouter);

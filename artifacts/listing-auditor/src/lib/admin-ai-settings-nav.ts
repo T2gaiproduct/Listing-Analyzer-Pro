@@ -19,3 +19,8 @@ export function isAdminAiProviderPage(path: string): boolean {
   const p = path.split("?")[0] ?? path;
   return p === ADMIN_AI_SETTINGS_HREF || p === `${ADMIN_AI_SETTINGS_HREF}/providers`;
 }
+
+export function isAdminAiSkillsPath(path: string): boolean {
+  const p = path.split("?")[0] ?? path;
+  return p === ADMIN_AI_SKILLS_HREF || p.startsWith(`${ADMIN_AI_SKILLS_HREF}/`);
+}

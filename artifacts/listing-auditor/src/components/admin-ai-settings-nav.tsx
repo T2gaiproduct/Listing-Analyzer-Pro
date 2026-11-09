@@ -6,6 +6,7 @@ import {
   ADMIN_AI_SETTINGS_HREF,
   isAdminAiProviderPage,
   isAdminAiSettingsPath,
+  isAdminAiSkillsPath,
 } from "@/lib/admin-ai-settings-nav";
 
 type AdminAiSettingsNavGroupProps = {
@@ -88,7 +89,10 @@ export function AdminAiSettingsNavGroup({
       {expanded && (
         <div className="space-y-0.5 pl-3 ml-2 border-l border-slate-700/80">
           {ADMIN_AI_NAV_ITEMS.map((child) => {
-            const childActive = location === child.href;
+            const childActive =
+              child.href.endsWith("/skills")
+                ? isAdminAiSkillsPath(location)
+                : location === child.href;
             return (
               <Link
                 key={child.href}
