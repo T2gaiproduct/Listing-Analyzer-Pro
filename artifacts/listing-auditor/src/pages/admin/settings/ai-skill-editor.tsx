@@ -96,7 +96,7 @@ export default function AdminAiSkillEditorPage() {
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [persistedKey, setPersistedKey] = useState<string | null>(isNew ? null : routeSkillId);
   const [saving, setSaving] = useState(false);
-  const [hydratedFromServer, setHydratedFromServer] = useState(isNew);
+  const [hydratedFromServer, setHydratedFromServer] = useState(false);
   const [marketplaceMeta, setMarketplaceMeta] = useState<ContentMarketplaceAdmin | null>(null);
   const [imagePromptMeta, setImagePromptMeta] = useState<ImagePromptTemplateAdmin | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -117,16 +117,16 @@ export default function AdminAiSkillEditorPage() {
   }));
 
   useEffect(() => {
-    if (isNew && !hydratedFromServer) {
-      const params = new URLSearchParams(window.location.search);
-      const typeParam = params.get("skillType")?.trim();
-      if (typeParam) {
-        setSkillType(typeParam);
-        if (typeParam === "listing_audit") {
-          setInstructionsText(DEFAULT_LISTING_AUDIT_SKILL_TEXT);
-        }
+    if (!isNew || hydratedFromServer) return;
+    const params = new URLSearchParams(window.location.search);
+    const typeParam = params.get("skillType")?.trim();
+    if (typeParam) {
+      setSkillType(typeParam);
+      if (typeParam === "listing_audit") {
+        setInstructionsText(DEFAULT_LISTING_AUDIT_SKILL_TEXT);
       }
     }
+    setHydratedFromServer(true);
   }, [isNew, hydratedFromServer]);
 
   useEffect(() => {
