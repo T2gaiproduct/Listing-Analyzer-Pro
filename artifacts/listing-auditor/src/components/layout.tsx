@@ -73,7 +73,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Building2, ChevronRight } from "lucide-react";
 import { ManageAdsNavCollapsed, ManageAdsNavGroup } from "@/components/manage-ads-nav";
-import { isManageAdsPath, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
+import { CREATE_VIDEOS_COMING_SOON, isManageAdsPath, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -89,7 +89,7 @@ const mainNavItems: Array<{
   { icon: Package, label: "Product Explorer", href: "/products", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
-  { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
+  { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: CREATE_VIDEOS_COMING_SOON },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
   { icon: Sparkles, label: "__AI__", href: "/ai", feature: "sellermate_ai" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "amazon" },
@@ -818,9 +818,10 @@ export function Layout({ children }: { children: ReactNode }) {
                 (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
                 (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                 (href === "/videos" && location === "/videos");
+              const navDisabled = Boolean(comingSoon && !isActive);
               if (collapsed) {
                 return (
-                  <SidebarTooltip key={href} label={label} side="right">
+                  <SidebarTooltip key={href} label={navDisabled ? `${label} (Soon)` : label} side="right">
                     <button
                       type="button"
                       onClick={() => handleFeatureNav(href, comingSoon)}
@@ -828,10 +829,12 @@ export function Layout({ children }: { children: ReactNode }) {
                         "w-full flex items-center justify-center w-10 h-10 rounded-xl transition-colors",
                         isActive
                           ? "bg-orange-500 text-white shadow-sm"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                          : navDisabled
+                            ? "text-sidebar-foreground/40 cursor-default"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent/50",
                       )}
                     >
-                      <Icon className={cn("w-4 h-4", isActive ? "text-white" : "")} />
+                      <Icon className={cn("w-4 h-4", isActive ? "text-white" : navDisabled ? "text-sidebar-foreground/40" : "")} />
                     </button>
                   </SidebarTooltip>
                 );
@@ -845,10 +848,17 @@ export function Layout({ children }: { children: ReactNode }) {
                     "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[11px] transition-colors text-left",
                     isActive
                       ? "bg-orange-500 text-white font-medium shadow-sm"
-                      : "text-sidebar-foreground font-normal hover:bg-sidebar-accent/50"
+                      : navDisabled
+                        ? "text-sidebar-foreground/60 font-normal cursor-default"
+                        : "text-sidebar-foreground font-normal hover:bg-sidebar-accent/50",
                   )}
                 >
-                  <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/75")} />
+                  <Icon
+                    className={cn(
+                      "w-3.5 h-3.5 flex-shrink-0",
+                      isActive ? "text-white" : navDisabled ? "text-sidebar-foreground/40" : "text-sidebar-foreground/75",
+                    )}
+                  />
                   <span className="flex-1 min-w-0 truncate">{label}</span>
                   {comingSoon && !isActive && (
                     <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
@@ -1003,6 +1013,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
                   (href === "/projects" && isCreateGraphicsNavActive(location)) ||
                   (href === "/videos" && location === "/videos");
+                const navDisabled = Boolean(comingSoon && !isActive);
                 return (
                   <button
                     key={href}
@@ -1012,13 +1023,17 @@ export function Layout({ children }: { children: ReactNode }) {
                       "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs transition-colors text-left min-h-9",
                       isActive
                         ? "bg-orange-500 text-white font-medium shadow-sm"
-                        : "text-slate-600 font-normal hover:bg-slate-100"
+                        : navDisabled
+                          ? "text-slate-400 font-normal cursor-default"
+                          : "text-slate-600 font-normal hover:bg-slate-100",
                     )}
                   >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <Icon className={cn("w-4 h-4 flex-shrink-0", navDisabled && "text-slate-400")} />
                     <span className="flex-1">{label}</span>
                     {comingSoon && (
-                      <span className="text-[9px] font-semibold uppercase text-amber-700">Soon</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                        Soon
+                      </span>
                     )}
                     {workInProgress && !comingSoon && (
                       <span className="text-[9px] font-semibold uppercase text-sky-700">WIP</span>
