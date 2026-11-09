@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { asc, eq } from "drizzle-orm";
-import { aiSkillTypesTable, db } from "@workspace/db";
+import { aiSkillsTable, aiSkillTypesTable, db } from "@workspace/db";
 import { requireAdmin, requireAdminPermission } from "../lib/admin-auth.js";
 import {
   ensureAiSkillTypesReady,
@@ -161,6 +161,47 @@ router.patch(
     invalidateSkillTypeCache();
     await refreshSkillTypeCache();
     res.json({ type: row });
+  },
+);
+
+router.delete(
+  "/admin/ai-skill-types/:id",
+  requireAdminPermission("manage_settings"),
+  async (req, res): Promise<void> => {
+    await ensureAiSkillTypesReady();
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(aiSkillTypesTable)
+      .where(eq(aiSkillTypesTable.id, id))
+      .limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (existing.isBuiltin === 1) {
+      res.status(400).json({ error: "Built-in skill types cannot be deleted." });
+      return;
+    }
+    const [inUse] = await db
+      .select({ id: aiSkillsTable.id })
+      .from(aiSkillsTable)
+      .where(eq(aiSkillsTable.skillType, existing.slug))
+      .limit(1);
+    if (inUse) {
+      res.status(400).json({
+        error: "This type is used by one or more skills. Delete or reassign those skills first.",
+      });
+      return;
+    }
+    await db.delete(aiSkillTypesTable).where(eq(aiSkillTypesTable.id, id));
+    invalidateSkillTypeCache();
+    await refreshSkillTypeCache();
+    res.json({ ok: true });
   },
 );
 

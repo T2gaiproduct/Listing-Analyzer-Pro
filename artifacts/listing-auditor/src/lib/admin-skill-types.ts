@@ -151,5 +151,10 @@ export function useAdminSkillTypeMutations() {
         }),
       onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "ai-skill-types"] }),
     }),
+    deleteType: useMutation({
+      mutationFn: (id: number) =>
+        fetchJson<{ ok: boolean }>(`${basePath}/api/admin/ai-skill-types/${id}`, { method: "DELETE" }),
+      onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "ai-skill-types"] }),
+    }),
   };
 }
