@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import {
   Users, FileText, BarChart2, CreditCard,
-  Layers, Shield, LogOut, ChevronRight, Settings,
+  Layers, Shield, ChevronRight, Settings,
   BadgePercent, ClipboardList,
   Bot, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
@@ -15,7 +15,6 @@ import {
   Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useClerk } from "@clerk/react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import type { RecentItem } from "@workspace/api-client-react";
@@ -326,7 +325,6 @@ function AdminNavSections({
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
-  const { signOut } = useClerk();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { can, defaultRoute } = useAdminPermissions();
   const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin/dashboard");
@@ -501,17 +499,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             layout="sidebar"
             className="w-full"
           />
-          <button
-            onClick={() => signOut({ redirectUrl: `${basePath}/` })}
-            title={collapsed ? "Sign Out" : undefined}
-            className={cn(
-              "flex items-center rounded-md text-xs font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all w-full min-h-9",
-              collapsed ? "justify-center px-2 py-1.5" : "gap-2.5 px-3 py-1.5 text-left"
-            )}
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            {!collapsed && "Sign Out"}
-          </button>
         </div>
       </aside>
 
@@ -580,13 +567,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               layout="sidebar"
               className="w-full"
             />
-            <button
-              onClick={() => signOut({ redirectUrl: `${basePath}/` })}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 w-full min-h-9"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Sign Out
-            </button>
           </div>
         </SheetContent>
       </Sheet>

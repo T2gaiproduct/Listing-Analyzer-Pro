@@ -97,8 +97,11 @@ export function ProfileAccountMenu({
               )
             : cn(
                 "w-full",
-                collapsed ? "justify-center w-10 h-10 mx-auto p-0" : "px-2 py-2 hover:bg-sidebar-accent/50",
-                profileOpen && !collapsed && "bg-sidebar-accent/50",
+                collapsed ? "justify-center w-10 h-10 mx-auto p-0" : "px-2 py-2",
+                variant === "admin"
+                  ? "hover:bg-slate-800/80"
+                  : "hover:bg-sidebar-accent/50",
+                profileOpen && !collapsed && (variant === "admin" ? "bg-slate-800/80" : "bg-sidebar-accent/50"),
               ),
         )}
         aria-label="Account menu"
@@ -123,7 +126,11 @@ export function ProfileAccountMenu({
               <p
                 className={cn(
                   "text-xs font-semibold leading-tight truncate",
-                  layout === "topbar" ? "text-foreground max-w-[7.5rem] lg:max-w-[120px]" : "text-sidebar-foreground",
+                  layout === "topbar"
+                    ? "text-foreground max-w-[7.5rem] lg:max-w-[120px]"
+                    : variant === "admin"
+                      ? "text-white"
+                      : "text-sidebar-foreground",
                 )}
               >
                 {displayName}
@@ -133,7 +140,9 @@ export function ProfileAccountMenu({
                   "text-[10px] leading-tight truncate",
                   layout === "topbar"
                     ? "text-muted-foreground text-[11px] max-w-[7.5rem] lg:max-w-[140px]"
-                    : "text-sidebar-foreground/65",
+                    : variant === "admin"
+                      ? "text-white/75"
+                      : "text-sidebar-foreground/65",
                 )}
               >
                 {layout === "topbar" ? profileSubtitle : (planOnly ?? profileSubtitle)}
@@ -142,7 +151,11 @@ export function ProfileAccountMenu({
             <ChevronDown
               className={cn(
                 "w-4 h-4 flex-shrink-0 transition-transform",
-                layout === "topbar" ? "text-muted-foreground hidden sm:block" : "text-sidebar-foreground/50",
+                layout === "topbar"
+                  ? "text-muted-foreground hidden sm:block"
+                  : variant === "admin"
+                    ? "text-white/60"
+                    : "text-sidebar-foreground/50",
                 profileOpen && "rotate-180",
               )}
             />
