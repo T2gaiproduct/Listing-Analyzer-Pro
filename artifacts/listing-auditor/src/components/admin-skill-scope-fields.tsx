@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Plus, Trash2 } from "lucide-react";
 import { AdminSearchableCategorySelect } from "@/components/admin-searchable-category-select";
@@ -87,30 +87,44 @@ export function AdminSkillScopeFields({
 
   const selectedMarketplace = marketplaces.find((m) => m.slug === marketplace);
 
+  const skillTypeSelectOptions = useMemo(() => {
+    if (imageSkillEditorMode) {
+      const imageTypes = skillTypeOptions.filter((t) => t.editorMode === "image");
+      if (imageTypes.some((t) => t.slug === skillType)) return imageTypes;
+      if (typeMeta) return [typeMeta, ...imageTypes.filter((t) => t.slug !== typeMeta.slug)];
+      return imageTypes;
+    }
+    if (editorMode === "audit") {
+      const auditTypes = skillTypeOptions.filter((t) => t.editorMode === "audit");
+      if (auditTypes.some((t) => t.slug === skillType)) return auditTypes;
+      if (typeMeta) return [typeMeta, ...auditTypes.filter((t) => t.slug !== typeMeta.slug)];
+      return auditTypes;
+    }
+    return skillTypeOptions;
+  }, [editorMode, imageSkillEditorMode, skillType, skillTypeOptions, typeMeta]);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label className="text-xs text-muted-foreground">Skill type</Label>
-          {imageSkillEditorMode ? (
+          {isMarketplaceSkill ? (
             <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
-              {typeMeta?.label ?? "Image generation"}
-            </p>
-          ) : editorMode === "image" && isImagePromptSkill ? (
-            <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
-              {typeMeta?.label ?? "Image generation"}
+              {typeMeta?.label ?? "Product content"}
+              <span className="text-xs text-muted-foreground font-normal block mt-0.5">
+                Synced from Seller marketplace settings — type cannot be changed here.
+              </span>
             </p>
           ) : (
             <Select
               value={skillType}
               onValueChange={(v) => onSkillTypeChange(v as SkillType)}
-              disabled={isMarketplaceSkill || isImagePromptSkill}
             >
               <SelectTrigger className="mt-1.5">
                 <SelectValue placeholder="Select skill type" />
               </SelectTrigger>
               <SelectContent className="max-h-72">
-                {skillTypeOptions.map((t) => (
+                {skillTypeSelectOptions.map((t) => (
                   <SelectItem key={t.slug} value={t.slug}>
                     {t.label}
                   </SelectItem>
