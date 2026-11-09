@@ -31,6 +31,7 @@ async function readSetting(key: string): Promise<string> {
 
 export async function getOpenAiLowBalanceThresholdUsd(): Promise<number> {
   const raw = await readSetting("openai_low_balance_usd");
+  if (!raw) return 25;
   const n = Number(raw);
   if (Number.isFinite(n) && n >= 0) return n;
   return 25;
