@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Plus, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAdminAiSkillsOverview } from "@/lib/admin-ai-skills-overview";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
-import { AdminOverviewImageLibrary } from "@/components/admin-overview-image-library";
+import { CategoryReferenceLibraryDialog } from "@/components/admin-overview-image-library";
 import { AdminOverviewSkillsTable } from "@/components/admin-overview-skills-table";
 import { findCategorySkillSlug } from "@/lib/admin-overview-skill-links";
 
@@ -48,14 +48,12 @@ export default function AdminAiOverviewPage() {
   const { data: skillsData } = useAdminAiSkills();
   const skills = skillsData?.skills ?? [];
 
-  const [libraryCategory, setLibraryCategory] = useState("Default");
-  const libraryRef = useRef<HTMLDivElement>(null);
+  const [refLibraryOpen, setRefLibraryOpen] = useState(false);
+  const [refLibraryCategory, setRefLibraryCategory] = useState("Default");
 
-  function scrollToImageLibrary(category: string) {
-    setLibraryCategory(category);
-    requestAnimationFrame(() => {
-      libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+  function openReferenceLibrary(category: string) {
+    setRefLibraryCategory(category);
+    setRefLibraryOpen(true);
   }
 
   function openContentSkill(category: string) {
@@ -68,12 +66,7 @@ export default function AdminAiOverviewPage() {
   }
 
   function openImageSkill(category: string) {
-    const slug = findCategorySkillSlug(skills, category, "product_images");
-    if (slug) {
-      navigate(`/admin/settings/ai/skills/${slug}`);
-      return;
-    }
-    scrollToImageLibrary(category);
+    openReferenceLibrary(category);
   }
 
   return (
@@ -143,8 +136,8 @@ export default function AdminAiOverviewPage() {
         <CardHeader>
           <CardTitle className="text-lg">Category coverage</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Click a row to manage that category. A category is ready when it has a published product content
-            skill, a published category image skill, and at least one approved reference image.
+            Open the image library to configure reference templates per category. Content skill opens the skill
+            editor; image skill, refs, and status open the library for that category.
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -182,7 +175,7 @@ export default function AdminAiOverviewPage() {
                     <button
                       type="button"
                       className="text-left hover:text-teal-800 hover:underline"
-                      onClick={() => scrollToImageLibrary(row.category)}
+                      onClick={() => openReferenceLibrary(row.category)}
                     >
                       {row.category}
                     </button>
@@ -206,7 +199,7 @@ export default function AdminAiOverviewPage() {
                   <td className="py-3 pr-4">
                     <StatusPill
                       asButton
-                      title="Category image skill or image library"
+                      title="Configure reference images for this category"
                       onClick={() => openImageSkill(row.category)}
                       tone={
                         row.imageSkillLabel === "Live"
@@ -226,13 +219,13 @@ export default function AdminAiOverviewPage() {
                         "hover:text-teal-800 hover:underline",
                         row.approvedRefCount === 0 && "text-rose-700 font-medium",
                       )}
-                      onClick={() => scrollToImageLibrary(row.category)}
+                      onClick={() => openReferenceLibrary(row.category)}
                     >
                       {row.approvedRefCount}
                     </button>
                   </td>
                   <td className="py-3">
-                    <button type="button" onClick={() => scrollToImageLibrary(row.category)}>
+                    <button type="button" onClick={() => openReferenceLibrary(row.category)}>
                       <Badge
                         variant="outline"
                         className={cn(
@@ -253,13 +246,12 @@ export default function AdminAiOverviewPage() {
         </CardContent>
       </Card>
 
-      <div ref={libraryRef}>
-        <AdminOverviewImageLibrary
-          selectedCategory={libraryCategory}
-          onSelectedCategoryChange={setLibraryCategory}
-          coverageRows={coverageRows}
-        />
-      </div>
+      <CategoryReferenceLibraryDialog
+        open={refLibraryOpen}
+        onOpenChange={setRefLibraryOpen}
+        initialCategory={refLibraryCategory}
+        coverageRows={coverageRows}
+      />
 
       <p className="text-xs text-muted-foreground">
         Provider keys and models:{" "}
