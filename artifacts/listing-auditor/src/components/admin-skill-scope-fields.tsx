@@ -139,17 +139,7 @@ export function AdminSkillScopeFields({
           </div>
         )}
         <div className="sm:col-span-2">
-          <div className="flex items-center justify-between gap-2">
-            <Label className="text-xs text-muted-foreground">Category</Label>
-            {!isMarketplaceSkill && (!isImagePromptSkill || imageSkillEditorMode) && (
-              <Link
-                href="/admin/settings/image-prompt-templates"
-                className="text-[11px] text-orange-600 hover:underline"
-              >
-                Full category manager
-              </Link>
-            )}
-          </div>
+          <Label className="text-xs text-muted-foreground">Category</Label>
           {isMarketplaceSkill ? (
             <p className="text-sm text-muted-foreground mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
               Marketplace content skills apply to all product categories for that marketplace.
@@ -323,15 +313,6 @@ export function AdminSkillScopeFields({
         </Link>
         .
       </p>
-      )}
-      {imageSkillEditorMode && (
-        <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-3">
-          Category drives which reference library appears in <strong>Test output</strong>. Upload refs in{" "}
-          <Link href="/admin/settings/ai/overview" className="text-orange-600 underline">
-            Overview → Image library
-          </Link>
-          .
-        </p>
       )}
     </div>
   );

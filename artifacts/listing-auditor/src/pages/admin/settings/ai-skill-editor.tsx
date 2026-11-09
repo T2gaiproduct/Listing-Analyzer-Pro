@@ -355,54 +355,34 @@ export default function AdminAiSkillEditorPage() {
   };
 
   return (
-    <div className="min-h-full bg-slate-50/80">
-      <header className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur px-6 py-4">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-3">
+    <div className="min-h-full bg-slate-50">
+      <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-slate-50/95 backdrop-blur px-4 sm:px-6 py-3">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-x-3 gap-y-2">
           <Link href={ADMIN_AI_SKILLS_HREF}>
             <Button type="button" variant="ghost" size="icon" className="shrink-0" aria-label="Back to skills">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
-          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold truncate">{displayTitle}</h1>
-              {isImageSkillEditor && skillRecord && (
-                <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
-                  <span>{imageSkillEditorVersionLabel(skillRecord)}</span>
-                </p>
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[12rem]">
+            <h1 className="text-lg sm:text-xl font-bold truncate">{displayTitle}</h1>
+            {isImageSkillEditor && skillRecord ? (
+              <span className="text-xs text-muted-foreground shrink-0">
+                {imageSkillEditorVersionLabel(skillRecord)}
+              </span>
+            ) : null}
+            <Badge
+              variant="outline"
+              className={cn(
+                "shrink-0 font-medium",
+                status === "published"
+                  ? "text-teal-800 bg-teal-50 border-teal-200"
+                  : "text-amber-800 bg-amber-50 border-amber-200",
               )}
-            </div>
-            {isImageSkillEditor && (
-              <>
-                <Badge variant="outline" className="text-slate-700 bg-white border-slate-200 font-medium">
-                  {skillRecord ? imageSkillEditorVersionLabel(skillRecord) : "Editing v1"}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={
-                    status === "published"
-                      ? "text-teal-800 bg-teal-50 border-teal-200 font-medium"
-                      : "text-amber-800 bg-amber-50 border-amber-200 font-medium"
-                  }
-                >
-                  {status === "published" ? "Live" : "Draft"}
-                </Badge>
-              </>
-            )}
-            {!isImageSkillEditor && (
-              <Badge
-                variant="outline"
-                className={
-                  status === "published"
-                    ? "text-teal-800 bg-teal-50 border-teal-200 font-medium"
-                    : "text-amber-800 bg-amber-50 border-amber-200 font-medium"
-                }
-              >
-                {displayTitle} · {status === "published" ? "Published" : "Draft"}
-              </Badge>
-            )}
+            >
+              {status === "published" ? "Live" : "Draft"}
+            </Badge>
           </div>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ml-auto justify-end">
             {isImagePromptSkill && imagePromptMeta && !imagePromptMeta.isSystem && (
               <Button
                 type="button"

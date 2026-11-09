@@ -24,3 +24,9 @@ export function isAdminAiSkillsPath(path: string): boolean {
   const p = path.split("?")[0] ?? path;
   return p === ADMIN_AI_SKILLS_HREF || p.startsWith(`${ADMIN_AI_SKILLS_HREF}/`);
 }
+
+/** Skill create/edit screen (not the Skills catalog list). */
+export function isAdminAiSkillEditorPath(path: string): boolean {
+  const p = path.split("?")[0] ?? path;
+  return p.startsWith(`${ADMIN_AI_SKILLS_HREF}/`);
+}

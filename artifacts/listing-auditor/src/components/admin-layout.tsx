@@ -22,7 +22,11 @@ import type { AdminPermission } from "@workspace/admin-permissions";
 import { AdminNotificationBell } from "@/components/admin-notification-bell";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { AdminAiSettingsNavGroup } from "@/components/admin-ai-settings-nav";
-import { ADMIN_AI_NAV_ITEMS, isAdminAiSettingsPath } from "@/lib/admin-ai-settings-nav";
+import {
+  ADMIN_AI_NAV_ITEMS,
+  isAdminAiSettingsPath,
+  isAdminAiSkillEditorPath,
+} from "@/lib/admin-ai-settings-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -572,22 +576,31 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       </Sheet>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-amber-400 flex-shrink-0" />
-        <DashboardTopbar
-          variant="admin"
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          searchResults={searchResults}
-          searchPlaceholder={searchPlaceholder}
-          displayName={displayName}
-          initials={initials}
-          email={userEmail}
-          planLabel=""
-          roleLabel={roleLabel}
-          showProfileMenu={false}
-          onMenuClick={() => setMobileNavOpen(true)}
-        />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden app-shell-padding bg-slate-50">
+        {!isAdminAiSkillEditorPath(location) && (
+          <>
+            <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-amber-400 flex-shrink-0" />
+            <DashboardTopbar
+              variant="admin"
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              searchResults={searchResults}
+              searchPlaceholder={searchPlaceholder}
+              displayName={displayName}
+              initials={initials}
+              email={userEmail}
+              planLabel=""
+              roleLabel={roleLabel}
+              showProfileMenu={false}
+              onMenuClick={() => setMobileNavOpen(true)}
+            />
+          </>
+        )}
+        <div
+          className={cn(
+            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-50",
+            !isAdminAiSkillEditorPath(location) && "app-shell-padding",
+          )}
+        >
           <div className="app-content-max w-full min-w-0">
             {children}
           </div>
