@@ -83,10 +83,14 @@ export type AdminProductCategory = {
   sortOrder: number;
 };
 
-/** Admin-configured product categories (image library / skills), excluding system Default. */
+/**
+ * Selectable product categories for image skills and reference libraries.
+ * Includes Amazon seed browse nodes (stored as system rows) and admin-added categories;
+ * only the fallback bucket `Default` is excluded.
+ */
 export function isConfiguredProductCategory(cat: AdminProductCategory): boolean {
   const name = cat.name.trim();
-  return !cat.isSystem && name.length > 0 && name !== "Default";
+  return name.length > 0 && name !== "Default";
 }
 
 export function configuredProductCategoryNames(categories: AdminProductCategory[]): string[] {
