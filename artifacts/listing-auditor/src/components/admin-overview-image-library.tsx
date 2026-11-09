@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -11,15 +11,16 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { ProtectedAppImage } from "@/components/protected-app-image";
 import {
   uploadAdminGraphicsExampleImage,
   useAdminGraphicsModuleExamples,
   useAdminProductCategories,
   useAdminProductCategoryMutations,
+  type GraphicsModuleExampleItem,
 } from "@/lib/graphics-module-examples";
 import { useAdminImagePromptTemplates } from "@/lib/image-prompt-templates";
 import type { CategoryCoverageRow } from "@/lib/admin-ai-skills-overview";
+import { GraphicsModuleExamplesGrid } from "@/components/graphics-module-examples-grid";
 
 type CategoryReferenceLibraryDialogProps = {
   open: boolean;
@@ -28,7 +29,7 @@ type CategoryReferenceLibraryDialogProps = {
   coverageRows: CategoryCoverageRow[];
 };
 
-function visibleCount(examples: { exampleImages?: { url: string }[]; exampleImageUrl?: string | null }[]) {
+function visibleTypeCount(examples: GraphicsModuleExampleItem[]) {
   return examples.filter(
     (e) => (e.exampleImages?.length ?? 0) > 0 || Boolean(e.exampleImageUrl),
   ).length;
@@ -52,8 +53,8 @@ export function CategoryReferenceLibraryDialog({
         <DialogHeader className="px-6 pt-6 pb-0 space-y-1">
           <DialogTitle>Image library</DialogTitle>
           <DialogDescription>
-            Reference images set the style templates users can pick from, category by category. Configure uploads
-            here only—one card per graphics type.
+            Reference images set the style templates users can pick from, category by category. Upload several images
+            per module (e.g. Hero Shot) with <strong>Add another</strong> on each card—only for the selected category.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-6 pb-6">
@@ -83,13 +84,13 @@ function CategoryReferenceLibraryBody({
   enabled,
 }: BodyProps) {
   const { toast } = useToast();
-  const bulkUploadRef = useRef<HTMLInputElement>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
   const categoryNames = useMemo(() => {
     const fromCoverage = coverageRows.map((r) => r.category);
     const fromCatalog = categories.map((c) => c.name);
-    return [...new Set([...fromCoverage, ...fromCatalog])];
+    return [...new Set([...fromCoverage, ...fromCatalog])].sort((a, b) => a.localeCompare(b));
   }, [coverageRows, categories]);
 
   const refCountByCategory = useMemo(() => {
@@ -103,10 +104,10 @@ function CategoryReferenceLibraryBody({
     "graphics",
   );
   const { data: templatesData } = useAdminImagePromptTemplates("graphics");
-  const { addExample, removeExample } = useAdminProductCategoryMutations();
+  const { createCategory, addExample, removeExample } = useAdminProductCategoryMutations();
 
   const [filterSlug, setFilterSlug] = useState<string>("all");
-  const [uploadingSlug, setUploadingSlug] = useState<string | null>(null);
+  const [savingSlug, setSavingSlug] = useState<string | null>(null);
 
   const examples = examplesData?.examples ?? [];
   const templates = templatesData?.templates ?? [];
@@ -134,13 +135,12 @@ function CategoryReferenceLibraryBody({
       ? mergedCards
       : mergedCards.filter((e) => e.templateSlug === filterSlug);
 
-  const visibleToUsers = visibleCount(mergedCards);
+  const visibleToUsers = visibleTypeCount(mergedCards);
   const totalTypes = mergedCards.length;
 
-  async function uploadForSlug(templateSlug: string, file: File) {
-    setUploadingSlug(templateSlug);
+  async function handleUpload(templateSlug: string, dataUrl: string) {
+    setSavingSlug(templateSlug);
     try {
-      const dataUrl = await readFileAsDataUrl(file);
       const url = await uploadAdminGraphicsExampleImage(dataUrl);
       await addExample.mutateAsync({
         productCategoryName: selectedCategory,
@@ -148,7 +148,7 @@ function CategoryReferenceLibraryBody({
         exampleImageUrl: url,
         templateCategory: "graphics",
       });
-      toast({ title: "Image uploaded", description: `${templateSlug} · ${selectedCategory}` });
+      toast({ title: "Example added", description: `${templateSlug} · ${selectedCategory}` });
     } catch (e) {
       toast({
         title: "Upload failed",
@@ -156,19 +156,41 @@ function CategoryReferenceLibraryBody({
         variant: "destructive",
       });
     } finally {
-      setUploadingSlug(null);
+      setSavingSlug(null);
     }
   }
 
-  async function clearAllForSlug(templateSlug: string) {
-    setUploadingSlug(templateSlug);
+  async function handleRemoveExample(templateSlug: string, exampleId: number) {
+    setSavingSlug(templateSlug);
+    try {
+      await removeExample.mutateAsync({
+        productCategoryName: selectedCategory,
+        templateSlug,
+        exampleId,
+        templateCategory: "graphics",
+      });
+      toast({ title: "Image removed" });
+    } catch (e) {
+      toast({
+        title: "Remove failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSlug(null);
+    }
+  }
+
+  async function handleClearAll(templateSlug: string) {
+    if (!window.confirm(`Remove all reference images for “${templateSlug}” in ${selectedCategory}?`)) return;
+    setSavingSlug(templateSlug);
     try {
       await removeExample.mutateAsync({
         productCategoryName: selectedCategory,
         templateSlug,
         templateCategory: "graphics",
       });
-      toast({ title: "Hidden from users", description: templateSlug });
+      toast({ title: "Module hidden", description: "No images left for this type in this category." });
     } catch (e) {
       toast({
         title: "Could not remove",
@@ -176,107 +198,115 @@ function CategoryReferenceLibraryBody({
         variant: "destructive",
       });
     } finally {
-      setUploadingSlug(null);
+      setSavingSlug(null);
     }
   }
 
-  const filterLabel =
-    filterSlug === "all"
-      ? "All types"
-      : (templates.find((t) => t.slug === filterSlug)?.name ?? filterSlug);
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 min-h-[420px]">
-      <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 space-y-1 max-h-[min(560px,70vh)] overflow-y-auto">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 pb-2">
+      <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 flex flex-col gap-2 max-h-[min(560px,70vh)]">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 pb-1">
           Categories
         </p>
-        {categoryNames.map((name) => {
-          const count = refCountByCategory.get(name) ?? 0;
-          const active = name === selectedCategory;
-          return (
-            <button
-              key={name}
-              type="button"
-              onClick={() => onSelectedCategoryChange(name)}
-              className={cn(
-                "w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors",
-                active
-                  ? "bg-teal-50 border border-teal-200 font-medium text-teal-900"
-                  : "hover:bg-white border border-transparent",
-              )}
-            >
-              <span className="truncate">{name}</span>
-              <span
+        <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+          {categoryNames.map((name) => {
+            const count = refCountByCategory.get(name) ?? 0;
+            const active = name === selectedCategory;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => onSelectedCategoryChange(name)}
                 className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
-                  count > 0 ? "bg-slate-200 text-slate-700" : "bg-rose-100 text-rose-800",
+                  "w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors",
+                  active
+                    ? "bg-teal-50 border border-teal-200 font-medium text-teal-900"
+                    : "hover:bg-white border border-transparent",
                 )}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="space-y-4 min-w-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-semibold text-lg">{selectedCategory}</h3>
-            <p className="text-xs text-muted-foreground">
-              {visibleToUsers} of {totalTypes || "—"} visible to users
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm min-w-[140px]"
-              value={filterSlug}
-              onChange={(e) => setFilterSlug(e.target.value)}
-            >
-              <option value="all">All types</option>
-              {templates.map((t) => (
-                <option key={t.slug} value={t.slug}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <input
-              ref={bulkUploadRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (!file) return;
-                const slug =
-                  filterSlug !== "all"
-                    ? filterSlug
-                    : mergedCards.find(
-                        (c) => !(c.exampleImages?.length || c.exampleImageUrl),
-                      )?.templateSlug;
-                if (!slug) {
-                  toast({
-                    title: "Pick a type",
-                    description: "Choose a graphics type in the dropdown before uploading.",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                void uploadForSlug(slug, file);
-              }}
+                <span className="truncate">{name}</span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+                    count > 0 ? "bg-slate-200 text-slate-700" : "bg-rose-100 text-rose-800",
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="pt-2 border-t border-slate-200 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">
+            Add category
+          </p>
+          <div className="flex gap-1.5">
+            <Input
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="e.g. Supplements"
+              className="h-8 text-xs"
             />
             <Button
               type="button"
               size="sm"
-              className="gap-1.5 bg-teal-700 hover:bg-teal-800"
-              onClick={() => bulkUploadRef.current?.click()}
+              variant="outline"
+              className="shrink-0 px-2"
+              disabled={!newCategoryName.trim() || createCategory.isPending}
+              title="Create category"
+              onClick={() => {
+                const name = newCategoryName.trim();
+                createCategory.mutate(name, {
+                  onSuccess: () => {
+                    setNewCategoryName("");
+                    onSelectedCategoryChange(name);
+                    toast({ title: "Category added", description: name });
+                  },
+                  onError: (err: Error) => {
+                    toast({
+                      title: "Could not add category",
+                      description: err.message,
+                      variant: "destructive",
+                    });
+                  },
+                });
+              }}
             >
-              <Upload className="w-4 h-4" />
-              Upload images
+              <Plus className="w-4 h-4" />
             </Button>
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 min-w-0">
+        <div
+          className="rounded-lg border border-orange-200 bg-orange-50/80 px-3 py-2 text-sm text-orange-950"
+          role="status"
+        >
+          Uploads apply only to <span className="font-semibold">{selectedCategory}</span>. Pick that category on the
+          left before adding Hero Shot or other module images.
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-lg">{selectedCategory}</h3>
+            <p className="text-xs text-muted-foreground">
+              {visibleToUsers} of {totalTypes || "—"} graphics types have reference images
+            </p>
+          </div>
+          <select
+            className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm min-w-[140px]"
+            value={filterSlug}
+            onChange={(e) => setFilterSlug(e.target.value)}
+          >
+            <option value="all">All types</option>
+            {templates.map((t) => (
+              <option key={t.slug} value={t.slug}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {isLoading ? (
@@ -285,106 +315,18 @@ function CategoryReferenceLibraryBody({
             Loading…
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-            {filteredExamples.map((item) => {
-              const imgs =
-                item.exampleImages?.length
-                  ? item.exampleImages
-                  : item.exampleImageUrl
-                    ? [{ id: 0, url: item.exampleImageUrl }]
-                    : [];
-              const hasImages = imgs.length > 0;
-              const busy = uploadingSlug === item.templateSlug;
-
-              return (
-                <TemplateCard
-                  key={item.templateSlug}
-                  name={item.name}
-                  icon={item.icon}
-                  hasImages={hasImages}
-                  previewUrl={imgs[0]?.url ?? null}
-                  busy={busy}
-                  onUploadFile={(file) => void uploadForSlug(item.templateSlug, file)}
-                  onVisibilityChange={(visible) => {
-                    if (!visible && hasImages) void clearAllForSlug(item.templateSlug);
-                  }}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {filterSlug !== "all" && (
-          <p className="text-[11px] text-muted-foreground">Uploading to: {filterLabel}</p>
+          <GraphicsModuleExamplesGrid
+            mode="admin"
+            examples={filteredExamples}
+            resolvedCategory={examplesData?.resolvedCategory ?? selectedCategory}
+            isLoading={false}
+            savingSlug={savingSlug}
+            onUpload={handleUpload}
+            onRemoveExample={handleRemoveExample}
+            onClearAll={handleClearAll}
+          />
         )}
       </div>
     </div>
   );
-}
-
-function TemplateCard({
-  name,
-  icon,
-  hasImages,
-  previewUrl,
-  busy,
-  onUploadFile,
-  onVisibilityChange,
-}: {
-  name: string;
-  icon: string | null;
-  hasImages: boolean;
-  previewUrl: string | null;
-  busy: boolean;
-  onUploadFile: (file: File) => void;
-  onVisibilityChange: (visible: boolean) => void;
-}) {
-  const uploadInputRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col shadow-sm">
-      <h4 className="px-3 pt-3 text-sm font-medium truncate">{name}</h4>
-      <div className="mt-2 mx-3 aspect-square bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center overflow-hidden">
-        {hasImages && previewUrl ? (
-          <ProtectedAppImage src={previewUrl} alt={name} className="w-full h-full object-contain p-2" />
-        ) : (
-          <span className="text-4xl opacity-25">{icon ?? "🖼️"}</span>
-        )}
-      </div>
-      <div className="p-3 flex items-center justify-between gap-2 border-t mt-2">
-        <span className="text-[11px] text-muted-foreground">
-          {hasImages ? "Visible to users" : "Hidden"}
-        </span>
-        <Switch
-          checked={hasImages}
-          disabled={busy}
-          onCheckedChange={(visible) => {
-            if (visible && !hasImages) uploadInputRef.current?.click();
-            else onVisibilityChange(visible);
-          }}
-          className="scale-90"
-        />
-      </div>
-      <input
-        ref={uploadInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) onUploadFile(file);
-        }}
-      />
-    </div>
-  );
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
 }
