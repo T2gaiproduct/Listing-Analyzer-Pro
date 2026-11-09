@@ -1,5 +1,8 @@
 import { Fragment, ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import { Search } from "lucide-react";
+import { ProfileAccountMenu } from "@/components/profile-account-menu";
+import { AdminInlineSearch } from "@/components/admin-inline-search";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import {
@@ -322,7 +325,7 @@ function AdminNavSections({
 }
 
 export function AdminLayout({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { signOut } = useClerk();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { can, defaultRoute } = useAdminPermissions();
@@ -403,10 +406,19 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     <div className="admin-app-shell flex h-screen w-full bg-slate-50 overflow-hidden">
       <aside className={cn("hidden lg:flex flex-shrink-0 bg-slate-900 text-white flex-col shadow-2xl z-10 transition-[width] duration-200", collapsed ? "w-16" : "w-64")}>
         {collapsed ? (
-          <div className="h-16 flex flex-col items-center justify-center gap-1 px-2 border-b border-slate-700/50">
+          <div className="h-auto flex flex-col items-center justify-center gap-1 px-2 py-2 border-b border-slate-700/50">
             <Link href={adminHome} aria-label="Dashboard">
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
+            <button
+              type="button"
+              title="Search"
+              aria-label="Expand sidebar to search"
+              onClick={() => setCollapsed(false)}
+              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
+            >
+              <Search className="w-4 h-4" />
+            </button>
             <AdminNotificationBell
               className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
             />
@@ -421,7 +433,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             </button>
           </div>
         ) : (
-          <div className="h-16 flex items-center gap-2 px-4 border-b border-slate-700/50">
+          <div className="flex flex-col gap-2 px-3 py-2.5 border-b border-slate-700/50">
+            <div className="flex items-center gap-2 min-h-9">
             <Link
               href={adminHome}
               aria-label="Admin dashboard"
@@ -429,7 +442,16 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             >
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
-            <div className="flex-1" />
+            <div className="flex-1 min-w-0">
+              <AdminInlineSearch
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                searchResults={searchResults}
+                searchPlaceholder={searchPlaceholder}
+                onNavigate={(url) => navigate(url)}
+                theme="dark"
+              />
+            </div>
             <AdminNotificationBell
               className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
             />
@@ -450,6 +472,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             >
               <PanelLeftClose className="w-4 h-4" />
             </button>
+            </div>
           </div>
         )}
 
@@ -466,6 +489,18 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="p-3 border-t border-slate-700/50 space-y-1">
+          <ProfileAccountMenu
+            displayName={displayName}
+            initials={initials}
+            email={userEmail}
+            planLabel=""
+            roleLabel={roleLabel}
+            variant="admin"
+            collapsed={collapsed}
+            dropdownDirection="up"
+            layout="sidebar"
+            className="w-full"
+          />
           <button
             onClick={() => signOut({ redirectUrl: `${basePath}/` })}
             title={collapsed ? "Sign Out" : undefined}
@@ -483,29 +518,42 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-[min(100vw-3rem,18rem)] p-0 bg-slate-900 text-slate-100 border-slate-800 flex flex-col lg:hidden">
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
-          <div className="h-14 flex items-center gap-2 px-4 border-b border-slate-700/50">
+          <div className="flex flex-col gap-2 px-3 py-3 border-b border-slate-700/50">
             <Link
               href={adminHome}
               onClick={() => setMobileNavOpen(false)}
-              className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity flex-1"
+              className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity"
             >
               <Shield className="w-5 h-5 text-orange-400 flex-shrink-0" />
               <span className="font-bold text-white truncate">
                 Super<span className="text-orange-400">Admin</span>
               </span>
             </Link>
-            <AdminNotificationBell
-              onNavigate={() => setMobileNavOpen(false)}
-              className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            <AdminInlineSearch
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              searchResults={searchResults}
+              searchPlaceholder={searchPlaceholder}
+              onNavigate={(url) => {
+                setMobileNavOpen(false);
+                navigate(url);
+              }}
+              theme="dark"
             />
-            <Link
-              href="/admin/archive"
-              onClick={() => setMobileNavOpen(false)}
-              aria-label="Archive"
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              <Archive className="w-4 h-4" />
-            </Link>
+            <div className="flex items-center gap-1 justify-end">
+              <AdminNotificationBell
+                onNavigate={() => setMobileNavOpen(false)}
+                className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+              />
+              <Link
+                href="/admin/archive"
+                onClick={() => setMobileNavOpen(false)}
+                aria-label="Archive"
+                className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <Archive className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
           <nav className="flex-1 py-3 overflow-y-auto px-3 space-y-3.5">
             <AdminNavSections
@@ -519,7 +567,19 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               onToggleAiSettingsNav={() => setAiSettingsNavOpen((v) => !v)}
             />
           </nav>
-          <div className="p-3 border-t border-slate-700/50">
+          <div className="p-3 border-t border-slate-700/50 space-y-1">
+            <ProfileAccountMenu
+              displayName={displayName}
+              initials={initials}
+              email={userEmail}
+              planLabel=""
+              roleLabel={roleLabel}
+              variant="admin"
+              collapsed={false}
+              dropdownDirection="up"
+              layout="sidebar"
+              className="w-full"
+            />
             <button
               onClick={() => signOut({ redirectUrl: `${basePath}/` })}
               className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 w-full min-h-9"
@@ -544,6 +604,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           email={userEmail}
           planLabel=""
           roleLabel={roleLabel}
+          showProfileMenu={false}
           onMenuClick={() => setMobileNavOpen(true)}
         />
         <div className="flex-1 overflow-y-auto overflow-x-hidden app-shell-padding bg-slate-50">
