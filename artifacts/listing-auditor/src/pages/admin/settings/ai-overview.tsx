@@ -177,8 +177,8 @@ export default function AdminAiOverviewPage() {
           Image Prompts
         </Link>
         , and provider keys under{" "}
-        <Link href="/admin/settings/ai/providers" className="text-orange-600 underline">
-          AI Settings → Providers
+        <Link href="/admin/settings/ai" className="text-orange-600 underline">
+          AI Settings
         </Link>
         .
       </p>

@@ -822,16 +822,16 @@ function Router() {
         <AdminRoute><AdminSettingsPlatform /></AdminRoute>
       </Route>
       <Route path="/admin/settings/ai">
-        <Redirect to="/admin/settings/ai/overview" />
+        <AdminRoute><AdminSettingsAI /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/ai/providers">
+        <Redirect to="/admin/settings/ai" />
       </Route>
       <Route path="/admin/settings/ai/overview">
         <AdminRoute><AdminAiOverview /></AdminRoute>
       </Route>
       <Route path="/admin/settings/ai/skills">
         <AdminRoute><AdminAiSkills /></AdminRoute>
-      </Route>
-      <Route path="/admin/settings/ai/providers">
-        <AdminRoute><AdminSettingsAI /></AdminRoute>
       </Route>
       <Route path="/admin/settings/default-agents">
         <AdminRoute><AdminSettingsDefaultAgents /></AdminRoute>
