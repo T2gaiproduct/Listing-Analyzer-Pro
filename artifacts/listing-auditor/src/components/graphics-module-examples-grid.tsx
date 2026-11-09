@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, Loader2, Plus, Upload, X } from "lucide-react";
+import { Check, Loader2, Plus, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ProtectedAppImage } from "@/components/protected-app-image";
@@ -57,15 +57,28 @@ export function GraphicsModuleExamplesGrid(props: GraphicsModuleExamplesGridProp
 
   if (!showGrid) return null;
 
+  const adminChrome = props.mode === "admin";
+
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+    <div
+      className={cn(
+        "space-y-3 rounded-xl border p-4",
+        adminChrome ? "border-teal-200/80 bg-teal-50/30" : "border-slate-200 bg-slate-50/50",
+      )}
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <p
+            className={cn(
+              "text-xs font-semibold uppercase tracking-wide",
+              adminChrome ? "text-teal-800/80" : "text-slate-500",
+            )}
+          >
             Studio examples
           </p>
           <p className="text-sm text-slate-700">
-            Category: <span className="font-medium">{resolvedCategory}</span>
+            Category:{" "}
+            <span className={cn("font-medium", adminChrome && "text-teal-900")}>{resolvedCategory}</span>
           </p>
           {props.mode === "admin" ? (
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -147,8 +160,15 @@ function ExampleCard(
   const canToggleView =
     props.mode === "view" && Boolean(props.onToggleStudioReference);
 
+  const adminCard = props.mode === "admin";
+
   return (
-    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden flex flex-col">
+    <div
+      className={cn(
+        "rounded-lg border bg-white overflow-hidden flex flex-col shadow-sm",
+        adminCard ? "border-slate-200 hover:border-teal-200/80 transition-colors" : "border-slate-200",
+      )}
+    >
       <div className="aspect-square relative bg-slate-100 flex items-center justify-center">
         {hasImages && props.mode === "view" && images.length > 1 ? (
           <div className="absolute inset-0 p-1.5 grid grid-cols-2 gap-1">
@@ -239,38 +259,54 @@ function ExampleCard(
                 if (file) void handleFile(file);
               }}
             />
-            <div className="absolute inset-x-0 bottom-0 flex gap-1 p-2 bg-gradient-to-t from-black/50 to-transparent">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="h-7 text-[10px] flex-1 gap-1"
-                disabled={isSaving || atMax}
-                onClick={() => inputRef.current?.click()}
-              >
-                {isSaving ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : hasImages ? (
-                  <Plus className="w-3 h-3" />
-                ) : (
-                  <Upload className="w-3 h-3" />
-                )}
-                {hasImages ? "Add another" : "Upload"}
-              </Button>
-              {hasImages ? (
+            {hasImages ? (
+              <div className="absolute inset-x-0 bottom-0 flex justify-end gap-1.5 p-2 bg-gradient-to-t from-teal-950/45 to-transparent">
                 <Button
                   type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 text-[10px] px-2"
+                  size="icon"
+                  className="h-8 w-8 bg-teal-700 hover:bg-teal-800 text-white shadow-sm"
+                  disabled={isSaving || atMax}
+                  title={atMax ? `Maximum ${MAX_EXAMPLES_HINT} images` : "Add another image"}
+                  aria-label="Add another image"
+                  onClick={() => inputRef.current?.click()}
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 bg-white/95 border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
                   disabled={isSaving}
-                  title="Remove all examples for this module"
+                  title="Remove all images for this module"
+                  aria-label="Remove all images for this module"
                   onClick={() => void props.onClearAll(item.templateSlug)}
                 >
-                  Clear all
+                  <Trash2 className="w-4 h-4" />
                 </Button>
-              ) : null}
-            </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={isSaving}
+                className="absolute inset-0 flex items-center justify-center group disabled:opacity-60"
+                title="Upload image"
+                aria-label="Upload image"
+                onClick={() => inputRef.current?.click()}
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-teal-700 text-white shadow-md ring-2 ring-white/80 transition group-hover:bg-teal-800 group-hover:scale-105">
+                  {isSaving ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Upload className="w-5 h-5" />
+                  )}
+                </span>
+              </button>
+            )}
           </>
         ) : null}
       </div>
@@ -308,9 +344,10 @@ function ExampleCard(
               <ProtectedAppImage src={img.url} alt="" className="w-full h-full object-cover" />
               <button
                 type="button"
-                className="absolute top-0.5 right-0.5 rounded bg-black/50 text-white p-0.5 hover:bg-red-600 disabled:opacity-50"
+                className="absolute top-0.5 right-0.5 rounded-md bg-teal-900/70 text-white p-0.5 hover:bg-rose-600 disabled:opacity-50"
                 disabled={isSaving || img.id <= 0}
                 title={img.id <= 0 ? "Refresh the page to remove" : "Remove this image"}
+                aria-label="Remove this image"
                 onClick={() => {
                   if (img.id > 0) void props.onRemoveExample(item.templateSlug, img.id);
                 }}
