@@ -1,11 +1,19 @@
 import type { ImagePromptTemplateAdmin } from "@/lib/image-prompt-templates";
+import { parseImageStyleSkillKeys } from "@/lib/admin-image-style-skill";
 
 export function buildImagePromptInstructionsFromTemplate(tpl: ImagePromptTemplateAdmin): string {
+  const style = parseImageStyleSkillKeys("");
   const header = [
     `name: ${tpl.name} · Image prompt`,
     "skill_kind: image_prompt",
     `template_category: ${tpl.category}`,
     `template_slug: ${tpl.slug}`,
+    `aspect: ${style.aspect}`,
+    `images_per_run: ${style.imagesPerRun}`,
+    `reference_lock: ${style.referenceLock}`,
+    `text_overlay: ${style.textOverlay}`,
+    `background: ${style.background}`,
+    `people: ${style.people}`,
   ];
   const bodyParts = [`prompt_template: ${tpl.promptTemplate.trim()}`];
   if (tpl.headlineTemplate?.trim()) {

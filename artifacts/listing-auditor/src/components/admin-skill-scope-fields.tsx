@@ -38,6 +38,7 @@ type AdminSkillScopeFieldsProps = {
   marketplaces: ContentMarketplaceAdmin[];
   isMarketplaceSkill: boolean;
   isImagePromptSkill?: boolean;
+  imageSkillEditorMode?: boolean;
   contentMarketplaceId?: number | null;
 };
 
@@ -53,6 +54,7 @@ export function AdminSkillScopeFields({
   marketplaces,
   isMarketplaceSkill,
   isImagePromptSkill = false,
+  imageSkillEditorMode = false,
   contentMarketplaceId,
 }: AdminSkillScopeFieldsProps) {
   const { toast } = useToast();
@@ -68,41 +70,49 @@ export function AdminSkillScopeFields({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label className="text-xs text-muted-foreground">Skill type</Label>
-          <Select
-            value={skillType}
-            onValueChange={(v) => onSkillTypeChange(v as SkillType)}
-            disabled={isMarketplaceSkill || isImagePromptSkill}
-          >
-            <SelectTrigger className="mt-1.5">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="listing_audit">Listing audit</SelectItem>
-              <SelectItem value="product_content">Product content</SelectItem>
-              <SelectItem value="product_images">Product images</SelectItem>
-              <SelectItem value="aplus_content">A+ content</SelectItem>
-            </SelectContent>
-          </Select>
+          {imageSkillEditorMode ? (
+            <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
+              Image generation
+            </p>
+          ) : (
+            <Select
+              value={skillType}
+              onValueChange={(v) => onSkillTypeChange(v as SkillType)}
+              disabled={isMarketplaceSkill || isImagePromptSkill}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="listing_audit">Listing audit</SelectItem>
+                <SelectItem value="product_content">Product content</SelectItem>
+                <SelectItem value="product_images">Product images</SelectItem>
+                <SelectItem value="aplus_content">A+ content</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">AI model</Label>
-          <Select value={aiModel} onValueChange={onAiModelChange}>
-            <SelectTrigger className="mt-1.5">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {AI_MODELS.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {!imageSkillEditorMode && (
+          <div>
+            <Label className="text-xs text-muted-foreground">AI model</Label>
+            <Select value={aiModel} onValueChange={onAiModelChange}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {AI_MODELS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="sm:col-span-2">
           <div className="flex items-center justify-between gap-2">
             <Label className="text-xs text-muted-foreground">Category</Label>
-            {!isMarketplaceSkill && !isImagePromptSkill && (
+            {!isMarketplaceSkill && (!isImagePromptSkill || imageSkillEditorMode) && (
               <Link
                 href="/admin/settings/image-prompt-templates"
                 className="text-[11px] text-orange-600 hover:underline"
@@ -115,7 +125,7 @@ export function AdminSkillScopeFields({
             <p className="text-sm text-muted-foreground mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
               Marketplace content skills apply to all product categories for that marketplace.
             </p>
-          ) : isImagePromptSkill ? (
+          ) : isImagePromptSkill && !imageSkillEditorMode ? (
             <p className="text-sm text-muted-foreground mt-1.5 rounded-md border border-violet-200 bg-violet-50/40 px-3 py-2">
               This skill is global for one graphics/A+ type (
               <span className="font-mono text-[11px]">template_slug</span> in instructions). Per-category{" "}
@@ -218,6 +228,7 @@ export function AdminSkillScopeFields({
             </>
           )}
         </div>
+        {!imageSkillEditorMode && (
         <div className="sm:col-span-2">
           <Label className="text-xs text-muted-foreground">Marketplace</Label>
           {isMarketplaceSkill ? (
@@ -247,7 +258,9 @@ export function AdminSkillScopeFields({
             </Select>
           )}
         </div>
+        )}
       </div>
+      {!imageSkillEditorMode && (
       <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-3">
         <strong>Marketplace listing skills:</strong> create with{" "}
         <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
@@ -259,6 +272,16 @@ export function AdminSkillScopeFields({
         </Link>
         .
       </p>
+      )}
+      {imageSkillEditorMode && (
+        <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-3">
+          Category drives which reference library appears in <strong>Test output</strong>. Upload refs in{" "}
+          <Link href="/admin/settings/ai/overview" className="text-orange-600 underline">
+            Overview → Image library
+          </Link>
+          .
+        </p>
+      )}
     </div>
   );
 }

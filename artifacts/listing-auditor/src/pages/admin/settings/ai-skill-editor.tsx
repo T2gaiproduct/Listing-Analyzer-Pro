@@ -26,7 +26,17 @@ import { AdminSkillScopeFields } from "@/components/admin-skill-scope-fields";
 import { AdminMarketplaceSkillSettings } from "@/components/admin-marketplace-skill-settings";
 import { AdminImagePromptSkillSettings } from "@/components/admin-image-prompt-skill-settings";
 import { extractSkillInstructionBody } from "@/lib/marketplace-skill-utils";
-import { buildImagePromptInstructionsFromTemplate } from "@/lib/image-prompt-skill-utils";
+import {
+  buildImagePromptInstructionsFromTemplate,
+  parseImagePromptFieldsFromInstructions,
+} from "@/lib/image-prompt-skill-utils";
+import { AdminImageSkillEditorPreview } from "@/components/admin-image-skill-editor-preview";
+import {
+  imageSkillEditorVersionLabel,
+  parseTemplateCategoryFromInstructions,
+  parseTemplateSlugFromInstructions,
+} from "@/lib/admin-image-style-skill";
+import { skillCatalogFilename } from "@/lib/admin-skills-catalog";
 import {
   deleteAdminImagePromptTemplate,
   saveAdminImagePromptTemplate,
@@ -126,13 +136,35 @@ export default function AdminAiSkillEditorPage() {
   }, [skillData?.skill?.contentMarketplaceId, marketplaces]);
 
   const parsed = useMemo(() => parseSkillInstructions(instructionsText), [instructionsText]);
-  const pageTitle = parsed.name || (isNew ? "New skill" : "Edit skill");
   const isMarketplaceSkill =
     skillData?.skill?.skillKind === "marketplace_content"
     || skillData?.skill?.contentMarketplaceId != null;
   const isImagePromptSkill =
     skillData?.skill?.skillKind === "image_prompt"
     || skillData?.skill?.imagePromptTemplateId != null;
+  const isImageSkillEditor =
+  isImagePromptSkill
+  || (
+    !isMarketplaceSkill
+    && skillType !== "listing_audit"
+    && skillType !== "product_content"
+    && (skillType === "product_images" || skillType === "aplus_content")
+  );
+  const skillRecord = skillData?.skill;
+  const displayTitle =
+    skillRecord?.name?.trim()
+    || parsed.name
+    || (isNew ? "New skill" : "Edit skill");
+  const skillFileLabel =
+    uploadName
+    ?? (skillRecord ? skillCatalogFilename(skillRecord) : null);
+  const imageTemplateSlug =
+    imagePromptMeta?.slug
+    ?? parseTemplateSlugFromInstructions(instructionsText);
+  const imageTemplateCategory =
+    imagePromptMeta?.category
+    ?? parseTemplateCategoryFromInstructions(instructionsText)
+    ?? (skillType === "aplus_content" ? "aplus" : "graphics");
 
   useEffect(() => {
     const tplId = skillData?.skill?.imagePromptTemplateId;
@@ -190,14 +222,19 @@ export default function AdminAiSkillEditorPage() {
     try {
       let instructionsForSave = instructionsText;
       if (isImagePromptSkill && imagePromptMeta) {
-        await saveAdminImagePromptTemplate({
+        const parsedPrompt = parseImagePromptFieldsFromInstructions(instructionsText);
+        const mergedTpl = {
           ...imagePromptMeta,
+          promptTemplate: parsedPrompt.promptTemplate || imagePromptMeta.promptTemplate,
+          headlineTemplate: parsedPrompt.headlineTemplate || imagePromptMeta.headlineTemplate,
+          bodyTemplate: parsedPrompt.bodyTemplate || imagePromptMeta.bodyTemplate,
           enabled: nextStatus === "published",
-        });
-        instructionsForSave = buildImagePromptInstructionsFromTemplate({
-          ...imagePromptMeta,
-          enabled: nextStatus === "published",
-        });
+        };
+        await saveAdminImagePromptTemplate(mergedTpl);
+        setImagePromptMeta(mergedTpl);
+        instructionsForSave = instructionsText.includes("prompt_template:")
+          ? instructionsText
+          : buildImagePromptInstructionsFromTemplate(mergedTpl);
         setInstructionsText(instructionsForSave);
       }
 
@@ -304,17 +341,43 @@ export default function AdminAiSkillEditorPage() {
             </Button>
           </Link>
           <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-            <h1 className="text-xl font-bold truncate">{pageTitle}</h1>
-            <Badge
-              variant="outline"
-              className={
-                status === "published"
-                  ? "text-teal-800 bg-teal-50 border-teal-200 font-medium"
-                  : "text-amber-800 bg-amber-50 border-amber-200 font-medium"
-              }
-            >
-              {pageTitle} · {status === "published" ? "Published" : "Draft"}
-            </Badge>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold truncate">{displayTitle}</h1>
+              {isImageSkillEditor && skillRecord && (
+                <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
+                  <span>{imageSkillEditorVersionLabel(skillRecord)}</span>
+                </p>
+              )}
+            </div>
+            {isImageSkillEditor && (
+              <>
+                <Badge variant="outline" className="text-slate-700 bg-white border-slate-200 font-medium">
+                  {skillRecord ? imageSkillEditorVersionLabel(skillRecord) : "Editing v1"}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={
+                    status === "published"
+                      ? "text-teal-800 bg-teal-50 border-teal-200 font-medium"
+                      : "text-amber-800 bg-amber-50 border-amber-200 font-medium"
+                  }
+                >
+                  {status === "published" ? "Live" : "Draft"}
+                </Badge>
+              </>
+            )}
+            {!isImageSkillEditor && (
+              <Badge
+                variant="outline"
+                className={
+                  status === "published"
+                    ? "text-teal-800 bg-teal-50 border-teal-200 font-medium"
+                    : "text-amber-800 bg-amber-50 border-amber-200 font-medium"
+                }
+              >
+                {displayTitle} · {status === "published" ? "Published" : "Draft"}
+              </Badge>
+            )}
           </div>
           <div className="flex gap-2 ml-auto">
             {isImagePromptSkill && imagePromptMeta && !imagePromptMeta.isSystem && (
@@ -368,14 +431,22 @@ export default function AdminAiSkillEditorPage() {
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 className={cn(
-                  "w-full rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80",
-                  "px-4 py-8 text-center hover:border-teal-300 hover:bg-teal-50/40 transition-colors",
+                  "w-full rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors",
+                  skillFileLabel
+                    ? "border-teal-300 bg-teal-50/50 hover:border-teal-400 hover:bg-teal-50"
+                    : "border-slate-200 bg-slate-50/80 hover:border-teal-300 hover:bg-teal-50/40",
                 )}
               >
-                <FileUp className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                <FileUp className={cn("w-8 h-8 mx-auto mb-2", skillFileLabel ? "text-teal-700" : "text-slate-400")} />
                 <p className="text-sm font-semibold text-slate-800">Upload a skill file</p>
                 <p className="text-xs text-muted-foreground mt-1">.md, .txt or .json — replaces the text below</p>
-                <p className="text-xs text-slate-500 mt-3">{uploadName ? uploadName : "No file yet"}</p>
+                {skillFileLabel ? (
+                  <p className="text-xs font-mono text-teal-800 mt-3 inline-flex items-center gap-1.5 rounded-md bg-white/80 px-2 py-1 border border-teal-200">
+                    {skillFileLabel}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500 mt-3">No file yet</p>
+                )}
               </button>
               <input
                 ref={fileRef}
@@ -399,7 +470,9 @@ export default function AdminAiSkillEditorPage() {
                 <p className="text-[11px] text-muted-foreground mt-2">
                   {skillType === "listing_audit"
                     ? "Keys: title_weight, bullet_weight, image_weight, keyword_weight, show_title/show_bullets/show_images/show_keywords (yes/no), score_offset, score_floor, score_ceiling. Rubric text under # Generation instructions. Re-run audits to apply changes."
-                    : "One rule per line as key: value. Try changing bullets or title_max and watch the test output."}
+                    : isImageSkillEditor
+                      ? "One rule per line as key: value. Try changing aspect, images_per_run, or reference_lock and watch the test output."
+                      : "One rule per line as key: value. Try changing bullets or title_max and watch the test output."}
                 </p>
               </div>
             </CardContent>
@@ -422,12 +495,13 @@ export default function AdminAiSkillEditorPage() {
                 marketplaces={marketplaces}
                 isMarketplaceSkill={isMarketplaceSkill}
                 isImagePromptSkill={isImagePromptSkill}
+                imageSkillEditorMode={isImageSkillEditor}
                 contentMarketplaceId={skillData?.skill?.contentMarketplaceId}
               />
             </CardContent>
           </Card>
 
-          {isImagePromptSkill && imagePromptMeta && (
+          {isImagePromptSkill && imagePromptMeta && !isImageSkillEditor && (
             <AdminImagePromptSkillSettings
               value={imagePromptMeta}
               onChange={(next) => {
@@ -446,12 +520,40 @@ export default function AdminAiSkillEditorPage() {
         <Card className="xl:min-h-[640px] flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base">Test output</CardTitle>
-            <Button type="button" size="sm" className="gap-1.5" onClick={runTest}>
-              <Play className="w-3.5 h-3.5" />
-              Run test
-            </Button>
+            {!isImageSkillEditor && (
+              <Button type="button" size="sm" className="gap-1.5" onClick={runTest}>
+                <Play className="w-3.5 h-3.5" />
+                Run test
+              </Button>
+            )}
+            {isImageSkillEditor && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => {
+                  toast({
+                    title: "Preview updated",
+                    description: "Reference previews reflect the category and skill keys above.",
+                  });
+                }}
+              >
+                <Play className="w-3.5 h-3.5" />
+                Run test
+              </Button>
+            )}
           </CardHeader>
-          <CardContent className="space-y-4 flex-1">
+          <CardContent className="space-y-4 flex-1 flex flex-col">
+            {isImageSkillEditor ? (
+              <AdminImageSkillEditorPreview
+                instructionsText={instructionsText}
+                category={category}
+                templateSlug={imageTemplateSlug}
+                templateCategory={imageTemplateCategory}
+              />
+            ) : (
+              <>
             <div>
               <Label className="text-xs text-muted-foreground">Sample product</Label>
               <Select value={sampleProductId} onValueChange={setSampleProductId}>
@@ -528,6 +630,8 @@ export default function AdminAiSkillEditorPage() {
                   {testOutput.sampleCategory}.
                 </p>
               </div>
+            )}
+              </>
             )}
           </CardContent>
         </Card>
