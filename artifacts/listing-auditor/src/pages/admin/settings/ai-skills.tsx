@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { AdminSkillsCatalogTable } from "@/components/admin-skills-catalog-table";
 import { AdminSkillTypesPanel } from "@/components/admin-skill-types-panel";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
+import { ADMIN_CONTENT_MARKETPLACES_HREF } from "@/lib/admin-ai-settings-nav";
 
 export default function AdminAiSkillsPage() {
   const { data, isLoading, isError, error } = useAdminAiSkills();
@@ -42,9 +43,14 @@ export default function AdminAiSkillsPage() {
         <AdminSkillTypesPanel />
 
         <p className="text-xs text-muted-foreground">
-          Category reference images (Hero Shot, lifestyle, etc.) are not skills—they live in{" "}
+          To add Amazon, eBay, Etsy, or another channel for <strong>product text</strong>, use{" "}
+          <Link href={ADMIN_CONTENT_MARKETPLACES_HREF} className="text-orange-600 underline font-medium">
+            AI Settings → Marketplaces
+          </Link>
+          . Each marketplace becomes a <strong>Product content</strong> skill on this list after you save. Category
+          reference images (Hero Shot, lifestyle, etc.) are configured on{" "}
           <Link href="/admin/settings/ai/overview" className="text-orange-600 underline font-medium">
-            Admin Overview → Category coverage → Image library
+            Overview → Image library
           </Link>
           .
         </p>

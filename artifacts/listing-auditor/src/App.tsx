@@ -859,7 +859,7 @@ function Router() {
         <Redirect to="/admin/settings/ai/skills" />
       </Route>
       <Route path="/admin/settings/content-marketplaces">
-        <Redirect to="/admin/settings/ai/skills" />
+        <AdminRoute><AdminSettingsContentMarketplaces /></AdminRoute>
       </Route>
 
       {/* Marketing */}
