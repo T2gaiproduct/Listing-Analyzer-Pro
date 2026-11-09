@@ -121,10 +121,17 @@ build_listing_auditor_preview() {
     cd "$ROOT"
     export PORT=19145
     export BASE_PATH=/
-    export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
     export VITE_ADMIN_USER_IDS="$ADMIN_IDS_FOR_STACK"
-    if [[ -n "$clerk_proxy_export" ]]; then
-      eval "$clerk_proxy_export"
+    if dev_stack_uses_native_auth; then
+      export VITE_AUTH_PROVIDER=native
+      export VITE_CLOUD_AGENT_PREVIEW=true
+      unset VITE_CLERK_PUBLISHABLE_KEY
+      unset VITE_CLERK_PROXY_URL
+    else
+      export VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
+      if [[ -n "$clerk_proxy_export" ]]; then
+        eval "$clerk_proxy_export"
+      fi
     fi
     pnpm --filter @workspace/listing-auditor run build
   )
@@ -146,19 +153,35 @@ start_frontend_live() {
       done
     "
   else
-    tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
-      export PORT=19145
-      export BASE_PATH=/
-      export VITE_DISABLE_HMR=true
-      export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-      export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-      $clerk_proxy_export
-      while true; do
-        pnpm --filter @workspace/listing-auditor run dev || true
-        echo 'Frontend exited — restarting in 3s...'
-        sleep 3
-      done
-    "
+    if dev_stack_uses_native_auth; then
+      tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
+        export PORT=19145
+        export BASE_PATH=/
+        export VITE_DISABLE_HMR=true
+        export VITE_AUTH_PROVIDER=native
+        export VITE_CLOUD_AGENT_PREVIEW=true
+        export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+        while true; do
+          pnpm --filter @workspace/listing-auditor run dev || true
+          echo 'Frontend exited — restarting in 3s...'
+          sleep 3
+        done
+      "
+    else
+      tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
+        export PORT=19145
+        export BASE_PATH=/
+        export VITE_DISABLE_HMR=true
+        export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+        export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+        $clerk_proxy_export
+        while true; do
+          pnpm --filter @workspace/listing-auditor run dev || true
+          echo 'Frontend exited — restarting in 3s...'
+          sleep 3
+        done
+      "
+    fi
   fi
 }
 
@@ -290,13 +313,50 @@ using_cloud_agent_quick_tunnel() {
   ! should_skip_cloudflare_tunnel && ! using_named_cloudflare_tunnel
 }
 
+# Quick-tunnel Cloud Agent previews default to native email/password auth (no Clerk UI).
+# Set DEV_STACK_USE_CLERK=true to keep Clerk on *.trycloudflare.com, or DEV_STACK_NATIVE_AUTH=1 elsewhere.
+dev_stack_uses_native_auth() {
+  [[ "${DEV_STACK_USE_CLERK:-}" == "true" ]] && return 1
+  [[ "${DEV_STACK_NATIVE_AUTH:-}" == "1" ]] && return 0
+  using_cloud_agent_quick_tunnel
+}
+
 # Opt-in *.trycloudflare.com behavior in app code (off in staging/production deploys).
 apply_cloud_agent_quick_tunnel_env() {
   if using_cloud_agent_quick_tunnel; then
     export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=true
     export VITE_CLOUD_AGENT_PREVIEW=true
+    if [[ "${DEV_STACK_USE_CLERK:-}" != "true" ]]; then
+      export DEV_STACK_NATIVE_AUTH=1
+    fi
     echo "==> Cloud Agent quick tunnel: ENABLE_CLOUD_AGENT_QUICK_TUNNEL + VITE_CLOUD_AGENT_PREVIEW (local dev-stack only)" >&2
   fi
+}
+
+AUTH_SESSION_SECRET_FOR_STACK="${AUTH_SESSION_SECRET:-dev-cloud-agent-native-auth-secret}"
+CLERK_DUMMY_PK_FOR_NATIVE="pk_test_Y2xlcmsuZXhhbXBsZS5jb20k"
+CLERK_DUMMY_SK_FOR_NATIVE="sk_test_0000000000000000000000000000000000000000"
+
+ensure_dev_native_login() {
+  echo "==> Ensuring native dev login (dev@local.test, multiws@local.test)"
+  export DATABASE_URL
+  export NATIVE_AUTH_ENABLED=true
+  export AUTH_SESSION_SECRET="$AUTH_SESSION_SECRET_FOR_STACK"
+  bash "$ROOT/scripts/set-native-auth-password.sh" user_devstack_local01 dev@local.test 'DevAudit!2026' || true
+  bash "$ROOT/scripts/set-native-auth-password.sh" user_dev_multiws_native01 multiws@local.test 'DemoAudit!2026' || true
+}
+
+wait_for_tmux_session_done() {
+  local session="$1"
+  local attempts="${2:-180}"
+  for _ in $(seq 1 "$attempts"); do
+    if ! tmux_cmd has-session -t "$session" 2>/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "WARNING: tmux session $session still running after ${attempts}s" >&2
+  return 1
 }
 
 is_clerk_development_instance() {
@@ -520,32 +580,67 @@ done
 
 apply_cloud_agent_quick_tunnel_env
 
+DEV_STACK_AUTH_MODE="clerk"
+if dev_stack_uses_native_auth; then
+  DEV_STACK_AUTH_MODE="native"
+  AUTH_SESSION_SECRET_FOR_STACK="${AUTH_SESSION_SECRET:-dev-cloud-agent-native-auth-secret}"
+  CLERK_PUB_FOR_STACK="$CLERK_DUMMY_PK_FOR_NATIVE"
+  CLERK_SEC_FOR_STACK="${CLERK_SEC_FOR_STACK:-$CLERK_DUMMY_SK_FOR_NATIVE}"
+  echo "==> Dev stack auth: native (email/password). Set DEV_STACK_USE_CLERK=true to use Clerk UI on this preview." >&2
+fi
+
 echo "==> Applying database schema (local sync)"
 tmux_cmd kill-session -t db-push 2>/dev/null || true
 tmux_cmd new-session -d -s db-push -c "$ROOT" -- bash -lc "
   export DATABASE_URL='$DATABASE_URL'
   bash scripts/sync-local-db.sh
 "
+wait_for_tmux_session_done db-push 300 || true
+if [[ "$DEV_STACK_AUTH_MODE" == "native" ]]; then
+  ensure_dev_native_login
+fi
 
 echo "==> Starting API server (port 8080)"
 tmux_cmd kill-session -t api-server-live 2>/dev/null || true
-tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
-  if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
-  export DATABASE_URL='$DATABASE_URL'
-  export PORT=8080
-  export ENABLE_CLERK_PROXY=\"\${ENABLE_CLERK_PROXY:-true}\"
-  export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-  export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
-  export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-  export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
-  export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
-  export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
-  export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
-  export AI_AGENT_EXECUTION_PROVIDER=\"\${AI_AGENT_EXECUTION_PROVIDER:-}\"
-  export MAKE_AGENT_WEBHOOK_URL=\"\${MAKE_AGENT_WEBHOOK_URL:-}\"
-  export MAKE_TOOL_SECRET=\"\${MAKE_TOOL_SECRET:-}\"
-  pnpm --filter @workspace/api-server run dev
-"
+if [[ "$DEV_STACK_AUTH_MODE" == "native" ]]; then
+  tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
+    if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
+    export DATABASE_URL='$DATABASE_URL'
+    export PORT=8080
+    export NATIVE_AUTH_ENABLED=true
+    export AUTH_SESSION_SECRET='$AUTH_SESSION_SECRET_FOR_STACK'
+    export ENABLE_CLERK_PROXY=false
+    export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+    export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+    export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
+    export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
+    export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
+    export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+    export AI_AGENT_EXECUTION_PROVIDER=\"\${AI_AGENT_EXECUTION_PROVIDER:-}\"
+    export MAKE_AGENT_WEBHOOK_URL=\"\${MAKE_AGENT_WEBHOOK_URL:-}\"
+    export MAKE_TOOL_SECRET=\"\${MAKE_TOOL_SECRET:-}\"
+    pnpm --filter @workspace/api-server run dev
+  "
+else
+  tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
+    if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
+    export DATABASE_URL='$DATABASE_URL'
+    export PORT=8080
+    export ENABLE_CLERK_PROXY=\"\${ENABLE_CLERK_PROXY:-true}\"
+    export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+    export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+    export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
+    export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
+    export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
+    export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+    export AI_AGENT_EXECUTION_PROVIDER=\"\${AI_AGENT_EXECUTION_PROVIDER:-}\"
+    export MAKE_AGENT_WEBHOOK_URL=\"\${MAKE_AGENT_WEBHOOK_URL:-}\"
+    export MAKE_TOOL_SECRET=\"\${MAKE_TOOL_SECRET:-}\"
+    pnpm --filter @workspace/api-server run dev
+  "
+fi
 
 echo "==> Starting frontend (port 19145)"
 start_frontend_live ""
@@ -584,6 +679,9 @@ if [[ -n "$PUBLIC_URL" ]]; then
   else
     echo "  Cloudflare: $PUBLIC_URL/admin/dashboard"
     echo "  Sign in:    $PUBLIC_URL/sign-in"
+    if [[ "$DEV_STACK_AUTH_MODE" == "native" ]]; then
+      echo "  Native auth: dev@local.test / DevAudit!2026  (multiws@local.test / DemoAudit!2026)"
+    fi
     if using_named_cloudflare_tunnel; then
       echo "  (stable named tunnel — URL does not change on restart)"
     else
@@ -594,17 +692,22 @@ if [[ -n "$PUBLIC_URL" ]]; then
   if should_skip_cloudflare_tunnel; then
     echo "==> Configuring Amazon OAuth redirect for local dev"
     configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
+  elif [[ "$DEV_STACK_AUTH_MODE" == "native" ]]; then
+    echo "==> Cloudflare preview: native auth (skipping Clerk proxy configuration)"
+    configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
   else
     echo "==> Cloudflare preview (local-only): will not change Clerk production proxy_url"
   fi
-  CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
-  if using_named_cloudflare_tunnel; then
-    configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
-  elif [[ -n "$PUBLIC_URL" && "$PUBLIC_URL" == *".trycloudflare.com"* ]]; then
-    clear_stale_trycloudflare_clerk_proxy
-  fi
-  if ! should_skip_cloudflare_tunnel; then
-    configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
+  if [[ "$DEV_STACK_AUTH_MODE" != "native" ]]; then
+    CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
+    if using_named_cloudflare_tunnel; then
+      configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
+    elif [[ -n "$PUBLIC_URL" && "$PUBLIC_URL" == *".trycloudflare.com"* ]]; then
+      clear_stale_trycloudflare_clerk_proxy
+    fi
+    if ! should_skip_cloudflare_tunnel; then
+      configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
+    fi
   fi
   tmux_cmd kill-session -t api-server-live 2>/dev/null || true
   kill_port 8080
@@ -612,33 +715,58 @@ if [[ -n "$PUBLIC_URL" ]]; then
   sleep 2
 
   tmux_cmd kill-session -t api-server-live 2>/dev/null || true
-  tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
-    if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
-    export DATABASE_URL='$DATABASE_URL'
-    export PORT=8080
-    export ENABLE_CLERK_PROXY=true
-    export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-    export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
-    export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
-    export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
-    export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
-    export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
-    export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
-    export AI_AGENT_EXECUTION_PROVIDER=\"\${AI_AGENT_EXECUTION_PROVIDER:-}\"
-    export MAKE_AGENT_WEBHOOK_URL=\"\${MAKE_AGENT_WEBHOOK_URL:-}\"
-    export MAKE_TOOL_SECRET=\"\${MAKE_TOOL_SECRET:-}\"
-    pnpm --filter @workspace/api-server run dev
-  "
+  if [[ "$DEV_STACK_AUTH_MODE" == "native" ]]; then
+    tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
+      if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
+      export DATABASE_URL='$DATABASE_URL'
+      export PORT=8080
+      export NATIVE_AUTH_ENABLED=true
+      export AUTH_SESSION_SECRET='$AUTH_SESSION_SECRET_FOR_STACK'
+      export ENABLE_CLERK_PROXY=false
+      export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+      export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+      export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+      export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
+      export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
+      export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
+      export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+      export AI_AGENT_EXECUTION_PROVIDER=\"\${AI_AGENT_EXECUTION_PROVIDER:-}\"
+      export MAKE_AGENT_WEBHOOK_URL=\"\${MAKE_AGENT_WEBHOOK_URL:-}\"
+      export MAKE_TOOL_SECRET=\"\${MAKE_TOOL_SECRET:-}\"
+      pnpm --filter @workspace/api-server run dev
+    "
+    start_frontend_live ""
+    wait_for_url "http://127.0.0.1:8080/api/healthz" "API server (native auth)" 30
+    wait_for_url "http://127.0.0.1:19145/" "Frontend (native auth)" 45
+  else
+    tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
+      if [[ -f '$ROOT/.env' ]]; then set -a; source '$ROOT/.env'; set +a; fi
+      export DATABASE_URL='$DATABASE_URL'
+      export PORT=8080
+      export ENABLE_CLERK_PROXY=true
+      export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+      export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+      export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+      export ENABLE_CLOUD_AGENT_QUICK_TUNNEL=\"\${ENABLE_CLOUD_AGENT_QUICK_TUNNEL:-}\"
+      export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
+      export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
+      export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+      export AI_AGENT_EXECUTION_PROVIDER=\"\${AI_AGENT_EXECUTION_PROVIDER:-}\"
+      export MAKE_AGENT_WEBHOOK_URL=\"\${MAKE_AGENT_WEBHOOK_URL:-}\"
+      export MAKE_TOOL_SECRET=\"\${MAKE_TOOL_SECRET:-}\"
+      pnpm --filter @workspace/api-server run dev
+    "
 
-  FRONTEND_VITE_CLERK_PROXY=""
-  if using_named_cloudflare_tunnel; then
-    FRONTEND_VITE_CLERK_PROXY="export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'"
+    FRONTEND_VITE_CLERK_PROXY=""
+    if using_named_cloudflare_tunnel; then
+      FRONTEND_VITE_CLERK_PROXY="export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'"
+    fi
+
+    start_frontend_live "$FRONTEND_VITE_CLERK_PROXY"
+
+    wait_for_url "http://127.0.0.1:8080/api/healthz" "API server (Clerk proxy)" 30
+    wait_for_url "http://127.0.0.1:19145/" "Frontend (Clerk proxy)" 45
   fi
-
-  start_frontend_live "$FRONTEND_VITE_CLERK_PROXY"
-
-  wait_for_url "http://127.0.0.1:8080/api/healthz" "API server (Clerk proxy)" 30
-  wait_for_url "http://127.0.0.1:19145/" "Frontend (Clerk proxy)" 45
 
   echo "==> Restarting dev proxy (port 3000)"
   tmux_cmd kill-session -t dev-proxy 2>/dev/null || true
