@@ -102,7 +102,12 @@ export function AdminNewMarketplaceSkillDialog({ open, onOpenChange }: Props) {
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={handleCreate} disabled={saving}>
+          <Button
+            type="button"
+            className="bg-teal-700 hover:bg-teal-800 text-white"
+            onClick={handleCreate}
+            disabled={saving}
+          >
             {saving ? "Creating…" : "Create skill"}
           </Button>
         </DialogFooter>

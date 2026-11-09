@@ -241,7 +241,7 @@ export default function AdminAiSkillEditorPage() {
               variant="outline"
               className={
                 status === "published"
-                  ? "text-emerald-800 bg-emerald-50 border-emerald-200 font-medium"
+                  ? "text-teal-800 bg-teal-50 border-teal-200 font-medium"
                   : "text-amber-800 bg-amber-50 border-amber-200 font-medium"
               }
             >

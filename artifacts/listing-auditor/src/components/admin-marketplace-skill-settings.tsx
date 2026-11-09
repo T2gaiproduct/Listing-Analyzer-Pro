@@ -14,7 +14,7 @@ export function AdminMarketplaceSkillSettings({
   onChange,
 }: AdminMarketplaceSkillSettingsProps) {
   return (
-    <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+    <div className="space-y-4 rounded-lg border border-orange-200 bg-orange-50/40 p-4 shadow-sm">
       <div>
         <p className="text-sm font-semibold">Marketplace settings</p>
         <p className="text-xs text-muted-foreground mt-0.5">
