@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { useAdminAiSkillsOverview } from "@/lib/admin-ai-skills-overview";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
 import { CategoryReferenceLibraryDialog } from "@/components/admin-overview-image-library";
-import { AdminOverviewSkillsTable } from "@/components/admin-overview-skills-table";
 import { findCategorySkillSlug } from "@/lib/admin-overview-skill-links";
 
 function StatusPill({
@@ -129,8 +128,6 @@ export default function AdminAiOverviewPage() {
           </CardContent>
         </Card>
       </div>
-
-      <AdminOverviewSkillsTable skills={skills} />
 
       <Card>
         <CardHeader>
