@@ -47,6 +47,8 @@ type AdminSkillScopeFieldsProps = {
   isNew?: boolean;
   onDeleteMarketplace?: () => void;
   marketplaceDeleteDisabled?: boolean;
+  /** Skill type is shown in the editor header card instead. */
+  hideSkillTypeField?: boolean;
 };
 
 export function AdminSkillScopeFields({
@@ -67,6 +69,7 @@ export function AdminSkillScopeFields({
   isNew = false,
   onDeleteMarketplace,
   marketplaceDeleteDisabled = false,
+  hideSkillTypeField = false,
 }: AdminSkillScopeFieldsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -306,33 +309,35 @@ export function AdminSkillScopeFields({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs text-muted-foreground">Skill type</Label>
-          {isMarketplaceSkill ? (
-            <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
-              {typeMeta?.label ?? "Product content"}
-              <span className="text-xs text-muted-foreground font-normal block mt-0.5">
-                Linked sales channel — type cannot be changed here.
-              </span>
-            </p>
-          ) : (
-            <Select
-              value={skillType}
-              onValueChange={(v) => onSkillTypeChange(v as SkillType)}
-            >
-              <SelectTrigger className="mt-1.5">
-                <SelectValue placeholder="Select skill type" />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                {skillTypeSelectOptions.map((t) => (
-                  <SelectItem key={t.slug} value={t.slug}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+        {!hideSkillTypeField ? (
+          <div>
+            <Label className="text-xs text-muted-foreground">Skill type</Label>
+            {isMarketplaceSkill ? (
+              <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
+                {typeMeta?.label ?? "Product content"}
+                <span className="text-xs text-muted-foreground font-normal block mt-0.5">
+                  Linked sales channel — type cannot be changed here.
+                </span>
+              </p>
+            ) : (
+              <Select
+                value={skillType}
+                onValueChange={(v) => onSkillTypeChange(v as SkillType)}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select skill type" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {skillTypeSelectOptions.map((t) => (
+                    <SelectItem key={t.slug} value={t.slug}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        ) : null}
         {!imageSkillEditorMode && (
           <div>
             <Label className="text-xs text-muted-foreground">AI model</Label>

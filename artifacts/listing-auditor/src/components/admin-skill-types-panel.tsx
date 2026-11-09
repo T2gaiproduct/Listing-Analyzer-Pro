@@ -218,7 +218,7 @@ export function AdminSkillTypesPanel() {
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <section id="skill-types" className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden scroll-mt-6">
       <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60">
         <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
           <Tags className="w-4 h-4 text-orange-500" />
