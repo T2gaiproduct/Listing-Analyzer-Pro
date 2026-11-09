@@ -128,6 +128,7 @@ import {
   AdminSettingsAI,
   AdminAiOverview,
   AdminAiSkills,
+  AdminAiSkillEditor,
   AdminSettingsDefaultAgents,
   AdminSettingsAPI,
   AdminSettingsSecurity,
@@ -829,6 +830,12 @@ function Router() {
       </Route>
       <Route path="/admin/settings/ai/overview">
         <AdminRoute><AdminAiOverview /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/ai/skills/new">
+        <AdminRoute><AdminAiSkillEditor /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/ai/skills/:skillId">
+        <AdminRoute><AdminAiSkillEditor /></AdminRoute>
       </Route>
       <Route path="/admin/settings/ai/skills">
         <AdminRoute><AdminAiSkills /></AdminRoute>

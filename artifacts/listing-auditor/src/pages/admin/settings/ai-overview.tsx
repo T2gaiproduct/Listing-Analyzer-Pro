@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAdminAiSkillsOverview } from "@/lib/admin-ai-skills-overview";
-import { ADMIN_AI_SKILLS_HREF } from "@/lib/admin-ai-settings-nav";
 
 function StatusPill({
   tone,
@@ -44,8 +43,8 @@ export default function AdminAiOverviewPage() {
             What users can generate today, and where the gaps are.
           </p>
         </div>
-        <Link href={ADMIN_AI_SKILLS_HREF}>
-          <Button className="gap-2">
+        <Link href="/admin/settings/ai/skills/new">
+          <Button className="gap-2 bg-teal-700 hover:bg-teal-800">
             <Plus className="w-4 h-4" />
             New skill
           </Button>

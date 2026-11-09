@@ -105,6 +105,7 @@ export const AdminSettingsPlatform = lazyWithRetry(() => import("@/pages/admin/s
 export const AdminSettingsAI = lazyWithRetry(() => import("@/pages/admin/settings/ai"));
 export const AdminAiOverview = lazyWithRetry(() => import("@/pages/admin/settings/ai-overview"));
 export const AdminAiSkills = lazyWithRetry(() => import("@/pages/admin/settings/ai-skills"));
+export const AdminAiSkillEditor = lazyWithRetry(() => import("@/pages/admin/settings/ai-skill-editor"));
 export const AdminSettingsDefaultAgents = lazyWithRetry(() => import("@/pages/admin/settings/default-agents"));
 export const AdminSettingsAPI = lazyWithRetry(() => import("@/pages/admin/settings/api"));
 export const AdminSettingsSecurity = lazyWithRetry(() => import("@/pages/admin/settings/security"));
