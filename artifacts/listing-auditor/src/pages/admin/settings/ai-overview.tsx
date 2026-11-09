@@ -96,7 +96,7 @@ export default function AdminAiOverviewPage() {
         <CardHeader>
           <CardTitle className="text-lg">Category coverage</CardTitle>
           <p className="text-sm text-muted-foreground">
-            A category is ready when it has live listing content configuration, a live image skill, and at least one approved reference image.
+            A category is ready when it has a published product content skill, a published image skill, and at least one approved reference image.
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -129,7 +129,15 @@ export default function AdminAiOverviewPage() {
                 <tr key={row.category} className="border-b border-border/60">
                   <td className="py-3 pr-4 font-medium">{row.category}</td>
                   <td className="py-3 pr-4">
-                    <StatusPill tone={row.contentSkillLabel === "Missing" ? "muted" : "ok"}>
+                    <StatusPill
+                      tone={
+                        row.contentSkillLabel === "Live"
+                          ? "ok"
+                          : row.contentSkillLabel === "Draft"
+                            ? "warn"
+                            : "muted"
+                      }
+                    >
                       {row.contentSkillLabel}
                     </StatusPill>
                   </td>
@@ -167,15 +175,15 @@ export default function AdminAiOverviewPage() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Configure listing rules in{" "}
-        <Link href="/admin/settings/content-marketplaces" className="text-orange-600 underline">
-          Marketplace Content
+        Create and publish skills under{" "}
+        <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
+          Skills
         </Link>
-        , image prompts in{" "}
+        , add reference images in{" "}
         <Link href="/admin/settings/image-prompt-templates" className="text-orange-600 underline">
           Image Prompts
         </Link>
-        , and provider keys under{" "}
+        , and set provider keys under{" "}
         <Link href="/admin/settings/ai" className="text-orange-600 underline">
           AI Settings
         </Link>

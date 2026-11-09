@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
-import { useAdminContentMarketplaces } from "@/lib/content-marketplaces";
-import { useAdminImagePromptTemplates } from "@/lib/image-prompt-templates";
+import { useAdminAiSkills, type AiSkillRecord } from "@/lib/admin-ai-skills-api";
 import {
   type GraphicsModuleExamplesPayload,
   useAdminProductCategories,
@@ -11,11 +10,24 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export type CategoryCoverageRow = {
   category: string;
-  contentSkillLabel: string;
+  contentSkillLabel: "Live" | "Draft" | "Missing";
   imageSkillLabel: "Live" | "Draft" | "Missing";
   approvedRefCount: number;
   status: "ready" | "needs_setup";
 };
+
+function skillStatusForCategory(
+  skills: AiSkillRecord[],
+  category: string,
+  types: AiSkillRecord["skillType"][],
+): "Live" | "Draft" | "Missing" {
+  const scoped = skills.filter(
+    (s) => s.category === category && types.includes(s.skillType),
+  );
+  if (scoped.some((s) => s.status === "published")) return "Live";
+  if (scoped.some((s) => s.status === "draft")) return "Draft";
+  return "Missing";
+}
 
 async function fetchCategoryExamples(category: string): Promise<GraphicsModuleExamplesPayload> {
   const res = await fetch(
@@ -38,25 +50,17 @@ function countApprovedRefs(payload: GraphicsModuleExamplesPayload): number {
 }
 
 export function useAdminAiSkillsOverview() {
-  const { data: mpData, isLoading: mpLoading } = useAdminContentMarketplaces();
-  const { data: gfxData, isLoading: gfxLoading } = useAdminImagePromptTemplates("graphics");
-  const { data: aplusData, isLoading: aplusLoading } = useAdminImagePromptTemplates("aplus");
+  const { data: skillsData, isLoading: skillsLoading } = useAdminAiSkills();
   const { data: catData, isLoading: catLoading } = useAdminProductCategories();
 
-  const marketplaces = mpData?.marketplaces ?? [];
-  const graphicsTemplates = gfxData?.templates ?? [];
-  const aplusTemplates = aplusData?.templates ?? [];
+  const skills = skillsData?.skills ?? [];
   const categories = catData?.categories ?? [];
 
-  const enabledMarketplaces = marketplaces.filter((m) => m.enabled);
-  const enabledGraphics = graphicsTemplates.filter((t) => t.enabled);
-  const draftGraphics = graphicsTemplates.filter((t) => !t.enabled);
-  const enabledAplus = aplusTemplates.filter((t) => t.enabled);
-
-  const categoryNames = useMemo(
-    () => categories.map((c) => c.name).slice(0, 40),
-    [categories],
-  );
+  const categoryNames = useMemo(() => {
+    const fromCatalog = categories.map((c) => c.name);
+    const fromSkills = skills.map((s) => s.category).filter(Boolean);
+    return [...new Set([...fromCatalog, ...fromSkills])].slice(0, 40);
+  }, [categories, skills]);
 
   const exampleQueries = useQueries({
     queries: categoryNames.map((name) => ({
@@ -69,25 +73,20 @@ export function useAdminAiSkillsOverview() {
   const examplesLoading = exampleQueries.some((q) => q.isLoading);
 
   const coverageRows: CategoryCoverageRow[] = useMemo(() => {
-    const globalContentLive = enabledMarketplaces.length;
-    const globalImageLive = enabledGraphics.length > 0;
-    const globalImageDraft = !globalImageLive && draftGraphics.length > 0;
-
     return categoryNames.map((category, idx) => {
       const examplesPayload = exampleQueries[idx]?.data;
       const approvedRefCount = examplesPayload ? countApprovedRefs(examplesPayload) : 0;
 
-      const contentSkillLabel =
-        globalContentLive > 0 ? `${globalContentLive} live` : "Missing";
+      const contentSkillLabel = skillStatusForCategory(skills, category, ["product_content"]);
+      const imageSkillLabel = skillStatusForCategory(skills, category, [
+        "product_images",
+        "aplus_content",
+      ]);
 
-      let imageSkillLabel: CategoryCoverageRow["imageSkillLabel"] = "Missing";
-      if (globalImageLive) imageSkillLabel = "Live";
-      else if (globalImageDraft) imageSkillLabel = "Draft";
-
-      const hasContent = globalContentLive > 0;
-      const hasLiveImage = imageSkillLabel === "Live";
-      const hasEnoughRefs = approvedRefCount >= 1;
-      const ready = hasContent && hasLiveImage && hasEnoughRefs;
+      const ready =
+        contentSkillLabel === "Live"
+        && imageSkillLabel === "Live"
+        && approvedRefCount >= 1;
 
       return {
         category,
@@ -97,36 +96,18 @@ export function useAdminAiSkillsOverview() {
         status: ready ? "ready" : "needs_setup",
       };
     });
-  }, [
-    categoryNames,
-    enabledMarketplaces.length,
-    draftGraphics.length,
-    enabledGraphics.length,
-    exampleQueries,
-  ]);
+  }, [categoryNames, exampleQueries, skills]);
 
-  const liveSkillUnits =
-    enabledMarketplaces.length
-    + enabledGraphics.length
-    + enabledAplus.length;
-
-  const totalSkillUnits =
-    marketplaces.length + graphicsTemplates.length + aplusTemplates.length;
-
+  const publishedSkills = skills.filter((s) => s.status === "published").length;
   const categoriesReady = coverageRows.filter((r) => r.status === "ready").length;
   const categoryTotal = coverageRows.length || 1;
 
   return {
-    isLoading: mpLoading || gfxLoading || aplusLoading || catLoading || examplesLoading,
-    enabledMarketplaces,
-    enabledGraphics,
-    enabledAplus,
-    graphicsTemplates,
-    marketplaces,
+    isLoading: skillsLoading || catLoading || examplesLoading,
     coverageRows,
     stats: {
-      liveSkills: liveSkillUnits,
-      totalSkills: totalSkillUnits,
+      liveSkills: publishedSkills,
+      totalSkills: skills.length,
       categoriesReady,
       categoryTotal,
     },
