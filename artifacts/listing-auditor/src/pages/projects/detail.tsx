@@ -35,6 +35,7 @@ import { ImageGenerationProgressPanel } from "@/components/image-generation-prog
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
 import { downloadAppImage } from "@/lib/download-app-image";
+import { ProtectedAppImage } from "@/components/protected-app-image";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -112,6 +113,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
 
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
+  const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
 
   // Generate More modal
@@ -350,6 +352,34 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     );
   };
 
+  const restoreVersionMutation = useMutation({
+    mutationFn: async ({ imageId, versionUrl }: { imageId: string; versionUrl: string }) => {
+      const res = await fetch(`${basePath}/api/graphics/projects/${id}/images/${imageId}/restore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ versionUrl }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Restore failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      setHistoryRecord(null);
+      toast({ title: "Version restored" });
+    },
+    onError: (err) => {
+      toast({
+        title: "Restore failed",
+        description: err instanceof Error ? err.message : "Could not restore version",
+        variant: "destructive",
+      });
+    },
+  });
+
   const records = project?.imageRecords ?? [];
   const isGenerating = project?.status === "generating";
   const hasRecords = records.length > 0;
@@ -469,7 +499,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
               onEdit={() => handleOpenEdit(record)}
               onHistory={() => setHistoryRecord(record)}
               onDownload={() => handleDownload(record.currentUrl, `${record.id}.png`)}
-              onView={() => window.open(record.currentUrl.startsWith("http") ? record.currentUrl : `${basePath}${record.currentUrl}`, "_blank")}
+              onView={() => setFullscreenUrl(record.currentUrl)}
             />
           ))}
         </div>
@@ -655,6 +685,22 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                               minute: "2-digit",
                             })}
                           </div>
+                          {v.url !== historyRecord.currentUrl ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-6 text-xs mt-1 cursor-pointer"
+                              disabled={restoreVersionMutation.isPending}
+                              onClick={() =>
+                                restoreVersionMutation.mutate({
+                                  imageId: historyRecord.id,
+                                  versionUrl: v.url,
+                                })
+                              }
+                            >
+                              Use this version
+                            </Button>
+                          ) : null}
                           <Button
                             variant="outline"
                             size="sm"
@@ -682,6 +728,19 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!fullscreenUrl} onOpenChange={(open) => !open && setFullscreenUrl(null)}>
+        <DialogContent className="max-w-5xl p-1">
+          {fullscreenUrl ? (
+            <ProtectedAppImage
+              src={fullscreenUrl}
+              alt="Full screen preview"
+              className="w-full max-h-[85vh] object-contain rounded-lg"
+              loading="eager"
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -862,7 +921,7 @@ function ImageCard({
           </div>
         )}
         {!isLoading && (
-          <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <div className="absolute inset-0 bg-black/55 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
             {canEditGraphics && (
               <>
@@ -893,8 +952,13 @@ function ImageCard({
 function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: string; onClick: () => void }) {
   return (
     <button
+      type="button"
       title={title}
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
       className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-700 transition-colors shadow-sm cursor-pointer"
     >
       {icon}

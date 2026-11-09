@@ -32,6 +32,7 @@ import {
 import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
+import { GraphicsWizardImageDialogs } from "@/components/graphics-wizard-image-dialogs";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { ImageGenerationProgressPanel } from "@/components/image-generation-progress-panel";
 import { ProtectedAppImage } from "@/components/protected-app-image";
@@ -122,9 +123,14 @@ const TYPE_LABELS: Record<ImageRecord["type"], string> = {
 function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: string; onClick: () => void }) {
   return (
     <button
+      type="button"
       title={title}
-      onClick={onClick}
-      className="p-2 rounded-full bg-background/90 hover:bg-background text-foreground transition-colors shadow-sm"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-700 transition-colors shadow-sm"
     >
       {icon}
     </button>
@@ -681,6 +687,46 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     );
   };
 
+  const restoreVersionMutation = useMutation({
+    mutationFn: async ({
+      imageId,
+      pid,
+      versionUrl,
+    }: {
+      imageId: string;
+      pid: number;
+      versionUrl: string;
+    }) => {
+      const res = await fetch(`${basePath}/api/graphics/projects/${pid}/images/${imageId}/restore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ versionUrl }),
+      });
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, "Could not restore version"));
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Version restored" });
+      setHistoryRecord(null);
+      refetchProject();
+    },
+    onError: (err) => {
+      toast({
+        title: "Restore failed",
+        description: err instanceof Error ? err.message : "Could not restore this version",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRestoreVersion = (record: ImageRecord, versionUrl: string) => {
+    if (!activeProjectId) return;
+    restoreVersionMutation.mutate({ imageId: record.id, pid: activeProjectId, versionUrl });
+  };
+
   const handleDownload = async (url: string, filename: string) => {
     try {
       await downloadAppImage(url, filename);
@@ -731,6 +777,35 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     && !isGenerating
     && records.length > 0
     && (displayProject?.status === "completed" || displayProject?.status === "generating");
+
+  const imageActionDialogs = (
+    <GraphicsWizardImageDialogs
+      imageTypes={IMAGE_TYPES}
+      editRecord={editRecord}
+      onEditOpenChange={(o) => {
+        if (!o && !loadingIds.has(editRecord?.id ?? "")) {
+          setEditRecord(null);
+          setEditPrompt("");
+          setEditReferenceImages([]);
+        }
+      }}
+      editPrompt={editPrompt}
+      onEditPromptChange={setEditPrompt}
+      editReferenceImages={editReferenceImages}
+      onEditReferenceImagesChange={setEditReferenceImages}
+      editLoading={Boolean(editRecord && loadingIds.has(editRecord.id))}
+      onEditSubmit={handleEditSubmit}
+      historyRecord={historyRecord}
+      onHistoryOpenChange={(o) => {
+        if (!o) setHistoryRecord(null);
+      }}
+      onDownload={(url, name) => void handleDownload(url, name)}
+      onRestoreVersion={handleRestoreVersion}
+      restorePending={restoreVersionMutation.isPending}
+      fullscreenUrl={fullscreenUrl}
+      onFullscreenClose={() => setFullscreenUrl(null)}
+    />
+  );
 
   // If generating, show centered loader
   if (isGenerating) {
@@ -798,138 +873,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           </div>
         )}
 
-        {/* Edit Dialog */}
-        <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); setEditReferenceImages([]); } }}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Wand2 className="h-4 w-4" />
-                Edit Image with AI
-              </DialogTitle>
-            </DialogHeader>
-            {editRecord && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 mb-2">Current</p>
-                    <div className="rounded-lg border bg-slate-50 aspect-square overflow-hidden">
-                      <ProtectedAppImage src={editRecord.currentUrl} alt="Current" className="w-full h-full object-contain" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 mb-2">After (shown on apply)</p>
-                    <div className="rounded-lg border bg-slate-50/50 aspect-square flex flex-col items-center justify-center gap-3 text-slate-400">
-                      {loadingIds.has(editRecord.id) ? (
-                        <>
-                          <div className="relative">
-                            <div className="w-12 h-12 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
-                            <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-orange-500" />
-                          </div>
-                          <div className="text-center px-4">
-                            <p className="text-sm font-medium text-slate-700">Generating edit...</p>
-                            <p className="text-xs mt-1">This takes 30-60 seconds</p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="h-7 w-7 opacity-20" />
-                          <span className="text-xs text-center px-4">Result appears here after applying</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Edit Instructions</label>
-                  <Textarea
-                    value={editPrompt}
-                    onChange={(e) => setEditPrompt(e.target.value)}
-                    placeholder="e.g. Add a subtle green leaf in the top-right corner, warm the background slightly..."
-                    rows={3}
-                    className="resize-none"
-                  />
-                </div>
-                <ReferenceImageUploadField
-                  images={editReferenceImages}
-                  onImagesChange={setEditReferenceImages}
-                  label="Reference images (optional)"
-                  hint="Upload style or content references to guide the edit."
-                />
-                <div className="flex justify-end gap-2 pt-2 border-t">
-                  <Button variant="outline" onClick={() => setEditRecord(null)} disabled={loadingIds.has(editRecord.id)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleEditSubmit} disabled={!editPrompt.trim() || loadingIds.has(editRecord.id)} className="gap-2">
-                    {loadingIds.has(editRecord.id) ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                    {loadingIds.has(editRecord.id) ? "Applying..." : "Apply Edit"}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* History Dialog */}
-        <Dialog open={!!historyRecord} onOpenChange={(o) => { if (!o) setHistoryRecord(null); }}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Version History
-                {historyRecord && (
-                  <span className="text-slate-500 font-normal text-sm">
-                    - {resolveGraphicsRecordLabel(historyRecord, IMAGE_TYPES)} {historyRecord.index + 1}
-                  </span>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-            {historyRecord && (
-              <div className="space-y-4">
-                {historyRecord.versions.length === 0 ? (
-                  <div className="py-12 flex flex-col items-center gap-2 text-slate-400">
-                    <Clock className="h-8 w-8 opacity-30" />
-                    <p className="text-sm">No version history (legacy image).</p>
-                    <p className="text-xs">Regenerate this image to start tracking versions.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {historyRecord.versions.map((v, i) => (
-                      <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 bg-white">
-                        <div className="w-16 h-16 rounded-lg border bg-slate-50 overflow-hidden flex-shrink-0">
-                          <ProtectedAppImage src={v.url} alt={`Version ${i + 1}`} className="w-full h-full object-contain" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px]">{v.isEdit ? "Edit" : "Generate"}</Badge>
-                            <span className="text-xs text-slate-400">{new Date(v.generatedAt).toLocaleDateString()}</span>
-                          </div>
-                          {v.prompt && <p className="text-xs text-slate-500 mt-1 truncate">{v.prompt}</p>}
-                        </div>
-                        <Button size="sm" variant="ghost" onClick={() => handleDownload(v.url, `version_${i + 1}.png`)}>
-                          <Download className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Fullscreen Dialog */}
-        <Dialog open={!!fullscreenUrl} onOpenChange={() => setFullscreenUrl(null)}>
-          <DialogContent className="max-w-5xl p-1">
-            {fullscreenUrl && (
-              <ProtectedAppImage
-                src={fullscreenUrl}
-                alt="Full screen"
-                className="w-full max-h-[85vh] object-contain rounded-lg"
-                loading="eager"
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+        {imageActionDialogs}
 
         {/* Generate More Images Dialog */}
         <Dialog open={showMore} onOpenChange={(o) => {
@@ -1417,6 +1361,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         </div>
       )}
 
+      {records.length > 0 ? imageActionDialogs : null}
+
       {/* Actions */}
       <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 w-full">
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
@@ -1481,7 +1427,7 @@ function ImageCard({ record, imageTypes, isLoading, onRegenerate, onEdit, onHist
           </div>
         )}
         {!isLoading && (
-          <div className="absolute inset-0 bg-black/55 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <div className="absolute inset-0 bg-black/55 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
             {canEditGraphics && (
               <>

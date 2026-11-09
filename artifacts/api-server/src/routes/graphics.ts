@@ -1212,6 +1212,67 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   }
 });
 
+// ─── Restore a previous image version (no credits) ────────────────────────────
+router.post(
+  "/graphics/projects/:id/images/:imageId/restore",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["graphics", "build_brand"], "edit"),
+  async (req, res): Promise<void> => {
+    const id = parseInt(String(req.params.id ?? ""), 10);
+    const imageId = String(req.params.imageId ?? "");
+    if (isNaN(id) || !imageId) {
+      res.status(400).json({ error: "Invalid parameters" });
+      return;
+    }
+
+    const body = req.body as { versionUrl?: string };
+    const versionUrl = typeof body.versionUrl === "string" ? body.versionUrl.trim() : "";
+    if (!versionUrl) {
+      res.status(400).json({ error: "versionUrl is required" });
+      return;
+    }
+
+    const project = await loadGraphicsProject(req, id);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const records = (project.imageRecords ?? []) as GraphicsImageRecord[];
+    const existingRecord = records.find((r) => r.id === imageId);
+    if (!existingRecord) {
+      res.status(404).json({ error: "Image not found" });
+      return;
+    }
+
+    const allowed =
+      existingRecord.currentUrl === versionUrl
+      || existingRecord.versions.some((v) => v.url === versionUrl);
+    if (!allowed) {
+      res.status(400).json({ error: "That version is not in this image history" });
+      return;
+    }
+
+    if (existingRecord.currentUrl === versionUrl) {
+      res.json(existingRecord);
+      return;
+    }
+
+    const updatedRecord: GraphicsImageRecord = {
+      ...existingRecord,
+      currentUrl: versionUrl,
+    };
+    const updatedRecords = records.map((r) => (r.id === imageId ? updatedRecord : r));
+    await db
+      .update(graphicsProjectsTable)
+      .set({ imageRecords: updatedRecords, updatedAt: new Date() })
+      .where(eq(graphicsProjectsTable.id, id));
+
+    res.json(updatedRecord);
+  },
+);
+
 // ─── Regenerate single image ──────────────────────────────────────────────────
 router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["graphics", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
