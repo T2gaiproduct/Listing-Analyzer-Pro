@@ -140,8 +140,7 @@ export function AdminSkillScopeFields({
           <div>
             <p className="text-sm font-medium">{selectedMarketplace?.name ?? marketplace}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Sales channel linked to this Product content skill. Display name, sort order, and seller visibility are
-              in Marketplace settings below.
+              Applies to all categories. Name and sort order: Marketplace settings below.
             </p>
           </div>
           {onDeleteMarketplace && (
@@ -166,8 +165,7 @@ export function AdminSkillScopeFields({
         <div className="mt-1.5 space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 px-3 py-3">
           <p className="text-sm font-medium text-orange-950">Add a sales channel</p>
           <p className="text-xs text-muted-foreground">
-            Choose <strong>Product content</strong> to create or manage marketplace listing skills (Amazon, eBay,
-            Etsy, …). Each channel gets its own skill in the Skills list.
+            One channel = one Product content skill (Amazon, eBay, Etsy, …). All categories.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -209,7 +207,7 @@ export function AdminSkillScopeFields({
               className="text-xs text-orange-800 underline"
               onClick={() => setShowAdvancedScope(true)}
             >
-              Advanced: category-specific product content
+              Per-category skill instead
             </button>
           </div>
         </div>
@@ -290,7 +288,7 @@ export function AdminSkillScopeFields({
           </div>
         )}
         <p className="text-[10px] text-muted-foreground">
-          Pick an existing channel or use <strong>Add marketplace…</strong> to create a new Product content skill.
+          Pick a channel or <strong>Add marketplace…</strong> to create one.
         </p>
         {isNew && showAdvancedScope && (
           <button
@@ -366,19 +364,20 @@ export function AdminSkillScopeFields({
               </SelectContent>
             </Select>
             <p className="text-[10px] text-muted-foreground mt-1.5">
-              Options come from{" "}
+              From{" "}
               <Link href="/admin/settings/ai" className="text-orange-600 underline">
-                Admin → AI Settings
+                AI Settings
               </Link>
-              . Default follows use-case routing for this skill type.
+              , or default for this skill type.
             </p>
           </div>
         )}
+        {!(isProductContentType && isNew && !showAdvancedScope) && (
         <div className="sm:col-span-2">
           <Label className="text-xs text-muted-foreground">Category</Label>
           {isMarketplaceSkill ? (
             <p className="text-sm text-muted-foreground mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
-              Marketplace content skills apply to all product categories for that marketplace.
+              All product categories on this channel.
             </p>
           ) : isImagePromptSkill && !imageSkillEditorMode ? (
             <p className="text-sm text-muted-foreground mt-1.5 rounded-md border border-violet-200 bg-violet-50/40 px-3 py-2">
@@ -388,10 +387,6 @@ export function AdminSkillScopeFields({
                 reference images
               </Link>{" "}
               and optional category <strong>Product images</strong> skills are configured on the Skills list page.
-            </p>
-          ) : isProductContentType && isNew && !showAdvancedScope ? (
-            <p className="text-sm text-muted-foreground mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
-              Sales channels use all categories. Use advanced mode for a category-specific Product content skill.
             </p>
           ) : (
             <>
@@ -413,6 +408,7 @@ export function AdminSkillScopeFields({
             </>
           )}
         </div>
+        )}
         {!imageSkillEditorMode && (
         <div className="sm:col-span-2">
           <Label className="text-xs text-muted-foreground">Marketplace</Label>
