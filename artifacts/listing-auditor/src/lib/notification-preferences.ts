@@ -41,7 +41,7 @@ export const NOTIFICATION_PREFERENCE_META: Record<
   admin: {
     label: "Admin & platform alerts",
     description: "Support tickets, admin role changes, and other platform events for administrators.",
-    examples: "New support ticket, admin role invitation, role assignment",
+    examples: "New support ticket, OpenAI credits low, admin role invitation",
   },
 };
 
@@ -153,6 +153,8 @@ export const ADMIN_NOTIFICATION_TYPES_BY_CATEGORY: Record<string, string[]> = {
     "admin_role_assigned",
     "admin_role_updated",
     "form_submission_new",
+    "openai_credits_low",
+    "openai_credits_depleted",
   ],
   system: ["system", "welcome", "promo"],
 };

@@ -65,6 +65,8 @@ const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> 
     "admin_role_assigned",
     "admin_role_updated",
     "form_submission_new",
+    "openai_credits_low",
+    "openai_credits_depleted",
   ],
 };
 

@@ -78,6 +78,11 @@ import { wsSend } from "../lib/ws.js";
 import { sendSupportTicketReplyEmail } from "../lib/support-ticket-email.js";
 import { clearEmailLogoUrlCache } from "../lib/email-logo-url.js";
 import { clearSmtpTransportCache, sendAdminTestEmail } from "../lib/email.js";
+import {
+  checkOpenAiBillingAndNotifyAdmins,
+  ensureOpenAiLowThresholdInSettings,
+} from "../lib/openai-balance-notify.js";
+import { fetchOpenAiBillingStatus, getCachedOpenAiBillingStatus } from "../lib/openai-billing.js";
 import { appendSupportTicketReply, parseSupportTicketData } from "../lib/support-ticket-data.js";
 
 const router: IRouter = Router();
@@ -1848,6 +1853,18 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
   clearOpenAICache();
   clearGeminiCache();
 
+  if (category === "ai") {
+    const aiSettings = settings as Record<string, string>;
+    if (aiSettings.openai_low_balance_usd != null) {
+      await ensureOpenAiLowThresholdInSettings(aiSettings.openai_low_balance_usd);
+    }
+    if (aiSettings.openai_api_key?.trim()) {
+      void checkOpenAiBillingAndNotifyAdmins().catch((err) => {
+        req.log?.warn?.({ err }, "OpenAI billing check after AI settings save failed");
+      });
+    }
+  }
+
   if (category === "email") {
     clearSmtpTransportCache();
   }
@@ -1991,10 +2008,25 @@ router.post("/admin/test-openai-key", requireAdmin, async (req, res): Promise<vo
   try {
     const client = new OpenAI({ apiKey: key, baseURL: "https://api.openai.com/v1" });
     await client.models.list();
+    void checkOpenAiBillingAndNotifyAdmins().catch(() => undefined);
     res.json({ valid: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid key";
     res.json({ valid: false, error: message });
+  }
+});
+
+router.get("/admin/openai/billing-status", requireAdmin, async (req, res): Promise<void> => {
+  const refresh = req.query.refresh === "1" || req.query.refresh === "true";
+  try {
+    const status = refresh
+      ? await checkOpenAiBillingAndNotifyAdmins()
+      : (await getCachedOpenAiBillingStatus()) ?? (await fetchOpenAiBillingStatus());
+    res.json({ status });
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to load OpenAI billing status",
+    });
   }
 });
 

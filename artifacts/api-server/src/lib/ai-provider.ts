@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getOpenAIClient } from "./openai-client";
 import { getGeminiClient } from "./gemini-client";
 import { getReplitClient } from "./replit-client";
+import { notifyAdminsOpenAiBillingFromError } from "./openai-balance-notify.js";
 
 type AIProvider = "openai" | "gemini" | "replit";
 
@@ -148,21 +149,28 @@ export async function generateChatCompletion(
 
   // Replit path — uses Replit AI Integrations proxy (OpenAI-compatible)
   const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
-  const response = await client.chat.completions.create({
-    model: "gpt-5.4",
-    max_completion_tokens: options.maxTokens ?? 2048,
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
-  });
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-5.4",
+      max_completion_tokens: options.maxTokens ?? 2048,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    });
 
-  const content = response.choices[0]?.message?.content ?? "";
-  return {
-    content,
-    usage: {
-      promptTokens: response.usage?.prompt_tokens,
-      completionTokens: response.usage?.completion_tokens,
-      totalTokens: response.usage?.total_tokens,
-    },
-  };
+    const content = response.choices[0]?.message?.content ?? "";
+    return {
+      content,
+      usage: {
+        promptTokens: response.usage?.prompt_tokens,
+        completionTokens: response.usage?.completion_tokens,
+        totalTokens: response.usage?.total_tokens,
+      },
+    };
+  } catch (err) {
+    if (provider === "openai") {
+      void notifyAdminsOpenAiBillingFromError("content", err);
+    }
+    throw err;
+  }
 }
 
 export interface ImageGenerationResult {
@@ -178,6 +186,7 @@ export async function generateImage(
   const provider = await getActiveProvider();
   const model = await getImageModel(provider);
 
+  try {
   if (provider === "gemini") {
     const client = await getGeminiClient();
     const response = await client.models.generateContent({
@@ -223,6 +232,12 @@ export async function generateImage(
   const base64 = response.data?.[0]?.b64_json ?? "";
   if (!base64) throw new Error("No image data returned from AI");
   return Buffer.from(base64, "base64");
+  } catch (err) {
+    if (provider === "openai") {
+      void notifyAdminsOpenAiBillingFromError("image", err);
+    }
+    throw err;
+  }
 }
 
 export async function generateImageWithReference(
@@ -235,6 +250,7 @@ export async function generateImageWithReference(
   const provider = await getActiveProvider();
   const model = await getImageModel(provider);
 
+  try {
   const buffer = fs.readFileSync(imageFilePath);
   const ext = imageFilePath.toLowerCase().split(".").pop() ?? "png";
   const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
@@ -289,6 +305,12 @@ export async function generateImageWithReference(
   const base64 = response.data?.[0]?.b64_json ?? "";
   if (!base64) throw new Error("No image data returned from AI image edit");
   return Buffer.from(base64, "base64");
+  } catch (err) {
+    if (provider === "openai") {
+      void notifyAdminsOpenAiBillingFromError("image", err);
+    }
+    throw err;
+  }
 }
 
 export async function editImages(
@@ -301,6 +323,7 @@ export async function editImages(
   const provider = await getActiveProvider();
   const model = await getImageModel(provider);
 
+  try {
   const images = await Promise.all(
     imageFiles.map((file) => {
       const buffer = fs.readFileSync(file);
@@ -354,4 +377,10 @@ export async function editImages(
     fs.writeFileSync(outputPath, imageBytes);
   }
   return imageBytes;
+  } catch (err) {
+    if (provider === "openai") {
+      void notifyAdminsOpenAiBillingFromError("image", err);
+    }
+    throw err;
+  }
 }

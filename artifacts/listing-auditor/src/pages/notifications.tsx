@@ -63,6 +63,8 @@ export default function NotificationsPage() {
       credit_low: "bg-yellow-100 text-yellow-700",
       credit_used: "bg-sky-100 text-sky-800",
       credit_depleted: "bg-red-100 text-red-700",
+      openai_credits_low: "bg-amber-100 text-amber-900",
+      openai_credits_depleted: "bg-red-100 text-red-700",
       credits_assigned: "bg-green-100 text-green-700",
       credit_expired: "bg-red-100 text-red-700",
       payment_failed: "bg-red-100 text-red-700",

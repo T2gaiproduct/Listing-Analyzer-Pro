@@ -86,6 +86,7 @@ export default function AdminSettingsAI() {
     ai_provider: "openai",
     openai_api_key: "",
     openai_base_url: "https://api.openai.com/v1",
+    openai_low_balance_usd: "25",
     gemini_api_key: "",
     openai_image_model: "gpt-image-1.5",
     gemini_image_model: "gemini-2.5-flash-image",
@@ -98,15 +99,27 @@ export default function AdminSettingsAI() {
   const { data } = useQuery({ queryKey: ["admin-settings-ai"], queryFn: () => fetchSettings("ai") });
   useEffect(() => { if (data) setForm((f) => ({ ...f, ...data })); }, [data]);
 
-  const save = useMutation({
-    mutationFn: () => saveSettings("ai", form),
-    onSuccess: () => {
-      toast({ title: "AI settings saved" });
-      setOpenaiTestStatus("idle");
-      setGeminiTestStatus("idle");
-      setReplitTestStatus("idle");
-    },
+  type OpenAiBillingStatus = {
+    level: "ok" | "low" | "depleted" | "unknown";
+    availableUsd: number | null;
+    lowThresholdUsd: number;
+    checkedAt: string;
+    detail?: string;
+  };
+
+  const provider = (form.ai_provider ?? "openai") as "openai" | "gemini" | "replit";
+
+  const billingQuery = useQuery({
+    queryKey: ["admin", "openai", "billing-status"],
+    queryFn: () =>
+      fetch("/api/admin/openai/billing-status", { credentials: "include" }).then((r) =>
+        r.json() as Promise<{ status: OpenAiBillingStatus }>,
+      ),
+    enabled: provider === "openai",
+    staleTime: 120_000,
   });
+
+  const billing = billingQuery.data?.status;
 
   const handleTestOpenAI = async () => {
     if (!form.openai_api_key.trim()) {
@@ -120,6 +133,10 @@ export default function AdminSettingsAI() {
       title: result.valid ? "OpenAI API key is valid" : "OpenAI API key is invalid",
       variant: result.valid ? "default" : "destructive",
     });
+    if (result.valid) {
+      await fetch("/api/admin/openai/billing-status?refresh=1", { credentials: "include" });
+      void billingQuery.refetch();
+    }
   };
 
   const handleTestGemini = async () => {
@@ -146,7 +163,18 @@ export default function AdminSettingsAI() {
     });
   };
 
-  const provider = (form.ai_provider ?? "openai") as "openai" | "gemini" | "replit";
+  const save = useMutation({
+    mutationFn: () => saveSettings("ai", form),
+    onSuccess: () => {
+      toast({ title: "AI settings saved" });
+      setOpenaiTestStatus("idle");
+      setGeminiTestStatus("idle");
+      setReplitTestStatus("idle");
+      if (provider === "openai") {
+        void billingQuery.refetch();
+      }
+    },
+  });
 
   return (
     <>
@@ -246,6 +274,79 @@ export default function AdminSettingsAI() {
                   onChange={(e) => setForm({ ...form, openai_base_url: e.target.value })}
                 />
                 <p className="text-xs text-slate-500 mt-1">Default: https://api.openai.com/v1</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">OpenAI prepaid credits</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={billingQuery.isFetching}
+                    onClick={async () => {
+                      await fetch("/api/admin/openai/billing-status?refresh=1", { credentials: "include" });
+                      void billingQuery.refetch();
+                      toast({ title: "OpenAI billing refreshed" });
+                    }}
+                  >
+                    {billingQuery.isFetching ? "Checking…" : "Check & notify"}
+                  </Button>
+                </div>
+                {billingQuery.isLoading && (
+                  <p className="text-xs text-muted-foreground">Loading billing status…</p>
+                )}
+                {billing && (
+                  <>
+                    <p className="text-sm">
+                      Status:{" "}
+                      <span
+                        className={
+                          billing.level === "ok"
+                            ? "text-emerald-700 font-semibold"
+                            : billing.level === "low"
+                              ? "text-amber-800 font-semibold"
+                              : billing.level === "depleted"
+                                ? "text-red-700 font-semibold"
+                                : "text-slate-600 font-semibold"
+                        }
+                      >
+                        {billing.level === "ok"
+                          ? "Healthy"
+                          : billing.level === "low"
+                            ? "Low"
+                            : billing.level === "depleted"
+                              ? "Depleted"
+                              : "Unknown"}
+                      </span>
+                      {billing.availableUsd != null && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · ${billing.availableUsd.toFixed(2)} remaining
+                        </span>
+                      )}
+                    </p>
+                    {billing.detail && (
+                      <p className="text-xs text-muted-foreground leading-relaxed">{billing.detail}</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground">
+                      Admins get in-app alerts (and email when enabled) if prepaid balance is below your
+                      threshold or content/image generation hits quota errors.
+                    </p>
+                  </>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Low balance alert (USD)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={form.openai_low_balance_usd}
+                  onChange={(e) => setForm({ ...form, openai_low_balance_usd: e.target.value })}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Notify all admins when prepaid OpenAI credits drop below this amount (default $25).
+                </p>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Image Model</label>
