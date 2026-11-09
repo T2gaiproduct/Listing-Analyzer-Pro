@@ -46,12 +46,11 @@ export function DashboardTopbar({
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
   const { isAccountOwner, canView } = useWorkspace();
-  const useCommandPalette = variant === "customer" && !!onOpenSearch;
-  const adminSearchInSidebar = variant === "admin";
+  const useCommandPalette = !!onOpenSearch;
+  const adminSearchInSidebar = variant === "admin" && !!onOpenSearch;
   const useInlineSearch =
-    !useCommandPalette && !!onSearchQueryChange && !adminSearchInSidebar;
-  const useInlineSearchMobileOnly =
-    !useCommandPalette && !!onSearchQueryChange && adminSearchInSidebar;
+    !useCommandPalette && !!onSearchQueryChange && variant !== "admin";
+  const useInlineSearchMobileOnly = false;
 
   return (
     <header className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3 h-11 px-3 sm:px-5 lg:px-8 bg-card border-b border-border flex-shrink-0 z-20 min-w-0">
@@ -70,7 +69,10 @@ export function DashboardTopbar({
         <button
           type="button"
           onClick={onOpenSearch}
-          className="lg:hidden touch-target flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted transition-colors flex-shrink-0"
+          className={cn(
+            "touch-target flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted transition-colors flex-shrink-0",
+            variant === "customer" && "lg:hidden",
+          )}
           aria-label="Search"
         >
           <Search className="w-5 h-5" />

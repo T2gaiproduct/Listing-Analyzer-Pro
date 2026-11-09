@@ -2,233 +2,22 @@ import { Fragment, ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Search } from "lucide-react";
 import { ProfileAccountMenu } from "@/components/profile-account-menu";
-import { AdminInlineSearch } from "@/components/admin-inline-search";
 import { useQuery } from "@tanstack/react-query";
+import { AdminSearchDialog } from "@/components/admin-search-dialog";
 import { useUser } from "@clerk/react";
-import {
-  Users, FileText, BarChart2, CreditCard,
-  Layers, Shield, ChevronRight, Settings,
-  BadgePercent, ClipboardList,
-  Bot, KeyRound, Lock, Wallet,
-  Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
-  ChevronDown, ChevronUp, FileSearch, Palette, Archive,
-  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
-} from "lucide-react";
+import { Shield, ChevronRight, ChevronDown, Archive, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
-import type { RecentItem } from "@workspace/api-client-react";
 import type { AdminPermission } from "@workspace/admin-permissions";
+import { adminNavSections } from "@/lib/admin-nav-sections";
+import { getAdminSearchContext } from "@/lib/admin-search";
 import { AdminNotificationBell } from "@/components/admin-notification-bell";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { AdminAiSettingsNavGroup } from "@/components/admin-ai-settings-nav";
-import {
-  ADMIN_AI_NAV_ITEMS,
-  isAdminAiSettingsPath,
-  isAdminAiSkillEditorPath,
-} from "@/lib/admin-ai-settings-nav";
+import { isAdminAiSettingsPath, isAdminAiSkillEditorPath } from "@/lib/admin-ai-settings-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-type AdminNavItem = {
-  href: string;
-  label: string;
-  icon: typeof BarChart2;
-  permission: AdminPermission | AdminPermission[];
-};
-
-const navSections: Array<{
-  label: string;
-  collapsible?: boolean;
-  items: AdminNavItem[];
-}> = [
-  {
-    label: "Overview",
-    items: [
-      { href: "/admin/analytics", label: "Analytics", icon: BarChart2, permission: "view_analytics" },
-    ],
-  },
-  {
-    label: "User Management",
-    collapsible: true,
-    items: [
-      { href: "/admin/customers", label: "Customers", icon: Users, permission: "manage_customers" },
-      { href: "/admin/roles", label: "Roles", icon: Shield, permission: "manage_roles" },
-    ],
-  },
-  {
-    label: "Services",
-    collapsible: true,
-    items: [
-      { href: "/admin/content/build-brand-logs", label: "Build Your Brand", icon: ClipboardList, permission: "view_logs" },
-      { href: "/admin/content/logs", label: "Audit Listing", icon: FileSearch, permission: "view_logs" },
-      { href: "/admin/content/graphics-logs", label: "Graphics Creation", icon: Palette, permission: "view_logs" },
-      { href: "/videos", label: "Create Videos", icon: Video, permission: "view_logs" },
-      { href: "/ads/campaigns", label: "Manage Ads", icon: Megaphone, permission: "view_logs" },
-    ],
-  },
-  {
-    label: "Billing",
-    collapsible: true,
-    items: [
-      { href: "/admin/plans", label: "Plans & Packages", icon: Layers, permission: "manage_plans" },
-      { href: "/admin/credit-rules", label: "Credit Rules", icon: Shield, permission: "manage_credit_rules" },
-      { href: "/admin/billing/payments", label: "Payments", icon: CreditCard, permission: "manage_payments" },
-      { href: "/admin/billing/invoices", label: "Invoices", icon: FileText, permission: "manage_invoices" },
-      { href: "/admin/billing/refunds", label: "Refunds", icon: Layers, permission: "manage_refunds" },
-    ],
-  },
-  {
-    label: "Reports",
-    collapsible: true,
-    items: [
-      { href: "/admin/reports/revenue", label: "Revenue Reports", icon: BarChart2, permission: "view_reports" },
-      { href: "/admin/reports/customers", label: "Customer Reports", icon: Users, permission: "view_reports" },
-      { href: "/admin/reports/subscriptions", label: "Subscription Reports", icon: CreditCard, permission: "view_reports" },
-    ],
-  },
-  {
-    label: "Marketing",
-    collapsible: true,
-    items: [
-      { href: "/admin/announcements", label: "Announcements", icon: Megaphone, permission: "manage_notifications" },
-      { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent, permission: "manage_coupons" },
-    ],
-  },
-  {
-    label: "Website CMS",
-    collapsible: true,
-    items: [
-      { href: "/admin/marketing/homepage", label: "Homepage", icon: Home, permission: "manage_homepage_cms" },
-      { href: "/admin/marketing/pages", label: "Pages", icon: Globe, permission: "manage_pages_cms" },
-      { href: "/admin/marketing/navigation", label: "Navigation Menu", icon: Navigation, permission: "manage_navigation" },
-      { href: "/admin/marketing/blog", label: "Blog", icon: BookOpen, permission: "manage_blog" },
-      { href: "/admin/marketing/seo", label: "SEO", icon: TrendingUp, permission: "manage_seo" },
-      { href: "/admin/marketing/testimonials", label: "Testimonials", icon: MessageSquare, permission: "manage_testimonials" },
-      { href: "/admin/marketing/help-center", label: "Help Center", icon: HelpCircle, permission: ["manage_homepage_cms", "manage_faqs"] },
-      { href: "/admin/marketing/faqs", label: "FAQ", icon: HelpCircle, permission: "manage_faqs" },
-      { href: "/admin/marketing/media", label: "Media Library", icon: Image, permission: "manage_media" },
-    ],
-  },
-  {
-    label: "Help & Support",
-    collapsible: true,
-    items: [
-      { href: "/admin/help/support-tickets", label: "Support Tickets", icon: LifeBuoy, permission: "manage_support" },
-      { href: "/admin/marketing/forms?type=contact", label: "Contact Messages", icon: Mail, permission: "manage_support" },
-    ],
-  },
-  {
-    label: "Settings",
-    collapsible: true,
-    items: [
-      { href: "/admin/settings/platform", label: "Company Settings", icon: Settings, permission: "manage_settings" },
-      { href: "/admin/settings/default-agents", label: "Default Ecommerce Guru Agents", icon: Bot, permission: "manage_settings" },
-      { href: "/admin/settings/api", label: "Webhook Settings", icon: KeyRound, permission: "manage_settings" },
-      { href: "/admin/settings/email", label: "Email Settings", icon: Mail, permission: "manage_settings" },
-      { href: "/admin/settings/payment-gateway", label: "Payment Settings", icon: Wallet, permission: "manage_settings" },
-      { href: "/admin/settings/security", label: "Security Settings", icon: Lock, permission: "manage_settings" },
-      { href: "/admin/team-activity", label: "Team Activity", icon: Users, permission: "manage_team_activity" },
-    ],
-  },
-];
-
-type AdminSearchScope = "all" | "customers" | "settings" | "billing" | "marketing" | "content" | "reports" | "support";
-
-const ADMIN_NAV_INDEX = [
-  ...navSections.flatMap((section) =>
-    section.items.map((item) => ({
-      name: item.label,
-      url: item.href.split("?")[0],
-      section: section.label,
-      permission: item.permission,
-      searchText: `${section.label} ${item.label} ${item.href}`.toLowerCase(),
-    })),
-  ),
-  ...ADMIN_AI_NAV_ITEMS.map((child) => ({
-    name: child.label,
-    url: child.href,
-    section: "Settings",
-    permission: "manage_settings" as AdminPermission,
-    searchText: `settings ai settings ${child.label} ${child.href}`.toLowerCase(),
-  })),
-];
-
-function getAdminSearchContext(location: string): { placeholder: string; scope: AdminSearchScope } {
-  const path = location.split("?")[0];
-  if (path.startsWith("/admin/settings") || path === "/admin/team-activity") {
-    return { placeholder: "Search settings...", scope: "settings" };
-  }
-  if (path.startsWith("/admin/customers") || path === "/admin/roles") {
-    return { placeholder: "Search customers...", scope: "customers" };
-  }
-  if (
-    path.startsWith("/admin/billing")
-    || path.startsWith("/admin/plans")
-    || path.startsWith("/admin/credit-rules")
-    || path === "/admin/credits"
-  ) {
-    return { placeholder: "Search billing...", scope: "billing" };
-  }
-  if (path.startsWith("/admin/marketing") || path === "/admin/announcements" || path === "/admin/notifications") {
-    return { placeholder: "Search marketing...", scope: "marketing" };
-  }
-  if (path.startsWith("/admin/content")) {
-    return { placeholder: "Search service logs...", scope: "content" };
-  }
-  if (path.startsWith("/admin/reports")) {
-    return { placeholder: "Search reports...", scope: "reports" };
-  }
-  if (path.startsWith("/admin/help")) {
-    return { placeholder: "Search support...", scope: "support" };
-  }
-  if (path.startsWith("/admin/analytics") || path === "/admin/dashboard") {
-    return { placeholder: "Search customers, settings...", scope: "all" };
-  }
-  return { placeholder: "Search admin...", scope: "all" };
-}
-
-function matchesAdminScope(section: string, name: string, scope: AdminSearchScope): boolean {
-  switch (scope) {
-    case "customers":
-      return section === "User Management" || name.toLowerCase().includes("customer");
-    case "settings":
-      return section === "Settings";
-    case "billing":
-      return section === "Billing";
-    case "marketing":
-      return section === "Marketing" || section === "Website CMS";
-    case "content":
-      return section === "Services";
-    case "reports":
-      return section === "Reports";
-    case "support":
-      return section === "Help & Support";
-    default:
-      return true;
-  }
-}
-
-function filterAdminNavResults(
-  query: string,
-  scope: AdminSearchScope,
-  can: (required: AdminPermission | AdminPermission[]) => boolean,
-): RecentItem[] {
-  const q = query.toLowerCase().trim();
-  if (!q) return [];
-
-  return ADMIN_NAV_INDEX
-    .filter((item) => can(item.permission))
-    .filter((item) => matchesAdminScope(item.section, item.name, scope) && item.searchText.includes(q))
-    .slice(0, 8)
-    .map((item, idx) => ({
-      type: "audit" as const,
-      id: idx + 1,
-      name: `${item.section} · ${item.name}`,
-      url: item.url,
-      pinned: false,
-    }));
-}
 
 function AdminNavSections({
   location,
@@ -249,7 +38,7 @@ function AdminNavSections({
   aiSettingsNavOpen: boolean;
   onToggleAiSettingsNav: () => void;
 }) {
-  const visibleSections = navSections
+  const visibleSections = adminNavSections
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => can(item.permission)),
@@ -328,14 +117,14 @@ function AdminNavSections({
 }
 
 export function AdminLayout({ children }: { children: ReactNode }) {
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { can, defaultRoute } = useAdminPermissions();
   const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin/dashboard");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [aiSettingsNavOpen, setAiSettingsNavOpen] = useState(true);
   const toggleSection = (label: string) =>
     setCollapsedSections((s) => ({ ...s, [label]: !s[label] }));
@@ -346,7 +135,18 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     }
   }, [location]);
 
-  const { placeholder: searchPlaceholder, scope: searchScope } = getAdminSearchContext(location);
+  const { scope: searchScope } = getAdminSearchContext(location);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchDialogOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const { data: profileData } = useQuery<{
     profile: { fullName: string | null } | null;
@@ -357,33 +157,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     enabled: clerkLoaded && !!user,
     staleTime: 30_000,
   });
-
-  const { data: searchData } = useQuery({
-    queryKey: ["admin-search", searchQuery],
-    queryFn: async () => {
-      const params = new URLSearchParams({ limit: "20", query: searchQuery });
-      const r = await fetch(`${basePath}/api/admin/customers?${params}`, { credentials: "include" });
-      if (!r.ok) return { customers: [] as Array<{ id: string; firstName?: string; lastName?: string; email: string; profileId: number | null }> };
-      return r.json() as Promise<{ customers: Array<{ id: string; firstName?: string; lastName?: string; email: string; profileId: number | null }> }>;
-    },
-    enabled: can("manage_customers") && searchQuery.length > 0 && (searchScope === "all" || searchScope === "customers"),
-    staleTime: 0,
-  });
-
-  const navSearchResults = filterAdminNavResults(searchQuery, searchScope, can);
-  const customerSearchResults: RecentItem[] = can("manage_customers")
-    ? (searchData?.customers ?? []).map((customer, idx) => {
-      const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email;
-      return {
-        type: "audit" as const,
-        id: 1000 + idx,
-        name: `Customer · ${name}`,
-        url: `/admin/customers/${customer.id}`,
-        pinned: false,
-      };
-    })
-    : [];
-  const searchResults = [...navSearchResults, ...customerSearchResults].slice(0, 12);
 
   const profileName = profileData?.profile?.fullName?.trim();
   const clerkName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || user?.fullName?.trim() || undefined;
@@ -401,7 +174,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMobileNavOpen(false);
-    setSearchQuery("");
   }, [location]);
 
   return (
@@ -415,8 +187,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <button
               type="button"
               title="Search"
-              aria-label="Expand sidebar to search"
-              onClick={() => setCollapsed(false)}
+              aria-label="Search"
+              onClick={() => setSearchDialogOpen(true)}
               className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
             >
               <Search className="w-4 h-4" />
@@ -444,16 +216,16 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             >
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
-            <div className="flex-1 min-w-0">
-              <AdminInlineSearch
-                searchQuery={searchQuery}
-                onSearchQueryChange={setSearchQuery}
-                searchResults={searchResults}
-                searchPlaceholder={searchPlaceholder}
-                onNavigate={(url) => navigate(url)}
-                theme="dark"
-              />
-            </div>
+            <div className="flex-1 min-w-2" />
+            <button
+              type="button"
+              title="Search"
+              aria-label="Search"
+              onClick={() => setSearchDialogOpen(true)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Search className="w-4 h-4" />
+            </button>
             <AdminNotificationBell
               className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
             />
@@ -520,17 +292,19 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 Super<span className="text-orange-400">Admin</span>
               </span>
             </Link>
-            <AdminInlineSearch
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-              searchResults={searchResults}
-              searchPlaceholder={searchPlaceholder}
-              onNavigate={(url) => {
+            <button
+              type="button"
+              title="Search"
+              aria-label="Search"
+              onClick={() => {
                 setMobileNavOpen(false);
-                navigate(url);
+                setSearchDialogOpen(true);
               }}
-              theme="dark"
-            />
+              className="flex items-center gap-2 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors text-left"
+            >
+              <Search className="w-4 h-4 shrink-0" />
+              <span>Search admin...</span>
+            </button>
             <div className="flex items-center gap-1 justify-end">
               <AdminNotificationBell
                 onNavigate={() => setMobileNavOpen(false)}
@@ -581,10 +355,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-amber-400 flex-shrink-0" />
             <DashboardTopbar
               variant="admin"
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-              searchResults={searchResults}
-              searchPlaceholder={searchPlaceholder}
               displayName={displayName}
               initials={initials}
               email={userEmail}
@@ -592,6 +362,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               roleLabel={roleLabel}
               showProfileMenu={false}
               onMenuClick={() => setMobileNavOpen(true)}
+              onOpenSearch={() => setSearchDialogOpen(true)}
             />
           </>
         )}
@@ -606,6 +377,14 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </main>
+
+      <AdminSearchDialog
+        open={searchDialogOpen}
+        onOpenChange={setSearchDialogOpen}
+        scope={searchScope}
+        can={can}
+        canManageCustomers={can("manage_customers")}
+      />
     </div>
   );
 }
