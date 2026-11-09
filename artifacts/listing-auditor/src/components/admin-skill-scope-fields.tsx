@@ -1,6 +1,9 @@
-import { useMemo } from "react";
-import { Link } from "wouter";
+import { useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { AdminSearchableCategorySelect } from "@/components/admin-searchable-category-select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -17,7 +20,14 @@ import {
   type AdminSkillType,
 } from "@/lib/admin-skill-types";
 import { useAdminSkillChatModels } from "@/lib/admin-skill-chat-models";
-import { Loader2 } from "lucide-react";
+import {
+  createAdminMarketplaceChannel,
+  slugFromMarketplaceName,
+} from "@/lib/create-marketplace-channel";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+
+const CREATE_MARKETPLACE_VALUE = "__create_marketplace__";
 
 type AdminSkillScopeFieldsProps = {
   skillType: SkillType;
@@ -34,6 +44,9 @@ type AdminSkillScopeFieldsProps = {
   imageSkillEditorMode?: boolean;
   skillTypeOptions?: AdminSkillType[];
   contentMarketplaceId?: number | null;
+  isNew?: boolean;
+  onDeleteMarketplace?: () => void;
+  marketplaceDeleteDisabled?: boolean;
 };
 
 export function AdminSkillScopeFields({
@@ -51,8 +64,21 @@ export function AdminSkillScopeFields({
   imageSkillEditorMode = false,
   skillTypeOptions = [],
   contentMarketplaceId,
+  isNew = false,
+  onDeleteMarketplace,
+  marketplaceDeleteDisabled = false,
 }: AdminSkillScopeFieldsProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const typeMeta = findAdminSkillType(skillTypeOptions, skillType);
+  const isProductContentType = skillType === "product_content";
+  const [channelName, setChannelName] = useState("");
+  const [channelSlug, setChannelSlug] = useState("");
+  const [creatingChannel, setCreatingChannel] = useState(false);
+  const [showAdvancedScope, setShowAdvancedScope] = useState(false);
+  const [showChannelCreate, setShowChannelCreate] = useState(false);
+
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
   const categorySelectOptions = useMemo(() => {
@@ -68,6 +94,7 @@ export function AdminSkillScopeFields({
   }, [categories, category]);
 
   const selectedMarketplace = marketplaces.find((m) => m.slug === marketplace);
+  const derivedChannelSlug = channelSlug.trim() || slugFromMarketplaceName(channelName);
 
   const skillTypeSelectOptions = useMemo(() => {
     if (skillTypeOptions.some((t) => t.slug === skillType)) return skillTypeOptions;
@@ -80,6 +107,204 @@ export function AdminSkillScopeFields({
   const emptyRouteValue = "__ai_settings__";
   const selectAiModel = aiModel.trim() ? aiModel : emptyRouteValue;
 
+  async function handleCreateChannel() {
+    const n = channelName.trim();
+    const s = derivedChannelSlug;
+    if (!n || !s) {
+      toast({ title: "Name and slug required", variant: "destructive" });
+      return;
+    }
+    setCreatingChannel(true);
+    try {
+      const saved = await createAdminMarketplaceChannel(n, s);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "content-marketplaces"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "ai-skills"] });
+      const skillSlug = saved.skillSlug ?? `marketplace-content-${saved.slug}`;
+      toast({ title: "Sales channel created", description: n });
+      navigate(`/admin/settings/ai/skills/${skillSlug}`);
+    } catch (e) {
+      toast({
+        title: "Could not create channel",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingChannel(false);
+    }
+  }
+
+  function renderProductContentMarketplaceSection() {
+    if (isMarketplaceSkill) {
+      return (
+        <div className="mt-1.5 space-y-3 rounded-lg border border-orange-200 bg-orange-50/50 px-3 py-3">
+          <div>
+            <p className="text-sm font-medium">{selectedMarketplace?.name ?? marketplace}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Sales channel linked to this Product content skill. Display name, sort order, and seller visibility are
+              in Marketplace settings below.
+            </p>
+          </div>
+          {onDeleteMarketplace && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-red-700 border-red-200 hover:bg-red-50"
+              disabled={marketplaceDeleteDisabled}
+              onClick={() => onDeleteMarketplace()}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              Delete sales channel
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    if (isNew && !showAdvancedScope) {
+      return (
+        <div className="mt-1.5 space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 px-3 py-3">
+          <p className="text-sm font-medium text-orange-950">Add a sales channel</p>
+          <p className="text-xs text-muted-foreground">
+            Choose <strong>Product content</strong> to create or manage marketplace listing skills (Amazon, eBay,
+            Etsy, …). Each channel gets its own skill in the Skills list.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Channel name</Label>
+              <Input
+                value={channelName}
+                onChange={(e) => setChannelName(e.target.value)}
+                placeholder="e.g. TikTok Shop"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Slug</Label>
+              <Input
+                value={channelSlug}
+                onChange={(e) => setChannelSlug(e.target.value)}
+                placeholder={derivedChannelSlug || "tiktok-shop"}
+                className="mt-1 font-mono text-xs"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
+              onClick={() => void handleCreateChannel()}
+              disabled={creatingChannel}
+            >
+              {creatingChannel ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Plus className="w-3.5 h-3.5" />
+              )}
+              Add marketplace
+            </Button>
+            <button
+              type="button"
+              className="text-xs text-orange-800 underline"
+              onClick={() => setShowAdvancedScope(true)}
+            >
+              Advanced: category-specific product content
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-1.5 space-y-2">
+        {!showChannelCreate ? (
+          <Select
+            value={marketplace}
+            onValueChange={(v) => {
+              if (v === CREATE_MARKETPLACE_VALUE) {
+                setChannelName("");
+                setChannelSlug("");
+                setShowChannelCreate(true);
+                return;
+              }
+              onMarketplaceChange(v);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select marketplace" />
+            </SelectTrigger>
+            <SelectContent>
+              {marketplaces.map((m) => (
+                <SelectItem key={m.id} value={m.slug}>
+                  {m.name}
+                  {!m.enabled ? " (disabled)" : ""}
+                </SelectItem>
+              ))}
+              <SelectItem value={CREATE_MARKETPLACE_VALUE} className="text-orange-800 font-medium">
+                + Add marketplace…
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Channel name</Label>
+                <Input
+                  value={channelName}
+                  onChange={(e) => setChannelName(e.target.value)}
+                  placeholder="e.g. TikTok Shop"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Slug</Label>
+                <Input
+                  value={channelSlug}
+                  onChange={(e) => setChannelSlug(e.target.value)}
+                  placeholder={derivedChannelSlug || "tiktok-shop"}
+                  className="mt-1 font-mono text-xs"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => void handleCreateChannel()}
+                disabled={creatingChannel}
+              >
+                {creatingChannel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Add marketplace"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowChannelCreate(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+        <p className="text-[10px] text-muted-foreground">
+          Pick an existing channel or use <strong>Add marketplace…</strong> to create a new Product content skill.
+        </p>
+        {isNew && showAdvancedScope && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline"
+            onClick={() => setShowAdvancedScope(false)}
+          >
+            Back to add sales channel
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -89,7 +314,7 @@ export function AdminSkillScopeFields({
             <p className="text-sm font-medium mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
               {typeMeta?.label ?? "Product content"}
               <span className="text-xs text-muted-foreground font-normal block mt-0.5">
-                Linked sales channel — type cannot be changed here. Edit marketplace fields in this skill.
+                Linked sales channel — type cannot be changed here.
               </span>
             </p>
           ) : (
@@ -164,6 +389,10 @@ export function AdminSkillScopeFields({
               </Link>{" "}
               and optional category <strong>Product images</strong> skills are configured on the Skills list page.
             </p>
+          ) : isProductContentType && isNew && !showAdvancedScope ? (
+            <p className="text-sm text-muted-foreground mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
+              Sales channels use all categories. Use advanced mode for a category-specific Product content skill.
+            </p>
           ) : (
             <>
               <AdminSearchableCategorySelect
@@ -187,13 +416,8 @@ export function AdminSkillScopeFields({
         {!imageSkillEditorMode && (
         <div className="sm:col-span-2">
           <Label className="text-xs text-muted-foreground">Marketplace</Label>
-          {isMarketplaceSkill ? (
-            <p className="text-sm font-medium mt-1.5 rounded-md border border-orange-200 bg-orange-50/50 px-3 py-2">
-              {selectedMarketplace?.name ?? marketplace}
-              <span className="text-xs text-muted-foreground font-normal block mt-0.5">
-                Listing skill for this marketplace — display name and sort order are in Seller marketplace settings below.
-              </span>
-            </p>
+          {isProductContentType ? (
+            renderProductContentMarketplaceSection()
           ) : isImagePromptSkill ? (
             <p className="text-sm text-muted-foreground mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
               Not scoped to marketplace — edit the prompt in Image prompt settings below.

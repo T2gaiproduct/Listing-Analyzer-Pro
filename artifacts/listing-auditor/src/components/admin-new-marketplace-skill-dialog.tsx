@@ -11,11 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { saveAdminContentMarketplace } from "@/lib/content-marketplaces";
-
-const STARTER_INSTRUCTIONS = `You are generating listing content for this marketplace.
-Follow the marketplace title, bullet, keyword, and description rules exactly.
-Use the product context provided in the request.`;
+import { createAdminMarketplaceChannel, slugFromMarketplaceName } from "@/lib/create-marketplace-channel";
 
 type Props = {
   open: boolean;
@@ -29,12 +25,7 @@ export function AdminNewMarketplaceSkillDialog({ open, onOpenChange }: Props) {
   const [slug, setSlug] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const derivedSlug =
-    slug.trim() ||
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
+  const derivedSlug = slug.trim() || slugFromMarketplaceName(name);
 
   async function handleCreate() {
     const s = derivedSlug;
@@ -45,16 +36,7 @@ export function AdminNewMarketplaceSkillDialog({ open, onOpenChange }: Props) {
     }
     setSaving(true);
     try {
-      const saved = await saveAdminContentMarketplace({
-        slug: s,
-        name: n,
-        description: "",
-        enabled: false,
-        isDefault: false,
-        sortOrder: 100,
-        aiInstructions: STARTER_INSTRUCTIONS,
-        rules: { bulletCount: 5, keywordCount: 10 },
-      });
+      const saved = await createAdminMarketplaceChannel(n, s);
       const skillSlug = saved.skillSlug ?? `marketplace-content-${saved.slug}`;
       onOpenChange(false);
       setName("");

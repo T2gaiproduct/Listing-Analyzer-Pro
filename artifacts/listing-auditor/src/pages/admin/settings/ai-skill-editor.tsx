@@ -584,6 +584,11 @@ export default function AdminAiSkillEditorPage() {
                 imageSkillEditorMode={isImageSkillEditor}
                 skillTypeOptions={skillTypeRegistry}
                 contentMarketplaceId={skillData?.skill?.contentMarketplaceId}
+                isNew={isNew}
+                onDeleteMarketplace={
+                  isMarketplaceSkill && marketplaceMeta ? () => void deleteMarketplaceSkill() : undefined
+                }
+                marketplaceDeleteDisabled={saving || skillLoading}
               />
             </CardContent>
           </Card>

@@ -1,17 +1,14 @@
-import { useState } from "react";
 import { Link } from "wouter";
-import { Plus, SlidersHorizontal, Store } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminSkillsCatalogTable } from "@/components/admin-skills-catalog-table";
 import { AdminSkillTypesPanel } from "@/components/admin-skill-types-panel";
-import { AdminNewMarketplaceSkillDialog } from "@/components/admin-new-marketplace-skill-dialog";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
 import { ADMIN_AI_OVERVIEW_HREF } from "@/lib/admin-ai-settings-nav";
 
 export default function AdminAiSkillsPage() {
   const { data, isLoading, isError, error } = useAdminAiSkills();
   const skills = data?.skills ?? [];
-  const [marketplaceDialogOpen, setMarketplaceDialogOpen] = useState(false);
 
   return (
     <div className="min-h-full bg-slate-50/80">
@@ -27,23 +24,12 @@ export default function AdminAiSkillsPage() {
               <span className="font-medium text-orange-800">Live</span> when it should run in the product.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 border-orange-200 text-orange-800 hover:bg-orange-50"
-              onClick={() => setMarketplaceDialogOpen(true)}
-            >
-              <Store className="w-4 h-4" />
-              New sales channel
+          <Link href="/admin/settings/ai/skills/new?skillType=product_content">
+            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white shadow-sm">
+              <Plus className="w-4 h-4" />
+              New skill
             </Button>
-            <Link href="/admin/settings/ai/skills/new">
-              <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white shadow-sm">
-                <Plus className="w-4 h-4" />
-                New skill
-              </Button>
-            </Link>
-          </div>
+          </Link>
         </div>
 
         {isError && (
@@ -57,20 +43,16 @@ export default function AdminAiSkillsPage() {
         <AdminSkillTypesPanel />
 
         <p className="text-xs text-muted-foreground">
-          For Amazon, eBay, Etsy, or another marketplace, use <strong>New sales channel</strong>. That creates a{" "}
-          <strong>Product content</strong> skill in this list — edit it to set rules and publish when sellers should see
-          it. Category reference images (Hero Shot, lifestyle, etc.) are on{" "}
+          To add or remove a sales channel (Amazon, eBay, Etsy, …), open a{" "}
+          <strong>Product content</strong> skill: use <strong>New skill</strong> (Product content type) →{" "}
+          <strong>Add marketplace</strong> in <em>Where this skill applies</em>, or open an existing channel skill and
+          use <strong>Delete sales channel</strong>. Category reference images are on{" "}
           <Link href={ADMIN_AI_OVERVIEW_HREF} className="text-orange-600 underline font-medium">
             Overview → Image library
           </Link>
           .
         </p>
       </div>
-
-      <AdminNewMarketplaceSkillDialog
-        open={marketplaceDialogOpen}
-        onOpenChange={setMarketplaceDialogOpen}
-      />
     </div>
   );
 }
