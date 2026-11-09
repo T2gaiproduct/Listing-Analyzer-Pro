@@ -194,19 +194,6 @@ export function AdminSkillScopeFields({
         </div>
         )}
       </div>
-      {!imageSkillEditorMode && (
-      <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-3">
-        <strong>Marketplace listing skills:</strong> create with{" "}
-        <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
-          New marketplace
-        </Link>{" "}
-        on the Skills page. <strong>Categories:</strong> add above or under{" "}
-        <Link href="/admin/settings/image-prompt-templates" className="text-orange-600 underline">
-          Image Prompts
-        </Link>
-        .
-      </p>
-      )}
     </div>
   );
 }
