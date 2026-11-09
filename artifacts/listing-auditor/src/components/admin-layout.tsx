@@ -9,7 +9,7 @@ import {
   Bot, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
-  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen, Store,
+  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -117,7 +117,6 @@ const navSections: Array<{
     collapsible: true,
     items: [
       { href: "/admin/settings/platform", label: "Company Settings", icon: Settings, permission: "manage_settings" },
-      { href: "/admin/settings/content-marketplaces", label: "Marketplace Content", icon: Store, permission: "manage_settings" },
       { href: "/admin/settings/image-prompt-templates", label: "Image Prompts", icon: Image, permission: "manage_settings" },
       { href: "/admin/settings/default-agents", label: "Default Ecommerce Guru Agents", icon: Bot, permission: "manage_settings" },
       { href: "/admin/settings/api", label: "Webhook Settings", icon: KeyRound, permission: "manage_settings" },

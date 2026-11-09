@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -59,11 +59,6 @@ export function AdminSkillScopeFields({
   const { createCategory, removeCategory } = useAdminProductCategoryMutations();
   const [newCategoryName, setNewCategoryName] = useState("");
 
-  const marketplaceManageHref =
-    contentMarketplaceId != null
-      ? `/admin/settings/content-marketplaces?marketplaceId=${contentMarketplaceId}`
-      : "/admin/settings/content-marketplaces";
-
   const selectedMarketplace = marketplaces.find((m) => m.slug === marketplace);
 
   return (
@@ -107,10 +102,9 @@ export function AdminSkillScopeFields({
             {!isMarketplaceSkill && (
               <Link
                 href="/admin/settings/image-prompt-templates"
-                className="text-[11px] text-orange-600 hover:underline inline-flex items-center gap-1"
+                className="text-[11px] text-orange-600 hover:underline"
               >
                 Full category manager
-                <ExternalLink className="w-3 h-3" />
               </Link>
             )}
           </div>
@@ -213,22 +207,12 @@ export function AdminSkillScopeFields({
           )}
         </div>
         <div className="sm:col-span-2">
-          <div className="flex items-center justify-between gap-2">
-            <Label className="text-xs text-muted-foreground">Marketplace</Label>
-            <Link
-              href={marketplaceManageHref}
-              className="text-[11px] text-orange-600 hover:underline inline-flex items-center gap-1"
-            >
-              {isMarketplaceSkill ? "Edit or delete marketplace" : "Add or edit marketplaces"}
-              <ExternalLink className="w-3 h-3" />
-            </Link>
-          </div>
+          <Label className="text-xs text-muted-foreground">Marketplace</Label>
           {isMarketplaceSkill ? (
             <p className="text-sm font-medium mt-1.5 rounded-md border border-orange-200 bg-orange-50/50 px-3 py-2">
               {selectedMarketplace?.name ?? marketplace}
               <span className="text-xs text-muted-foreground font-normal block mt-0.5">
-                Linked marketplace — change name, slug (on create only), rules, or delete under Marketplace
-                Content.
+                Listing skill for this marketplace — edit marketplace settings in the card below.
               </span>
             </p>
           ) : (
@@ -249,15 +233,15 @@ export function AdminSkillScopeFields({
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-3">
-        <strong>Marketplaces:</strong> create, edit, enable/disable, or delete on{" "}
-        <Link href="/admin/settings/content-marketplaces" className="text-orange-600 underline">
-          Marketplace Content
+        <strong>Marketplace listing skills:</strong> create with{" "}
+        <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
+          New marketplace
         </Link>{" "}
-        (each becomes a linked skill). <strong>Categories:</strong> add above or under{" "}
+        on the Skills page. <strong>Categories:</strong> add above or under{" "}
         <Link href="/admin/settings/image-prompt-templates" className="text-orange-600 underline">
           Image Prompts
-        </Link>{" "}
-        (custom categories can be deleted; system categories cannot).
+        </Link>
+        .
       </p>
     </div>
   );

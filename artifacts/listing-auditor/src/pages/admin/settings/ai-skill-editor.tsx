@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
-import { ArrowLeft, FileUp, Play } from "lucide-react";
+import { ArrowLeft, FileUp, Play, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,8 +16,15 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ADMIN_AI_SKILLS_HREF } from "@/lib/admin-ai-settings-nav";
-import { useAdminContentMarketplaces } from "@/lib/content-marketplaces";
+import {
+  deleteAdminContentMarketplace,
+  saveAdminContentMarketplace,
+  useAdminContentMarketplaces,
+  type ContentMarketplaceAdmin,
+} from "@/lib/content-marketplaces";
 import { AdminSkillScopeFields } from "@/components/admin-skill-scope-fields";
+import { AdminMarketplaceSkillSettings } from "@/components/admin-marketplace-skill-settings";
+import { extractSkillInstructionBody } from "@/lib/marketplace-skill-utils";
 import {
   DEFAULT_SKILL_INSTRUCTIONS_TEXT,
   SAMPLE_PRODUCTS,
@@ -60,6 +67,7 @@ export default function AdminAiSkillEditorPage() {
   const [persistedKey, setPersistedKey] = useState<string | null>(isNew ? null : routeSkillId);
   const [saving, setSaving] = useState(false);
   const [hydratedFromServer, setHydratedFromServer] = useState(isNew);
+  const [marketplaceMeta, setMarketplaceMeta] = useState<ContentMarketplaceAdmin | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: mpData } = useAdminContentMarketplaces();
@@ -85,6 +93,16 @@ export default function AdminAiSkillEditorPage() {
     setPersistedKey(skill.slug);
     setHydratedFromServer(true);
   }, [skillData?.skill, hydratedFromServer]);
+
+  useEffect(() => {
+    const mpId = skillData?.skill?.contentMarketplaceId;
+    if (mpId == null) {
+      setMarketplaceMeta(null);
+      return;
+    }
+    const mp = marketplaces.find((m) => m.id === mpId);
+    if (mp) setMarketplaceMeta({ ...mp });
+  }, [skillData?.skill?.contentMarketplaceId, marketplaces]);
 
   const parsed = useMemo(() => parseSkillInstructions(instructionsText), [instructionsText]);
   const pageTitle = parsed.name || (isNew ? "New skill" : "Edit skill");
@@ -136,6 +154,22 @@ export default function AdminAiSkillEditorPage() {
   const persistSkill = async (nextStatus: "draft" | "published") => {
     setSaving(true);
     try {
+      if (isMarketplaceSkill && marketplaceMeta) {
+        await saveAdminContentMarketplace(
+          {
+            slug: marketplaceMeta.slug,
+            name: marketplaceMeta.name,
+            description: marketplaceMeta.description,
+            enabled: nextStatus === "published",
+            isDefault: marketplaceMeta.isDefault,
+            sortOrder: marketplaceMeta.sortOrder,
+            aiInstructions: extractSkillInstructionBody(instructionsText),
+            rules: marketplaceMeta.rules,
+          },
+          marketplaceMeta.id,
+        );
+      }
+
       const payload = buildPayload(nextStatus);
       if (persistedKey) {
         const { skill } = await updateAdminAiSkill(persistedKey, payload);
@@ -171,6 +205,27 @@ export default function AdminAiSkillEditorPage() {
   const saveDraft = () => void persistSkill("draft");
   const publishSkill = () => void persistSkill("published");
 
+  const deleteMarketplaceSkill = async () => {
+    const mpId = skillData?.skill?.contentMarketplaceId;
+    if (!mpId) return;
+    if (!window.confirm("Delete this marketplace and its listing skill?")) return;
+    setSaving(true);
+    try {
+      await deleteAdminContentMarketplace(mpId);
+      invalidateSkills();
+      navigate(ADMIN_AI_SKILLS_HREF);
+      toast({ title: "Marketplace skill deleted" });
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-full bg-slate-50/80">
       <header className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur px-6 py-4">
@@ -194,6 +249,18 @@ export default function AdminAiSkillEditorPage() {
             </Badge>
           </div>
           <div className="flex gap-2 ml-auto">
+            {isMarketplaceSkill && marketplaceMeta && (
+              <Button
+                type="button"
+                variant="outline"
+                className="text-red-700 border-red-200"
+                onClick={() => void deleteMarketplaceSkill()}
+                disabled={saving || skillLoading}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={saveDraft} disabled={saving || skillLoading}>
               Save draft
             </Button>
@@ -209,15 +276,9 @@ export default function AdminAiSkillEditorPage() {
         </div>
       </header>
 
-      {isMarketplaceSkill && (
-        <div className="max-w-7xl mx-auto px-6 pt-4">
-          <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-950">
-            This skill is linked to{" "}
-            <Link href="/admin/settings/content-marketplaces" className="underline font-medium">
-              Marketplace Content
-            </Link>
-            . Saving or publishing updates the marketplace instructions used for listing generation.
-          </div>
+      {isMarketplaceSkill && marketplaceMeta && (
+        <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
+          <AdminMarketplaceSkillSettings value={marketplaceMeta} onChange={setMarketplaceMeta} />
         </div>
       )}
 
