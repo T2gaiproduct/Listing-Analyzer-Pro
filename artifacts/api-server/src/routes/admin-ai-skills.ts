@@ -50,7 +50,14 @@ function slugify(name: string): string {
 }
 
 function parseSkillType(raw: unknown): AiSkillType | null {
-  if (raw === "product_content" || raw === "product_images" || raw === "aplus_content") return raw;
+  if (
+    raw === "product_content"
+    || raw === "product_images"
+    || raw === "aplus_content"
+    || raw === "listing_audit"
+  ) {
+    return raw;
+  }
   return null;
 }
 

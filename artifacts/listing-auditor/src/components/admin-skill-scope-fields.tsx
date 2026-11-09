@@ -77,6 +77,7 @@ export function AdminSkillScopeFields({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="listing_audit">Listing audit</SelectItem>
               <SelectItem value="product_content">Product content</SelectItem>
               <SelectItem value="product_images">Product images</SelectItem>
               <SelectItem value="aplus_content">A+ content</SelectItem>

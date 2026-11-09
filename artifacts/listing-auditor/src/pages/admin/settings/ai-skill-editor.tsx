@@ -34,6 +34,7 @@ import {
   type ImagePromptTemplateAdmin,
 } from "@/lib/image-prompt-templates";
 import {
+  DEFAULT_LISTING_AUDIT_SKILL_TEXT,
   DEFAULT_SKILL_INSTRUCTIONS_TEXT,
   SAMPLE_PRODUCTS,
   type SkillType,
@@ -90,6 +91,16 @@ export default function AdminAiSkillEditorPage() {
     id: p.id,
     label: p.label,
   }));
+
+  useEffect(() => {
+    if (isNew && !hydratedFromServer) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("skillType") === "listing_audit") {
+        setSkillType("listing_audit");
+        setInstructionsText(DEFAULT_LISTING_AUDIT_SKILL_TEXT);
+      }
+    }
+  }, [isNew, hydratedFromServer]);
 
   useEffect(() => {
     const skill = skillData?.skill;
@@ -386,7 +397,9 @@ export default function AdminAiSkillEditorPage() {
                   spellCheck={false}
                 />
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  One rule per line as key: value. Try changing bullets or title_max and watch the test output.
+                  {skillType === "listing_audit"
+                    ? "Keys: title_weight, bullet_weight, image_weight, keyword_weight, show_title/show_bullets/show_images/show_keywords (yes/no), score_offset, score_floor, score_ceiling. Rubric text under # Generation instructions. Re-run audits to apply changes."
+                    : "One rule per line as key: value. Try changing bullets or title_max and watch the test output."}
                 </p>
               </div>
             </CardContent>

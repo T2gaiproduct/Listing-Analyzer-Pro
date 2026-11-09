@@ -11,6 +11,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 export type CategoryCoverageRow = {
   category: string;
   contentSkillLabel: "Live" | "Draft" | "Missing";
+  auditSkillLabel: "Live" | "Draft" | "Missing";
   imageSkillLabel: "Live" | "Draft" | "Missing";
   approvedRefCount: number;
   status: "ready" | "needs_setup";
@@ -94,6 +95,10 @@ export function useAdminAiSkillsOverview() {
         "product_images",
         "aplus_content",
       ]);
+      let auditSkillLabel = skillStatusForCategory(skills, category, ["listing_audit"]);
+      if (auditSkillLabel === "Missing") {
+        auditSkillLabel = skillStatusForCategory(skills, "Default", ["listing_audit"]);
+      }
 
       const ready =
         contentSkillLabel === "Live"
@@ -103,6 +108,7 @@ export function useAdminAiSkillsOverview() {
       return {
         category,
         contentSkillLabel,
+        auditSkillLabel,
         imageSkillLabel,
         approvedRefCount,
         status: ready ? "ready" : "needs_setup",

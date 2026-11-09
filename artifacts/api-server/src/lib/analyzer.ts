@@ -1,5 +1,10 @@
 import { generateChatCompletion } from "./ai-provider";
 import type { AuditResult } from "@workspace/db";
+import type { ListingAuditSkillConfig } from "./listing-audit-skill.js";
+import {
+  applyListingAuditSkillToResult,
+  resolvePublishedListingAuditSkill,
+} from "./listing-audit-skill.js";
 
 export async function analyzeListingWithAI(data: {
   title: string;
@@ -7,7 +12,23 @@ export async function analyzeListingWithAI(data: {
   imageUrls: string[];
   targetKeywords: string[];
   category?: string;
+  auditSkill?: ListingAuditSkillConfig | null;
 }): Promise<AuditResult> {
+  const resolved =
+    data.auditSkill != null
+      ? { config: data.auditSkill, skillSlug: null }
+      : await resolvePublishedListingAuditSkill(data.category);
+  const skillCfg = resolved?.config ?? null;
+
+  const weightHint = skillCfg
+    ? `
+Use these weights for overallScore: title ${skillCfg.weights.title}%, bullets ${skillCfg.weights.bullet}%, images ${skillCfg.weights.image}%, keywords ${skillCfg.weights.keyword}%.`
+    : "";
+
+  const rubricAddon = skillCfg?.rubricAddon?.trim()
+    ? `\n\nAdditional scoring rules from admin:\n${skillCfg.rubricAddon}`
+    : "";
+
   const prompt = `You are an expert e-commerce listing optimizer. Analyze this product listing (from any marketplace or online store) and provide a comprehensive audit.
 
 Product Category: ${data.category || "General"}
@@ -53,7 +74,7 @@ Scoring criteria (adapt to the marketplace when obvious from the listing; otherw
 - Images: Sufficient variety (main, lifestyle, detail, infographic where relevant), professional quality
 - Keywords: Primary terms in title and body copy, natural placement, good coverage of search intent
 
-Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.`;
+Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.${weightHint}${rubricAddon}`;
 
   const { content } = await generateChatCompletion(
     [{ role: "user", content: prompt }],
@@ -62,7 +83,7 @@ Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.
 
   try {
     const parsed = JSON.parse(content);
-    return {
+    let result: AuditResult = {
       titleScore: {
         score: parsed.titleScore?.score ?? 50,
         issues: parsed.titleScore?.issues ?? [],
@@ -86,8 +107,10 @@ Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.
       overallScore: parsed.overallScore ?? 50,
       summary: parsed.summary ?? "Analysis complete.",
     };
+    if (skillCfg) result = applyListingAuditSkillToResult(result, skillCfg);
+    return result;
   } catch {
-    return {
+    const fallback: AuditResult = {
       titleScore: { score: 50, issues: ["Unable to analyze"], suggestions: [] },
       bulletScore: { score: 50, issues: ["Unable to analyze"], suggestions: [] },
       imageScore: { score: 50, issues: ["Unable to analyze"], suggestions: [] },
@@ -95,6 +118,7 @@ Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.
       overallScore: 50,
       summary: "Analysis could not be completed. Please try again.",
     };
+    return skillCfg ? applyListingAuditSkillToResult(fallback, skillCfg) : fallback;
   }
 }
 

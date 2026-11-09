@@ -9,6 +9,13 @@ export const scoreDetailSchema = z.object({
   suggestions: z.array(z.string()),
 });
 
+export const auditResultDisplaySchema = z.object({
+  showTitle: z.boolean(),
+  showBullets: z.boolean(),
+  showImages: z.boolean(),
+  showKeywords: z.boolean(),
+});
+
 export const auditResultSchema = z.object({
   titleScore: scoreDetailSchema,
   bulletScore: scoreDetailSchema,
@@ -16,6 +23,8 @@ export const auditResultSchema = z.object({
   keywordScore: scoreDetailSchema,
   overallScore: z.number(),
   summary: z.string(),
+  /** Set from published listing_audit admin skill — controls Audit Results UI. */
+  display: auditResultDisplaySchema.optional(),
 });
 
 export const generatedListingAttributeSchema = z.object({

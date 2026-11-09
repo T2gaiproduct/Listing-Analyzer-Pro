@@ -2,7 +2,12 @@ import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const AI_SKILL_TYPES = ["product_content", "product_images", "aplus_content"] as const;
+export const AI_SKILL_TYPES = [
+  "product_content",
+  "product_images",
+  "aplus_content",
+  "listing_audit",
+] as const;
 export type AiSkillType = (typeof AI_SKILL_TYPES)[number];
 
 export const AI_SKILL_STATUSES = ["draft", "published"] as const;

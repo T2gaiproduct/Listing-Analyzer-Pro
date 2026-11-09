@@ -281,12 +281,21 @@ export default function AuditDetail({ id }: { id: number }) {
     overallScore: 0,
     summary: "Analysis pending. Run the audit to generate scores.",
   };
-  const scoreCategories = [
-    { icon: Type, title: "Title Analysis", ...result.titleScore },
-    { icon: AlignLeft, title: "Bullet Points", ...result.bulletScore },
-    { icon: Image, title: "Images", ...result.imageScore },
-    { icon: Tag, title: "Keywords", ...result.keywordScore },
-  ];
+  const display = result.display;
+  const scoreCategories = (
+    [
+      { key: "title" as const, icon: Type, title: "Title Analysis", ...result.titleScore },
+      { key: "bullets" as const, icon: AlignLeft, title: "Bullet Points", ...result.bulletScore },
+      { key: "images" as const, icon: Image, title: "Images", ...result.imageScore },
+      { key: "keywords" as const, icon: Tag, title: "Keywords", ...result.keywordScore },
+    ] as const
+  ).filter((cat) => {
+    if (!display) return true;
+    if (cat.key === "title") return display.showTitle;
+    if (cat.key === "bullets") return display.showBullets;
+    if (cat.key === "images") return display.showImages;
+    return display.showKeywords;
+  });
 
   const auditRecord = audit as AuditDetailRecord;
   const isAuditListingFlow =

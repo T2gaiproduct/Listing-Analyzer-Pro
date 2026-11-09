@@ -128,18 +128,21 @@ export default function AdminAiSkillsPage() {
   const [studioCategory, setStudioCategory] = useState("Default");
   const [studioTab, setStudioTab] = useState<ImagePromptTemplateCategory>("graphics");
 
-  const { marketplaceSkills, graphicsPromptSkills, aplusPromptSkills, otherSkills } = useMemo(() => {
+  const { marketplaceSkills, graphicsPromptSkills, aplusPromptSkills, auditSkills, otherSkills } = useMemo(() => {
     const marketplace = skills.filter((s) => s.skillKind === "marketplace_content");
     const imagePrompt = skills.filter((s) => s.skillKind === "image_prompt");
     const graphicsPrompt = imagePrompt.filter((s) => s.skillType === "product_images");
     const aplusPrompt = imagePrompt.filter((s) => s.skillType === "aplus_content");
-    const other = skills.filter(
+    const custom = skills.filter(
       (s) => s.skillKind !== "marketplace_content" && s.skillKind !== "image_prompt",
     );
+    const audit = custom.filter((s) => s.skillType === "listing_audit");
+    const other = custom.filter((s) => s.skillType !== "listing_audit");
     return {
       marketplaceSkills: marketplace,
       graphicsPromptSkills: graphicsPrompt,
       aplusPromptSkills: aplusPrompt,
+      auditSkills: audit,
       otherSkills: other,
     };
   }, [skills]);
@@ -245,6 +248,36 @@ export default function AdminAiSkillsPage() {
               <p className="text-sm text-muted-foreground py-6 text-center">No marketplace skills yet.</p>
             )}
             <DashedAddButton label="+ Add marketplace" onClick={() => setNewMarketplaceOpen(true)} />
+          </CardContent>
+        </Card>
+
+        <Card id="listing-audit-skills" className="border-slate-200 shadow-sm scroll-mt-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-orange-500" />
+              Listing audit skills
+            </CardTitle>
+            <p className="text-xs text-muted-foreground font-normal">
+              Rubric, score weights, visible sections (title/bullets/images/keywords), and score offset per category.
+              Published skills apply on the next audit run.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {!isLoading &&
+              auditSkills.map((skill) => (
+                <SkillRow key={skill.id} skill={skill} />
+              ))}
+            {!isLoading && auditSkills.length === 0 && (
+              <p className="text-sm text-muted-foreground py-6 text-center">No listing audit skills yet.</p>
+            )}
+            <Link href="/admin/settings/ai/skills/new?skillType=listing_audit">
+              <button
+                type="button"
+                className="w-full rounded-lg border border-dashed border-orange-200 py-5 text-sm text-orange-900/80 hover:border-orange-400 hover:bg-orange-50/40 transition-colors"
+              >
+                + Add listing audit skill
+              </button>
+            </Link>
           </CardContent>
         </Card>
 

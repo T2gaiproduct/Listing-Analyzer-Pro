@@ -74,6 +74,17 @@ export default function AdminAiOverviewPage() {
     navigate("/admin/settings/ai/skills/new");
   }
 
+  function openAuditSkill(category: string) {
+    const slug =
+      findCategorySkillSlug(skills, category, "listing_audit")
+      ?? findCategorySkillSlug(skills, "Default", "listing_audit");
+    if (slug) {
+      navigate(`/admin/settings/ai/skills/${slug}`);
+      return;
+    }
+    navigate("/admin/settings/ai/skills/new?skillType=listing_audit");
+  }
+
   function openImageSkill(category: string) {
     openReferenceLibrary(category);
   }
@@ -143,8 +154,8 @@ export default function AdminAiOverviewPage() {
         <CardHeader>
           <CardTitle className="text-lg">Category coverage</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Open the image library to configure reference templates per category. Content skill opens the skill
-            editor; image skill, refs, and status open the library for that category.
+            Configure content, audit rubric/scores, and reference images per category. Audit skill sets weights,
+            visible score sections, and score offset for Audit Results.
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -153,6 +164,7 @@ export default function AdminAiOverviewPage() {
               <tr className="border-b text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="py-2 pr-4 font-semibold">Category</th>
                 <th className="py-2 pr-4 font-semibold">Content skill</th>
+                <th className="py-2 pr-4 font-semibold">Audit skill</th>
                 <th className="py-2 pr-4 font-semibold">Image skill</th>
                 <th className="py-2 pr-4 font-semibold">Approved refs</th>
                 <th className="py-2 font-semibold">Status</th>
@@ -161,14 +173,14 @@ export default function AdminAiOverviewPage() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     Loading coverage…
                   </td>
                 </tr>
               )}
               {!isLoading && coverageRows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     No product categories yet. Add categories on the Skills page under Studio references.
                   </td>
                 </tr>
@@ -201,6 +213,22 @@ export default function AdminAiOverviewPage() {
                       }
                     >
                       {row.contentSkillLabel}
+                    </StatusPill>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <StatusPill
+                      asButton
+                      title="Listing audit rubric and score display"
+                      onClick={() => openAuditSkill(row.category)}
+                      tone={
+                        row.auditSkillLabel === "Live"
+                          ? "ok"
+                          : row.auditSkillLabel === "Draft"
+                            ? "warn"
+                            : "muted"
+                      }
+                    >
+                      {row.auditSkillLabel}
                     </StatusPill>
                   </td>
                   <td className="py-3 pr-4">

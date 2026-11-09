@@ -1,4 +1,21 @@
-export type SkillType = "product_content" | "product_images" | "aplus_content";
+export type SkillType = "product_content" | "product_images" | "aplus_content" | "listing_audit";
+
+export const DEFAULT_LISTING_AUDIT_SKILL_TEXT = `name: Global listing audit
+title_weight: 25
+bullet_weight: 25
+image_weight: 25
+keyword_weight: 25
+show_title: yes
+show_bullets: yes
+show_images: yes
+show_keywords: yes
+score_offset: 0
+score_floor: 0
+score_ceiling: 100
+
+# Generation instructions
+Score title, bullets, images, and keywords for marketplace listings. Be specific in issues and suggestions.
+Use stricter scoring for regulated categories (supplements, baby, medical claims) when the product category implies it.`;
 
 export type SkillInstructions = {
   name: string;
