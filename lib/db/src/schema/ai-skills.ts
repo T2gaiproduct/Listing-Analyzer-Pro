@@ -20,6 +20,8 @@ export const aiSkillsTable = pgTable("ai_skills", {
   instructionsText: text("instructions_text").notNull().default(""),
   /** When set, this skill mirrors admin Marketplace Content for that row. */
   contentMarketplaceId: integer("content_marketplace_id"),
+  /** When set, this skill mirrors an image_prompt_templates row. */
+  imagePromptTemplateId: integer("image_prompt_template_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

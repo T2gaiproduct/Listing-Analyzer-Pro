@@ -13,6 +13,10 @@ import {
   serializeImagePromptTemplateAdmin,
   validateTemplatePlaceholders,
 } from "../lib/image-prompt-template-service.js";
+import {
+  deleteSkillForImagePromptTemplate,
+  syncImagePromptTemplateToSkill,
+} from "../lib/image-prompt-skill-sync.js";
 
 const router: IRouter = Router();
 
@@ -153,6 +157,7 @@ router.post(
         })
         .returning();
 
+      await syncImagePromptTemplateToSkill(inserted!);
       res.status(201).json({ template: serializeImagePromptTemplateAdmin(inserted) });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -226,6 +231,7 @@ router.patch(
       .where(eq(imagePromptTemplatesTable.id, id))
       .returning();
 
+    await syncImagePromptTemplateToSkill(updated!);
     res.json({ template: serializeImagePromptTemplateAdmin(updated) });
   },
 );
@@ -252,6 +258,7 @@ router.delete(
       return;
     }
 
+    await deleteSkillForImagePromptTemplate(id);
     await db.delete(imagePromptTemplatesTable).where(eq(imagePromptTemplatesTable.id, id));
     res.json({ ok: true });
   },

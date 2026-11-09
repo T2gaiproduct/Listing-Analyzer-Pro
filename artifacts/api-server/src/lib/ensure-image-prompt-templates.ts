@@ -113,4 +113,7 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
         ),
       );
   }
+
+  const { syncAllImagePromptTemplatesToSkills } = await import("./image-prompt-skill-sync.js");
+  await syncAllImagePromptTemplatesToSkills();
 }

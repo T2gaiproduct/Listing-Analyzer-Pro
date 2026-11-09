@@ -24,7 +24,15 @@ import {
 } from "@/lib/content-marketplaces";
 import { AdminSkillScopeFields } from "@/components/admin-skill-scope-fields";
 import { AdminMarketplaceSkillSettings } from "@/components/admin-marketplace-skill-settings";
+import { AdminImagePromptSkillSettings } from "@/components/admin-image-prompt-skill-settings";
 import { extractSkillInstructionBody } from "@/lib/marketplace-skill-utils";
+import { buildImagePromptInstructionsFromTemplate } from "@/lib/image-prompt-skill-utils";
+import {
+  deleteAdminImagePromptTemplate,
+  saveAdminImagePromptTemplate,
+  useAdminImagePromptTemplates,
+  type ImagePromptTemplateAdmin,
+} from "@/lib/image-prompt-templates";
 import {
   DEFAULT_SKILL_INSTRUCTIONS_TEXT,
   SAMPLE_PRODUCTS,
@@ -68,9 +76,11 @@ export default function AdminAiSkillEditorPage() {
   const [saving, setSaving] = useState(false);
   const [hydratedFromServer, setHydratedFromServer] = useState(isNew);
   const [marketplaceMeta, setMarketplaceMeta] = useState<ContentMarketplaceAdmin | null>(null);
+  const [imagePromptMeta, setImagePromptMeta] = useState<ImagePromptTemplateAdmin | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: mpData } = useAdminContentMarketplaces();
+  const { data: imageTemplatesData } = useAdminImagePromptTemplates();
   const { data: skillData, isLoading: skillLoading } = useAdminAiSkill(routeSkillId, !isNew);
   const { data: sampleProductsData } = useAdminAiSkillSampleProducts();
   const invalidateSkills = useInvalidateAdminAiSkills();
@@ -109,6 +119,19 @@ export default function AdminAiSkillEditorPage() {
   const isMarketplaceSkill =
     skillData?.skill?.skillKind === "marketplace_content"
     || skillData?.skill?.contentMarketplaceId != null;
+  const isImagePromptSkill =
+    skillData?.skill?.skillKind === "image_prompt"
+    || skillData?.skill?.imagePromptTemplateId != null;
+
+  useEffect(() => {
+    const tplId = skillData?.skill?.imagePromptTemplateId;
+    if (tplId == null) {
+      setImagePromptMeta(null);
+      return;
+    }
+    const tpl = imageTemplatesData?.templates.find((t) => t.id === tplId);
+    if (tpl) setImagePromptMeta({ ...tpl });
+  }, [skillData?.skill?.imagePromptTemplateId, imageTemplatesData?.templates]);
 
   const buildPayload = useCallback(
     (nextStatus: "draft" | "published") => ({
@@ -154,6 +177,19 @@ export default function AdminAiSkillEditorPage() {
   const persistSkill = async (nextStatus: "draft" | "published") => {
     setSaving(true);
     try {
+      let instructionsForSave = instructionsText;
+      if (isImagePromptSkill && imagePromptMeta) {
+        await saveAdminImagePromptTemplate({
+          ...imagePromptMeta,
+          enabled: nextStatus === "published",
+        });
+        instructionsForSave = buildImagePromptInstructionsFromTemplate({
+          ...imagePromptMeta,
+          enabled: nextStatus === "published",
+        });
+        setInstructionsText(instructionsForSave);
+      }
+
       if (isMarketplaceSkill && marketplaceMeta) {
         await saveAdminContentMarketplace(
           {
@@ -170,7 +206,7 @@ export default function AdminAiSkillEditorPage() {
         );
       }
 
-      const payload = buildPayload(nextStatus);
+      const payload = { ...buildPayload(nextStatus), instructionsText: instructionsForSave };
       if (persistedKey) {
         const { skill } = await updateAdminAiSkill(persistedKey, payload);
         setStatus(skill.status);
@@ -204,6 +240,27 @@ export default function AdminAiSkillEditorPage() {
 
   const saveDraft = () => void persistSkill("draft");
   const publishSkill = () => void persistSkill("published");
+
+  const deleteImagePromptSkill = async () => {
+    const tplId = skillData?.skill?.imagePromptTemplateId;
+    if (!tplId) return;
+    if (!window.confirm("Delete this image prompt skill?")) return;
+    setSaving(true);
+    try {
+      await deleteAdminImagePromptTemplate(tplId);
+      invalidateSkills();
+      navigate(ADMIN_AI_SKILLS_HREF);
+      toast({ title: "Image prompt skill deleted" });
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const deleteMarketplaceSkill = async () => {
     const mpId = skillData?.skill?.contentMarketplaceId;
@@ -249,6 +306,18 @@ export default function AdminAiSkillEditorPage() {
             </Badge>
           </div>
           <div className="flex gap-2 ml-auto">
+            {isImagePromptSkill && imagePromptMeta && !imagePromptMeta.isSystem && (
+              <Button
+                type="button"
+                variant="outline"
+                className="text-red-700 border-red-200"
+                onClick={() => void deleteImagePromptSkill()}
+                disabled={saving || skillLoading}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            )}
             {isMarketplaceSkill && marketplaceMeta && (
               <Button
                 type="button"
@@ -339,10 +408,21 @@ export default function AdminAiSkillEditorPage() {
                 onAiModelChange={setAiModel}
                 marketplaces={marketplaces}
                 isMarketplaceSkill={isMarketplaceSkill}
+                isImagePromptSkill={isImagePromptSkill}
                 contentMarketplaceId={skillData?.skill?.contentMarketplaceId}
               />
             </CardContent>
           </Card>
+
+          {isImagePromptSkill && imagePromptMeta && (
+            <AdminImagePromptSkillSettings
+              value={imagePromptMeta}
+              onChange={(next) => {
+                setImagePromptMeta(next);
+                setInstructionsText(buildImagePromptInstructionsFromTemplate(next));
+              }}
+            />
+          )}
 
           {isMarketplaceSkill && marketplaceMeta && (
             <AdminMarketplaceSkillSettings value={marketplaceMeta} onChange={setMarketplaceMeta} />

@@ -9,6 +9,10 @@ import {
 import { db } from "@workspace/db";
 import type { EbcContent } from "./ebc-generator.js";
 import { APLUS_EDGE_TO_EDGE_PROMPT } from "./aplus-image-size.js";
+import {
+  resolveCategoryImageSkillAddon,
+  resolvePublishedImagePromptFields,
+} from "./image-prompt-skill-sync.js";
 
 export class ImagePromptTemplateError extends Error {
   constructor(
@@ -199,11 +203,16 @@ export async function mergeAplusModules<T extends { id: string }>(
 export async function buildGraphicsPromptForType(
   typeSlug: string,
   productDesc: string,
+  productCategory?: string | null,
 ): Promise<string | null> {
   const row = await getImagePromptTemplateBySlug("graphics", typeSlug);
   if (!row || row.enabled !== 1) return null;
-  if (!row.promptTemplate.trim()) return null;
-  return renderPromptTemplate(row.promptTemplate, { productDesc });
+  const fromSkill = await resolvePublishedImagePromptFields(row);
+  const promptTemplate = fromSkill?.promptTemplate?.trim() || row.promptTemplate.trim();
+  if (!promptTemplate) return null;
+  const base = renderPromptTemplate(promptTemplate, { productDesc });
+  const addon = productCategory ? await resolveCategoryImageSkillAddon(productCategory) : "";
+  return `${base}${addon}`;
 }
 
 export async function resolveGraphicsBucketForType(typeSlug: string): Promise<"feature" | "lifestyle"> {
@@ -228,6 +237,11 @@ export async function getRuntimeAplusModuleSpec(slug: string): Promise<RuntimeAp
   const row = await getImagePromptTemplateBySlug("aplus", slug);
   if (!row || row.enabled !== 1) return undefined;
 
+  const fromSkill = await resolvePublishedImagePromptFields(row);
+  const promptTemplate = fromSkill?.promptTemplate?.trim() || row.promptTemplate;
+  const headlineTemplate = fromSkill?.headlineTemplate ?? row.headlineTemplate;
+  const bodyTemplate = fromSkill?.bodyTemplate ?? row.bodyTemplate;
+
   return {
     id: row.slug,
     title: row.name,
@@ -238,14 +252,14 @@ export async function getRuntimeAplusModuleSpec(slug: string): Promise<RuntimeAp
         productDesc,
         aplusEdgeToEdge: APLUS_EDGE_TO_EDGE_PROMPT,
       };
-      return renderPromptTemplate(row.promptTemplate, vars);
+      return renderPromptTemplate(promptTemplate, vars);
     },
     headline: (content) => {
-      const template = row.headlineTemplate?.trim() || "{{heroHeadline}}";
+      const template = headlineTemplate?.trim() || "{{heroHeadline}}";
       return renderPromptTemplate(template, ebcContentToTemplateVars(content));
     },
     body: (content) => {
-      const template = row.bodyTemplate?.trim() || "";
+      const template = bodyTemplate?.trim() || "";
       if (!template) return "";
       return renderPromptTemplate(template, ebcContentToTemplateVars(content));
     },

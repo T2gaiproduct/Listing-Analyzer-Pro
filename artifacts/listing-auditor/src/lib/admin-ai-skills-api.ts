@@ -8,7 +8,8 @@ export type AiSkillRecord = {
   name: string;
   status: "draft" | "published";
   skillType: SkillType;
-  skillKind?: "custom" | "marketplace_content";
+  skillKind?: "custom" | "marketplace_content" | "image_prompt";
+  imagePromptTemplateId?: number | null;
   category: string;
   marketplaceSlug: string;
   aiModel: string;

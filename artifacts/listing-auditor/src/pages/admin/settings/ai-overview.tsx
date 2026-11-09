@@ -180,7 +180,7 @@ export default function AdminAiOverviewPage() {
           Skills
         </Link>
         , add reference images in{" "}
-        <Link href="/admin/settings/image-prompt-templates" className="text-orange-600 underline">
+        <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
           Image Prompts
         </Link>
         , and set provider keys under{" "}

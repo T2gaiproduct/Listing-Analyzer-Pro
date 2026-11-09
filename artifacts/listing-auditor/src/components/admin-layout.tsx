@@ -117,7 +117,6 @@ const navSections: Array<{
     collapsible: true,
     items: [
       { href: "/admin/settings/platform", label: "Company Settings", icon: Settings, permission: "manage_settings" },
-      { href: "/admin/settings/image-prompt-templates", label: "Image Prompts", icon: Image, permission: "manage_settings" },
       { href: "/admin/settings/default-agents", label: "Default Ecommerce Guru Agents", icon: Bot, permission: "manage_settings" },
       { href: "/admin/settings/api", label: "Webhook Settings", icon: KeyRound, permission: "manage_settings" },
       { href: "/admin/settings/email", label: "Email Settings", icon: Mail, permission: "manage_settings" },

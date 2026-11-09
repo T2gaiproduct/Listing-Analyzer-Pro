@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Plus, SlidersHorizontal, Store, Trash2 } from "lucide-react";
+import { ImageIcon, Plus, SlidersHorizontal, Store, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { useAdminAiSkills, type AiSkillRecord } from "@/lib/admin-ai-skills-api";
 import { deleteAdminContentMarketplace } from "@/lib/content-marketplaces";
 import { AdminNewMarketplaceSkillDialog } from "@/components/admin-new-marketplace-skill-dialog";
+import { AdminNewImagePromptSkillDialog } from "@/components/admin-new-image-prompt-skill-dialog";
+import { deleteAdminImagePromptTemplate } from "@/lib/image-prompt-templates";
 import { useQueryClient } from "@tanstack/react-query";
 
 function formatSkillType(skillType: string): string {
@@ -56,8 +58,13 @@ function SkillRow({
           <p className="text-xs text-muted-foreground mt-0.5">
             {skill.skillKind === "marketplace_content"
               ? "Marketplace listing"
-              : skill.category || "Uncategorized"}{" "}
-            · {formatSkillType(skill.skillType)} · {skill.marketplaceSlug}
+              : skill.skillKind === "image_prompt"
+                ? skill.skillType === "aplus_content"
+                  ? "A+ image prompt"
+                  : "Graphics image prompt"
+                : skill.category || "Uncategorized"}{" "}
+            · {formatSkillType(skill.skillType)}
+            {skill.skillKind === "custom" ? ` · ${skill.marketplaceSlug}` : ""}
           </p>
         </div>
         <SkillStatusBadge status={skill.status} />
@@ -112,12 +119,42 @@ export default function AdminAiSkillsPage() {
   const { data, isLoading, isError, error, refetch } = useAdminAiSkills();
   const skills = data?.skills ?? [];
   const [newMarketplaceOpen, setNewMarketplaceOpen] = useState(false);
+  const [newGraphicsPromptOpen, setNewGraphicsPromptOpen] = useState(false);
+  const [newAplusPromptOpen, setNewAplusPromptOpen] = useState(false);
 
-  const { marketplaceSkills, otherSkills } = useMemo(() => {
+  const { marketplaceSkills, graphicsPromptSkills, aplusPromptSkills, otherSkills } = useMemo(() => {
     const marketplace = skills.filter((s) => s.skillKind === "marketplace_content");
-    const other = skills.filter((s) => s.skillKind !== "marketplace_content");
-    return { marketplaceSkills: marketplace, otherSkills: other };
+    const imagePrompt = skills.filter((s) => s.skillKind === "image_prompt");
+    const graphicsPrompt = imagePrompt.filter((s) => s.skillType === "product_images");
+    const aplusPrompt = imagePrompt.filter((s) => s.skillType === "aplus_content");
+    const other = skills.filter(
+      (s) => s.skillKind !== "marketplace_content" && s.skillKind !== "image_prompt",
+    );
+    return {
+      marketplaceSkills: marketplace,
+      graphicsPromptSkills: graphicsPrompt,
+      aplusPromptSkills: aplusPrompt,
+      otherSkills: other,
+    };
   }, [skills]);
+
+  async function deleteImagePromptSkill(skill: AiSkillRecord) {
+    const tplId = skill.imagePromptTemplateId;
+    if (tplId == null) return;
+    if (!window.confirm(`Delete “${skill.name}” image prompt?`)) return;
+    try {
+      await deleteAdminImagePromptTemplate(tplId);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "ai-skills"] });
+      await refetch();
+      toast({ title: "Image prompt skill deleted" });
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    }
+  }
 
   async function deleteMarketplaceSkill(skill: AiSkillRecord) {
     if (skill.contentMarketplaceId == null) return;
@@ -152,7 +189,7 @@ export default function AdminAiSkillsPage() {
               Skills
             </h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-              Marketplace listing prompts and category skills live here. Publish a skill to enable it for
+              Marketplace listing prompts, image prompt templates, and per-category rules. Publish to enable
               generation.
             </p>
           </div>
@@ -207,6 +244,69 @@ export default function AdminAiSkillsPage() {
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-violet-600" />
+              Graphics image prompts
+            </CardTitle>
+            <p className="text-xs text-muted-foreground font-normal">
+              One skill per product graphics type (lifestyle, hero, callouts, …).
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {!isLoading &&
+              graphicsPromptSkills.map((skill) => (
+                <SkillRow
+                  key={skill.id}
+                  skill={skill}
+                  onDelete={
+                    skill.imagePromptTemplateId != null
+                      ? () => void deleteImagePromptSkill(skill)
+                      : undefined
+                  }
+                />
+              ))}
+            {!isLoading && graphicsPromptSkills.length === 0 && (
+              <p className="text-sm text-muted-foreground py-6 text-center">No graphics prompts yet.</p>
+            )}
+            <DashedAddButton
+              label="+ Add graphics prompt"
+              onClick={() => setNewGraphicsPromptOpen(true)}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-violet-600" />
+              A+ image prompts
+            </CardTitle>
+            <p className="text-xs text-muted-foreground font-normal">
+              Module prompts for A+ / EBC image generation.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {!isLoading &&
+              aplusPromptSkills.map((skill) => (
+                <SkillRow
+                  key={skill.id}
+                  skill={skill}
+                  onDelete={
+                    skill.imagePromptTemplateId != null
+                      ? () => void deleteImagePromptSkill(skill)
+                      : undefined
+                  }
+                />
+              ))}
+            {!isLoading && aplusPromptSkills.length === 0 && (
+              <p className="text-sm text-muted-foreground py-6 text-center">No A+ prompts yet.</p>
+            )}
+            <DashedAddButton label="+ Add A+ prompt" onClick={() => setNewAplusPromptOpen(true)} />
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-teal-700" />
               Category &amp; other skills
             </CardTitle>
@@ -234,6 +334,16 @@ export default function AdminAiSkillsPage() {
         </Card>
 
         <AdminNewMarketplaceSkillDialog open={newMarketplaceOpen} onOpenChange={setNewMarketplaceOpen} />
+        <AdminNewImagePromptSkillDialog
+          open={newGraphicsPromptOpen}
+          onOpenChange={setNewGraphicsPromptOpen}
+          category="graphics"
+        />
+        <AdminNewImagePromptSkillDialog
+          open={newAplusPromptOpen}
+          onOpenChange={setNewAplusPromptOpen}
+          category="aplus"
+        />
       </div>
     </div>
   );

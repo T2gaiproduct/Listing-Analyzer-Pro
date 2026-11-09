@@ -558,6 +558,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS ai_skills_content_marketplace_id_key
   ON ai_skills (content_marketplace_id)
   WHERE content_marketplace_id IS NOT NULL;
 
+ALTER TABLE ai_skills
+  ADD COLUMN IF NOT EXISTS image_prompt_template_id integer;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ai_skills_image_prompt_template_id_key
+  ON ai_skills (image_prompt_template_id)
+  WHERE image_prompt_template_id IS NOT NULL;
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

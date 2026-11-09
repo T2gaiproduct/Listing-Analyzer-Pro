@@ -37,6 +37,7 @@ type AdminSkillScopeFieldsProps = {
   onAiModelChange: (v: string) => void;
   marketplaces: ContentMarketplaceAdmin[];
   isMarketplaceSkill: boolean;
+  isImagePromptSkill?: boolean;
   contentMarketplaceId?: number | null;
 };
 
@@ -51,6 +52,7 @@ export function AdminSkillScopeFields({
   onAiModelChange,
   marketplaces,
   isMarketplaceSkill,
+  isImagePromptSkill = false,
   contentMarketplaceId,
 }: AdminSkillScopeFieldsProps) {
   const { toast } = useToast();
@@ -69,7 +71,7 @@ export function AdminSkillScopeFields({
           <Select
             value={skillType}
             onValueChange={(v) => onSkillTypeChange(v as SkillType)}
-            disabled={isMarketplaceSkill}
+            disabled={isMarketplaceSkill || isImagePromptSkill}
           >
             <SelectTrigger className="mt-1.5">
               <SelectValue />
@@ -99,7 +101,7 @@ export function AdminSkillScopeFields({
         <div className="sm:col-span-2">
           <div className="flex items-center justify-between gap-2">
             <Label className="text-xs text-muted-foreground">Category</Label>
-            {!isMarketplaceSkill && (
+            {!isMarketplaceSkill && !isImagePromptSkill && (
               <Link
                 href="/admin/settings/image-prompt-templates"
                 className="text-[11px] text-orange-600 hover:underline"
@@ -111,6 +113,11 @@ export function AdminSkillScopeFields({
           {isMarketplaceSkill ? (
             <p className="text-sm text-muted-foreground mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
               Marketplace content skills apply to all product categories for that marketplace.
+            </p>
+          ) : isImagePromptSkill ? (
+            <p className="text-sm text-muted-foreground mt-1.5 rounded-md border border-violet-200 bg-violet-50/40 px-3 py-2">
+              Image prompt skills apply globally for this graphics or A+ type. Use category skills below for
+              per-category image rules.
             </p>
           ) : (
             <>
@@ -214,6 +221,10 @@ export function AdminSkillScopeFields({
               <span className="text-xs text-muted-foreground font-normal block mt-0.5">
                 Listing skill for this marketplace — display name and sort order are in Seller marketplace settings below.
               </span>
+            </p>
+          ) : isImagePromptSkill ? (
+            <p className="text-sm text-muted-foreground mt-1.5 rounded-md border bg-slate-50 px-3 py-2">
+              Not scoped to marketplace — edit the prompt in Image prompt settings below.
             </p>
           ) : (
             <Select value={marketplace} onValueChange={onMarketplaceChange}>

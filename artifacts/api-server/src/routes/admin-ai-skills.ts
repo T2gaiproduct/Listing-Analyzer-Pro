@@ -8,6 +8,11 @@ import {
   isMarketplaceContentSkillSlug,
   syncAllContentMarketplacesToSkills,
 } from "../lib/content-marketplace-skill-sync.js";
+import {
+  applySkillTextToImagePromptTemplate,
+  isImagePromptSkillSlug,
+  syncAllImagePromptTemplatesToSkills,
+} from "../lib/image-prompt-skill-sync.js";
 
 const router: IRouter = Router();
 
@@ -23,10 +28,13 @@ function serializeSkill(row: typeof aiSkillsTable.$inferSelect) {
     aiModel: row.aiModel,
     instructionsText: row.instructionsText,
     contentMarketplaceId: row.contentMarketplaceId ?? null,
+    imagePromptTemplateId: row.imagePromptTemplateId ?? null,
     skillKind:
       row.contentMarketplaceId != null || isMarketplaceContentSkillSlug(row.slug)
         ? "marketplace_content"
-        : "custom",
+        : row.imagePromptTemplateId != null || isImagePromptSkillSlug(row.slug)
+          ? "image_prompt"
+          : "custom",
     createdAt: row.createdAt?.toISOString(),
     updatedAt: row.updatedAt?.toISOString(),
   };
@@ -107,6 +115,7 @@ router.get(
   requireAdminPermission("manage_settings"),
   async (_req, res): Promise<void> => {
     await syncAllContentMarketplacesToSkills();
+    await syncAllImagePromptTemplatesToSkills();
     const rows = await db
       .select()
       .from(aiSkillsTable)
@@ -194,6 +203,13 @@ router.patch(
     if (row.contentMarketplaceId != null) {
       await applySkillTextToContentMarketplace(
         row.contentMarketplaceId,
+        row.instructionsText,
+        row.status as "draft" | "published",
+      );
+    }
+    if (row.imagePromptTemplateId != null) {
+      await applySkillTextToImagePromptTemplate(
+        row.imagePromptTemplateId,
         row.instructionsText,
         row.status as "draft" | "published",
       );

@@ -856,7 +856,7 @@ function Router() {
         <AdminRoute><AdminSettingsEmail /></AdminRoute>
       </Route>
       <Route path="/admin/settings/image-prompt-templates">
-        <AdminRoute><AdminSettingsImagePromptTemplates /></AdminRoute>
+        <Redirect to="/admin/settings/ai/skills" />
       </Route>
       <Route path="/admin/settings/content-marketplaces">
         <Redirect to="/admin/settings/ai/skills" />
