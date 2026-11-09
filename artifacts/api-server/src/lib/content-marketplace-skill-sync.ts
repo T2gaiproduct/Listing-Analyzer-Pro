@@ -5,10 +5,7 @@ import {
   db,
   type ContentMarketplace,
 } from "@workspace/db";
-import {
-  formatContentMarketplaceRulesForPrompt,
-  getContentMarketplaceById,
-} from "./content-marketplace-service.js";
+import { getContentMarketplaceById } from "./content-marketplace-service.js";
 
 export const MARKETPLACE_SKILL_SLUG_PREFIX = "marketplace-content-";
 
@@ -33,8 +30,7 @@ export function buildMarketplaceSkillInstructionsText(mp: ContentMarketplace): s
   if (rules?.bulletMaxChars != null) headerLines.push(`bullet_max: ${rules.bulletMaxChars}`);
   if (rules?.descriptionMaxWords != null) headerLines.push(`desc_max_words: ${rules.descriptionMaxWords}`);
 
-  const rulesBlock = formatContentMarketplaceRulesForPrompt(rules);
-  const body = [mp.aiInstructions.trim(), rulesBlock.trim()].filter(Boolean).join("\n\n");
+  const body = mp.aiInstructions.trim();
 
   return `${headerLines.join("\n")}\n---\n${body}`;
 }

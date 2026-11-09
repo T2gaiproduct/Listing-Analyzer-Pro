@@ -276,12 +276,6 @@ export default function AdminAiSkillEditorPage() {
         </div>
       </header>
 
-      {isMarketplaceSkill && marketplaceMeta && (
-        <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
-          <AdminMarketplaceSkillSettings value={marketplaceMeta} onChange={setMarketplaceMeta} />
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Left column */}
         <div className="space-y-6">
@@ -349,6 +343,10 @@ export default function AdminAiSkillEditorPage() {
               />
             </CardContent>
           </Card>
+
+          {isMarketplaceSkill && marketplaceMeta && (
+            <AdminMarketplaceSkillSettings value={marketplaceMeta} onChange={setMarketplaceMeta} />
+          )}
         </div>
 
         {/* Right column — test output */}

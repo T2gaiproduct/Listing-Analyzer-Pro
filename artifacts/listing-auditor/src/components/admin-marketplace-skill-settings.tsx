@@ -1,6 +1,5 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import type { ContentMarketplaceAdmin } from "@/lib/content-marketplaces";
 
@@ -18,7 +17,7 @@ export function AdminMarketplaceSkillSettings({
       <div>
         <p className="text-sm font-semibold">Marketplace settings</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Shown in the seller marketplace dropdown. Saved with this skill when you publish or save draft.
+          Seller dropdown only. Title limits, bullets, and tone live in the skill instructions below — not here.
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -61,72 +60,6 @@ export function AdminMarketplaceSkillSettings({
           value={value.description ?? ""}
           onChange={(e) => onChange({ ...value, description: e.target.value })}
           className="mt-1"
-        />
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs">Title max chars</Label>
-          <Input
-            type="number"
-            value={value.rules?.titleMaxChars ?? ""}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                rules: {
-                  ...value.rules,
-                  titleMaxChars: e.target.value ? parseInt(e.target.value, 10) : undefined,
-                },
-              })
-            }
-            className="mt-1 h-8"
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Bullet count</Label>
-          <Input
-            type="number"
-            value={value.rules?.bulletCount ?? ""}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                rules: {
-                  ...value.rules,
-                  bulletCount: e.target.value ? parseInt(e.target.value, 10) : undefined,
-                },
-              })
-            }
-            className="mt-1 h-8"
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Keyword count</Label>
-          <Input
-            type="number"
-            value={value.rules?.keywordCount ?? ""}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                rules: {
-                  ...value.rules,
-                  keywordCount: e.target.value ? parseInt(e.target.value, 10) : undefined,
-                },
-              })
-            }
-            className="mt-1 h-8"
-          />
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs">Formatting notes</Label>
-        <Textarea
-          value={value.rules?.formattingNotes ?? ""}
-          onChange={(e) =>
-            onChange({
-              ...value,
-              rules: { ...value.rules, formattingNotes: e.target.value || undefined },
-            })
-          }
-          className="mt-1 min-h-[72px] text-xs"
         />
       </div>
     </div>

@@ -212,7 +212,7 @@ export function AdminSkillScopeFields({
             <p className="text-sm font-medium mt-1.5 rounded-md border border-orange-200 bg-orange-50/50 px-3 py-2">
               {selectedMarketplace?.name ?? marketplace}
               <span className="text-xs text-muted-foreground font-normal block mt-0.5">
-                Listing skill for this marketplace — edit marketplace settings in the card below.
+                Listing skill for this marketplace — display name and sort order are in Seller marketplace settings below.
               </span>
             </p>
           ) : (
