@@ -528,32 +528,6 @@ export default function AdminAiSkillEditorPage() {
       <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Left column */}
         <div className="space-y-6">
-          <Card className="border-orange-200/70 bg-orange-50/20">
-            <CardContent className="pt-5 pb-4 space-y-2">
-              <Label htmlFor="admin-skill-name" className="text-xs font-semibold text-orange-950">
-                Skill name
-              </Label>
-              <Input
-                id="admin-skill-name"
-                value={skillNameFieldValue}
-                onChange={(e) => applySkillName(e.target.value)}
-                placeholder={
-                  isImagePromptSkill
-                    ? "e.g. Hero Shot"
-                    : skillType === "product_content"
-                      ? "e.g. Amazon title & bullets"
-                      : "e.g. Supplements listing rules"
-                }
-                className="bg-white border-orange-200/80"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                {isImagePromptSkill
-                  ? "Updates the Skills list and Image library module title."
-                  : "Updates the Skills table and the name: line in instructions below."}
-              </p>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Skill file</CardTitle>
@@ -632,7 +606,30 @@ export default function AdminAiSkillEditorPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Where this skill applies</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border border-orange-200/70 bg-orange-50/25 px-3 py-3 space-y-2">
+                <Label htmlFor="admin-skill-name" className="text-xs font-semibold text-orange-950">
+                  Skill name
+                </Label>
+                <Input
+                  id="admin-skill-name"
+                  value={skillNameFieldValue}
+                  onChange={(e) => applySkillName(e.target.value)}
+                  placeholder={
+                    isImagePromptSkill
+                      ? "e.g. Hero Shot"
+                      : skillType === "product_content"
+                        ? "e.g. Amazon title & bullets"
+                        : "e.g. Supplements listing rules"
+                  }
+                  className="bg-white border-orange-200/80"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {isImagePromptSkill
+                    ? "Catalog title for this image module — not the same as category or marketplace below."
+                    : "Name for this skill in the Skills table. Sales channel name below is only when you add a marketplace."}
+                </p>
+              </div>
               <AdminSkillScopeFields
                 skillType={skillType}
                 onSkillTypeChange={handleSkillTypeChange}

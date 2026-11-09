@@ -165,11 +165,12 @@ export function AdminSkillScopeFields({
         <div className="mt-1.5 space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 px-3 py-3">
           <p className="text-sm font-medium text-orange-950">Add a sales channel</p>
           <p className="text-xs text-muted-foreground">
-            One channel = one Product content skill (Amazon, eBay, Etsy, …). All categories.
+            Creates a <strong className="font-medium text-orange-950">new</strong> marketplace skill and opens it —
+            separate from the skill name above. One channel = one Product content skill (all categories).
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Channel name</Label>
+              <Label className="text-xs">Sales channel name</Label>
               <Input
                 value={channelName}
                 onChange={(e) => setChannelName(e.target.value)}
