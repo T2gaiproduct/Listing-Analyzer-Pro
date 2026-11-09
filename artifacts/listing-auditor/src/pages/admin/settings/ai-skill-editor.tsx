@@ -63,7 +63,7 @@ import {
   type SkillType,
   parseSkillInstructions,
 } from "@/lib/admin-skill-editor";
-import { findAdminSkillType, skillTypeEditorMode, useAdminSkillTypes } from "@/lib/admin-skill-types";
+import { skillTypeEditorMode, useAdminSkillTypes } from "@/lib/admin-skill-types";
 import {
   createAdminAiSkill,
   deleteAdminAiSkill,
@@ -178,13 +178,6 @@ export default function AdminAiSkillEditorPage() {
     || (!isMarketplaceSkill && skillEditorMode === "image");
   const isAuditSkillEditor =
     !isMarketplaceSkill && !isImageSkillEditor && (skillEditorMode === "audit" || skillType === "listing_audit");
-  const skillTypeMeta = findAdminSkillType(skillTypeRegistry, skillType);
-  const skillTypeSelectOptions = useMemo(() => {
-    if (skillTypeRegistry.some((t) => t.slug === skillType)) return skillTypeRegistry;
-    if (skillTypeMeta) return [skillTypeMeta, ...skillTypeRegistry];
-    return skillTypeRegistry;
-  }, [skillType, skillTypeMeta, skillTypeRegistry]);
-  const skillTypeLocked = isMarketplaceSkill || isImagePromptSkill;
   const skillRecord = skillData?.skill;
   const skillNameFieldValue = useMemo(() => {
     const raw = parsed.name.trim();
@@ -276,21 +269,14 @@ export default function AdminAiSkillEditorPage() {
       setTestOutput(null);
       setAuditTestPayload(null);
       const nextMode = skillTypeEditorMode(skillTypeRegistry, next);
-      const prevMode = skillTypeEditorMode(skillTypeRegistry, skillType);
       if (
         (nextMode === "audit" || next === "listing_audit")
         && !/title_weight\s*:/i.test(instructionsText)
       ) {
         setInstructionsText(DEFAULT_LISTING_AUDIT_SKILL_TEXT);
-      } else if (
-        prevMode === "audit"
-        && nextMode === "content"
-        && /title_weight\s*:/i.test(instructionsText)
-      ) {
-        setInstructionsText(DEFAULT_SKILL_INSTRUCTIONS_TEXT);
       }
     },
-    [instructionsText, skillType, skillTypeRegistry],
+    [instructionsText, skillTypeRegistry],
   );
 
   const runTest = useCallback(async () => {
@@ -543,70 +529,28 @@ export default function AdminAiSkillEditorPage() {
         {/* Left column */}
         <div className="space-y-6">
           <Card className="border-orange-200/70 bg-orange-50/20">
-            <CardContent className="pt-5 pb-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="admin-skill-name" className="text-xs font-semibold text-orange-950">
-                    Skill name
-                  </Label>
-                  <Input
-                    id="admin-skill-name"
-                    value={skillNameFieldValue}
-                    onChange={(e) => applySkillName(e.target.value)}
-                    placeholder={
-                      isImagePromptSkill
-                        ? "e.g. Hero Shot"
-                        : skillType === "product_content"
-                          ? "e.g. Amazon title & bullets"
-                          : "e.g. Supplements listing rules"
-                    }
-                    className="bg-white border-orange-200/80"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    {isImagePromptSkill
-                      ? "Updates the Skills list and Image library module title."
-                      : "Updates the Skills table and the name: line in instructions below."}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-orange-950">Skill type</Label>
-                  {skillTypeLocked ? (
-                    <div className="rounded-md border border-orange-200/80 bg-white px-3 py-2 text-sm">
-                      <p className="font-medium text-slate-900">{skillTypeMeta?.label ?? skillType}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {isMarketplaceSkill
-                          ? "Linked to a sales channel — fixed as Product content."
-                          : "Linked to an image module — change graphics vs A+ from Image library."}
-                      </p>
-                    </div>
-                  ) : (
-                    <Select value={skillType} onValueChange={(v) => handleSkillTypeChange(v as SkillType)}>
-                      <SelectTrigger className="bg-white border-orange-200/80">
-                        <SelectValue placeholder="Select skill type" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        {skillTypeSelectOptions.map((t) => (
-                          <SelectItem key={t.slug} value={t.slug}>
-                            <span className="font-medium">{t.label}</span>
-                            {t.description ? (
-                              <span className="block text-[10px] text-muted-foreground leading-snug">
-                                {t.description}
-                              </span>
-                            ) : null}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  <p className="text-[11px] text-muted-foreground">
-                    Types are defined under{" "}
-                    <Link href={`${ADMIN_AI_SKILLS_HREF}#skill-types`} className="text-orange-700 underline">
-                      Skills → Skill types
-                    </Link>{" "}
-                    (product text, images, audit). Pick what this skill controls before you publish.
-                  </p>
-                </div>
-              </div>
+            <CardContent className="pt-5 pb-4 space-y-2">
+              <Label htmlFor="admin-skill-name" className="text-xs font-semibold text-orange-950">
+                Skill name
+              </Label>
+              <Input
+                id="admin-skill-name"
+                value={skillNameFieldValue}
+                onChange={(e) => applySkillName(e.target.value)}
+                placeholder={
+                  isImagePromptSkill
+                    ? "e.g. Hero Shot"
+                    : skillType === "product_content"
+                      ? "e.g. Amazon title & bullets"
+                      : "e.g. Supplements listing rules"
+                }
+                className="bg-white border-orange-200/80"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {isImagePromptSkill
+                  ? "Updates the Skills list and Image library module title."
+                  : "Updates the Skills table and the name: line in instructions below."}
+              </p>
             </CardContent>
           </Card>
 
@@ -709,7 +653,6 @@ export default function AdminAiSkillEditorPage() {
                   isMarketplaceSkill && marketplaceMeta ? () => void deleteMarketplaceSkill() : undefined
                 }
                 marketplaceDeleteDisabled={saving || skillLoading}
-                hideSkillTypeField
               />
             </CardContent>
           </Card>
