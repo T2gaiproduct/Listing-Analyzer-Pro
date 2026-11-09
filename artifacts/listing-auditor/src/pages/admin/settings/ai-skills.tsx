@@ -248,7 +248,7 @@ export default function AdminAiSkillsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card id="graphics-image-prompts" className="border-slate-200 shadow-sm scroll-mt-6">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <ImageIcon className="w-4 h-4 text-violet-600" />

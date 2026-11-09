@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
+import { Link } from "wouter";
+import { ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,8 +56,12 @@ export function CategoryReferenceLibraryDialog({
         <DialogHeader className="px-6 pt-6 pb-0 space-y-1">
           <DialogTitle>Image library</DialogTitle>
           <DialogDescription>
-            Reference images set the style templates users can pick from, category by category. Upload several images
-            per module (e.g. Hero Shot) with <strong>Add another</strong> on each card—only for the selected category.
+            Upload reference images per graphics module and category. To <strong>add, rename, or remove</strong> modules
+            (Hero Shot, Lifestyle, …), use{" "}
+            <Link href="/admin/settings/ai/skills#graphics-image-prompts" className="text-orange-600 underline">
+              Skills → Graphics image prompts
+            </Link>
+            .
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-6 pb-6">
@@ -340,18 +345,31 @@ function CategoryReferenceLibraryBody({
               {visibleToUsers} of {totalTypes || "—"} graphics types have reference images
             </p>
           </div>
-          <select
-            className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm min-w-[140px]"
-            value={filterSlug}
-            onChange={(e) => setFilterSlug(e.target.value)}
-          >
-            <option value="all">All types</option>
-            {templates.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="h-9 rounded-md border border-orange-200 bg-white px-2 text-sm min-w-[140px]"
+              value={filterSlug}
+              onChange={(e) => setFilterSlug(e.target.value)}
+            >
+              <option value="all">All types</option>
+              {templates.map((t) => (
+                <option key={t.slug} value={t.slug}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <Link href="/admin/settings/ai/skills#graphics-image-prompts">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-1.5 border-orange-200 text-orange-900 hover:bg-orange-50"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Manage modules
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {isLoading ? (
