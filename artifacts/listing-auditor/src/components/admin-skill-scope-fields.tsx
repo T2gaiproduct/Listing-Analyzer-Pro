@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Plus, Trash2 } from "lucide-react";
+import { AdminSearchableCategorySelect } from "@/components/admin-searchable-category-select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -161,24 +162,27 @@ export function AdminSkillScopeFields({
             </p>
           ) : (
             <>
-              <Select value={category || undefined} onValueChange={onCategoryChange}>
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue
-                    placeholder={
-                      imageSkillEditorMode ? "Select configured category" : "Select category"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {(imageSkillEditorMode ? categorySelectOptions : categories.map((c) => c.name)).map(
-                    (name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
+              {imageSkillEditorMode ? (
+                <AdminSearchableCategorySelect
+                  value={category}
+                  onChange={onCategoryChange}
+                  options={categorySelectOptions}
+                  placeholder="Search categories…"
+                />
+              ) : (
+                <Select value={category || undefined} onValueChange={onCategoryChange}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.name}>
+                        {c.name}
                       </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               {!imageSkillEditorMode && (
                 <>
                   <div className="flex gap-2 mt-2">
