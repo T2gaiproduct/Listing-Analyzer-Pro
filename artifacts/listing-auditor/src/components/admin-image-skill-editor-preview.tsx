@@ -57,7 +57,7 @@ export function AdminImageSkillEditorPreview({
   return (
     <div className="space-y-4 flex-1">
       <div className="flex flex-wrap gap-2">
-        <Badge variant="outline" className="bg-sky-50 text-sky-900 border-sky-200 font-medium">
+        <Badge variant="outline" className="bg-orange-50 text-orange-900 border-orange-200 font-medium">
           {keys.aspect}
         </Badge>
         <Badge variant="outline" className="bg-slate-50 text-slate-800 border-slate-200">

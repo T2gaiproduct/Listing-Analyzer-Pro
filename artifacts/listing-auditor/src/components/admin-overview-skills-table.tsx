@@ -17,7 +17,7 @@ function StatusPill({ status }: { status: AiSkillRecord["status"] }) {
       className={cn(
         "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold border",
         published
-          ? "bg-teal-50 text-teal-800 border-teal-200"
+          ? "bg-orange-50 text-orange-900 border-orange-200"
           : "bg-amber-50 text-amber-900 border-amber-200",
       )}
     >
@@ -97,7 +97,7 @@ export function AdminOverviewSkillsTable({ skills }: { skills: AiSkillRecord[] }
                 <td className="py-2.5 pr-4 font-medium max-w-[240px] truncate">
                   <Link
                     href={`/admin/settings/ai/skills/${skill.slug}`}
-                    className="hover:text-teal-800 hover:underline"
+                    className="hover:text-orange-800 hover:underline"
                   >
                     {skill.name}
                   </Link>

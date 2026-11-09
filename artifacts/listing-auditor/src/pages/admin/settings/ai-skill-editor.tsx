@@ -428,7 +428,7 @@ export default function AdminAiSkillEditorPage() {
               className={cn(
                 "shrink-0 font-medium",
                 status === "published"
-                  ? "text-teal-800 bg-teal-50 border-teal-200"
+                  ? "text-orange-900 bg-orange-50 border-orange-200"
                   : "text-amber-800 bg-amber-50 border-amber-200",
               )}
             >
@@ -477,7 +477,7 @@ export default function AdminAiSkillEditorPage() {
             </Button>
             <Button
               type="button"
-              className="bg-teal-700 hover:bg-teal-800 text-white"
+              className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm"
               onClick={publishSkill}
               disabled={saving || skillLoading}
             >
@@ -501,15 +501,15 @@ export default function AdminAiSkillEditorPage() {
                 className={cn(
                   "w-full rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors",
                   skillFileLabel
-                    ? "border-teal-300 bg-teal-50/50 hover:border-teal-400 hover:bg-teal-50"
-                    : "border-slate-200 bg-slate-50/80 hover:border-teal-300 hover:bg-teal-50/40",
+                    ? "border-orange-300 bg-orange-50/50 hover:border-orange-400 hover:bg-orange-50"
+                    : "border-slate-200 bg-slate-50/80 hover:border-orange-300 hover:bg-orange-50/40",
                 )}
               >
-                <FileUp className={cn("w-8 h-8 mx-auto mb-2", skillFileLabel ? "text-teal-700" : "text-slate-400")} />
+                <FileUp className={cn("w-8 h-8 mx-auto mb-2", skillFileLabel ? "text-orange-600" : "text-slate-400")} />
                 <p className="text-sm font-semibold text-slate-800">Upload a skill file</p>
                 <p className="text-xs text-muted-foreground mt-1">.md, .txt or .json — replaces the text below</p>
                 {skillFileLabel ? (
-                  <p className="text-xs font-mono text-teal-800 mt-3 inline-flex items-center gap-1.5 rounded-md bg-white/80 px-2 py-1 border border-teal-200">
+                  <p className="text-xs font-mono text-orange-900 mt-3 inline-flex items-center gap-1.5 rounded-md bg-white/80 px-2 py-1 border border-orange-200">
                     {skillFileLabel}
                   </p>
                 ) : (

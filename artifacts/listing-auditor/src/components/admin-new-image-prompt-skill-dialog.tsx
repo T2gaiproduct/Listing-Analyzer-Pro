@@ -86,7 +86,7 @@ export function AdminNewImagePromptSkillDialog({ open, onOpenChange, category }:
           </div>
           <Button
             type="button"
-            className="w-full bg-teal-700 hover:bg-teal-800"
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white"
             disabled={saving || !name.trim()}
             onClick={() => void createTemplate()}
           >
