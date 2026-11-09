@@ -1,5 +1,9 @@
 /** Server-side skill test preview (mirrors listing-auditor admin-skill-editor). */
 
+import type { AuditResult } from "@workspace/db";
+import { analyzeListingWithAI } from "./analyzer.js";
+import { parseListingAuditSkillInstructions } from "./listing-audit-skill.js";
+
 export type SkillTestOutput = {
   title: string;
   titleCount: number;
@@ -13,7 +17,17 @@ export type SkillTestOutput = {
   bannedCount: number;
 };
 
-const SAMPLE_PRODUCTS = [
+export type AdminSkillSampleProduct = {
+  id: string;
+  category: string;
+  title: string;
+  bullets: string[];
+  description: string;
+  imageUrls: string[];
+  targetKeywords: string[];
+};
+
+const SAMPLE_PRODUCTS: AdminSkillSampleProduct[] = [
   {
     id: "mr7c",
     category: "Nutritional Supplement",
@@ -28,6 +42,12 @@ const SAMPLE_PRODUCTS = [
     ],
     description:
       "This daily glutathione tablet brings together antioxidants and skin-supporting nutrients in a simple once-a-day routine. Each serving is designed for adults who want antioxidant protection and ingredients that support collagen synthesis — without a complicated regimen.",
+    imageUrls: [
+      "https://m.media-amazon.com/images/I/71sample-main.jpg",
+      "https://m.media-amazon.com/images/I/71sample-lifestyle.jpg",
+      "https://m.media-amazon.com/images/I/71sample-detail.jpg",
+    ],
+    targetKeywords: ["glutathione", "skin health", "antioxidant", "collagen", "supplement"],
   },
   {
     id: "bottle",
@@ -42,8 +62,26 @@ const SAMPLE_PRODUCTS = [
     ],
     description:
       "Stay hydrated on the trail or at your desk with this 32oz insulated bottle. The vacuum-sealed body helps maintain temperature while the powder-coated exterior stands up to daily use.",
+    imageUrls: [
+      "https://m.media-amazon.com/images/I/81bottle-hero.jpg",
+      "https://m.media-amazon.com/images/I/81bottle-size.jpg",
+    ],
+    targetKeywords: ["insulated water bottle", "stainless steel", "32oz", "leak proof"],
   },
-] as const;
+];
+
+export type ListingAuditSkillTestOutput = {
+  mode: "listing_audit";
+  result: AuditResult;
+  listing: {
+    title: string;
+    category: string;
+    bulletPoints: string[];
+    imageUrls: string[];
+    targetKeywords: string[];
+  };
+  skillConfig: ReturnType<typeof parseListingAuditSkillInstructions>;
+};
 
 function parseInstructions(text: string) {
   const out = {
@@ -123,7 +161,46 @@ export function runAdminSkillTest(params: {
 }
 
 export function listAdminSkillSampleProducts() {
-  return SAMPLE_PRODUCTS.map((p) => ({ id: p.id, label: p.id === "mr7c"
-    ? "MR7C · Glutathione Skin Health Support & Antioxidant"
-    : "Summit Trail · Insulated Water Bottle 32oz" }));
+  return SAMPLE_PRODUCTS.map((p) => ({
+    id: p.id,
+    label:
+      p.id === "mr7c"
+        ? "MR7C · Glutathione Skin Health Support & Antioxidant"
+        : "Summit Trail · Insulated Water Bottle 32oz",
+    category: p.category,
+  }));
+}
+
+export function getAdminSkillSampleProduct(id?: string): AdminSkillSampleProduct {
+  return SAMPLE_PRODUCTS.find((p) => p.id === id) ?? SAMPLE_PRODUCTS[0]!;
+}
+
+export async function runAdminListingAuditSkillTest(params: {
+  instructionsText: string;
+  sampleProductId?: string;
+  category?: string;
+}): Promise<ListingAuditSkillTestOutput> {
+  const product = getAdminSkillSampleProduct(params.sampleProductId);
+  const category = params.category?.trim() || product.category;
+  const skillConfig = parseListingAuditSkillInstructions(params.instructionsText);
+  const result = await analyzeListingWithAI({
+    title: product.title,
+    bulletPoints: [...product.bullets],
+    imageUrls: product.imageUrls,
+    targetKeywords: product.targetKeywords,
+    category,
+    auditSkill: skillConfig,
+  });
+  return {
+    mode: "listing_audit",
+    result,
+    listing: {
+      title: product.title,
+      category,
+      bulletPoints: [...product.bullets],
+      imageUrls: product.imageUrls,
+      targetKeywords: product.targetKeywords,
+    },
+    skillConfig,
+  };
 }

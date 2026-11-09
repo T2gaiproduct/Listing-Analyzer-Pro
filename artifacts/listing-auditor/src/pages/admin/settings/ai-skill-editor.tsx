@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
-import { ArrowLeft, FileUp, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, FileUp, Loader2, Play, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,13 +58,16 @@ import {
 import { skillTypeEditorMode, useAdminSkillTypes } from "@/lib/admin-skill-types";
 import {
   createAdminAiSkill,
+  deleteAdminAiSkill,
   runAdminAiSkillTest,
   updateAdminAiSkill,
   useAdminAiSkill,
   useAdminAiSkillSampleProducts,
   useInvalidateAdminAiSkills,
+  type ListingAuditSkillTestPayload,
   type SkillTestOutput,
 } from "@/lib/admin-ai-skills-api";
+import { AdminAuditSkillTestPreview } from "@/components/admin-audit-skill-test-preview";
 
 const AI_MODELS = [
   "Claude Sonnet 5.5",
@@ -87,6 +90,8 @@ export default function AdminAiSkillEditorPage() {
   const [aiModel, setAiModel] = useState<string>(AI_MODELS[0]);
   const [sampleProductId, setSampleProductId] = useState<string>(SAMPLE_PRODUCTS[0].id);
   const [testOutput, setTestOutput] = useState<SkillTestOutput | null>(null);
+  const [auditTestPayload, setAuditTestPayload] = useState<ListingAuditSkillTestPayload | null>(null);
+  const [testRunning, setTestRunning] = useState(false);
   const [uploadName, setUploadName] = useState<string | null>(null);
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [persistedKey, setPersistedKey] = useState<string | null>(isNew ? null : routeSkillId);
@@ -162,6 +167,8 @@ export default function AdminAiSkillEditorPage() {
   const isImageSkillEditor =
     isImagePromptSkill
     || (!isMarketplaceSkill && skillEditorMode === "image");
+  const isAuditSkillEditor =
+    !isMarketplaceSkill && !isImageSkillEditor && (skillEditorMode === "audit" || skillType === "listing_audit");
   const skillRecord = skillData?.skill;
   const displayTitle =
     skillRecord?.name?.trim()
@@ -222,23 +229,50 @@ export default function AdminAiSkillEditorPage() {
     reader.readAsText(file);
   }, []);
 
+  const handleSkillTypeChange = useCallback(
+    (next: SkillType) => {
+      setSkillType(next);
+      setTestOutput(null);
+      setAuditTestPayload(null);
+      const nextMode = skillTypeEditorMode(skillTypeRegistry, next);
+      if (
+        (nextMode === "audit" || next === "listing_audit")
+        && !/title_weight\s*:/i.test(instructionsText)
+      ) {
+        setInstructionsText(DEFAULT_LISTING_AUDIT_SKILL_TEXT);
+      }
+    },
+    [instructionsText, skillTypeRegistry],
+  );
+
   const runTest = useCallback(async () => {
+    setTestRunning(true);
     try {
-      const output = await runAdminAiSkillTest({
+      const response = await runAdminAiSkillTest({
         idOrSlug: persistedKey ?? undefined,
         instructionsText,
         sampleProductId,
         aiModel,
+        skillType,
+        category: category.trim() || previewCategory,
       });
-      setTestOutput(output);
+      if (response.mode === "listing_audit") {
+        setAuditTestPayload(response);
+        setTestOutput(null);
+      } else {
+        setTestOutput(response.output);
+        setAuditTestPayload(null);
+      }
     } catch (e) {
       toast({
         title: "Test failed",
         description: (e as Error).message,
         variant: "destructive",
       });
+    } finally {
+      setTestRunning(false);
     }
-  }, [aiModel, instructionsText, persistedKey, sampleProductId, toast]);
+  }, [aiModel, category, instructionsText, persistedKey, previewCategory, sampleProductId, skillType, toast]);
 
   const persistSkill = async (nextStatus: "draft" | "published") => {
     setSaving(true);
@@ -354,6 +388,26 @@ export default function AdminAiSkillEditorPage() {
     }
   };
 
+  const deleteCustomSkill = async () => {
+    if (!persistedKey) return;
+    if (!window.confirm(`Delete “${displayTitle}”? This cannot be undone.`)) return;
+    setSaving(true);
+    try {
+      await deleteAdminAiSkill(persistedKey);
+      invalidateSkills();
+      navigate(ADMIN_AI_SKILLS_HREF);
+      toast({ title: "Skill deleted" });
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-full bg-slate-50">
       <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-slate-50/95 backdrop-blur px-4 sm:px-6 py-3">
@@ -401,6 +455,18 @@ export default function AdminAiSkillEditorPage() {
                 variant="outline"
                 className="text-red-700 border-red-200"
                 onClick={() => void deleteMarketplaceSkill()}
+                disabled={saving || skillLoading}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            )}
+            {persistedKey && !isMarketplaceSkill && !isImagePromptSkill && (
+              <Button
+                type="button"
+                variant="outline"
+                className="text-red-700 border-red-200"
+                onClick={() => void deleteCustomSkill()}
                 disabled={saving || skillLoading}
               >
                 <Trash2 className="w-4 h-4 mr-1" />
@@ -470,9 +536,25 @@ export default function AdminAiSkillEditorPage() {
                   className="mt-1.5 font-mono text-xs min-h-[220px] bg-slate-50"
                   spellCheck={false}
                 />
+                {isAuditSkillEditor
+                  && /title_max\s*:/i.test(instructionsText)
+                  && !/title_weight\s*:/i.test(instructionsText) && (
+                  <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-950">
+                    These instructions use product-content keys (title_max, bullets). Listing audits need{" "}
+                    <span className="font-mono">title_weight</span> and related keys — same as live audits.
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 ml-1 text-[11px] text-amber-950 underline"
+                      onClick={() => setInstructionsText(DEFAULT_LISTING_AUDIT_SKILL_TEXT)}
+                    >
+                      Load audit template
+                    </Button>
+                  </div>
+                )}
                 <p className="text-[11px] text-muted-foreground mt-2">
                   {skillEditorMode === "audit" || skillType === "listing_audit"
-                    ? "Keys: title_weight, bullet_weight, image_weight, keyword_weight, show_title/show_bullets/show_images/show_keywords (yes/no), score_offset, score_floor, score_ceiling. Rubric text under # Generation instructions. Re-run audits to apply changes."
+                    ? "Keys: title_weight, bullet_weight, image_weight, keyword_weight, show_title/show_bullets/show_images/show_keywords (yes/no), score_offset, score_floor, score_ceiling. Rubric text under # Generation instructions. Run audit test to preview seller results."
                     : isImageSkillEditor
                       ? "One rule per line as key: value. Try changing aspect, images_per_run, or reference_lock and watch the test output."
                       : skillEditorMode === "generic"
@@ -490,7 +572,7 @@ export default function AdminAiSkillEditorPage() {
             <CardContent>
               <AdminSkillScopeFields
                 skillType={skillType}
-                onSkillTypeChange={setSkillType}
+                onSkillTypeChange={handleSkillTypeChange}
                 category={category}
                 onCategoryChange={setCategory}
                 marketplace={marketplace}
@@ -525,11 +607,17 @@ export default function AdminAiSkillEditorPage() {
         {/* Right column — test output */}
         <Card className="xl:min-h-[640px] flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base">Test output</CardTitle>
+            <CardTitle className="text-base">
+              {isAuditSkillEditor ? "Audit preview (seller view)" : "Test output"}
+            </CardTitle>
             {!isImageSkillEditor && (
-              <Button type="button" size="sm" className="gap-1.5" onClick={runTest}>
-                <Play className="w-3.5 h-3.5" />
-                Run test
+              <Button type="button" size="sm" className="gap-1.5" onClick={runTest} disabled={testRunning}>
+                {testRunning ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Play className="w-3.5 h-3.5" />
+                )}
+                {isAuditSkillEditor ? "Run audit test" : "Run test"}
               </Button>
             )}
             {isImageSkillEditor && (
@@ -558,6 +646,36 @@ export default function AdminAiSkillEditorPage() {
                 templateSlug={imageTemplateSlug}
                 templateCategory={imageTemplateCategory}
               />
+            ) : isAuditSkillEditor ? (
+              <>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Sample product</Label>
+                  <Select value={sampleProductId} onValueChange={setSampleProductId}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sampleProductOptions.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {testRunning && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Running AI audit on sample listing…
+                  </div>
+                )}
+                {!testRunning && !auditTestPayload && (
+                  <p className="text-sm text-muted-foreground py-12 text-center">
+                    Run audit test to preview scores, issues, and visibility flags exactly as sellers see them.
+                  </p>
+                )}
+                {auditTestPayload && <AdminAuditSkillTestPreview payload={auditTestPayload} />}
+              </>
             ) : (
               <>
             <div>

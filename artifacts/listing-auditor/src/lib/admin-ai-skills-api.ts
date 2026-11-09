@@ -88,25 +88,73 @@ export async function updateAdminAiSkill(idOrSlug: string, payload: SaveAiSkillP
   );
 }
 
+export async function deleteAdminAiSkill(idOrSlug: string) {
+  return fetchJson<{ ok: boolean; deleted?: string }>(
+    `${basePath}/api/admin/ai-skills/${encodeURIComponent(idOrSlug)}`,
+    { method: "DELETE" },
+  );
+}
+
+export type AuditSkillTestResult = {
+  titleScore: { score: number; issues: string[]; suggestions: string[] };
+  bulletScore: { score: number; issues: string[]; suggestions: string[] };
+  imageScore: { score: number; issues: string[]; suggestions: string[] };
+  keywordScore: { score: number; issues: string[]; suggestions: string[] };
+  overallScore: number;
+  summary: string;
+  display?: {
+    showTitle: boolean;
+    showBullets: boolean;
+    showImages: boolean;
+    showKeywords: boolean;
+  };
+};
+
+export type ListingAuditSkillTestPayload = {
+  mode: "listing_audit";
+  result: AuditSkillTestResult;
+  listing: {
+    title: string;
+    category: string;
+    bulletPoints: string[];
+    imageUrls: string[];
+    targetKeywords: string[];
+  };
+  skillConfig: {
+    weights: { title: number; bullet: number; image: number; keyword: number };
+    show: { title: boolean; bullet: boolean; image: boolean; keyword: boolean };
+    scoreOffset: number;
+    scoreFloor: number;
+    scoreCeiling: number;
+  };
+};
+
+export type AdminSkillTestResponse =
+  | { mode: "product_content"; output: SkillTestOutput }
+  | ListingAuditSkillTestPayload;
+
 export async function runAdminAiSkillTest(params: {
   idOrSlug?: string;
   instructionsText: string;
   sampleProductId: string;
   aiModel: string;
-}): Promise<SkillTestOutput> {
+  skillType: string;
+  category?: string;
+}): Promise<AdminSkillTestResponse> {
   const url = params.idOrSlug
     ? `${basePath}/api/admin/ai-skills/${encodeURIComponent(params.idOrSlug)}/test`
     : `${basePath}/api/admin/ai-skills/test`;
-  const data = await fetchJson<{ output: SkillTestOutput }>(url, {
+  return fetchJson<AdminSkillTestResponse>(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       instructionsText: params.instructionsText,
       sampleProductId: params.sampleProductId,
       aiModel: params.aiModel,
+      skillType: params.skillType,
+      category: params.category ?? "",
     }),
   });
-  return data.output;
 }
 
 export function useAdminAiSkillSampleProducts() {

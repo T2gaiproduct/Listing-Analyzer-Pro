@@ -1,8 +1,25 @@
-import { useMemo } from "react";
-import { Link, useLocation } from "wouter";
+import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import { Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AiSkillRecord } from "@/lib/admin-ai-skills-api";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import {
+  deleteAdminAiSkill,
+  useInvalidateAdminAiSkills,
+  type AiSkillRecord,
+} from "@/lib/admin-ai-skills-api";
 import {
   skillCatalogCategory,
   skillCatalogFilename,
@@ -75,12 +92,35 @@ type Props = {
 
 export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Props) {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const invalidateSkills = useInvalidateAdminAiSkills();
   const { data: skillTypes = [] } = useAdminSkillTypes();
+  const [deleteTarget, setDeleteTarget] = useState<AiSkillRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const sorted = useMemo(
     () => [...skills].sort((a, b) => a.name.localeCompare(b.name)),
     [skills],
   );
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteAdminAiSkill(deleteTarget.slug);
+      invalidateSkills();
+      toast({ title: "Skill deleted", description: deleteTarget.name });
+      setDeleteTarget(null);
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -95,20 +135,21 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
               <th className="py-3 pr-4">AI model</th>
               <th className="py-3 pr-4">Version</th>
               <th className="py-3 pr-4">Status</th>
-              <th className="py-3 pr-5 text-right">Updated</th>
+              <th className="py-3 pr-4 text-right">Updated</th>
+              <th className="py-3 pr-5 text-right w-[4.5rem]">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                <td colSpan={9} className="py-12 text-center text-muted-foreground">
                   Loading skills…
                 </td>
               </tr>
             )}
             {!isLoading && sorted.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                <td colSpan={9} className="py-12 text-center text-muted-foreground">
                   No skills yet. Create a marketplace, audit, image prompt, or category skill.
                 </td>
               </tr>
@@ -148,8 +189,23 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
                     <td className="py-3.5 pr-4">
                       <StatusBadge status={skill.status} />
                     </td>
-                    <td className="py-3.5 pr-5 text-right text-slate-500 text-xs whitespace-nowrap">
+                    <td className="py-3.5 pr-4 text-right text-slate-500 text-xs whitespace-nowrap">
                       {formatUpdated(skill)}
+                    </td>
+                    <td className="py-3.5 pr-5 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-slate-400 hover:text-red-700 hover:bg-red-50"
+                        aria-label={`Delete ${skill.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(skill);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </td>
                   </tr>
                 );
@@ -160,8 +216,37 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
       <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-slate-100 bg-slate-50/40">
         Data from{" "}
         <code className="text-slate-600">GET /api/admin/ai-skills</code>. Click a row to edit; publish in the skill
-        editor to set status to Live.
+        editor to set status to Live. Delete removes custom skills; marketplace and image prompts remove their linked
+        records too (system image prompts cannot be deleted).
       </p>
+
+      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this skill?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.skillKind === "marketplace_content"
+                ? `This removes “${deleteTarget?.name}” and its marketplace content profile. Audits will no longer use it.`
+                : deleteTarget?.skillKind === "image_prompt"
+                  ? `This removes “${deleteTarget?.name}” and its image prompt template.`
+                  : `“${deleteTarget?.name}” will be permanently removed from the skills catalog.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -19,7 +19,8 @@ function slugifyTypeSlug(raw: string): string {
     .slice(0, 64);
 }
 
-router.use(requireAdmin);
+// Scope admin guard to this mount only — bare router.use() would intercept every later /api route.
+router.use("/admin/ai-skill-types", requireAdmin);
 
 router.get("/admin/ai-skill-types", async (_req, res): Promise<void> => {
   await ensureAiSkillTypesReady();
