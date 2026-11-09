@@ -177,10 +177,6 @@ export default function AdminAiSkillEditorPage() {
     imagePromptMeta?.category
     ?? parseTemplateCategoryFromInstructions(instructionsText)
     ?? (skillType === "aplus_content" ? "aplus" : "graphics");
-  const lockImageCategory =
-    isImageSkillEditor
-    && !isImagePromptSkill
-    && Boolean(skillRecord?.category?.trim());
   const configuredCategorySet = useMemo(
     () => new Set(configuredProductCategoryNames(productCatData?.categories ?? [])),
     [productCatData?.categories],
@@ -189,9 +185,9 @@ export default function AdminAiSkillEditorPage() {
     const raw = category.trim() || skillRecord?.category?.trim() || "";
     if (!isImageSkillEditor) return raw;
     if (raw && configuredCategorySet.has(raw)) return raw;
-    if (lockImageCategory && raw) return raw;
+    if (raw) return raw;
     return "";
-  }, [category, configuredCategorySet, isImageSkillEditor, lockImageCategory, skillRecord?.category]);
+  }, [category, configuredCategorySet, isImageSkillEditor, skillRecord?.category]);
 
   useEffect(() => {
     const tplId = skillData?.skill?.imagePromptTemplateId;
@@ -525,7 +521,6 @@ export default function AdminAiSkillEditorPage() {
                 isMarketplaceSkill={isMarketplaceSkill}
                 isImagePromptSkill={isImagePromptSkill}
                 imageSkillEditorMode={isImageSkillEditor}
-                lockImageCategory={lockImageCategory}
                 skillTypeOptions={skillTypeRegistry}
                 contentMarketplaceId={skillData?.skill?.contentMarketplaceId}
               />

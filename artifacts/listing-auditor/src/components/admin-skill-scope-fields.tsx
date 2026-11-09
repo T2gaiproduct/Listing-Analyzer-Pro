@@ -47,7 +47,6 @@ type AdminSkillScopeFieldsProps = {
   isMarketplaceSkill: boolean;
   isImagePromptSkill?: boolean;
   imageSkillEditorMode?: boolean;
-  lockImageCategory?: boolean;
   skillTypeOptions?: AdminSkillType[];
   contentMarketplaceId?: number | null;
 };
@@ -65,7 +64,6 @@ export function AdminSkillScopeFields({
   isMarketplaceSkill,
   isImagePromptSkill = false,
   imageSkillEditorMode = false,
-  lockImageCategory = false,
   skillTypeOptions = [],
   contentMarketplaceId,
 }: AdminSkillScopeFieldsProps) {
@@ -162,17 +160,6 @@ export function AdminSkillScopeFields({
                 reference images
               </Link>{" "}
               and optional category <strong>Product images</strong> skills are configured on the Skills list page.
-            </p>
-          ) : lockImageCategory && category.trim() ? (
-            <p className="text-sm font-medium mt-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-              {category.trim()}
-              <span className="text-xs text-muted-foreground font-normal block mt-0.5">
-                This image skill is scoped to one configured category. Add categories under{" "}
-                <Link href="/admin/settings/ai/overview" className="text-orange-600 underline">
-                  Overview → Image library
-                </Link>
-                .
-              </span>
             </p>
           ) : (
             <>
