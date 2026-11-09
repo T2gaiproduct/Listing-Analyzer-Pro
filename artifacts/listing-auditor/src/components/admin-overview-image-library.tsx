@@ -67,9 +67,9 @@ export function CategoryReferenceLibraryDialog({
         <DialogHeader className="px-6 pt-6 pb-0 space-y-1">
           <DialogTitle>Image library</DialogTitle>
           <DialogDescription>
-            Use <strong className="text-orange-800">+</strong> (top right) to add a module like Hero Shot. Click the{" "}
-            <strong className="text-orange-800">pencil</strong> on any card to edit name, description, and prompt—then
-            upload reference images on that card.
+            Use <strong className="text-orange-800">+</strong> to add a module; use the card <strong className="text-orange-800">pencil</strong>{" "}
+            to edit the module and <strong className="text-orange-800">Skills</strong> title—then upload references on
+            the card.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-6 pb-6">

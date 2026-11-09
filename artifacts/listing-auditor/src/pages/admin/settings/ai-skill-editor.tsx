@@ -38,6 +38,7 @@ import {
   parseTemplateCategoryFromInstructions,
   parseTemplateSlugFromInstructions,
 } from "@/lib/admin-image-style-skill";
+import { stripImagePromptSkillSuffix } from "@/lib/admin-skill-rename";
 import { skillCatalogFilename } from "@/lib/admin-skills-catalog";
 import {
   configuredProductCategoryNames,
@@ -283,8 +284,11 @@ export default function AdminAiSkillEditorPage() {
       let instructionsForSave = instructionsText;
       if (isImagePromptSkill && imagePromptMeta) {
         const parsedPrompt = parseImagePromptFieldsFromInstructions(instructionsText);
+        const moduleName =
+          stripImagePromptSkillSuffix(parsed.name) || imagePromptMeta.name;
         const mergedTpl = {
           ...imagePromptMeta,
+          name: moduleName,
           promptTemplate: parsedPrompt.promptTemplate || imagePromptMeta.promptTemplate,
           headlineTemplate: parsedPrompt.headlineTemplate || imagePromptMeta.headlineTemplate,
           bodyTemplate: parsedPrompt.bodyTemplate || imagePromptMeta.bodyTemplate,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,7 @@ import {
   skillCatalogType,
 } from "@/lib/admin-skills-catalog";
 import { useAdminSkillTypes, type SkillCatalogTypeLabel } from "@/lib/admin-skill-types";
+import { AdminSkillRenameDialog } from "@/components/admin-skill-rename-dialog";
 
 function TypeBadge({ type }: { type: SkillCatalogTypeLabel }) {
   if (type === "Image") {
@@ -84,6 +85,7 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
   const invalidateSkills = useInvalidateAdminAiSkills();
   const { data: skillTypes = [] } = useAdminSkillTypes();
   const [deleteTarget, setDeleteTarget] = useState<AiSkillRecord | null>(null);
+  const [renameTarget, setRenameTarget] = useState<AiSkillRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const sorted = useMemo(
@@ -122,7 +124,7 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
               <th className="py-3 pr-4">Marketplace</th>
               <th className="py-3 pr-4">AI model</th>
               <th className="py-3 pr-4">Status</th>
-              <th className="py-3 pr-5 text-right w-[4.5rem]">Actions</th>
+              <th className="py-3 pr-5 text-right w-[5.5rem]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -173,19 +175,36 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
                       <StatusBadge status={skill.status} />
                     </td>
                     <td className="py-3.5 pr-5 text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-red-700 hover:bg-red-50"
-                        aria-label={`Delete ${skill.name}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(skill);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="inline-flex items-center gap-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-orange-800 hover:bg-orange-50"
+                          aria-label={`Rename ${skill.name}`}
+                          title="Rename skill"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRenameTarget(skill);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-red-700 hover:bg-red-50"
+                          aria-label={`Delete ${skill.name}`}
+                          title="Delete skill"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(skill);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -197,6 +216,13 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
         Click a row to open the skill editor. Publish to mark it Live. Delete removes the skill; marketplace and image
         entries also remove their linked marketplace or template (system image presets cannot be deleted).
       </p>
+
+      <AdminSkillRenameDialog
+        skill={renameTarget}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+      />
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}>
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>

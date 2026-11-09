@@ -25,6 +25,7 @@ import {
   type ImagePromptTemplateAdmin,
   type ImagePromptTemplateCategory,
 } from "@/lib/image-prompt-templates";
+import { imagePromptSkillCatalogTitle } from "@/lib/admin-skill-rename";
 
 type Props = {
   open: boolean;
@@ -178,13 +179,17 @@ export function AdminImageLibraryModuleDialog({
 
         <div className="space-y-3 max-h-[min(52vh,420px)] overflow-y-auto pr-1">
           <div>
-            <Label className="text-xs">Name</Label>
+            <Label className="text-xs">Module &amp; skill title</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Hero Shot"
               className="mt-1"
             />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Skills list:{" "}
+              <span className="font-medium text-slate-700">{imagePromptSkillCatalogTitle(name || "…")}</span>
+            </p>
           </div>
           <div>
             <Label className="text-xs">Short description</Label>
