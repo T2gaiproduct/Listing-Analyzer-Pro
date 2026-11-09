@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "wouter";
-import { ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +21,8 @@ import {
 import { useAdminImagePromptTemplates, type ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
 import type { CategoryCoverageRow } from "@/lib/admin-ai-skills-overview";
 import { GraphicsModuleExamplesGrid } from "@/components/graphics-module-examples-grid";
+import { AdminImageLibraryModuleDialog } from "@/components/admin-image-library-module-dialog";
+import type { ImagePromptTemplateAdmin } from "@/lib/image-prompt-templates";
 
 const CATEGORIES_PER_PAGE = 12;
 
@@ -66,12 +67,9 @@ export function CategoryReferenceLibraryDialog({
         <DialogHeader className="px-6 pt-6 pb-0 space-y-1">
           <DialogTitle>Image library</DialogTitle>
           <DialogDescription>
-            Upload reference images per category and module. Switch <strong>Product graphics</strong> or{" "}
-            <strong>A+ modules</strong> below. To add or edit module prompts, use{" "}
-            <Link href="/admin/settings/ai/skills" className="text-orange-600 underline">
-              Skills
-            </Link>
-            .
+            Use <strong className="text-orange-800">+</strong> (top right) to add a module like Hero Shot. Click the{" "}
+            <strong className="text-orange-800">pencil</strong> on any card to edit name, description, and prompt—then
+            upload reference images on that card.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-6 pb-6">
@@ -111,6 +109,8 @@ function CategoryReferenceLibraryBody({
 }: BodyProps) {
   const { toast } = useToast();
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
+  const [moduleDialogTemplate, setModuleDialogTemplate] = useState<ImagePromptTemplateAdmin | null>(null);
   const [categoryPage, setCategoryPage] = useState(0);
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
@@ -145,7 +145,13 @@ function CategoryReferenceLibraryBody({
     templateCategory,
   );
   const { data: templatesData } = useAdminImagePromptTemplates(templateCategory);
-  const { createCategory, addExample, removeExample } = useAdminProductCategoryMutations();
+  const { createCategory, removeCategory, addExample, removeExample } = useAdminProductCategoryMutations();
+
+  const categoryByName = useMemo(() => {
+    const m = new Map<string, (typeof categories)[number]>();
+    for (const c of categories) m.set(c.name, c);
+    return m;
+  }, [categories]);
 
   const [filterSlug, setFilterSlug] = useState<string>("all");
 
@@ -157,6 +163,25 @@ function CategoryReferenceLibraryBody({
 
   const examples = examplesData?.examples ?? [];
   const templates = templatesData?.templates ?? [];
+
+  function openCreateModule() {
+    setModuleDialogTemplate(null);
+    setModuleDialogOpen(true);
+  }
+
+  function openEditModule(templateSlug: string) {
+    const tpl = templates.find((t) => t.slug === templateSlug);
+    if (!tpl) {
+      toast({
+        title: "Module not found",
+        description: "Refresh the library and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setModuleDialogTemplate(tpl);
+    setModuleDialogOpen(true);
+  }
 
   const mergedCards = useMemo(() => {
     const bySlug = new Map(examples.map((e) => [e.templateSlug, e]));
@@ -258,28 +283,69 @@ function CategoryReferenceLibraryBody({
           {pagedCategoryNames.map((name) => {
             const count = refCountByCategory.get(name) ?? 0;
             const active = name === selectedCategory;
+            const catalog = categoryByName.get(name);
+            const canDeleteCategory = Boolean(catalog && !catalog.isSystem);
             return (
-              <button
+              <div
                 key={name}
-                type="button"
-                onClick={() => onSelectedCategoryChange(name)}
                 className={cn(
-                  "w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors",
+                  "w-full flex items-center gap-0.5 rounded-lg text-sm transition-colors",
                   active
                     ? "bg-orange-100 border border-orange-300 font-medium text-orange-950 shadow-sm"
-                    : "hover:bg-white/90 border border-transparent hover:border-orange-100",
+                    : "border border-transparent hover:border-orange-100",
                 )}
               >
-                <span className="truncate">{name}</span>
-                <span
+                <button
+                  type="button"
+                  onClick={() => onSelectedCategoryChange(name)}
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
-                    count > 0 ? "bg-orange-200/80 text-orange-950" : "bg-rose-100 text-rose-800",
+                    "flex-1 min-w-0 flex items-center justify-between gap-1.5 rounded-lg px-3 py-2 text-left",
+                    active ? "" : "hover:bg-white/90",
                   )}
                 >
-                  {count}
-                </span>
-              </button>
+                  <span className="truncate">{name}</span>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+                      count > 0 ? "bg-orange-200/80 text-orange-950" : "bg-rose-100 text-rose-800",
+                    )}
+                  >
+                    {count}
+                  </span>
+                </button>
+                {active && canDeleteCategory ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-rose-700/80 hover:bg-rose-100 hover:text-rose-900"
+                    title="Delete category"
+                    aria-label={`Delete category ${name}`}
+                    disabled={removeCategory.isPending}
+                    onClick={() => {
+                      if (!catalog) return;
+                      if (!window.confirm(`Delete category “${name}”? Reference images for it will be removed.`)) {
+                        return;
+                      }
+                      removeCategory.mutate(catalog.id, {
+                        onSuccess: () => {
+                          onSelectedCategoryChange("Default");
+                          toast({ title: "Category deleted", description: name });
+                        },
+                        onError: (err: Error) => {
+                          toast({
+                            title: "Could not delete category",
+                            description: err.message,
+                            variant: "destructive",
+                          });
+                        },
+                      });
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                ) : null}
+              </div>
             );
           })}
         </div>
@@ -375,14 +441,6 @@ function CategoryReferenceLibraryBody({
           </Button>
         </div>
 
-        <div
-          className="rounded-lg border border-orange-200 bg-orange-50/80 px-3 py-2 text-sm text-orange-950"
-          role="status"
-        >
-          References for <span className="font-semibold">{selectedCategory}</span> only. Pick that category on the left,
-          then upload one image per {templateCategory === "aplus" ? "A+ module" : "graphics type"}.
-        </div>
-
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold text-lg">{selectedCategory}</h3>
@@ -404,19 +462,40 @@ function CategoryReferenceLibraryBody({
                 </option>
               ))}
             </select>
-            <Link href="/admin/settings/ai/skills">
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="h-9 w-9 border-orange-200 text-orange-900 hover:bg-orange-50"
+              title="New module type"
+              aria-label="New module type"
+              onClick={openCreateModule}
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+            {filterSlug !== "all" ? (
               <Button
                 type="button"
-                size="sm"
+                size="icon"
                 variant="outline"
-                className="h-9 gap-1.5 border-orange-200 text-orange-900 hover:bg-orange-50"
+                className="h-9 w-9 border-orange-200 text-orange-900 hover:bg-orange-50"
+                title="Edit selected module"
+                aria-label="Edit selected module"
+                onClick={() => openEditModule(filterSlug)}
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Manage modules
+                <Pencil className="w-4 h-4" />
               </Button>
-            </Link>
+            ) : null}
           </div>
         </div>
+
+        <AdminImageLibraryModuleDialog
+          open={moduleDialogOpen}
+          onOpenChange={setModuleDialogOpen}
+          category={templateCategory}
+          template={moduleDialogTemplate}
+          onSaved={(slug) => setFilterSlug(slug)}
+        />
 
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
@@ -434,6 +513,7 @@ function CategoryReferenceLibraryBody({
             onUpload={handleUpload}
             onRemoveExample={handleRemoveExample}
             onClearAll={handleClearAll}
+            onEditModule={openEditModule}
           />
         )}
       </div>

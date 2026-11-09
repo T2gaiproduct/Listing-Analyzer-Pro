@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, Loader2, Plus, Trash2, Upload, X } from "lucide-react";
+import { Check, Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ProtectedAppImage } from "@/components/protected-app-image";
@@ -34,6 +34,8 @@ type AdminProps = {
   onUpload: (templateSlug: string, dataUrl: string) => void | Promise<void>;
   onRemoveExample: (templateSlug: string, exampleId: number) => void | Promise<void>;
   onClearAll: (templateSlug: string) => void | Promise<void>;
+  /** Open the module’s image-prompt skill editor. */
+  onEditModule?: (templateSlug: string) => void;
 };
 
 function studioAccentStyle(accent: AdminStudioAccent) {
@@ -196,12 +198,23 @@ function ExampleCard(
   return (
     <div
       className={cn(
-        "rounded-lg border bg-white overflow-hidden flex flex-col shadow-sm",
+        "rounded-lg border bg-white overflow-hidden flex flex-col shadow-sm relative",
         adminCard && accent
           ? cn("border-slate-200 transition-colors", accent.cardHover)
           : "border-slate-200",
       )}
     >
+      {props.mode === "admin" && props.onEditModule ? (
+        <button
+          type="button"
+          className="absolute top-1.5 right-1.5 z-20 rounded-md border border-slate-200/90 bg-white/95 p-1.5 shadow-sm text-slate-600 hover:text-orange-700 hover:border-orange-200 hover:bg-orange-50"
+          title="Edit module prompt"
+          aria-label={`Edit prompt for ${item.name}`}
+          onClick={() => props.onEditModule!(item.templateSlug)}
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      ) : null}
       <div className="aspect-square relative bg-slate-100 flex items-center justify-center">
         {hasImages && props.mode === "view" && images.length > 1 ? (
           <div className="absolute inset-0 p-1.5 grid grid-cols-2 gap-1">
