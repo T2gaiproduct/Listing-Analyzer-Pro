@@ -50,6 +50,36 @@ function slugify(name: string): string {
   return base || `skill-${Date.now().toString(36)}`;
 }
 
+async function allocateUniqueSkillSlug(baseName: string, preferredRaw?: string): Promise<string> {
+  const preferred = preferredRaw?.trim() ? slugify(preferredRaw) : "";
+  const base = preferred || slugify(baseName) || `skill-${Date.now().toString(36)}`;
+  let candidate = base;
+  for (let n = 2; n < 10_000; n++) {
+    const [row] = await db
+      .select({ id: aiSkillsTable.id })
+      .from(aiSkillsTable)
+      .where(eq(aiSkillsTable.slug, candidate))
+      .limit(1);
+    if (!row) return candidate;
+    candidate = `${base.slice(0, 58)}-${n}`;
+  }
+  return `${base.slice(0, 48)}-${Date.now().toString(36)}`;
+}
+
+function formatAiSkillSaveError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/unique|duplicate key|ai_skills_slug/i.test(message)) {
+    return "A skill with this name already exists. Change the skill name in the instructions header and try again.";
+  }
+  if (/Failed query:/i.test(message)) {
+    return "Could not save the skill. If the name is “New skill”, rename it in the instructions (name: …) and publish again.";
+  }
+  if (message.length > 220) {
+    return "Could not save the skill.";
+  }
+  return message;
+}
+
 function parseSkillType(raw: unknown): AiSkillType | null {
   if (typeof raw !== "string") return null;
   const slug = raw.trim();
@@ -154,25 +184,32 @@ router.post(
       res.status(400).json({ error: "Invalid skill payload" });
       return;
     }
-    const slug = typeof (req.body as { slug?: string }).slug === "string"
-      ? slugify((req.body as { slug: string }).slug)
-      : slugify(body.name);
-    const now = new Date();
-    const [inserted] = await db
-      .insert(aiSkillsTable)
-      .values({
-        slug,
-        name: body.name,
-        status: body.status,
-        skillType: body.skillType,
-        category: body.category,
-        marketplaceSlug: body.marketplaceSlug,
-        aiModel: body.aiModel,
-        instructionsText: body.instructionsText,
-        updatedAt: now,
-      })
-      .returning();
-    res.status(201).json({ skill: serializeSkill(inserted!) });
+    try {
+      const preferredSlug =
+        typeof (req.body as { slug?: string }).slug === "string"
+          ? (req.body as { slug: string }).slug
+          : undefined;
+      const slug = await allocateUniqueSkillSlug(body.name, preferredSlug);
+      const now = new Date();
+      const [inserted] = await db
+        .insert(aiSkillsTable)
+        .values({
+          slug,
+          name: body.name,
+          status: body.status,
+          skillType: body.skillType,
+          category: body.category,
+          marketplaceSlug: body.marketplaceSlug,
+          aiModel: body.aiModel,
+          instructionsText: body.instructionsText,
+          updatedAt: now,
+        })
+        .returning();
+      res.status(201).json({ skill: serializeSkill(inserted!) });
+    } catch (err) {
+      req.log?.error?.({ err }, "admin-ai-skills create failed");
+      res.status(400).json({ error: formatAiSkillSaveError(err) });
+    }
   },
 );
 
@@ -192,36 +229,41 @@ router.patch(
       res.status(400).json({ error: "Invalid skill payload" });
       return;
     }
-    const [updated] = await db
-      .update(aiSkillsTable)
-      .set({
-        name: body.name,
-        status: body.status,
-        skillType: body.skillType,
-        category: body.category,
-        marketplaceSlug: body.marketplaceSlug,
-        aiModel: body.aiModel,
-        instructionsText: body.instructionsText,
-        updatedAt: new Date(),
-      })
-      .where(eq(aiSkillsTable.id, existing.id))
-      .returning();
-    const row = updated!;
-    if (row.contentMarketplaceId != null) {
-      await applySkillTextToContentMarketplace(
-        row.contentMarketplaceId,
-        row.instructionsText,
-        row.status as "draft" | "published",
-      );
+    try {
+      const [updated] = await db
+        .update(aiSkillsTable)
+        .set({
+          name: body.name,
+          status: body.status,
+          skillType: body.skillType,
+          category: body.category,
+          marketplaceSlug: body.marketplaceSlug,
+          aiModel: body.aiModel,
+          instructionsText: body.instructionsText,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiSkillsTable.id, existing.id))
+        .returning();
+      const row = updated!;
+      if (row.contentMarketplaceId != null) {
+        await applySkillTextToContentMarketplace(
+          row.contentMarketplaceId,
+          row.instructionsText,
+          row.status as "draft" | "published",
+        );
+      }
+      if (row.imagePromptTemplateId != null) {
+        await applySkillTextToImagePromptTemplate(
+          row.imagePromptTemplateId,
+          row.instructionsText,
+          row.status as "draft" | "published",
+        );
+      }
+      res.json({ skill: serializeSkill(row) });
+    } catch (err) {
+      req.log?.error?.({ err }, "admin-ai-skills update failed");
+      res.status(400).json({ error: formatAiSkillSaveError(err) });
     }
-    if (row.imagePromptTemplateId != null) {
-      await applySkillTextToImagePromptTemplate(
-        row.imagePromptTemplateId,
-        row.instructionsText,
-        row.status as "draft" | "published",
-      );
-    }
-    res.json({ skill: serializeSkill(row) });
   },
 );
 
