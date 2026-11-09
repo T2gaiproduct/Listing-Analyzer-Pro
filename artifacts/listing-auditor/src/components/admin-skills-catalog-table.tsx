@@ -32,7 +32,7 @@ import { useAdminSkillTypes, type SkillCatalogTypeLabel } from "@/lib/admin-skil
 function TypeBadge({ type }: { type: SkillCatalogTypeLabel }) {
   if (type === "Image") {
     return (
-      <span className="inline-flex rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[11px] font-semibold text-teal-800">
+      <span className="inline-flex rounded-full border border-orange-200/80 bg-orange-50/80 px-2.5 py-0.5 text-[11px] font-semibold text-orange-900">
         Image
       </span>
     );
@@ -65,7 +65,7 @@ function StatusBadge({ status }: { status: AiSkillRecord["status"] }) {
       className={cn(
         "inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold border",
         live
-          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+          ? "bg-orange-50 text-orange-900 border-orange-200"
           : "bg-amber-50 text-amber-900 border-amber-200",
       )}
     >
@@ -168,8 +168,8 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
                     className={cn(
                       "border-b border-slate-100 transition-colors cursor-pointer",
                       active
-                        ? "bg-emerald-50/80"
-                        : "hover:bg-emerald-50/50",
+                        ? "bg-orange-50/80"
+                        : "hover:bg-orange-50/50",
                     )}
                     onClick={() => navigate(`/admin/settings/ai/skills/${skill.slug}`)}
                   >
