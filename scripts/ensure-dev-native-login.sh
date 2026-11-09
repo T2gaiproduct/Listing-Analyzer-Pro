@@ -37,6 +37,7 @@ UPDATE admin_users SET is_deleted = 1 WHERE user_id = :'uid';
 SQL
 
 pnpm --filter @workspace/api-server exec tsx src/cli/seed-dev-customer-account.ts "$DEV_USER_ID" >/dev/null
+pnpm --filter @workspace/api-server exec tsx src/cli/seed-dev-sample-projects.ts "$DEV_USER_ID" >/dev/null
 
 cat >"$OUT_FILE" <<EOF
 DEV_NATIVE_USER_ID=$DEV_USER_ID
