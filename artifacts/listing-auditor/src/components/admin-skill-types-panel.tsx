@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Loader2, Plus, Tags, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Pencil, Plus, Tags, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -20,6 +21,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -72,15 +80,48 @@ function CatalogBadge({ group }: { group: AdminSkillTypeCatalogGroup }) {
   );
 }
 
+const catalogSelect = (
+  <SelectContent>
+    <SelectItem value="content">Product content</SelectItem>
+    <SelectItem value="image">Image</SelectItem>
+    <SelectItem value="audit">Audit</SelectItem>
+    <SelectItem value="other">Other</SelectItem>
+  </SelectContent>
+);
+
+const editorSelect = (
+  <SelectContent>
+    <SelectItem value="content">Content test</SelectItem>
+    <SelectItem value="image">Image preview</SelectItem>
+    <SelectItem value="audit">Audit keys</SelectItem>
+    <SelectItem value="generic">Generic</SelectItem>
+  </SelectContent>
+);
+
 export function AdminSkillTypesPanel() {
   const { toast } = useToast();
   const { data: types = [], isLoading } = useAdminSkillTypes();
-  const { createType, deleteType } = useAdminSkillTypeMutations();
+  const { createType, updateType, deleteType } = useAdminSkillTypeMutations();
   const [slug, setSlug] = useState("");
   const [label, setLabel] = useState("");
   const [catalogGroup, setCatalogGroup] = useState<AdminSkillTypeCatalogGroup>("other");
   const [editorMode, setEditorMode] = useState<AdminSkillTypeEditorMode>("generic");
   const [deleteTarget, setDeleteTarget] = useState<AdminSkillType | null>(null);
+  const [editTarget, setEditTarget] = useState<AdminSkillType | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editCatalog, setEditCatalog] = useState<AdminSkillTypeCatalogGroup>("other");
+  const [editEditor, setEditEditor] = useState<AdminSkillTypeEditorMode>("generic");
+  const [editHandler, setEditHandler] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
+  useEffect(() => {
+    if (!editTarget) return;
+    setEditLabel(editTarget.label);
+    setEditCatalog(editTarget.catalogGroup);
+    setEditEditor(editTarget.editorMode);
+    setEditHandler(editTarget.handlerKey ?? "");
+    setEditDescription(editTarget.description ?? "");
+  }, [editTarget]);
 
   const onAdd = () => {
     const s = slug.trim();
@@ -99,6 +140,45 @@ export function AdminSkillTypesPanel() {
         },
         onError: (e: Error) => {
           toast({ title: "Could not add type", description: e.message, variant: "destructive" });
+        },
+      },
+    );
+  };
+
+  const saveEdit = () => {
+    if (!editTarget || editTarget.id <= 0) {
+      toast({
+        title: "Cannot save",
+        description: "Reload the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const nextLabel = editLabel.trim();
+    if (!nextLabel) {
+      toast({ title: "Label is required", variant: "destructive" });
+      return;
+    }
+    updateType.mutate(
+      {
+        id: editTarget.id,
+        patch: {
+          label: nextLabel,
+          catalogGroup: editCatalog,
+          editorMode: editEditor,
+          description: editDescription.trim(),
+          ...(!editTarget.isBuiltin
+            ? { handlerKey: editHandler.trim() || null }
+            : {}),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Skill type updated", description: nextLabel });
+          setEditTarget(null);
+        },
+        onError: (e: Error) => {
+          toast({ title: "Save failed", description: e.message, variant: "destructive" });
         },
       },
     );
@@ -140,7 +220,7 @@ export function AdminSkillTypesPanel() {
               <th className="py-3 pr-3">Catalog</th>
               <th className="py-3 pr-3">Editor</th>
               <th className="py-3 pr-3">Handler</th>
-              <th className="py-3 pr-5 text-right w-24">Actions</th>
+              <th className="py-3 pr-5 text-right w-[5.5rem]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -174,20 +254,30 @@ export function AdminSkillTypesPanel() {
                     {t.handlerKey ?? "—"}
                   </td>
                   <td className="py-3 pr-5 text-right">
-                    {!t.isBuiltin ? (
+                    <div className="inline-flex items-center justify-end gap-0.5">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-red-700 hover:bg-red-50"
-                        aria-label={`Delete ${t.label}`}
-                        onClick={() => setDeleteTarget(t)}
+                        className="h-8 w-8 text-slate-400 hover:text-orange-700 hover:bg-orange-50"
+                        aria-label={`Edit ${t.label}`}
+                        onClick={() => setEditTarget(t)}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Pencil className="w-4 h-4" />
                       </Button>
-                    ) : (
-                      <span className="text-xs text-slate-300 pr-2">—</span>
-                    )}
+                      {!t.isBuiltin ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-red-700 hover:bg-red-50"
+                          aria-label={`Delete ${t.label}`}
+                          onClick={() => setDeleteTarget(t)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -217,12 +307,7 @@ export function AdminSkillTypesPanel() {
               <SelectTrigger className="mt-1 bg-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="content">Product content</SelectItem>
-                <SelectItem value="image">Image</SelectItem>
-                <SelectItem value="audit">Audit</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
+              {catalogSelect}
             </Select>
           </div>
           <div>
@@ -231,12 +316,7 @@ export function AdminSkillTypesPanel() {
               <SelectTrigger className="mt-1 bg-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="content">Content test</SelectItem>
-                <SelectItem value="image">Image preview</SelectItem>
-                <SelectItem value="audit">Audit keys</SelectItem>
-                <SelectItem value="generic">Generic</SelectItem>
-              </SelectContent>
+              {editorSelect}
             </Select>
           </div>
         </div>
@@ -252,6 +332,83 @@ export function AdminSkillTypesPanel() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={editTarget != null} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit skill type</DialogTitle>
+          </DialogHeader>
+          {editTarget && (
+            <div className="space-y-4 py-1">
+              <div>
+                <Label className="text-xs text-muted-foreground">Slug (read-only)</Label>
+                <Input value={editTarget.slug} readOnly className="mt-1 font-mono text-xs bg-slate-50" />
+                {editTarget.isBuiltin && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Built-in slug and handler are fixed in code; you can still change label, catalog, and editor.
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label className="text-xs">Label</Label>
+                <Input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="mt-1" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Catalog group</Label>
+                  <Select value={editCatalog} onValueChange={(v) => setEditCatalog(v as AdminSkillTypeCatalogGroup)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    {catalogSelect}
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Editor</Label>
+                  <Select value={editEditor} onValueChange={(v) => setEditEditor(v as AdminSkillTypeEditorMode)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    {editorSelect}
+                  </Select>
+                </div>
+              </div>
+              {!editTarget.isBuiltin && (
+                <div>
+                  <Label className="text-xs">Handler key (optional)</Label>
+                  <Input
+                    value={editHandler}
+                    onChange={(e) => setEditHandler(e.target.value)}
+                    placeholder="Leave empty until wired in code"
+                    className="mt-1 font-mono text-xs"
+                  />
+                </div>
+              )}
+              <div>
+                <Label className="text-xs">Description (optional)</Label>
+                <Textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="mt-1 text-xs min-h-[72px]"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-orange-500 hover:bg-orange-600"
+              onClick={saveEdit}
+              disabled={updateType.isPending}
+            >
+              {updateType.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

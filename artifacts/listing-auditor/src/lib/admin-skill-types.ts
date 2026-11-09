@@ -143,7 +143,15 @@ export function useAdminSkillTypeMutations() {
       onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "ai-skill-types"] }),
     }),
     updateType: useMutation({
-      mutationFn: (params: { id: number; patch: Partial<Pick<AdminSkillType, "label" | "enabled" | "description" | "sortOrder" | "catalogGroup" | "editorMode">> }) =>
+      mutationFn: (params: {
+        id: number;
+        patch: Partial<
+          Pick<
+            AdminSkillType,
+            "label" | "enabled" | "description" | "sortOrder" | "catalogGroup" | "editorMode" | "handlerKey"
+          >
+        >;
+      }) =>
         fetchJson<{ type: AdminSkillType }>(`${basePath}/api/admin/ai-skill-types/${params.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
