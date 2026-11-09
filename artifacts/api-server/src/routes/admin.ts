@@ -1832,7 +1832,8 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
 
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
     if (value === "***") continue;
-    const isSecret = SECRET_KEYS.has(key);
+    const isSecret =
+      SECRET_KEYS.has(key) || /^custom_ai_[a-z0-9_-]+_api_key$/.test(key);
     const normalizedValue =
       category === "payment_gateway" && (key === "paypal_client_id" || key === "paypal_client_secret" || key === "paypal_mode")
         ? value.trim()

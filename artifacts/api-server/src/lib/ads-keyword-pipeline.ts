@@ -98,7 +98,7 @@ Return ONLY valid JSON:
 
   const { content } = await generateChatCompletion(
     [{ role: "user", content: prompt }],
-    { maxTokens: 2500, temperature: 0.4 },
+    { maxTokens: 2500, temperature: 0.4, useCase: "content_generation" },
   );
 
   try {

@@ -13,7 +13,7 @@ export async function generateImageBuffer(
   size: "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256" = "1024x1024",
   options?: ImageGenerateOptions,
 ): Promise<Buffer> {
-  return generateImage(prompt, size, options);
+  return generateImage(prompt, size, { ...options, useCase: "image_generation" });
 }
 
 export async function generateImageWithReferenceProxy(

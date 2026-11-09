@@ -216,7 +216,7 @@ async function runOrchestrator(
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    { maxTokens, temperature: 0.35 },
+    { maxTokens, temperature: 0.35, useCase: "agents" },
   );
 
   return parseOrchestratorResponse(content) ?? null;
@@ -251,7 +251,7 @@ ${input.selectedOption.imageUrl ? `Chosen image: ${input.selectedOption.imageUrl
 Provide the refined final recommendation.`,
       },
     ],
-    { maxTokens: 2048, temperature: 0.4 },
+    { maxTokens: 2048, temperature: 0.4, useCase: "agents" },
   );
 
   return {
@@ -295,7 +295,7 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
         { role: "system", content: systemPrompt },
         { role: "user", content: transcript ? `Conversation so far:\n${transcript}` : input.message },
       ],
-      { maxTokens: 1024, temperature: 0.4 },
+      { maxTokens: 1024, temperature: 0.4, useCase: "agents" },
     );
 
     return {
@@ -324,7 +324,7 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
         { role: "system", content: input.agent.systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { maxTokens: 2048, temperature: 0.4 },
+      { maxTokens: 2048, temperature: 0.4, useCase: "agents" },
     );
     const fallback = parseOrchestratorResponse(content);
     const fallbackMessage = (fallback?.message ?? content.trim()) || "I could not generate a response. Please try again.";

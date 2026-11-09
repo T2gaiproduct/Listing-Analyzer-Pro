@@ -89,7 +89,7 @@ No markdown, no extra text. Just the JSON.`;
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    { maxTokens: 1024 },
+    { maxTokens: 1024, useCase: "aplus_content" },
   );
 
   try {

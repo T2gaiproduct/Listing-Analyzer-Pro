@@ -6,8 +6,15 @@ import { getOpenAIClient } from "./openai-client";
 import { getGeminiClient } from "./gemini-client";
 import { getReplitClient } from "./replit-client";
 import { notifyAdminsOpenAiBillingFromError } from "./openai-balance-notify.js";
+import type { AiUseCase } from "./ai-use-cases.js";
+import {
+  clearCustomAiProviderCache,
+  getCustomOpenAIClient,
+  resolveAiBackend,
+} from "./ai-custom-providers.js";
+import type { AIProvider } from "./ai-provider-types.js";
 
-type AIProvider = "openai" | "gemini" | "replit";
+export type { AIProvider } from "./ai-provider-types.js";
 
 let cachedProvider: AIProvider | null = null;
 let cachedImageModels: Record<string, string> | null = null;
@@ -52,6 +59,7 @@ export async function getImageModel(provider: AIProvider): Promise<string> {
 export function clearProviderCache(): void {
   cachedProvider = null;
   cachedImageModels = null;
+  clearCustomAiProviderCache();
 }
 
 function isGptImageModel(model: string): boolean {
@@ -109,9 +117,31 @@ export async function generateChatCompletion(
   options: {
     maxTokens?: number;
     temperature?: number;
+    useCase?: AiUseCase;
   } = {},
 ): Promise<ChatCompletionResult> {
-  const provider = await getActiveProvider();
+  const backend = await resolveAiBackend(options.useCase);
+
+  if (backend.mode === "custom") {
+    const client = await getCustomOpenAIClient(backend.profile, backend.apiKey);
+    const response = await client.chat.completions.create({
+      model: backend.profile.chatModel,
+      max_completion_tokens: options.maxTokens ?? 2048,
+      temperature: options.temperature ?? 0.7,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    });
+    const content = response.choices[0]?.message?.content ?? "";
+    return {
+      content,
+      usage: {
+        promptTokens: response.usage?.prompt_tokens,
+        completionTokens: response.usage?.completion_tokens,
+        totalTokens: response.usage?.total_tokens,
+      },
+    };
+  }
+
+  const provider = backend.provider;
 
   if (provider === "gemini") {
     const client = await getGeminiClient();
@@ -181,9 +211,33 @@ export interface ImageGenerationResult {
 export async function generateImage(
   prompt: string,
   size: ImageSize = "1024x1024",
-  options?: ImageGenerateOptions,
+  options?: ImageGenerateOptions & { useCase?: AiUseCase },
 ): Promise<Buffer> {
-  const provider = await getActiveProvider();
+  const backend = await resolveAiBackend(options?.useCase);
+  if (backend.mode === "custom" && backend.profile.imageModel) {
+    const client = await getCustomOpenAIClient(backend.profile, backend.apiKey);
+    const model = backend.profile.imageModel;
+    try {
+      if (isGptImageModel(model) || isDalleModel(model)) {
+        const quality = isGptImageModel(model)
+          ? mapGptImageQuality(options?.quality)
+          : mapDalleQuality(options?.quality);
+        const response = await client.images.generate({
+          model,
+          prompt,
+          size: isGptImageModel(model) ? mapSizeForGptImage(size) : size,
+          ...(quality ? { quality } : {}),
+        });
+        const b64 = response.data?.[0]?.b64_json;
+        if (!b64) throw new Error("No image data returned from custom provider.");
+        return Buffer.from(b64, "base64");
+      }
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  const provider = backend.mode === "builtin" ? backend.provider : await getActiveProvider();
   const model = await getImageModel(provider);
 
   try {

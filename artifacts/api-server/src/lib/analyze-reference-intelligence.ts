@@ -158,7 +158,7 @@ Return ONLY JSON:
 
   const { content } = await generateChatCompletion(
     [{ role: "user", content: prompt }],
-    { maxTokens: 1200 },
+    { maxTokens: 1200, useCase: "image_generation" },
   );
 
   try {

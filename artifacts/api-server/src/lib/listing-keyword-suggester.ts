@@ -92,7 +92,7 @@ Return ONLY JSON, no markdown.`;
 
   const { content } = await generateChatCompletion(
     [{ role: "user", content: prompt }],
-    { maxTokens: 800, temperature: 0.35 },
+    { maxTokens: 800, temperature: 0.35, useCase: "content_generation" },
   );
 
   try {

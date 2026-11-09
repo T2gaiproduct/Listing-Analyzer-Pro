@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { BrainCircuit, Save, KeyRound, CheckCircle, AlertCircle, Sparkles, Zap, Shield } from "lucide-react";
+import {
+  AdminAiProvidersByUseCase,
+  hydrateCustomProvidersFromSettings,
+  serializeCustomProvidersForSave,
+} from "@/components/admin-ai-providers-by-use-case";
+import type { AiUseCase, CustomAiProviderForm } from "@/lib/ai-settings-use-cases";
 
 function fetchSettings(category: string): Promise<Record<string, string>> {
   return fetch(`/api/admin/settings?category=${category}`).then((r) => r.json());
@@ -95,9 +101,17 @@ export default function AdminSettingsAI() {
   const [openaiTestStatus, setOpenaiTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
   const [geminiTestStatus, setGeminiTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
   const [replitTestStatus, setReplitTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
+  const [customProviders, setCustomProviders] = useState<CustomAiProviderForm[]>([]);
+  const [useCaseRouting, setUseCaseRouting] = useState<Partial<Record<AiUseCase, string>>>({});
 
   const { data } = useQuery({ queryKey: ["admin-settings-ai"], queryFn: () => fetchSettings("ai") });
-  useEffect(() => { if (data) setForm((f) => ({ ...f, ...data })); }, [data]);
+  useEffect(() => {
+    if (!data) return;
+    setForm((f) => ({ ...f, ...data }));
+    const hydrated = hydrateCustomProvidersFromSettings(data);
+    setCustomProviders(hydrated.providers);
+    setUseCaseRouting(hydrated.routing);
+  }, [data]);
 
   type OpenAiBillingStatus = {
     level: "ok" | "low" | "depleted" | "unknown";
@@ -164,7 +178,11 @@ export default function AdminSettingsAI() {
   };
 
   const save = useMutation({
-    mutationFn: () => saveSettings("ai", form),
+    mutationFn: () =>
+      saveSettings("ai", {
+        ...form,
+        ...serializeCustomProvidersForSave(customProviders, useCaseRouting),
+      }),
     onSuccess: () => {
       toast({ title: "AI settings saved" });
       setOpenaiTestStatus("idle");
@@ -204,7 +222,8 @@ export default function AdminSettingsAI() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Choose which AI provider powers all listing analysis, content generation, and image creation.
+              Global default when a use case has no override below. Keys for OpenAI, Gemini, and Replit stay in each
+              provider&apos;s section.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {PROVIDERS.map((p) => (
@@ -236,6 +255,13 @@ export default function AdminSettingsAI() {
             </div>
           </CardContent>
         </Card>
+
+        <AdminAiProvidersByUseCase
+          providers={customProviders}
+          onProvidersChange={setCustomProviders}
+          routing={useCaseRouting}
+          onRoutingChange={setUseCaseRouting}
+        />
 
         {/* Provider-specific config */}
         {provider === "openai" && (

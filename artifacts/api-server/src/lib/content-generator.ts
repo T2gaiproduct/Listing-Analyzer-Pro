@@ -129,7 +129,7 @@ Generate optimized listing content for ${marketplace.name}. ${LISTING_JSON_OUTPU
 
   const { content } = await generateChatCompletion(
     [{ role: "user", content: prompt }],
-    { maxTokens: 3600 },
+    { maxTokens: 3600, useCase: "content_generation" },
   );
 
   try {
