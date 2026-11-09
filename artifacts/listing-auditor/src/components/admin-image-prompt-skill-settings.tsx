@@ -17,7 +17,8 @@ export function AdminImagePromptSkillSettings({ value, onChange }: Props) {
       <div>
         <p className="text-sm font-semibold">Image prompt settings</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Shown in graphics / A+ generation. Saved with this skill when you publish or save draft.
+          Global prompt for this type (all product categories). Category-specific reference uploads live under{" "}
+          <strong>Studio references</strong> on the Skills page—not here.
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

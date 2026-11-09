@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ImageIcon, Plus, SlidersHorizontal, Store, Trash2 } from "lucide-react";
+import { ImageIcon, Plus, SlidersHorizontal, Sparkles, Store, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,11 @@ import { useAdminAiSkills, type AiSkillRecord } from "@/lib/admin-ai-skills-api"
 import { deleteAdminContentMarketplace } from "@/lib/content-marketplaces";
 import { AdminNewMarketplaceSkillDialog } from "@/components/admin-new-marketplace-skill-dialog";
 import { AdminNewImagePromptSkillDialog } from "@/components/admin-new-image-prompt-skill-dialog";
-import { deleteAdminImagePromptTemplate } from "@/lib/image-prompt-templates";
+import {
+  deleteAdminImagePromptTemplate,
+  type ImagePromptTemplateCategory,
+} from "@/lib/image-prompt-templates";
+import { AdminGraphicsModuleExamplesPanel } from "@/pages/admin/settings/graphics-module-examples-panel";
 import { useQueryClient } from "@tanstack/react-query";
 
 function formatSkillType(skillType: string): string {
@@ -121,6 +125,8 @@ export default function AdminAiSkillsPage() {
   const [newMarketplaceOpen, setNewMarketplaceOpen] = useState(false);
   const [newGraphicsPromptOpen, setNewGraphicsPromptOpen] = useState(false);
   const [newAplusPromptOpen, setNewAplusPromptOpen] = useState(false);
+  const [studioCategory, setStudioCategory] = useState("Default");
+  const [studioTab, setStudioTab] = useState<ImagePromptTemplateCategory>("graphics");
 
   const { marketplaceSkills, graphicsPromptSkills, aplusPromptSkills, otherSkills } = useMemo(() => {
     const marketplace = skills.filter((s) => s.skillKind === "marketplace_content");
@@ -189,8 +195,9 @@ export default function AdminAiSkillsPage() {
               Skills
             </h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-              Marketplace listing prompts, image prompt templates, and per-category rules. Publish to enable
-              generation.
+              Three layers: <strong>global</strong> image prompts (per graphics/A+ type),{" "}
+              <strong>per-category reference images</strong> (studio), and optional{" "}
+              <strong>per-category text rules</strong> (category skills). Publish skills to enable generation.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -304,6 +311,47 @@ export default function AdminAiSkillsPage() {
           </CardContent>
         </Card>
 
+        <div id="studio-references" className="scroll-mt-6 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-orange-500" />
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Studio references by product category
+              </h2>
+            </div>
+            <div className="flex gap-1 rounded-lg border border-slate-200 p-0.5 bg-white">
+              <Button
+                type="button"
+                size="sm"
+                variant={studioTab === "graphics" ? "default" : "ghost"}
+                className={studioTab === "graphics" ? "bg-teal-700 hover:bg-teal-800 h-8" : "h-8"}
+                onClick={() => setStudioTab("graphics")}
+              >
+                Graphics
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={studioTab === "aplus" ? "default" : "ghost"}
+                className={studioTab === "aplus" ? "bg-teal-700 hover:bg-teal-800 h-8" : "h-8"}
+                onClick={() => setStudioTab("aplus")}
+              >
+                A+
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground max-w-3xl">
+            Pick a <strong>product category</strong>, then upload approved reference images for each graphics type or
+            A+ module. Sellers see these when customizing generation—not the prompt text itself. Missing images fall
+            back to <strong>Default</strong>.
+          </p>
+          <AdminGraphicsModuleExamplesPanel
+            selectedCategory={studioCategory}
+            onSelectedCategoryChange={setStudioCategory}
+            templateCategory={studioTab}
+          />
+        </div>
+
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -311,7 +359,8 @@ export default function AdminAiSkillsPage() {
               Category &amp; other skills
             </CardTitle>
             <p className="text-xs text-muted-foreground font-normal">
-              Optional rules for a product category and marketplace pair.
+              Optional text rules per product category. Use skill type <strong>Product images</strong> to append extra
+              prompt guidance for that category (on top of the global lifestyle/hero prompt skills above).
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
