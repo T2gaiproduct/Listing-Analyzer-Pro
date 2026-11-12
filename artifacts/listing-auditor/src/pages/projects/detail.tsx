@@ -195,12 +195,23 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   });
 
   const linkedAuditId = project?.auditId ?? null;
+  /** Created via Create Graphics → From scratch (`returnTo=/projects`), not Graphics in Detail. */
+  const isStandaloneScratchGraphics = !isOpenedFromGraphicsInDetailHub(search);
+
+  useEffect(() => {
+    if (!isStandaloneScratchGraphics) return;
+    setGraphicsDetailTab("create_graphics");
+  }, [id, isStandaloneScratchGraphics]);
+
   // Listing-linked hub (Graphics in Detail / audit products). Scratch projects use the standalone gallery.
   const graphicsInDetailHub = useMemo(() => {
     if (searchParams.get("legacy") === "1") return false;
+    if (isStandaloneScratchGraphics) return false;
     if (isOpenedFromGraphicsInDetailHub(search)) return true;
     return linkedAuditId != null && linkedAuditId > 0;
-  }, [search, searchParams, linkedAuditId]);
+  }, [search, searchParams, linkedAuditId, isStandaloneScratchGraphics]);
+
+  const showGraphicsHubTabs = graphicsInDetailHub;
   const { data: linkedAudit } = useGetAudit(linkedAuditId ?? 0, {
     query: {
       enabled: linkedAuditId != null && linkedAuditId > 0,
@@ -424,27 +435,12 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const records = project?.imageRecords ?? [];
   const isGenerating = project?.status === "generating";
   const hasRecords = records.length > 0;
-  const showOverviewTab = graphicsInDetailHub && graphicsDetailTab === "overview";
+  const showOverviewTab = showGraphicsHubTabs && graphicsDetailTab === "overview";
   const showCreateGraphicsTab =
-    !graphicsInDetailHub || graphicsDetailTab === "create_graphics";
-
-  const scratchOverviewPreview = useMemo(() => {
-    if (linkedAuditId != null || !project) return null;
-    const urls = (project.sourceImageUrls ?? [])
-      .map((url) => resolveGraphicsImageUrl(url))
-      .filter(Boolean);
-    if (urls.length === 0 && !project.productName?.trim() && !project.name?.trim()) return null;
-    return {
-      imageUrls: urls,
-      title: project.productName?.trim() || project.name?.trim() || "Graphics project",
-      bulletPoints: [] as string[],
-      descriptionHtml: null as string | null,
-      attributes: [] as { attribute: string; value: string }[],
-    };
-  }, [linkedAuditId, project]);
+    isStandaloneScratchGraphics || !graphicsInDetailHub || graphicsDetailTab === "create_graphics";
 
   const overviewPreview = useMemo(() => {
-    if (!linkedAudit) return scratchOverviewPreview;
+    if (!linkedAudit) return null;
     type AttrRow = { attribute?: string; value?: string };
     const auditRecord = linkedAudit as {
       sourceListingContent?: { attributes?: AttrRow[] };
@@ -467,18 +463,18 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       descriptionHtml: linkedAudit.productDescription?.trim() || null,
       attributes: overviewAttributes,
     };
-  }, [linkedAudit, project?.productName, scratchOverviewPreview]);
+  }, [linkedAudit, project?.productName]);
 
   return (
     <div className="space-y-6">
-      {graphicsInDetailHub && (
+      {showGraphicsHubTabs && (
         <GraphicsInDetailTabs
           activeTab={graphicsDetailTab}
           onTabChange={handleGraphicsDetailTabChange}
         />
       )}
 
-      {graphicsInDetailHub && isLoading && (
+      {showGraphicsHubTabs && isLoading && (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
         </div>
