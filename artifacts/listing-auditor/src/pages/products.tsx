@@ -434,6 +434,9 @@ export default function ProductsPage() {
     isBillingAccountOwner,
     isAgencyAccountOverview,
   );
+  /** Bulk upload / Add product are workspace-scoped — hide on Account overview (all workspaces). */
+  const allowWorkspaceCatalogActions =
+    !showAccountProducts && !isAgencyAccountOverview && featureWorkspaceId != null;
   const [, navigate] = useLocation();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
@@ -765,7 +768,7 @@ export default function ProductsPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
-          {!showAccountProducts && featureWorkspaceId && (
+          {allowWorkspaceCatalogActions && (
             <BulkUploadCatalogTrigger
               disabled={needsWorkspaceSelection}
               onImported={({ imported, failed }) => {
@@ -809,7 +812,7 @@ export default function ProductsPage() {
               </TooltipContent>
             </Tooltip>
           )}
-          {!showAccountProducts && featureWorkspaceId && (
+          {allowWorkspaceCatalogActions && (
             <Button
               type="button"
               size="sm"
