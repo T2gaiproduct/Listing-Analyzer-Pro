@@ -125,8 +125,9 @@ echo "    VITE_AUTH_PROVIDER=${VITE_AUTH_PROVIDER:-<unset> (Clerk UI)}"
 echo "    NATIVE_AUTH_ENABLED=${NATIVE_AUTH_ENABLED:-<unset>}"
 
 echo
-echo "==> Building application..."
-pnpm build
+echo "==> Building application (deploy path — skips full artifact tsc; see package.json build:deploy)..."
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=3072}"
+pnpm run build:deploy
 
 echo
 echo "==> Verifying frontend build..."

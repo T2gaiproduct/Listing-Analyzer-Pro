@@ -73,8 +73,11 @@ cd /opt/listingauditor
 # Install dependencies
 pnpm install --frozen-lockfile
 
-# Build all packages
-pnpm run build
+# Build for production (same as deploy.sh / CI — avoids OOM on small VPS during api-server tsc)
+pnpm run build:deploy
+
+# Full monorepo check (optional; needs more RAM — exit 137 = killed/OOM)
+# pnpm run build
 ```
 
 ---
