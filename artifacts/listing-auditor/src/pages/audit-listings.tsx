@@ -49,19 +49,25 @@ export default function AuditListings() {
   }
 
   return (
-    <div className="w-full min-w-0 py-12 space-y-16 animate-in fade-in duration-500">
+    <div className="w-full min-w-0 pb-8 space-y-8 sm:space-y-12 animate-in fade-in duration-500">
       {/* Hero Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <div className="relative bg-card rounded-2xl sm:rounded-3xl p-5 sm:p-6 md:p-8 border border-border overflow-hidden w-full min-w-0 max-w-full">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-100 dark:opacity-60"
+          style={{
+            background:
+              "radial-gradient(ellipse at 10% 0%, rgba(251,191,100,0.18) 0%, transparent 55%), radial-gradient(ellipse at 90% 5%, rgba(255,237,213,0.3) 0%, transparent 50%)",
+          }}
+        />
+        <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8 lg:gap-10 items-center w-full min-w-0">
         {/* Left */}
-        <div className="space-y-6">
-          <h1 className="text-5xl font-extrabold tracking-tight text-foreground leading-tight">
-            Analyze your
-            <br />
-            <span className="text-orange-500">product listing</span>
-            <br />
+        <div className="space-y-6 min-w-0 max-w-full">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight break-words">
+            Analyze your{" "}
+            <span className="text-orange-500">product listing</span>{" "}
             using AI
           </h1>
-          <p className="text-muted-foreground text-lg max-w-md">
+          <p className="text-muted-foreground text-sm sm:text-base md:text-lg max-w-full lg:max-w-md leading-relaxed">
             Get an instant AI audit of any product page to boost rankings, increase conversions, and outperform the competition.
           </p>
           <div className="flex flex-wrap gap-4">
@@ -96,7 +102,7 @@ export default function AuditListings() {
         </div>
 
         {/* Right - Score Card */}
-        <div className="relative">
+        <div className="relative min-w-0 w-full max-w-full lg:max-w-md lg:justify-self-end">
           {/* Decorative sparkles */}
           <div className="absolute -top-4 -right-4">
             <Sparkles className="w-6 h-6 text-orange-300" />
@@ -152,9 +158,10 @@ export default function AuditListings() {
             </CardContent>
           </Card>
         </div>
+        </div>
       </div>
 
-      <div className="max-w-3xl mx-auto flex justify-center">
+      <div className="w-full min-w-0 max-w-3xl mx-auto flex justify-center px-1">
         <Button
           type="button"
           size="lg"
