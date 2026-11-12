@@ -39,7 +39,6 @@ import { ProtectedAppImage } from "@/components/protected-app-image";
 import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
 import { GraphicsInDetailTabs } from "@/components/graphics-in-detail-tabs";
 import { GraphicsCreateStepContent } from "@/components/product-workflow-step-content";
-import { GraphicsProjectHistory } from "@/components/graphics-project-history";
 import {
   graphicsInDetailViewPath,
   parseGraphicsInDetailTab,
@@ -495,15 +494,12 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       )}
 
       {graphicsInDetailHub && showCreateGraphicsTab && linkedAuditId != null && !isLoading && project && (
-        <div className="space-y-10">
-          <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm min-w-0">
-            <GraphicsCreateStepContent
-              auditId={linkedAuditId}
-              productName={project.productName || project.name}
-              audit={linkedAudit ?? undefined}
-            />
-          </div>
-          <GraphicsProjectHistory />
+        <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm min-w-0">
+          <GraphicsCreateStepContent
+            auditId={linkedAuditId}
+            productName={project.productName || project.name}
+            audit={linkedAudit ?? undefined}
+          />
         </div>
       )}
 
