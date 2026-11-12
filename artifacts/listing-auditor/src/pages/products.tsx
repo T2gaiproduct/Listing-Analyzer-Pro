@@ -434,6 +434,7 @@ export default function ProductsPage() {
     isBillingAccountOwner,
     isAgencyAccountOverview,
   );
+  const accountWideProductList = showAccountProducts || isAgencyAccountOverview;
   const [, navigate] = useLocation();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
@@ -452,13 +453,13 @@ export default function ProductsPage() {
     navigate(`/audits/workflow?entry=${entry}`);
   }
 
-  const productsQueryScope = showAccountProducts ? "owner-account" : featureWorkspaceId;
+  const productsQueryScope = accountWideProductList ? "owner-account" : featureWorkspaceId;
   const productsQueryEnabled =
-    clerkLoaded && !!user && (showAccountProducts || !!featureWorkspaceId);
-  const { data: apiData, isLoading, isFetching } = useQuery({
+    clerkLoaded && !!user && (accountWideProductList || !!featureWorkspaceId);
+  const { data: apiData, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ["products", productsQueryScope],
     queryFn: () =>
-      showAccountProducts
+      accountWideProductList
         ? fetchAccountOverviewProducts()
         : fetchWorkspaceProducts(),
     enabled: productsQueryEnabled,
@@ -726,7 +727,10 @@ export default function ProductsPage() {
     });
   };
 
-  if (wsLoading || scopeLoading || (isLoading && productsQueryEnabled)) {
+  const productsTableLoading =
+    productsQueryEnabled && (isLoading || scopeLoading) && apiData == null;
+
+  if (!clerkLoaded) {
     return (
       <div className="space-y-4 animate-in fade-in">
         <Skeleton className="h-4 w-32" />
@@ -737,7 +741,10 @@ export default function ProductsPage() {
     );
   }
 
-  if (!showAccountProducts && (!featureWorkspaceId || needsWorkspaceSelection)) {
+  if (
+    !accountWideProductList
+    && (!featureWorkspaceId || needsWorkspaceSelection)
+  ) {
     return (
       <div className="space-y-4 animate-in fade-in duration-300">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -784,7 +791,7 @@ export default function ProductsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground tracking-tight">Product Explorer</h1>
-          {showAccountProducts && (
+          {accountWideProductList && (
             <p className="text-xs text-muted-foreground mt-0.5">
               Products across <span className="font-medium text-foreground">all workspaces</span>
             </p>
@@ -944,6 +951,30 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {isError && !productsTableLoading && (
+        <div className="rounded-xl border border-red-200 bg-red-50/90 px-4 py-8 text-center">
+          <p className="text-sm font-medium text-red-900">Could not load products.</p>
+          <p className="text-xs text-red-800/90 mt-1">Check that the API is running, then try again.</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-4 h-8 text-xs"
+            onClick={() => void refetch()}
+          >
+            Try again
+          </Button>
+        </div>
+      )}
+
+      {productsTableLoading ? (
+        <div className="rounded-xl border border-border bg-card p-6 space-y-3 shadow-sm">
+          <Skeleton className="h-9 w-full max-w-lg" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      ) : (
+        <>
       {/* Mobile list */}
       <div className="md:hidden rounded-xl border border-border bg-card overflow-hidden shadow-sm">
         {filtered.length === 0 ? (
@@ -1170,6 +1201,8 @@ export default function ProductsPage() {
           {selectedCount > 0 ? ` · ${selectedCount} selected` : ""}
           {activeFilterSummary ? ` · filtered by ${activeFilterSummary}` : ""}
         </p>
+      )}
+        </>
       )}
       {deleteDialog}
       <BuildBrandStartDrawer
