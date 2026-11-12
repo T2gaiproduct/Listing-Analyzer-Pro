@@ -381,13 +381,13 @@ export function TopbarWorkspaceSwitcher({
         ref={rootRef}
         className={cn(
           "relative flex-shrink-0 items-center",
-          isSidebar ? "flex w-full px-3 mb-3" : "hidden lg:flex",
+          isSidebar ? "flex w-full px-3 mb-2" : "hidden lg:flex",
         )}
       >
         <div
           className={cn(
             "flex items-stretch rounded-md border-0 shadow-none transition-colors w-full",
-            isSidebar ? "h-auto min-h-[3.25rem] py-1.5" : "items-center h-10",
+            isSidebar ? "h-auto min-h-0 py-0.5" : "items-center h-10",
             isSidebar
               ? cn(
                   "rounded-xl border border-sidebar-border/40 bg-sidebar-accent/30",
@@ -401,7 +401,7 @@ export function TopbarWorkspaceSwitcher({
             onClick={openActiveWorkspace}
             className={cn(
               "flex items-center gap-2 pl-2.5 pr-1 min-w-0 flex-1 rounded-l-md focus:outline-none focus-visible:outline-none transition-colors",
-              isSidebar ? "py-1 self-center" : "h-full max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]",
+              isSidebar ? "py-0.5 self-center" : "h-full max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]",
             )}
             aria-label={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${displayPillSubtitle ? `, ${displayPillSubtitle}` : ""}`}
             title={isAccountOwner ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${displayPillSubtitle ? ` (${displayPillSubtitle})` : ""}`}
@@ -417,22 +417,22 @@ export function TopbarWorkspaceSwitcher({
               className={cn(
                 "min-w-0 text-left flex-1",
                 !isSidebar && "hidden md:block",
-                isSidebar && "flex flex-col gap-1.5 py-0.5",
+                isSidebar && "flex flex-col gap-0 py-0",
               )}
             >
               <p
                 className={cn(
                   "text-[10px] font-semibold uppercase tracking-wide",
-                  isSidebar ? "leading-4 text-sidebar-foreground/55" : "leading-none text-slate-500",
+                  isSidebar ? "leading-none text-sidebar-foreground/55" : "leading-none text-slate-500",
                 )}
               >
                 Workspace
               </p>
-              <div className={cn(isSidebar && displayPillSubtitle && "flex flex-col gap-1")}>
+              <div className={cn(isSidebar && displayPillSubtitle && "flex flex-col gap-0")}>
                 <p
                   className={cn(
                     "text-sm font-semibold truncate",
-                    isSidebar ? "leading-5 text-sidebar-foreground" : "leading-tight text-slate-900",
+                    isSidebar ? "leading-tight text-sidebar-foreground" : "leading-tight text-slate-900",
                   )}
                 >
                   {pillName}
@@ -442,7 +442,7 @@ export function TopbarWorkspaceSwitcher({
                     className={cn(
                       "truncate",
                       isSidebar
-                        ? "text-[11px] leading-4 text-sidebar-foreground/55"
+                        ? "text-[10px] leading-tight text-sidebar-foreground/55"
                         : "text-[10px] leading-tight text-slate-400",
                     )}
                   >
@@ -463,8 +463,8 @@ export function TopbarWorkspaceSwitcher({
             type="button"
             onClick={toggleDropdown}
             className={cn(
-              "flex items-center justify-center w-8 transition-colors focus:outline-none focus-visible:outline-none",
-              isSidebar ? "self-stretch shrink-0" : "h-full",
+              "flex items-center justify-center w-7 transition-colors focus:outline-none focus-visible:outline-none",
+              isSidebar ? "self-center shrink-0 h-8" : "h-full w-8",
             )}
             aria-expanded={open}
             aria-haspopup="listbox"
@@ -485,8 +485,8 @@ export function TopbarWorkspaceSwitcher({
                   setCreateOpen(true);
                 }}
                 className={cn(
-                  "flex items-center justify-center w-9 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-r-lg transition-colors focus:outline-none focus-visible:outline-none",
-                  isSidebar ? "self-stretch shrink-0" : "h-full",
+                  "flex items-center justify-center text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-r-lg transition-colors focus:outline-none focus-visible:outline-none",
+                  isSidebar ? "self-center shrink-0 h-8 w-8" : "h-full w-9",
                 )}
               >
                 <Plus className="w-4 h-4" />
