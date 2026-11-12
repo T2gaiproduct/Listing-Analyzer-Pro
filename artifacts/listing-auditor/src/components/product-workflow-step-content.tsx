@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { GeneratedContent } from "@workspace/api-client-react";
@@ -58,6 +58,7 @@ function WorkflowStepShell({
   storePlatformLabel,
   onSyncToStore,
   isSyncingStore,
+  onBackToProducts,
 }: {
   children: ReactNode;
   showSaveAndContinue: boolean;
@@ -67,55 +68,73 @@ function WorkflowStepShell({
   storePlatformLabel?: string;
   onSyncToStore?: () => void;
   isSyncingStore?: boolean;
+  onBackToProducts?: () => void;
 }) {
-  const showFooter = (showSaveAndContinue && onSaveAndContinue) || (showStoreSync && onSyncToStore);
+  const showFooter =
+    onBackToProducts
+    || (showSaveAndContinue && onSaveAndContinue)
+    || (showStoreSync && onSyncToStore);
   const busy = Boolean(isSaving || isSyncingStore);
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm space-y-3">
       {children}
       {showFooter && (
-        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
-          {showStoreSync && onSyncToStore && storePlatformLabel && (
-            <Button
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+          {onBackToProducts ? (
+            <button
               type="button"
-              size="sm"
-              className="h-7 text-[10px] rounded-lg bg-orange-500 hover:bg-orange-600 gap-1"
-              onClick={onSyncToStore}
-              disabled={busy}
+              onClick={onBackToProducts}
+              className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 transition-colors"
             >
-              {isSyncingStore ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Syncing…
-                </>
-              ) : (
-                <>Save &amp; sync to {storePlatformLabel}</>
-              )}
-            </Button>
+              <ArrowLeft className="w-3 h-3" />
+              Back to Product Explorer
+            </button>
+          ) : (
+            <span className="min-w-0" aria-hidden />
           )}
-          {showSaveAndContinue && onSaveAndContinue && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-[10px] rounded-lg gap-1"
-              onClick={onSaveAndContinue}
-              disabled={busy}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  Save &amp; Continue
-                  <ArrowRight className="w-3 h-3" />
-                </>
-              )}
-            </Button>
-          )}
+          <div className="flex flex-wrap justify-end gap-2 ml-auto">
+            {showStoreSync && onSyncToStore && storePlatformLabel && (
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 text-[10px] rounded-lg bg-orange-500 hover:bg-orange-600 gap-1"
+                onClick={onSyncToStore}
+                disabled={busy}
+              >
+                {isSyncingStore ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Syncing…
+                  </>
+                ) : (
+                  <>Save &amp; sync to {storePlatformLabel}</>
+                )}
+              </Button>
+            )}
+            {showSaveAndContinue && onSaveAndContinue && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] rounded-lg gap-1"
+                onClick={onSaveAndContinue}
+                disabled={busy}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    Save &amp; Continue
+                    <ArrowRight className="w-3 h-3" />
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -185,6 +204,7 @@ export function ProductWorkflowStepContent({
   storePlatformLabel,
   onSyncToStore,
   isSyncingStore,
+  onBackToProducts,
   referenceResearch,
   listingPreviewMarketplaces,
   listingPreviewMarketplaceId,
@@ -231,6 +251,7 @@ export function ProductWorkflowStepContent({
   storePlatformLabel?: string;
   onSyncToStore?: () => void;
   isSyncingStore?: boolean;
+  onBackToProducts?: () => void;
   referenceResearch?: ReferenceResearchData | null;
   /** Stable React node (not an inline component) for Optimize Listing step. */
   optimizeContentPanel?: ReactNode;
@@ -263,6 +284,7 @@ export function ProductWorkflowStepContent({
     storePlatformLabel,
     onSyncToStore,
     isSyncingStore,
+    onBackToProducts,
   };
 
   if (step === 1) {
@@ -270,6 +292,18 @@ export function ProductWorkflowStepContent({
       return (
         <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm space-y-3">
           {listingEditorContent}
+          {onBackToProducts && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={onBackToProducts}
+                className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                Back to Product Explorer
+              </button>
+            </div>
+          )}
         </div>
       );
     }
@@ -363,7 +397,7 @@ export function ProductWorkflowStepContent({
 
   if (step === 6 && productId && productSource) {
     return (
-      <WorkflowStepShell showSaveAndContinue={false}>
+      <WorkflowStepShell showSaveAndContinue={false} onBackToProducts={onBackToProducts}>
         <ProductMiscellaneousTab
           productId={productId}
           productSource={productSource}

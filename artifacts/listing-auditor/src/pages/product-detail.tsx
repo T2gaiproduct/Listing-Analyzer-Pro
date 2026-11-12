@@ -2335,6 +2335,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           storePlatformLabel={storePlatformLabel}
           onSyncToStore={() => syncToStoreMutation.mutate()}
           isSyncingStore={syncToStoreMutation.isPending}
+          onBackToProducts={() => navigate("/products")}
           referenceResearch={referenceResearch}
           optimizeContentPanel={optimizeContentPanel}
           overviewContent={
@@ -2525,15 +2526,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
           }
         />
       )}
-
-      <button
-        type="button"
-        onClick={() => navigate("/products")}
-        className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
-      >
-        <ArrowLeft className="w-3 h-3" />
-        Back to Product Explorer
-      </button>
 
       <ShopifyPublishCollectionsDialog
         auditId={optimizeAuditId ?? product?.statsAuditId ?? id}
