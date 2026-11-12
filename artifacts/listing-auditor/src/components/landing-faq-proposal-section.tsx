@@ -125,8 +125,8 @@ export function LandingFaqProposalSection() {
         LANDING_SECTION_PAD,
       )}
     >
-      <div className={cn(LANDING_SECTION_CLASS, "max-w-6xl")}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 xl:gap-16 items-start">
+      <div className={LANDING_SECTION_CLASS}>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-8 sm:gap-10 lg:gap-12 xl:gap-14 2xl:gap-16 items-start w-full">
           {/* FAQ column */}
           <div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight mb-6 sm:mb-8 text-slate-900">
