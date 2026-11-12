@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { AdminSkillsCatalogTable } from "@/components/admin-skills-catalog-table";
 import { AdminSkillTypesPanel } from "@/components/admin-skill-types-panel";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
+import { ADMIN_AI_OVERVIEW_HREF } from "@/lib/admin-ai-settings-nav";
 
 export default function AdminAiSkillsPage() {
   const { data, isLoading, isError, error } = useAdminAiSkills();

@@ -14,6 +14,7 @@ import {
   ListingSuggestionsCard,
   listingViewToGenerated,
   resolveExistingContentForMarketplaceSlug,
+  type ListingContentAttribute,
   type ListingContentView,
 } from "@/components/listing-content-card";
 import type { ListingContentFieldKey } from "@/lib/listing-content-field-merge";
@@ -395,7 +396,15 @@ export function ListingMarketplaceContentPanel({
                       next.keywords = value.filter((v): v is string => typeof v === "string");
                     }
                     if (field === "htmlDescription" && typeof value === "string") next.htmlDescription = value;
-                    if (field === "attributes" && Array.isArray(value)) next.attributes = value;
+                    if (field === "attributes" && Array.isArray(value)) {
+                      next.attributes = value.filter(
+                        (v): v is ListingContentAttribute =>
+                          typeof v === "object"
+                          && v !== null
+                          && "attribute" in v
+                          && "value" in v,
+                      );
+                    }
                     return next;
                   });
                 }}

@@ -85,7 +85,7 @@ function normalizeImportRow(raw: unknown, rowIndex: number):
   if (keywordsRaw) {
     targetKeywords = keywordsRaw.split(/[,|;]/).map((k) => k.trim()).filter(Boolean);
   } else if (Array.isArray(row.targetKeywords)) {
-    targetKeywords = row.targetKeywords.filter((k): k is string => typeof k === "string" && k.trim()).map((k) => k.trim());
+    targetKeywords = row.targetKeywords.filter((k): k is string => typeof k === "string" && k.trim().length > 0).map((k) => k.trim());
   }
 
   let targetMarketplaces: string[] = [];

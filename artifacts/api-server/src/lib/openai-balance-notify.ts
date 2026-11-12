@@ -48,7 +48,7 @@ async function writeNotifyState(state: NotifyState): Promise<void> {
       key: "openai_billing_notify_state",
       value,
       category: "ai",
-      isSecret: 0,
+      isSecret: false,
     });
   }
 }
@@ -153,7 +153,7 @@ export async function ensureOpenAiLowThresholdInSettings(value?: string): Promis
         key: "openai_low_balance_usd",
         value: str,
         category: "ai",
-        isSecret: 0,
+        isSecret: false,
       });
     }
     return parsed;

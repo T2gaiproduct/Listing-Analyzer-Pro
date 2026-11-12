@@ -79,6 +79,7 @@ interface GraphicsProject {
   status: string;
   lifestyleCount: number;
   featureCount: number;
+  generatedCount?: number;
   imageRecords?: ImageRecord[];
   auditId?: number | null;
   updatedAt: string;
@@ -443,10 +444,10 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             embedded
             progressPercent={
               (project.lifestyleCount + project.featureCount) > 0
-                ? (project.generatedCount / (project.lifestyleCount + project.featureCount)) * 100
+                ? ((project.generatedCount ?? 0) / (project.lifestyleCount + project.featureCount)) * 100
                 : 0
             }
-            generatedCount={project.generatedCount}
+            generatedCount={project.generatedCount ?? 0}
             totalImages={project.lifestyleCount + project.featureCount}
           />
         </div>

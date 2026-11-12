@@ -281,7 +281,7 @@ export default function AuditDetail({ id }: { id: number }) {
     overallScore: 0,
     summary: "Analysis pending. Run the audit to generate scores.",
   };
-  const display = result.display;
+  const display = result.display ?? {};
   const scoreCategories = (
     [
       { key: "title" as const, icon: Type, title: "Title Analysis", ...result.titleScore },

@@ -1529,7 +1529,11 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       contentVariants,
       batchResults,
     };
-    res.json(withCreditUsage(payload as Record<string, unknown>, lastDeduct));
+    if (lastDeduct) {
+      res.json(withCreditUsage(payload as Record<string, unknown>, lastDeduct));
+    } else {
+      res.json(payload);
+    }
   } catch (err) {
     if (err instanceof ContentMarketplaceError) {
       res.status(err.code === "disabled" ? 400 : 404).json({ error: err.message });

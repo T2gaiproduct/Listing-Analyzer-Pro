@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
-import { getGetRecentsQueryKey } from "@workspace/api-client-react";
+import { getGetRecentsQueryKey, type ImageRecord as ApiImageRecord } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
 import {
   Upload, ArrowRight, Check, ImageIcon, Loader2, Trash2,
@@ -64,16 +64,16 @@ interface ImageVersion {
   generatedAt: string;
 }
 
-interface ImageRecord {
+type ImageRecord = {
   id: string;
-  type: "lifestyle" | "feature";
+  type: "lifestyle" | "feature" | "main" | "infographic";
   imageType?: string;
   index: number;
   style: string;
   aspectRatio: string;
   currentUrl: string;
   versions: ImageVersion[];
-}
+};
 
 interface WizardProject {
   id: number;
@@ -118,6 +118,8 @@ const MAX_CONCURRENT = 4;
 const TYPE_LABELS: Record<ImageRecord["type"], string> = {
   lifestyle: "Lifestyle",
   feature: "Infographic",
+  infographic: "Infographic",
+  main: "Main",
 };
 
 function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: string; onClick: () => void }) {
@@ -751,7 +753,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const displayProject = project ?? existingProject ?? null;
   const records: ImageRecord[] = displayProject?.imageRecords ?? [];
   const lifestyleRecords = records.filter((r) => r.type === "lifestyle");
-  const featureRecords = records.filter((r) => r.type === "feature");
+  const featureRecords = records.filter((r) => r.type === "feature" || r.type === "infographic");
 
   /** Graphic types already saved on this product (drives “generated” ticks in the selector). */
   const generatedImageTypeIds = useMemo(() => {
@@ -781,7 +783,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const imageActionDialogs = (
     <GraphicsWizardImageDialogs
       imageTypes={IMAGE_TYPES}
-      editRecord={editRecord}
+      editRecord={editRecord as ApiImageRecord | null}
       onEditOpenChange={(o) => {
         if (!o && !loadingIds.has(editRecord?.id ?? "")) {
           setEditRecord(null);
@@ -795,7 +797,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       onEditReferenceImagesChange={setEditReferenceImages}
       editLoading={Boolean(editRecord && loadingIds.has(editRecord.id))}
       onEditSubmit={handleEditSubmit}
-      historyRecord={historyRecord}
+      historyRecord={historyRecord as ApiImageRecord | null}
       onHistoryOpenChange={(o) => {
         if (!o) setHistoryRecord(null);
       }}

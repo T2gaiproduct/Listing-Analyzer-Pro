@@ -242,6 +242,7 @@ export async function readApiJson<T>(res: Response): Promise<T> {
       code?: string;
       hint?: string;
       apiBuildId?: string;
+      staleProcess?: boolean;
     };
     if (!res.ok) {
       const raw = data.error ?? data.message ?? `Server error (${res.status})`;

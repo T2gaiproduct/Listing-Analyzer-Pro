@@ -651,6 +651,7 @@ export default function AdminSettingsAI() {
                 ai_provider: "openai",
                 openai_api_key: "",
                 openai_base_url: "https://api.openai.com/v1",
+                openai_low_balance_usd: "25",
                 gemini_api_key: "",
                 claude_api_key: "",
                 claude_chat_model: "claude-sonnet-4-20250514",

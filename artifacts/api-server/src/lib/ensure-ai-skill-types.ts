@@ -120,7 +120,7 @@ export async function refreshSkillTypeCache(): Promise<void> {
       label: row.label,
       catalogGroup: row.catalogGroup as typeof BUILTIN_TYPES[number]["catalogGroup"],
       editorMode: row.editorMode as typeof BUILTIN_TYPES[number]["editorMode"],
-      handlerKey: row.handlerKey,
+      handlerKey: row.handlerKey ?? row.slug,
       description: row.description ?? "",
       sortOrder: row.sortOrder,
     });

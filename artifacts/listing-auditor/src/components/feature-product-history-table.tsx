@@ -388,7 +388,7 @@ export function FeatureProductHistoryTable({
 
   const productsQueryScope = featureWorkspaceId;
   const productsQueryEnabled = clerkLoaded && !!user && !!featureWorkspaceId;
-  const { data: apiData, isLoading, isError } = useQuery({
+  const { data: apiData, isLoading, isError, isFetching } = useQuery({
     queryKey: ["products", productsQueryScope, "feature-history", sourceType],
     queryFn: () => fetchWorkspaceProducts(),
     enabled: productsQueryEnabled,
@@ -397,7 +397,9 @@ export function FeatureProductHistoryTable({
     retry: 1,
   });
   const scopeLoading = useWorkspaceScopeLoading(productsQueryScope, {
-    enabled: productsQueryEnabled,
+    isFetching,
+    isLoading,
+    isEnabled: productsQueryEnabled,
   });
 
   const products = useMemo(() => {

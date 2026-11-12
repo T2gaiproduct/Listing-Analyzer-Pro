@@ -80,11 +80,11 @@ import {
   type ContentVariantWithMeta,
   variantToPreviewGeneratedContent,
 } from "@/lib/listing-content-field-merge";
-import type { ContentMarketplaceOption } from "@/lib/content-marketplaces";
 import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
 import {
   listingViewToGenerated,
   resolveExistingContentForMarketplaceSlug,
+  type ListingContentView,
 } from "@/components/listing-content-card";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
@@ -271,13 +271,7 @@ function isBulletDerivedDescription(htmlDescription: string, bullets: string[]):
   return trimmed === bulletsToHtmlDescription(bullets).trim();
 }
 
-type ListingContentView = {
-  title: string;
-  bulletPoints: string[];
-  keywords: string[];
-  htmlDescription: string;
-  category?: string | null;
-};
+type MarketplaceListingStatus = "live" | "pending" | "not_listed";
 
 function collectListingSuggestions(
   auditResult: AuditResult | null | undefined,
@@ -372,6 +366,7 @@ function resolveExistingListingContent(
   audit?: {
     asin?: string | null;
     productName?: string | null;
+    productDescription?: string | null;
     title?: string | null;
     bulletPoints?: string[] | null;
     targetKeywords?: string[] | null;

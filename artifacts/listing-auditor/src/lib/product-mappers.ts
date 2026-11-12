@@ -165,6 +165,7 @@ export interface ProductDetailView {
   bulletPoints?: string[];
   targetKeywords?: string[];
   descriptionHtml?: string;
+  description?: string | null;
   listingPrice?: number | null;
   listingCurrency?: string | null;
 }

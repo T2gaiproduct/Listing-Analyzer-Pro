@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link2, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +60,7 @@ export function BuildBrandUploadAttributesSection({
   onResearchUpdated?: (data: ReferenceResearchData) => void;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [productDetails, setProductDetails] = useState<SellerProductDetail[]>(() =>
     normalizeAttributeRows(initialData?.productDetails),
   );
@@ -161,7 +163,7 @@ export function BuildBrandUploadAttributesSection({
   async function refreshCredits() {
     try {
       const { refreshCreditBalances } = await import("@/lib/credit-queries");
-      await refreshCreditBalances();
+      await refreshCreditBalances(queryClient);
     } catch {
       /* non-fatal */
     }

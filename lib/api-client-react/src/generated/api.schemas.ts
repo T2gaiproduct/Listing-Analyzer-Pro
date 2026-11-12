@@ -58,6 +58,8 @@ export interface GenerateContentDirectBody {
   imageUrls?: string[];
   customPrompt?: string;
   promptReferenceImageUrls?: string[];
+  contentMarketplaceId?: number;
+  contentMarketplaceSlug?: string;
 }
 
 export interface GeneratedListingAttribute {
@@ -193,6 +195,13 @@ export interface ScoreDetail {
   suggestions: string[];
 }
 
+export interface AuditResultDisplay {
+  showTitle?: boolean;
+  showBullets?: boolean;
+  showImages?: boolean;
+  showKeywords?: boolean;
+}
+
 export interface AuditResult {
   titleScore: ScoreDetail;
   bulletScore: ScoreDetail;
@@ -200,6 +209,7 @@ export interface AuditResult {
   keywordScore: ScoreDetail;
   overallScore: number;
   summary: string;
+  display?: AuditResultDisplay;
 }
 
 export type AuditStatus = (typeof AuditStatus)[keyof typeof AuditStatus];
@@ -278,6 +288,8 @@ export interface AuditWithResults {
   sourceListingContent?: GeneratedContent;
   generatedImages?: GeneratedImages;
   imageRecords?: ImageRecord[];
+  contentMarketplaceId?: number | null;
+  contentVariants?: unknown[];
   currentStep?: number;
   createdAt: string;
   updatedAt: string;

@@ -59,7 +59,7 @@ export function parseCreateProductBody(body: unknown):
       ? raw.productDescription.trim()
       : undefined;
   const imageUrls = Array.isArray(raw.imageUrls)
-    ? raw.imageUrls.filter((u): u is string => typeof u === "string" && u.trim()).map((u) => u.trim())
+    ? raw.imageUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0).map((u) => u.trim())
     : undefined;
   const listingAttributes = Array.isArray(raw.listingAttributes)
     ? raw.listingAttributes.filter(
@@ -68,15 +68,15 @@ export function parseCreateProductBody(body: unknown):
           && typeof a === "object"
           && typeof (a as { attribute?: unknown }).attribute === "string"
           && typeof (a as { value?: unknown }).value === "string"
-          && (a as { attribute: string }).attribute.trim()
-          && (a as { value: string }).value.trim(),
+          && (a as { attribute: string }).attribute.trim().length > 0
+          && (a as { value: string }).value.trim().length > 0,
       ).map((a) => ({ attribute: a.attribute.trim(), value: a.value.trim() }))
     : undefined;
   const bulletPoints = Array.isArray(raw.bulletPoints)
-    ? raw.bulletPoints.filter((b): b is string => typeof b === "string" && b.trim()).map((b) => b.trim())
+    ? raw.bulletPoints.filter((b): b is string => typeof b === "string" && b.trim().length > 0).map((b) => b.trim())
     : undefined;
   const targetKeywords = Array.isArray(raw.targetKeywords)
-    ? raw.targetKeywords.filter((k): k is string => typeof k === "string" && k.trim()).map((k) => k.trim())
+    ? raw.targetKeywords.filter((k): k is string => typeof k === "string" && k.trim().length > 0).map((k) => k.trim())
     : undefined;
 
   return {

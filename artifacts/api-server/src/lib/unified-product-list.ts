@@ -67,7 +67,7 @@ async function listTargetMarketplacesForAudits(
   const map = new Map<number, string[]>();
   for (const row of rows) {
     const markets = Array.isArray(row.targetMarketplaces)
-      ? row.targetMarketplaces.filter((m): m is string => typeof m === "string" && m.trim()).map((m) => m.trim())
+      ? row.targetMarketplaces.filter((m): m is string => typeof m === "string" && m.trim().length > 0).map((m) => m.trim())
       : [];
     if (markets.length > 0) map.set(row.auditId, markets);
   }

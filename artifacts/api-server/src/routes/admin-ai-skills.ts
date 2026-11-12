@@ -28,6 +28,12 @@ import {
   syncAllImagePromptTemplatesToSkills,
 } from "../lib/image-prompt-skill-sync.js";
 import { getImagePromptTemplateById } from "../lib/image-prompt-template-service.js";
+
+function routeParam(value: string | string[] | undefined): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value[0] ?? "";
+  return "";
+}
 import { ensureAiSkillTypesReady, isEnabledSkillTypeSlug } from "../lib/ensure-ai-skill-types.js";
 import {
   listSkillChatModelOptions,
@@ -196,7 +202,7 @@ router.get(
   requireAdmin,
   requireAdminPermission("manage_settings"),
   async (req, res): Promise<void> => {
-    const row = await findSkillByIdOrSlug(req.params.idOrSlug ?? "");
+    const row = await findSkillByIdOrSlug(routeParam(req.params.idOrSlug));
     if (!row) {
       res.status(404).json({ error: "Skill not found" });
       return;
@@ -251,7 +257,7 @@ router.patch(
   requireAdminPermission("manage_settings"),
   async (req, res): Promise<void> => {
     await ensureAiSkillTypesReady();
-    const existing = await findSkillByIdOrSlug(req.params.idOrSlug ?? "");
+    const existing = await findSkillByIdOrSlug(routeParam(req.params.idOrSlug));
     if (!existing) {
       res.status(404).json({ error: "Skill not found" });
       return;
@@ -351,7 +357,7 @@ router.delete(
   requireAdmin,
   requireAdminPermission("manage_settings"),
   async (req, res): Promise<void> => {
-    const existing = await findSkillByIdOrSlug(req.params.idOrSlug ?? "");
+    const existing = await findSkillByIdOrSlug(routeParam(req.params.idOrSlug));
     if (!existing) {
       res.status(404).json({ error: "Skill not found" });
       return;
@@ -417,7 +423,7 @@ router.post(
   requireAdmin,
   requireAdminPermission("manage_settings"),
   async (req, res): Promise<void> => {
-    const existing = await findSkillByIdOrSlug(req.params.idOrSlug ?? "");
+    const existing = await findSkillByIdOrSlug(routeParam(req.params.idOrSlug));
     const body = req.body as Record<string, unknown>;
     if (typeof body.instructionsText !== "string" && existing?.instructionsText) {
       body.instructionsText = existing.instructionsText;

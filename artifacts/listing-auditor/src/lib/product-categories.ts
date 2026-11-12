@@ -23,7 +23,7 @@ export function useProductCategories() {
     staleTime: 60_000,
   });
   const categories = query.data ?? FALLBACK_CATEGORIES;
-  return { categories, isLoading: query.isLoading, ...query };
+  return { ...query, categories };
 }
 
 export function filterProductCategories(categories: readonly string[], search: string): string[] {
