@@ -49,15 +49,12 @@ export function auditInDetailViewPath(
   return auditListingDetailViewPath(auditId, AUDIT_IN_DETAIL_FROM, tab);
 }
 
-/** Audit Listing → existing product picker (`from=` matches import-from-link hub). */
+/** Audit Listing → existing product picker (`from=` + `flow=` on workflow URL). */
 export function auditListingExistingProductWorkflowSearch(): string {
   const params = new URLSearchParams({
     entry: "existing",
     from: AUDIT_LISTING_HISTORY_FROM,
+    flow: "audit-listing",
   });
   return `?${params.toString()}`;
-}
-
-export function isAuditListingWorkflowSearch(search: string | undefined): boolean {
-  return parseAuditDetailOpenFrom(search) === AUDIT_LISTING_HISTORY_FROM;
 }

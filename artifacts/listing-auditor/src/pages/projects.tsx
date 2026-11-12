@@ -7,6 +7,7 @@ import {
   type BuildBrandStartEntry,
 } from "@/components/build-brand-start-drawer";
 import { Wand2, Image as ImageIcon, Sparkles, Shield, Zap, Clock, Crown, TrendingUp } from "lucide-react";
+import { clearAuditListingWorkflowIntent } from "@/lib/audit-listing-workflow";
 
 export default function ProjectsPage() {
   const [, nav] = useLocation();
@@ -18,6 +19,7 @@ export default function ProjectsPage() {
       nav("/projects/create");
       return;
     }
+    clearAuditListingWorkflowIntent();
     nav(`/audits/workflow?entry=${entry}`);
   }
 

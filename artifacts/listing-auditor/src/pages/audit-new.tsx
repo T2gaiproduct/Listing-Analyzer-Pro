@@ -7,6 +7,7 @@ import {
 } from "@/components/build-brand-start-drawer";
 import { HERO_PRIMARY_CTA_CLASS } from "@/lib/hero-primary-cta";
 import { cn } from "@/lib/utils";
+import { clearAuditListingWorkflowIntent } from "@/lib/audit-listing-workflow";
 import {
   ArrowRight,
   Upload,
@@ -74,6 +75,7 @@ export default function AuditNew() {
       setLocation("/audits/import-from-link");
       return;
     }
+    clearAuditListingWorkflowIntent();
     setLocation(`/audits/workflow?entry=${entry}`);
   }
 

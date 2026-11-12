@@ -73,8 +73,8 @@ import { getSafeReturnTo } from "@/lib/navigation-return";
 import {
   auditListingDetailViewPath,
   AUDIT_LISTING_HISTORY_FROM,
-  isAuditListingWorkflowSearch,
 } from "@/lib/audit-in-detail-nav";
+import { isAuditListingExistingProductWorkflow } from "@/lib/audit-listing-workflow";
 import { PROJECT_ORIGIN_BUILD_BRAND_SCRATCH } from "@/lib/audit-project-origin";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
@@ -673,7 +673,7 @@ export default function AuditWorkflow() {
   });
 
   const workflowFromAuditListings = useMemo(
-    () => isAuditListingWorkflowSearch(search),
+    () => isAuditListingExistingProductWorkflow(search),
     [search],
   );
 
