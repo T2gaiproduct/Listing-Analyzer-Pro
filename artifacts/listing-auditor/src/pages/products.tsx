@@ -436,7 +436,8 @@ export default function ProductsPage() {
     isAgencyAccountOverview,
   );
   const [, navigate] = useLocation();
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  /** Empty set = show all types; otherwise match any selected type (OR). */
+  const [typeFilters, setTypeFilters] = useState<Set<string>>(() => new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [bulkExporting, setBulkExporting] = useState(false);
@@ -651,22 +652,32 @@ export default function ProductsPage() {
   }, [products]);
 
   useEffect(() => {
-    if (typeFilter !== "all" && !dynamicTypeFilters.some((o) => o.label === typeFilter)) {
-      setTypeFilter("all");
-    }
-  }, [dynamicTypeFilters, typeFilter]);
+    const valid = new Set(dynamicTypeFilters.map((o) => o.label));
+    setTypeFilters((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set([...prev].filter((label) => valid.has(label)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [dynamicTypeFilters]);
 
   const filtered = useMemo(() => {
-    return products.filter((p) => {
-      if (typeFilter !== "all" && productTypeLabel(p) !== typeFilter) return false;
-      return true;
-    });
-  }, [products, typeFilter]);
+    if (typeFilters.size === 0) return products;
+    return products.filter((p) => typeFilters.has(productTypeLabel(p)));
+  }, [products, typeFilters]);
 
   const activeFilterSummary = useMemo(() => {
-    if (typeFilter === "all") return "";
-    return typeFilter;
-  }, [typeFilter]);
+    if (typeFilters.size === 0) return "";
+    return [...typeFilters].sort((a, b) => a.localeCompare(b)).join(" · ");
+  }, [typeFilters]);
+
+  function toggleTypeFilter(label: string) {
+    setTypeFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(productKey(p)));
   const selectedProducts = useMemo(
@@ -807,16 +818,16 @@ export default function ProductsPage() {
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <FilterPill
                 label="All"
-                active={typeFilter === "all"}
-                onClick={() => setTypeFilter("all")}
+                active={typeFilters.size === 0}
+                onClick={() => setTypeFilters(new Set())}
               />
               {dynamicTypeFilters.map(({ label, count }) => (
                 <FilterPill
                   key={label}
                   label={label}
                   count={count}
-                  active={typeFilter === label}
-                  onClick={() => setTypeFilter(label)}
+                  active={typeFilters.has(label)}
+                  onClick={() => toggleTypeFilter(label)}
                 />
               ))}
             </div>
