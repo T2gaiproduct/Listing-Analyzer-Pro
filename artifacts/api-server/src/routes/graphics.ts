@@ -283,12 +283,12 @@ async function buildNewImageSpecs(
 
   for (const type of imageTypes) {
     const config = resolveTypeConfig(typeConfigs, type, legacyConfig);
-    const typePrompt = await buildGraphicsPromptForType(type, productDesc);
-    if (typePrompt === null) continue;
-    const basePrompt = typePrompt.trim()
+    const userExtra = config.customPrompt?.trim();
+    const typePrompt = await buildGraphicsPromptForType(type, productDesc, category);
+    if (typePrompt === null && !userExtra) continue;
+    const basePrompt = typePrompt?.trim()
       ? `${typePrompt.trim()} Professional commercial product photography. High-resolution.`
       : "";
-    const userExtra = config.customPrompt?.trim();
     let prompt = basePrompt;
     if (userExtra) {
       prompt = basePrompt
@@ -468,6 +468,14 @@ async function generateNewImageTypes(
 
   const existing = existingRecords ?? [];
   const specs = await buildNewImageSpecs(productName, category, imageTypes, typeConfigs, legacy?.customPrompt, existing, productDescription);
+  if (specs.length === 0) {
+    const labels = imageTypes.join(", ");
+    throw new Error(
+      `Could not start generation for: ${labels}. `
+      + "Enable the image type in Admin → AI skills, publish its prompt (or add directions in Customize), "
+      + "and ensure product images are uploaded.",
+    );
+  }
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
@@ -817,10 +825,10 @@ async function buildRegeneratePrompt(
 
   const fallbackType = existingRecord.type === "feature" ? "callouts" : "lifestyle";
   const imageType = existingRecord.imageType ?? fallbackType;
-  const typePrompt = await buildGraphicsPromptForType(imageType, productDesc);
+  const typePrompt = await buildGraphicsPromptForType(imageType, productDesc, category);
   const base = typePrompt ?? (existingRecord.type === "feature"
-    ? await buildGraphicsPromptForType("callouts", productDesc)
-    : await buildGraphicsPromptForType("lifestyle", productDesc)) ?? "";
+    ? await buildGraphicsPromptForType("callouts", productDesc, category)
+    : await buildGraphicsPromptForType("lifestyle", productDesc, category)) ?? "";
 
   return `${base} Professional commercial product photography. High-resolution. ${styleSuffix}`;
 }

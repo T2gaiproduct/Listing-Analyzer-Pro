@@ -127,7 +127,10 @@ export function ImageTypeCustomizeDialog({
           />
         </div>
 
-        <DialogFooter className="sm:justify-end gap-2 pt-1">
+        <DialogFooter className="sm:justify-end gap-2 pt-1 flex-col sm:flex-row sm:items-center">
+          <p className="text-[11px] text-slate-500 sm:mr-auto text-left w-full sm:w-auto">
+            Done saves this type only. Close and select Generate / Continue on the graphics step to create images.
+          </p>
           <Button
             type="button"
             className="bg-orange-500 hover:bg-orange-600 text-white min-w-[7rem]"
