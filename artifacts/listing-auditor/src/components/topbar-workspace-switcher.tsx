@@ -500,8 +500,8 @@ export function TopbarWorkspaceSwitcher({
                 title={upgradeShort}
                 disabled
                 className={cn(
-                  "flex items-center justify-center w-9 text-slate-300 cursor-not-allowed rounded-r-lg",
-                  isSidebar ? "self-stretch shrink-0" : "h-full",
+                  "flex items-center justify-center text-slate-300 cursor-not-allowed rounded-r-lg",
+                  isSidebar ? "self-center shrink-0 h-8 w-8" : "h-full w-9",
                 )}
                 onClick={() => toast({ title: "Upgrade required", description: upgradeShort })}
               >
