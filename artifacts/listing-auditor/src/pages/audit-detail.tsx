@@ -8,6 +8,14 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScoreRing, ScoreBadge } from "@/components/score-ring";
@@ -129,6 +137,7 @@ export default function AuditDetail({ id }: { id: number }) {
 
   const [auditListingTab, setAuditListingTab] = useState<AuditListingDetailTab>("overview");
   const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [optimizeListingDialogOpen, setOptimizeListingDialogOpen] = useState(false);
   const analyzeAttemptedRef = useRef(false);
 
   useEffect(() => {
@@ -166,6 +175,7 @@ export default function AuditDetail({ id }: { id: number }) {
       { id, data: { currentStep: 2 } },
       {
         onSuccess: () => {
+          setOptimizeListingDialogOpen(false);
           void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
           void queryClient.invalidateQueries({ queryKey: ["products"] });
           setLocation(`${basePath}/products/${id}?source=audit&step=listing`);
@@ -184,6 +194,43 @@ export default function AuditDetail({ id }: { id: number }) {
       },
     );
   }, [canEditAudits, id, patchAudit, queryClient, setLocation, toast]);
+
+  const openProductExplorerListingStep = useCallback(() => {
+    setLocation(`${basePath}/products/${id}?source=audit&step=listing`);
+  }, [id, setLocation]);
+
+  const handleOptimizeListingClick = useCallback(() => {
+    if (!canEditAudits) {
+      toast({
+        title: "Read-only",
+        description: "Ask your workspace admin to optimize this listing.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!audit) return;
+    const record = audit as AuditDetailRecord;
+    const isListingHub =
+      record.projectOrigin === PROJECT_ORIGIN_AUDIT_LISTING
+      || isOpenedFromAuditListingDetailHub(search);
+    const savedToProductExplorer = (audit.currentStep ?? 1) >= 2;
+    if (isListingHub && !savedToProductExplorer) {
+      setOptimizeListingDialogOpen(true);
+      return;
+    }
+    if (savedToProductExplorer) {
+      openProductExplorerListingStep();
+      return;
+    }
+    handleSaveToProductExplorer();
+  }, [
+    audit,
+    canEditAudits,
+    handleSaveToProductExplorer,
+    openProductExplorerListingStep,
+    search,
+    toast,
+  ]);
 
   useEffect(() => {
     if (!audit) return;
@@ -392,7 +439,7 @@ export default function AuditDetail({ id }: { id: number }) {
               size="sm"
               className="w-full sm:w-auto flex-shrink-0 min-h-11"
               disabled={patchAudit.isPending}
-              onClick={handleSaveToProductExplorer}
+              onClick={handleOptimizeListingClick}
             >
               {patchAudit.isPending ? (
                 <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
@@ -487,6 +534,40 @@ export default function AuditDetail({ id }: { id: number }) {
       </div>
         </>
       )}
+
+      <Dialog open={optimizeListingDialogOpen} onOpenChange={setOptimizeListingDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Before you optimize</DialogTitle>
+            <DialogDescription>
+              Save this audit to Product Explorer first. You&apos;ll continue on the Listing step to generate AI-optimized copy from your audit results.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setOptimizeListingDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={patchAudit.isPending}
+              onClick={handleSaveToProductExplorer}
+            >
+              {patchAudit.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Package className="w-4 h-4 mr-2" />
+              )}
+              Save to Product Explorer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
