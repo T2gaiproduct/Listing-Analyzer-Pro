@@ -1,5 +1,5 @@
 import type { ElementType } from "react";
-import { LayoutDashboard, RefreshCw } from "lucide-react";
+import { LayoutDashboard, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GraphicsInDetailTab } from "@/lib/graphics-in-detail-nav";
 
@@ -9,8 +9,8 @@ export const GRAPHICS_IN_DETAIL_TABS: {
   sub: string;
   icon: ElementType;
 }[] = [
-  { id: "overview", label: "OVERVIEW", sub: "Product summary", icon: LayoutDashboard },
-  { id: "reuse_graphics", label: "REUSE GRAPHICS", sub: "Gallery & regenerate", icon: RefreshCw },
+  { id: "overview", label: "OVERVIEW", sub: "Full product summary", icon: LayoutDashboard },
+  { id: "create_graphics", label: "CREATE GRAPHICS", sub: "Generate & reuse images", icon: Wand2 },
 ];
 
 interface GraphicsInDetailTabsProps {

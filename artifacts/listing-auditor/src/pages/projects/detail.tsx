@@ -413,17 +413,34 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const isGenerating = project?.status === "generating";
   const hasRecords = records.length > 0;
   const showOverviewTab = graphicsInDetailHub && graphicsDetailTab === "overview";
-  const showReuseTab = !graphicsInDetailHub || graphicsDetailTab === "reuse_graphics";
+  const showCreateGraphicsTab =
+    !graphicsInDetailHub || graphicsDetailTab === "create_graphics";
 
-  const overviewPreview = linkedAudit
-    ? {
-        imageUrls: linkedAudit.imageUrls ?? [],
-        title: linkedAudit.title?.trim() || linkedAudit.productName || project?.productName || "",
-        bulletPoints: linkedAudit.bulletPoints ?? [],
-        descriptionHtml: linkedAudit.productDescription?.trim() || null,
-        attributes: [] as Array<{ attribute: string; value: string }>,
-      }
-    : null;
+  const overviewPreview = useMemo(() => {
+    if (!linkedAudit) return null;
+    type AttrRow = { attribute?: string; value?: string };
+    const auditRecord = linkedAudit as {
+      sourceListingContent?: { attributes?: AttrRow[] };
+      referenceResearch?: { productDetails?: AttrRow[] };
+    };
+    const snapshotAttrs = auditRecord.sourceListingContent?.attributes ?? [];
+    const refDetails = auditRecord.referenceResearch?.productDetails ?? [];
+    const overviewAttributes = (
+      refDetails.length > 0 ? refDetails : snapshotAttrs
+    )
+      .filter((row): row is { attribute: string; value: string } =>
+        Boolean(row.attribute?.trim() && row.value?.trim()),
+      )
+      .map((row) => ({ attribute: row.attribute!.trim(), value: row.value!.trim() }));
+
+    return {
+      imageUrls: linkedAudit.imageUrls ?? [],
+      title: linkedAudit.title?.trim() || linkedAudit.productName || project?.productName || "",
+      bulletPoints: linkedAudit.bulletPoints ?? [],
+      descriptionHtml: linkedAudit.productDescription?.trim() || null,
+      attributes: overviewAttributes,
+    };
+  }, [linkedAudit, project?.productName]);
 
   return (
     <div className="space-y-6">
@@ -463,14 +480,14 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
           ) : (
             <Card className="border-border/50">
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                No linked listing overview for this project. Open the Reuse Graphics tab to view and regenerate images.
+                No linked listing overview for this project. Open Create Graphics to generate or reuse images.
               </CardContent>
             </Card>
           )}
         </div>
       )}
 
-      {showReuseTab && (
+      {showCreateGraphicsTab && (
       <>
       {/* ── Action bar ── */}
       <div className="flex items-center justify-end gap-2 mb-6">

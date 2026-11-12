@@ -1,6 +1,6 @@
 export const GRAPHICS_IN_DETAIL_FROM = "graphics-in-detail";
 
-export type GraphicsInDetailTab = "overview" | "reuse_graphics";
+export type GraphicsInDetailTab = "overview" | "create_graphics";
 
 export function parseGraphicsDetailOpenFrom(search: string | undefined): typeof GRAPHICS_IN_DETAIL_FROM | null {
   const raw = search ?? "";
@@ -22,7 +22,8 @@ export function parseGraphicsInDetailTab(search: string | undefined): GraphicsIn
   const raw = search ?? "";
   const q = raw.startsWith("?") ? raw.slice(1) : raw;
   const tab = new URLSearchParams(q).get("tab");
-  return tab === "reuse_graphics" ? "reuse_graphics" : "overview";
+  if (tab === "create_graphics" || tab === "reuse_graphics") return "create_graphics";
+  return "overview";
 }
 
 export function graphicsInDetailViewPath(
