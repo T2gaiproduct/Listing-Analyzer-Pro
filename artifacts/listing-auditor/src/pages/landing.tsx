@@ -694,50 +694,48 @@ export default function Landing() {
       {cmsEnabled(cms, "cta") && (
       <section
         className={cn(
-          "relative py-14 sm:py-16 lg:py-20 bg-white border-t border-slate-100 overflow-hidden",
+          "relative py-12 sm:py-16 lg:py-20 bg-gradient-to-b from-white to-slate-50/80 border-t border-slate-100",
           LANDING_SECTION_PAD,
         )}
       >
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_100%,rgba(255,102,0,0.06),transparent_55%)]"
-          aria-hidden
-        />
-        <div
-          className={cn(
-            LANDING_SECTION_CLASS,
-            "relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 lg:gap-10 xl:gap-16 2xl:gap-20 w-full",
-          )}
-        >
-          <div className="text-center lg:text-left flex-1 min-w-0">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl xl:text-[2.5rem] font-bold text-slate-900 mb-3 sm:mb-4 leading-tight max-w-4xl mx-auto lg:mx-0">
+        <div className={cn(LANDING_SECTION_CLASS, "relative w-full")}>
+          <div
+            className={cn(
+              "relative mx-auto max-w-5xl w-full rounded-2xl sm:rounded-3xl",
+              "border border-slate-200/90 bg-white shadow-lg shadow-slate-200/40",
+              "px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 text-center",
+            )}
+          >
+            <div
+              className="pointer-events-none absolute inset-x-8 sm:inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-orange-300/60 to-transparent"
+              aria-hidden
+            />
+            <h2 className="text-2xl sm:text-3xl lg:text-[2.125rem] font-bold text-slate-900 mb-3 leading-snug tracking-tight">
               {cmsText(cms, "cta.heading")}
             </h2>
-            <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto lg:mx-0">
+            <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto mb-8 sm:mb-9">
               {cmsText(cms, "cta.subheading")}
             </p>
-          </div>
-          <div className="flex flex-row items-stretch justify-center lg:justify-end gap-2 sm:gap-3 shrink-0 w-full lg:w-auto lg:min-w-[20rem] xl:min-w-[24rem]">
-            <Button
-              size="lg"
-              className="bg-orange-500 hover:bg-orange-600 px-4 sm:px-8 flex-1 lg:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12 whitespace-nowrap"
-              asChild
-            >
-              <Link href={cmsText(cms, "cta.primary_url")}>{cmsText(cms, "cta.primary_text")}</Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="px-4 sm:px-8 flex-1 lg:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12 border-slate-300 bg-white text-slate-900 hover:bg-slate-50 shadow-sm whitespace-nowrap"
-              asChild
-            >
-              <Link
-                href={cmsText(cms, "cta.secondary_url")}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0"
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-lg mx-auto">
+              <Button
+                size="lg"
+                className="bg-orange-500 hover:bg-orange-600 px-8 h-11 sm:h-12 w-full sm:w-auto text-sm sm:text-base font-semibold shadow-md shadow-orange-500/20"
+                asChild
               >
-                <Play className="w-4 h-4 shrink-0" />
-                <span>{cmsText(cms, "cta.secondary_text")}</span>
-              </Link>
-            </Button>
+                <Link href={cmsText(cms, "cta.primary_url")}>{cmsText(cms, "cta.primary_text")}</Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="px-8 h-11 sm:h-12 w-full sm:w-auto gap-2 text-sm sm:text-base border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                asChild
+              >
+                <Link href={cmsText(cms, "cta.secondary_url")} className="flex items-center justify-center gap-2">
+                  <Play className="w-4 h-4 shrink-0" />
+                  <span>{cmsText(cms, "cta.secondary_text")}</span>
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
