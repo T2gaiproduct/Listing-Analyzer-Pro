@@ -27,6 +27,7 @@ import {
   auditListingExistingProductWorkflowSearch,
 } from "@/lib/audit-in-detail-nav";
 import { markAuditListingWorkflowIntent } from "@/lib/audit-listing-workflow";
+import { clearCreateGraphicsWorkflowIntent } from "@/lib/create-graphics-workflow";
 
 export default function AuditListings() {
   const [startDrawerOpen, setStartDrawerOpen] = useState(false);
@@ -39,6 +40,7 @@ export default function AuditListings() {
       return;
     }
     if (entry === "existing") {
+      clearCreateGraphicsWorkflowIntent();
       markAuditListingWorkflowIntent();
       navigate(`/audits/workflow${auditListingExistingProductWorkflowSearch()}`);
       return;

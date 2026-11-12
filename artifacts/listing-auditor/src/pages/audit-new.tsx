@@ -8,6 +8,7 @@ import {
 import { HERO_PRIMARY_CTA_CLASS } from "@/lib/hero-primary-cta";
 import { cn } from "@/lib/utils";
 import { clearAuditListingWorkflowIntent } from "@/lib/audit-listing-workflow";
+import { clearCreateGraphicsWorkflowIntent } from "@/lib/create-graphics-workflow";
 import {
   ArrowRight,
   Upload,
@@ -76,6 +77,7 @@ export default function AuditNew() {
       return;
     }
     clearAuditListingWorkflowIntent();
+    clearCreateGraphicsWorkflowIntent();
     setLocation(`/audits/workflow?entry=${entry}`);
   }
 

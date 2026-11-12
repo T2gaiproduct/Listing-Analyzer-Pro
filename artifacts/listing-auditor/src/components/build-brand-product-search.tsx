@@ -35,7 +35,7 @@ export type BuildBrandProductPick = {
   workflowUrl: string;
 };
 
-export type BuildBrandProductSearchPrimaryTarget = "product-explorer" | "audit";
+export type BuildBrandProductSearchPrimaryTarget = "product-explorer" | "audit" | "graphics";
 
 function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
@@ -258,7 +258,9 @@ export function BuildBrandProductSearch({
               ? "Opens your graphics project when you continue."
               : primaryActionTarget === "audit"
                 ? "Opens this product on the Audit result tab — scores and listing fixes."
-                : "Opens this project in Product Explorer so you can continue where you left off."
+                : primaryActionTarget === "graphics"
+                  ? "Opens this product on the Graphics step to create AI images and A+ content."
+                  : "Opens this project in Product Explorer so you can continue where you left off."
             : "Optional — skip this step to create a brand-new product."}
         </p>
         <Button

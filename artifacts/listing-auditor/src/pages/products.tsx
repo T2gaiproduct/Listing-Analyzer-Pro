@@ -44,6 +44,7 @@ import {
 } from "@/components/build-brand-start-drawer";
 import { fetchAccountOverviewProducts, fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { clearAuditListingWorkflowIntent } from "@/lib/audit-listing-workflow";
+import { clearCreateGraphicsWorkflowIntent } from "@/lib/create-graphics-workflow";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
@@ -466,6 +467,7 @@ export default function ProductsPage() {
       return;
     }
     clearAuditListingWorkflowIntent();
+    clearCreateGraphicsWorkflowIntent();
     navigate(`/audits/workflow?entry=${entry}`);
   }
 

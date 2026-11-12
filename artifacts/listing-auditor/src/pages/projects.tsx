@@ -8,6 +8,11 @@ import {
 } from "@/components/build-brand-start-drawer";
 import { Wand2, Image as ImageIcon, Sparkles, Shield, Zap, Clock, Crown, TrendingUp } from "lucide-react";
 import { clearAuditListingWorkflowIntent } from "@/lib/audit-listing-workflow";
+import {
+  clearCreateGraphicsWorkflowIntent,
+  createGraphicsExistingProductWorkflowSearch,
+  markCreateGraphicsWorkflowIntent,
+} from "@/lib/create-graphics-workflow";
 
 export default function ProjectsPage() {
   const [, nav] = useLocation();
@@ -20,6 +25,12 @@ export default function ProjectsPage() {
       return;
     }
     clearAuditListingWorkflowIntent();
+    if (entry === "existing") {
+      markCreateGraphicsWorkflowIntent();
+      nav(`/audits/workflow${createGraphicsExistingProductWorkflowSearch()}`);
+      return;
+    }
+    clearCreateGraphicsWorkflowIntent();
     nav(`/audits/workflow?entry=${entry}`);
   }
 

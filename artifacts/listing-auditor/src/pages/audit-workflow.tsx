@@ -75,6 +75,7 @@ import {
   AUDIT_LISTING_HISTORY_FROM,
 } from "@/lib/audit-in-detail-nav";
 import { isAuditListingExistingProductWorkflow } from "@/lib/audit-listing-workflow";
+import { isCreateGraphicsExistingProductWorkflow } from "@/lib/create-graphics-workflow";
 import { PROJECT_ORIGIN_BUILD_BRAND_SCRATCH } from "@/lib/audit-project-origin";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
@@ -677,10 +678,16 @@ export default function AuditWorkflow() {
     [search],
   );
 
+  const workflowFromCreateGraphics = useMemo(
+    () => isCreateGraphicsExistingProductWorkflow(search),
+    [search],
+  );
+
   const returnTo = useMemo(() => {
     if (workflowFromAuditListings) return "/audit-listings";
+    if (workflowFromCreateGraphics) return "/projects";
     return getSafeReturnTo(search, resumeAuditId ? "/dashboard" : "/audits/new");
-  }, [search, resumeAuditId, workflowFromAuditListings]);
+  }, [search, resumeAuditId, workflowFromAuditListings, workflowFromCreateGraphics]);
 
   const [activeStep, setActiveStep] = useState<StepId>(() => {
     if (resumeAuditId && !isNaN(resumeAuditId)) return 2;
@@ -2046,6 +2053,21 @@ export default function AuditWorkflow() {
     });
   }, [nav, queryClient, selectedProduct, toast]);
 
+  const handleOpenSelectedProductGraphics = useCallback(() => {
+    if (!selectedProduct) return;
+    if (selectedProduct.sourceType === "graphics") {
+      nav(selectedProduct.workflowUrl);
+      return;
+    }
+    const source = selectedProduct.sourceType === "audit" ? "audit" : "listing";
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    nav(`${basePath}/products/${selectedProduct.id}?source=${source}&step=graphics`);
+    toast({
+      title: "Create Graphics",
+      description: "Continue on the Graphics step to generate product images and A+ modules.",
+    });
+  }, [nav, queryClient, selectedProduct, toast]);
+
   const step1OpensExistingDestination =
     activeStep === 1
     && selectedProduct !== null
@@ -2056,8 +2078,15 @@ export default function AuditWorkflow() {
     && workflowFromAuditListings
     && workflowEntry === "existing";
 
+  const step1PrimaryOpensGraphics =
+    step1OpensExistingDestination
+    && workflowFromCreateGraphics
+    && workflowEntry === "existing";
+
   const step1PrimaryOpensProductExplorer =
-    step1OpensExistingDestination && !step1PrimaryOpensAudit;
+    step1OpensExistingDestination
+    && !step1PrimaryOpensAudit
+    && !step1PrimaryOpensGraphics;
 
   const handleStepClick = useCallback((step: StepId) => {
     setIsCreating(false);
@@ -2114,6 +2143,8 @@ export default function AuditWorkflow() {
         }
         if (step1PrimaryOpensAudit) {
           handleSaveSelectedProductToAudit();
+        } else if (step1PrimaryOpensGraphics) {
+          handleOpenSelectedProductGraphics();
         } else {
           handleSaveSelectedProductToExplorer();
         }
@@ -2333,7 +2364,13 @@ export default function AuditWorkflow() {
               selectedProduct={selectedProduct}
               onSelectProduct={setSelectedProduct}
               onSkipToUpload={handleSkipToUpload}
-              primaryActionTarget={workflowFromAuditListings ? "audit" : "product-explorer"}
+              primaryActionTarget={
+                workflowFromAuditListings
+                  ? "audit"
+                  : workflowFromCreateGraphics
+                    ? "graphics"
+                    : "product-explorer"
+              }
             />
           )}
 
@@ -3222,6 +3259,11 @@ export default function AuditWorkflow() {
                 <>
                   <FileSearch className="w-4 h-4" />
                   Save to Audit
+                </>
+              ) : step1PrimaryOpensGraphics ? (
+                <>
+                  <Wand2 className="w-4 h-4" />
+                  Create Graphics
                 </>
               ) : step1PrimaryOpensProductExplorer ? (
                 <>

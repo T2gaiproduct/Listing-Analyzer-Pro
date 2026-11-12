@@ -921,6 +921,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     return {
       forceOverview: params.get("step") === "overview",
       openListingStep: params.get("step") === "listing",
+      openGraphicsStep: params.get("step") === "graphics",
       openListingEdit: params.get("edit") === "listing",
     };
   }, [location, id]);
@@ -1714,6 +1715,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!product?.id) return;
     if (workflowProductIdRef.current === product.id) return;
     workflowProductIdRef.current = product.id;
+    if (urlWorkflowIntent.openGraphicsStep) {
+      setSelectedWorkflowStep(3);
+      return;
+    }
     if (urlWorkflowIntent.openListingStep) {
       setSelectedWorkflowStep(2);
       return;
@@ -1730,6 +1735,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     product?.currentStep,
     urlWorkflowIntent.forceOverview,
     urlWorkflowIntent.openListingStep,
+    urlWorkflowIntent.openGraphicsStep,
     workflowStepCompleted,
   ]);
 
