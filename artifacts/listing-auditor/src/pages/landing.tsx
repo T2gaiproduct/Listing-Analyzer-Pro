@@ -698,12 +698,12 @@ export default function Landing() {
           LANDING_SECTION_PAD,
         )}
       >
-        <div className={cn(LANDING_SECTION_CLASS, "relative w-full")}>
+        <div className={cn(LANDING_SECTION_CLASS, "relative w-full min-w-0")}>
           <div
             className={cn(
-              "relative mx-auto max-w-5xl w-full rounded-2xl sm:rounded-3xl",
+              "relative w-full rounded-2xl sm:rounded-3xl",
               "border border-slate-200/90 bg-white shadow-lg shadow-slate-200/40",
-              "px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 text-center",
+              "px-5 py-10 sm:px-8 sm:py-12 lg:px-12 lg:py-14 xl:px-16 text-center",
             )}
           >
             <div
@@ -713,10 +713,10 @@ export default function Landing() {
             <h2 className="text-2xl sm:text-3xl lg:text-[2.125rem] font-bold text-slate-900 mb-3 leading-snug tracking-tight">
               {cmsText(cms, "cta.heading")}
             </h2>
-            <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto mb-8 sm:mb-9">
+            <p className="text-sm sm:text-base lg:text-lg text-slate-500 max-w-3xl xl:max-w-4xl mx-auto mb-8 sm:mb-9">
               {cmsText(cms, "cta.subheading")}
             </p>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-lg mx-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 w-full max-w-xl sm:max-w-2xl mx-auto">
               <Button
                 size="lg"
                 className="bg-orange-500 hover:bg-orange-600 px-8 h-11 sm:h-12 w-full sm:w-auto text-sm sm:text-base font-semibold shadow-md shadow-orange-500/20"
