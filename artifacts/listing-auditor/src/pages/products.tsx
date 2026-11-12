@@ -959,9 +959,6 @@ export default function ProductsPage() {
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 pl-10">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-muted text-muted-foreground">
-                        {product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project"}
-                      </span>
                       <ChannelTags channels={product.channels} />
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 pl-10 text-xs text-muted-foreground">
@@ -1021,7 +1018,6 @@ export default function ProductsPage() {
                   </div>
                 </th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Product</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Type</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Audit Score</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">SKU</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Channels</th>
@@ -1033,7 +1029,7 @@ export default function ProductsPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={8}>
                     <ProductsEmptyState />
                   </td>
                 </tr>
@@ -1073,11 +1069,6 @@ export default function ProductsPage() {
                           {product.name}
                         </span>
                       </div>
-                    </td>
-                    <td className="px-3 py-2.5 align-middle">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-muted text-muted-foreground whitespace-nowrap">
-                        {product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project"}
-                      </span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">
                       <span

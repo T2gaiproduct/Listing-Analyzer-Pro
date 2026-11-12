@@ -162,15 +162,6 @@ function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): P
   };
 }
 
-function productTypeLabel(product: ProductListItem): string {
-  const raw = product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project";
-  if (raw === "Import from Shopify") return "Shopify Import";
-  if (raw === "Import from WooCommerce") return "WooCommerce Import";
-  if (raw === "Import from eBay") return "eBay Import";
-  if (raw === "Import from Walmart") return "Walmart Import";
-  return raw;
-}
-
 function formatPrice(amount: number | null, currency: string): string {
   if (amount == null) return "—";
   if (currency === "INR") return `₹${amount.toLocaleString("en-IN")}`;
@@ -716,9 +707,6 @@ export function FeatureProductHistoryTable({
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 pl-10">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-muted text-muted-foreground">
-                        {productTypeLabel(product)}
-                      </span>
                       <ChannelTags channels={product.channels} />
                     </div>
                     <div
@@ -769,7 +757,6 @@ export function FeatureProductHistoryTable({
                   />
                 </th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Product</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Type</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Audit Score</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">SKU</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Channels</th>
@@ -781,7 +768,7 @@ export function FeatureProductHistoryTable({
             <tbody>
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={8}>
                     <div className="py-10 px-6 text-center">
                       <p className="text-sm font-medium text-foreground">{emptyTitle}</p>
                       <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">{emptyDescription}</p>
@@ -826,11 +813,6 @@ export function FeatureProductHistoryTable({
                             {product.name}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-3 py-2.5 align-middle">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-muted text-muted-foreground whitespace-nowrap">
-                          {productTypeLabel(product)}
-                        </span>
                       </td>
                       <td className="px-3 py-2.5 align-middle">
                         <span
