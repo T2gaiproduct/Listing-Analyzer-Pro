@@ -61,10 +61,13 @@ export function pickProjectThumbnail(opts: {
   thumbnailUrl?: string | null;
   generatedImages?: { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null;
 }): string | null {
-  const candidates: string[] = [];
-  for (const rec of opts.imageRecords ?? []) {
-    if (isUsableImageUrl(rec.currentUrl)) candidates.push(rec.currentUrl.trim());
+  const records = opts.imageRecords ?? [];
+  for (let i = records.length - 1; i >= 0; i -= 1) {
+    const url = records[i]?.currentUrl;
+    if (isUsableImageUrl(url)) return url.trim();
   }
+
+  const candidates: string[] = [];
   for (const url of opts.imageUrls ?? []) {
     if (isUsableImageUrl(url)) candidates.push(url.trim());
   }

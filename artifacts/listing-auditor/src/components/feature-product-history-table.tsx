@@ -106,7 +106,17 @@ function resolveProductViewUrl(
   if (viewTarget === "audit-detail" && product.sourceType === "audit") {
     return auditListingDetailViewPath(product.id, auditDetailFrom, "overview");
   }
+  if (product.sourceType === "graphics" || product.sourceType === "video") {
+    return product.workflowUrl || product.detailUrl;
+  }
   return product.detailUrl;
+}
+
+function resolveProductEditUrl(product: ProductListItem, viewUrl: string): string {
+  if (product.sourceType === "graphics" || product.sourceType === "video") {
+    return product.workflowUrl || viewUrl;
+  }
+  return productOverviewEditUrl(viewUrl);
 }
 
 function productOverviewEditUrl(detailUrl: string): string {
@@ -243,6 +253,9 @@ function ChannelTags({ channels }: { channels: string[] }) {
 function ProductActions({
   product,
   viewUrl,
+  editUrl,
+  viewTooltip,
+  openTooltip,
   rowKey,
   exportingKey,
   canDelete,
@@ -254,6 +267,9 @@ function ProductActions({
 }: {
   product: ProductListItem;
   viewUrl: string;
+  editUrl: string;
+  viewTooltip: string;
+  openTooltip: string;
   rowKey: string;
   exportingKey: string | null;
   canDelete: boolean;
@@ -278,13 +294,13 @@ function ProductActions({
             <Eye className="w-3.5 h-3.5" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">View in Product Explorer</TooltipContent>
+        <TooltipContent side="bottom" className="text-xs">{viewTooltip}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={() => onNavigate(productOverviewEditUrl(viewUrl))}
+            onClick={() => onNavigate(editUrl)}
             className={cn(btnClass, "inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors")}
             aria-label="Edit overview"
           >
@@ -304,7 +320,7 @@ function ProductActions({
             <Upload className="w-3.5 h-3.5" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Open in Product Explorer</TooltipContent>
+        <TooltipContent side="bottom" className="text-xs">{openTooltip}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -352,6 +368,28 @@ function ProductActions({
       )}
     </div>
   );
+}
+
+function productActionTooltips(sourceType: ProductSourceType): {
+  view: string;
+  open: string;
+} {
+  if (sourceType === "graphics") {
+    return {
+      view: "View generated graphics",
+      open: "Open graphics project",
+    };
+  }
+  if (sourceType === "video") {
+    return {
+      view: "View video project",
+      open: "Open video project",
+    };
+  }
+  return {
+    view: "View in Product Explorer",
+    open: "Open in Product Explorer",
+  };
 }
 
 export type FeatureProductHistorySource = "audit" | "graphics";
@@ -580,6 +618,8 @@ export function FeatureProductHistoryTable({
             {products.map((product) => {
               const key = productKey(product);
               const viewUrl = resolveProductViewUrl(product, viewTarget, auditDetailFrom);
+              const editUrl = resolveProductEditUrl(product, viewUrl);
+              const tooltips = productActionTooltips(product.sourceType);
               return (
                 <li key={key}>
                   <div
@@ -632,6 +672,9 @@ export function FeatureProductHistoryTable({
                       <ProductActions
                         product={product}
                         viewUrl={viewUrl}
+                        editUrl={editUrl}
+                        viewTooltip={tooltips.view}
+                        openTooltip={tooltips.open}
                         rowKey={key}
                         exportingKey={exportingKey}
                         canDelete={canDeleteProduct(product)}
@@ -687,6 +730,8 @@ export function FeatureProductHistoryTable({
                 products.map((product) => {
                   const key = productKey(product);
                   const viewUrl = resolveProductViewUrl(product, viewTarget, auditDetailFrom);
+                  const editUrl = resolveProductEditUrl(product, viewUrl);
+                  const tooltips = productActionTooltips(product.sourceType);
                   return (
                     <tr
                       key={key}
@@ -752,6 +797,9 @@ export function FeatureProductHistoryTable({
                         <ProductActions
                           product={product}
                           viewUrl={viewUrl}
+                          editUrl={editUrl}
+                          viewTooltip={tooltips.view}
+                          openTooltip={tooltips.open}
                           rowKey={key}
                           exportingKey={exportingKey}
                           canDelete={canDeleteProduct(product)}

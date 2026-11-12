@@ -130,6 +130,13 @@ function productDetailUrl(id: number, sourceType: ProductSourceType): string {
   return `/products/${id}?source=${sourceType}&step=overview`;
 }
 
+function resolveProductListViewUrl(product: ProductListItem): string {
+  if (product.sourceType === "graphics" || product.sourceType === "video" || product.sourceType === "ads") {
+    return product.workflowUrl || product.detailUrl;
+  }
+  return product.detailUrl;
+}
+
 function productOverviewEditUrl(detailUrl: string): string {
   const separator = detailUrl.includes("?") ? "&" : "?";
   return `${detailUrl}${separator}step=overview&edit=listing`;
@@ -932,7 +939,7 @@ export default function ProductsPage() {
           <ul className="divide-y divide-border/60">
             {filtered.map((product) => {
               const key = productKey(product);
-              const viewUrl = product.detailUrl;
+              const viewUrl = resolveProductListViewUrl(product);
               return (
                 <li key={key}>
                   <div
@@ -1054,7 +1061,7 @@ export default function ProductsPage() {
               ) : (
                 filtered.map((product) => {
                   const key = productKey(product);
-                  const viewUrl = product.detailUrl;
+                  const viewUrl = resolveProductListViewUrl(product);
                   return (
                   <tr
                     key={key}

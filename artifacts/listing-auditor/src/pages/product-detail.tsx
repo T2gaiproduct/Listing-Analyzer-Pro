@@ -96,6 +96,19 @@ function parseProductSource(raw: string | null): ProductSourceType | null {
   return null;
 }
 
+/** Graphics, video, and ads projects use dedicated workflow pages — not Product Explorer overview. */
+function dedicatedWorkflowPath(
+  id: number,
+  source: ProductSourceType | null,
+  product?: ProductDetailView | null,
+): string | null {
+  const type = source ?? product?.sourceType ?? null;
+  if (type === "graphics") return product?.workflowUrl ?? `/projects/${id}`;
+  if (type === "video") return product?.workflowUrl ?? `/videos/${id}`;
+  if (type === "ads") return product?.workflowUrl ?? `/ads/${id}`;
+  return null;
+}
+
 type ProductApiScope = {
   accountOverview: boolean;
 };
@@ -963,6 +976,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
     }
     return null;
   }, [apiProduct, apiLoading, auditData, auditLoading, shouldFetchAudit, source]);
+
+  const workflowRedirectPath = useMemo(
+    () => (validId ? dedicatedWorkflowPath(id, source, product ?? apiProduct) : null),
+    [validId, id, source, product, apiProduct],
+  );
+
+  useEffect(() => {
+    if (!workflowRedirectPath) return;
+    navigate(workflowRedirectPath, { replace: true });
+  }, [workflowRedirectPath, navigate]);
 
   const optimizeAuditId = useMemo(
     () => resolveOptimizeAuditId(product, auditData?.id, source),
@@ -1890,6 +1913,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
       queryClient,
     ],
   );
+
+  if (workflowRedirectPath) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-2 text-center px-4">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <p className="text-xs text-slate-500">Opening your project workspace…</p>
+      </div>
+    );
+  }
 
   if (!validId) {
     return (
