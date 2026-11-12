@@ -76,7 +76,10 @@ export default function AdminFaqs() {
         <HelpCircle className="h-6 w-6 text-orange-500" />
         <h1 className="text-2xl font-bold text-slate-900">FAQs</h1>
       </div>
-      <p className="text-slate-500 text-sm -mt-3">Published FAQs appear on the homepage, pricing, and help center.</p>
+      <p className="text-slate-500 text-sm -mt-3">
+        Published FAQs appear on the homepage (accordion + proposal form), pricing, and help center.
+        Proposal submissions show under Admin → Marketing → Form Submissions → Enterprise.
+      </p>
 
       <Card>
         <CardContent className="space-y-4 pt-6">

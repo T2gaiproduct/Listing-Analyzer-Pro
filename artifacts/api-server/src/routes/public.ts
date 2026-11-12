@@ -270,6 +270,11 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
   const phone = trimOptionalString(payload.phone);
   const demoDate = trimOptionalString(payload.demoDate);
   const teamSize = trimOptionalString(payload.teamSize);
+  const website = trimOptionalString(payload.website);
+  const firstName = trimOptionalString(payload.firstName);
+  const lastName = trimOptionalString(payload.lastName);
+  const source = trimOptionalString(payload.source);
+  const marketingConsent = trimOptionalString(payload.marketingConsent);
 
   if (formType === "support") {
     const userId = getRequestUserId(req);
@@ -378,6 +383,11 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
   if (phone) submissionData.phone = phone;
   if (demoDate) submissionData.demoDate = demoDate;
   if (teamSize) submissionData.teamSize = teamSize;
+  if (website) submissionData.website = website;
+  if (firstName) submissionData.firstName = firstName;
+  if (lastName) submissionData.lastName = lastName;
+  if (source) submissionData.source = source;
+  if (marketingConsent) submissionData.marketingConsent = marketingConsent;
 
   const [item] = await db.insert(formSubmissions).values({
     formType,

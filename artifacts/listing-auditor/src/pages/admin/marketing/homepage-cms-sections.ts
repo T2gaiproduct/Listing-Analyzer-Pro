@@ -80,6 +80,18 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       ],
     },
   ],
+  faq: [
+    {
+      title: "FAQ & proposal form (homepage)",
+      fields: [
+        { key: "faq.heading_lead", label: "Heading — first part" },
+        { key: "faq.heading_accent", label: "Heading — accent (orange)" },
+        { key: "faq.form_title", label: "Form optional title" },
+        { key: "faq.form_submit_text", label: "Submit button text" },
+        { key: "faq.form_consent_text", label: "Consent checkbox label", type: "textarea", rows: 2 },
+      ],
+    },
+  ],
   cta: [
     {
       title: "Pre-footer CTA",
@@ -114,6 +126,7 @@ export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
   portfolio: "Portfolio",
   workflow: "Workflow",
   tutorials: "Tutorials",
+  faq: "FAQ",
   cta: "CTA",
   footer: "Footer",
 };

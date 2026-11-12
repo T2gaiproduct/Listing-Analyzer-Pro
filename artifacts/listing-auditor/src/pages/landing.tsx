@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardList, PenLine, Box, Video, BarChart3, Megaphone, Image,
-  Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
+  Check, ChevronLeft, ChevronRight,
   ArrowRight, Play,
   TrendingUp, Users, Star, X,
 } from "lucide-react";
@@ -31,7 +31,7 @@ import { maxPlanYearlySavingsPercent, planCardCtaClassName, resolvePlanPriceDisp
 import { buildSignUpHref } from "@/lib/plan-selection";
 import { cn } from "@/lib/utils";
 import { LANDING_SECTION_CLASS, LANDING_SECTION_PAD } from "@/lib/landing-layout";
-import { mapPublicFaqs, usePublicFaqs } from "@/lib/public-faqs";
+import { LandingFaqProposalSection } from "@/components/landing-faq-proposal-section";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -573,46 +573,6 @@ function LandingTestimonialsSection() {
   );
 }
 
-function LandingFaqSection() {
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
-  const cms = useHomepageCmsContext();
-  const heading = cmsText(cms, "faq.heading");
-
-  const { data: dbFaqs = [] } = usePublicFaqs(PUBLIC_DATA_STALE_MS);
-  const faqs = mapPublicFaqs(dbFaqs);
-
-  if (faqs.length === 0) return null;
-
-  return (
-    <section className={cn("pt-4 pb-12 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-24 bg-white", LANDING_SECTION_PAD)}>
-      <div className={cn(LANDING_SECTION_CLASS, "max-w-4xl")}>
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">{heading}</h2>
-        <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white">
-          {faqs.map((faq, i) => (
-            <div key={faq.id}>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between px-5 sm:px-6 py-4 text-left hover:bg-slate-50 transition-colors"
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-              >
-                <span className="font-medium text-slate-900 text-sm sm:text-base pr-4">{faq.q}</span>
-                {openFaq === i
-                  ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                  : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
-              </button>
-              {openFaq === i && (
-                <div className="px-5 sm:px-6 pb-4 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-3 bg-slate-50/50">
-                  {faq.a}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default function Landing() {
   const {
     cms,
@@ -727,7 +687,7 @@ export default function Landing() {
       )}
       {cmsEnabled(cms, "faq") && (
         <LazyMount>
-          <LandingFaqSection />
+          <LandingFaqProposalSection />
         </LazyMount>
       )}
 

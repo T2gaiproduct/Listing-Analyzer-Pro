@@ -211,6 +211,11 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
 
   "sections.faq.enabled": "true",
   "faq.heading": "Frequently Asked Questions",
+  "faq.heading_lead": "Frequently Asked",
+  "faq.heading_accent": "Questions",
+  "faq.form_title": "",
+  "faq.form_submit_text": "Get your free proposal",
+  "faq.form_consent_text": "I consent to receive notifications and promotional messages",
   "faq.q1": "What is Ecommerce Guru?",
   // "faq.a1": "Ecommerce Guru is an AI-powered platform that helps Amazon and marketplace sellers audit listings, generate content, and grow sales.",
   "faq.a1": "Ecommerce Guru is an AI-powered platform that helps sellers audit listings, generate content, and grow sales.",
