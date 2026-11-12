@@ -23,6 +23,10 @@ import { parsePortfolioItems } from "@/lib/portfolio-cms";
 import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
 import { LandingTutorialsShowcase } from "@/components/landing-tutorials-showcase";
 import { LandingWorkflowSection } from "@/components/landing-workflow-section";
+import { LandingAnimatedStat } from "@/components/landing-animated-stat";
+import { LandingTrustMarquee } from "@/components/landing-trust-marquee";
+import { LandingFeatureTiles } from "@/components/landing-feature-tiles";
+import { LandingPersonasSection } from "@/components/landing-personas-section";
 import { YoutubePosterEmbed } from "@/components/youtube-poster-embed";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
@@ -525,49 +529,93 @@ function LandingTestimonialsSection() {
 
   if (isLoading || items.length === 0) return null;
 
+  const loopItems = items.length > 1 ? [...items, ...items] : items;
+  const useMarquee = items.length >= 2;
+
+  function TestimonialCard({ t, cardKey }: { t: DbTestimonial; cardKey: string }) {
+    return (
+      <div
+        key={cardKey}
+        className={cn(
+          "bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col",
+          useMarquee && "shrink-0 w-[min(88vw,340px)] sm:w-[360px]",
+        )}
+      >
+        {t.isVideo && t.videoUrl && (
+          <div className="aspect-video rounded-xl overflow-hidden mb-4 bg-slate-900">
+            <YoutubePosterEmbed
+              videoUrl={t.videoUrl}
+              title={`${t.name} video testimonial`}
+              posterUrl={t.avatar ?? undefined}
+            />
+          </div>
+        )}
+        <div className="flex gap-0.5 mb-4">
+          {Array.from({ length: t.rating ?? 5 }).map((_, i) => (
+            <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+          ))}
+        </div>
+        {t.content && (
+          <p className="text-sm text-slate-600 leading-relaxed mb-5 flex-1 line-clamp-6">"{t.content}"</p>
+        )}
+        <div className="flex items-center gap-3 pt-4 border-t border-slate-100 mt-auto">
+          {t.avatar ? (
+            <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm shrink-0">
+              {t.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="font-semibold text-sm text-slate-900 truncate">{t.name}</p>
+            {(t.role || t.company) && (
+              <p className="text-xs text-slate-500 truncate">{[t.role, t.company].filter(Boolean).join(" · ")}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className={cn("py-12 sm:py-16 lg:py-20 bg-slate-50 border-t border-slate-100", LANDING_SECTION_PAD)}>
+      <style>{`
+        @keyframes landing-testimonials-marquee-kf {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .landing-testimonials-marquee-track {
+          animation: landing-testimonials-marquee-kf 55s linear infinite;
+        }
+        .landing-testimonials-marquee-track:hover {
+          animation-play-state: paused;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .landing-testimonials-marquee-track { animation: none !important; }
+        }
+      `}</style>
       <div className={LANDING_SECTION_CLASS}>
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-8 sm:mb-10">{heading}</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {items.map((t) => (
-            <div key={t.id} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm h-full flex flex-col">
-              {t.isVideo && t.videoUrl && (
-                <div className="aspect-video rounded-xl overflow-hidden mb-4 bg-slate-900">
-                  <YoutubePosterEmbed
-                    videoUrl={t.videoUrl}
-                    title={`${t.name} video testimonial`}
-                    posterUrl={t.avatar ?? undefined}
-                  />
-                </div>
+        {useMarquee ? (
+          <div className="relative left-1/2 w-[100vw] max-w-[100vw] -translate-x-1/2 overflow-hidden py-2">
+            <div
+              className={cn(
+                "flex gap-4 sm:gap-6 px-4 landing-testimonials-marquee-track w-max",
               )}
-              <div className="flex gap-0.5 mb-4">
-                {Array.from({ length: t.rating ?? 5 }).map((_, i) => (
-                  <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                ))}
-              </div>
-              {t.content && (
-                <p className="text-sm text-slate-600 leading-relaxed mb-5 flex-1">"{t.content}"</p>
-              )}
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-100 mt-auto">
-                {t.avatar ? (
-                  <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm shrink-0">
-                    {t.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm text-slate-900 truncate">{t.name}</p>
-                  {(t.role || t.company) && (
-                    <p className="text-xs text-slate-500 truncate">{[t.role, t.company].filter(Boolean).join(" · ")}</p>
-                  )}
-                </div>
-              </div>
+            >
+              {loopItems.map((t, index) => (
+                <TestimonialCard key={`${t.id}-${index}`} t={t} cardKey={`${t.id}-${index}`} />
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {items.map((t) => (
+              <TestimonialCard key={t.id} t={t} cardKey={String(t.id)} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -652,13 +700,19 @@ export default function Landing() {
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-50 flex items-center justify-center mb-1.5 shrink-0">
                   <s.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
                 </div>
-                <p className="text-base sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">{s.value}</p>
+                <p className="text-base sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
+                  <LandingAnimatedStat value={s.value} />
+                </p>
                 <p className="text-[10px] sm:text-sm text-slate-500 leading-snug mt-0.5">{s.label}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
+      )}
+
+      {cmsEnabled(cms, "trust") && (
+        <LandingTrustMarquee cms={cms} />
       )}
 
       {cmsEnabled(cms, "features") && features.length > 0 && (
@@ -688,6 +742,10 @@ export default function Landing() {
       </section>
       )}
 
+      {cmsEnabled(cms, "tiles") && (
+        <LandingFeatureTiles cms={cms} />
+      )}
+
       {cmsEnabled(cms, "portfolio") && portfolioItems.length > 0 && (
       <section className={cn("pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-white", LANDING_SECTION_PAD)}>
         <div className={LANDING_SECTION_CLASS}>
@@ -709,6 +767,10 @@ export default function Landing() {
 
       {cmsEnabled(cms, "workflow") && (
         <LandingWorkflowSection cms={cms} />
+      )}
+
+      {cmsEnabled(cms, "personas") && (
+        <LandingPersonasSection cms={cms} />
       )}
 
       {cmsEnabled(cms, "tutorials") && tutorialPreviews.length > 0 && (

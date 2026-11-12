@@ -11,6 +11,43 @@ export type CmsField = {
 export type CmsSection = { title: string; fields: CmsField[] };
 
 export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
+  trust: [
+    {
+      title: "Trust marquee",
+      fields: [
+        { key: "trust.heading", label: "Heading" },
+        { key: "trust.subheading", label: "Subheading", type: "textarea", rows: 2 },
+      ],
+    },
+  ],
+  tiles: [
+    {
+      title: "Feature tiles grid",
+      fields: [
+        { key: "tiles.heading", label: "Section heading" },
+        { key: "tiles.subheading", label: "Subheading", type: "textarea", rows: 2 },
+        ...[1, 2, 3, 4, 5, 6, 7, 8].flatMap((i) => [
+          { key: `tiles.item${i}_title`, label: `Tile ${i} title` },
+          { key: `tiles.item${i}_desc`, label: `Tile ${i} description`, type: "textarea" as const, rows: 2 },
+        ]),
+      ],
+    },
+  ],
+  personas: [
+    {
+      title: "Seller personas",
+      fields: [
+        { key: "personas.heading", label: "Section heading" },
+        { key: "personas.subheading", label: "Subheading", type: "textarea", rows: 2 },
+        ...[1, 2, 3, 4].flatMap((i) => [
+          { key: `personas.item${i}_title`, label: `Persona ${i} title` },
+          { key: `personas.item${i}_desc`, label: `Persona ${i} description`, type: "textarea" as const, rows: 3 },
+          { key: `personas.item${i}_cta_text`, label: `Persona ${i} CTA text` },
+          { key: `personas.item${i}_cta_url`, label: `Persona ${i} CTA URL`, type: "url" as const },
+        ]),
+      ],
+    },
+  ],
   hero: [
     {
       title: "Hero stats (shown below all slides)",
@@ -43,6 +80,16 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       title: "Workflow section",
       fields: [
         { key: "workflow.heading", label: "Section heading" },
+        { key: "workflow.subheading", label: "Subheading", type: "textarea", rows: 2 },
+        { key: "workflow.metrics_heading", label: "Outcome metrics heading" },
+        { key: "workflow.metric1_value", label: "Metric 1 value" },
+        { key: "workflow.metric1_label", label: "Metric 1 label" },
+        { key: "workflow.metric2_value", label: "Metric 2 value" },
+        { key: "workflow.metric2_label", label: "Metric 2 label" },
+        { key: "workflow.metric3_value", label: "Metric 3 value" },
+        { key: "workflow.metric3_label", label: "Metric 3 label" },
+        { key: "workflow.metric4_value", label: "Metric 4 value" },
+        { key: "workflow.metric4_label", label: "Metric 4 label" },
         { key: "workflow.step1_label", label: "Step 1 label" },
         { key: "workflow.step2_label", label: "Step 2 label" },
         { key: "workflow.step3_label", label: "Step 3 label" },
@@ -109,6 +156,9 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
 };
 
 export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
+  trust: "Trust",
+  tiles: "Tiles",
+  personas: "Personas",
   hero: "Hero",
   features: "Features",
   portfolio: "Portfolio",
