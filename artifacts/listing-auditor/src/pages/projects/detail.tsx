@@ -38,6 +38,8 @@ import { downloadAppImage } from "@/lib/download-app-image";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
 import { GraphicsInDetailTabs } from "@/components/graphics-in-detail-tabs";
+import { GraphicsCreateStepContent } from "@/components/product-workflow-step-content";
+import { GraphicsProjectHistory } from "@/components/graphics-project-history";
 import {
   graphicsInDetailViewPath,
   isOpenedFromGraphicsInDetailHub,
@@ -487,7 +489,29 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
         </div>
       )}
 
-      {showCreateGraphicsTab && (
+      {graphicsInDetailHub && showCreateGraphicsTab && linkedAuditId != null && !isLoading && project && (
+        <div className="space-y-10">
+          <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm min-w-0">
+            <GraphicsCreateStepContent
+              auditId={linkedAuditId}
+              productName={project.productName || project.name}
+              audit={linkedAudit ?? undefined}
+            />
+          </div>
+          <GraphicsProjectHistory />
+        </div>
+      )}
+
+      {graphicsInDetailHub && showCreateGraphicsTab && linkedAuditId == null && !isLoading && (
+        <Card className="border-border/50">
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            This graphics project is not linked to a product listing. Create a project from an existing listing
+            via Create Graphics → Existing product.
+          </CardContent>
+        </Card>
+      )}
+
+      {showCreateGraphicsTab && !graphicsInDetailHub && (
       <>
       {/* ── Action bar ── */}
       <div className="flex items-center justify-end gap-2 mb-6">

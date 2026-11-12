@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -141,9 +141,51 @@ function WorkflowStepShell({
   );
 }
 
-type GraphicsStepPanel = "graphics" | "aplus";
+export type GraphicsStepPanel = "graphics" | "aplus";
 
-function GraphicsStepSubTabs({
+/** Product Explorer Graphics step — Select Graphics grid + A+ (shared with Graphics in Detail). */
+export function GraphicsCreateStepContent({
+  auditId,
+  productName,
+  audit,
+  productImageUrls,
+}: {
+  auditId: number;
+  productName: string;
+  audit?: AuditLike | null;
+  productImageUrls?: string[] | null;
+}) {
+  const [graphicsStepPanel, setGraphicsStepPanel] = useState<GraphicsStepPanel>("graphics");
+  const imageUrls = useMemo(
+    () => collectImageUrls(audit, productImageUrls),
+    [audit, productImageUrls],
+  );
+
+  return (
+  <div className="space-y-3 min-w-0">
+    <GraphicsStepSubTabs active={graphicsStepPanel} onChange={setGraphicsStepPanel} />
+    {graphicsStepPanel === "graphics" ? (
+      <div className="min-w-0 pt-1">
+        <GraphicsWizard
+          embedded
+          createOnly
+          auditId={auditId}
+          productName={productName}
+          imageUrls={imageUrls}
+          category={audit?.category ?? null}
+          targetKeywords={audit?.targetKeywords ?? null}
+        />
+      </div>
+    ) : (
+      <div className="min-w-0 pt-1">
+        <AplusContentWizard embedded createOnly auditId={auditId} productName={productName} />
+      </div>
+    )}
+  </div>
+  );
+}
+
+export function GraphicsStepSubTabs({
   active,
   onChange,
 }: {
@@ -256,14 +298,6 @@ export function ProductWorkflowStepContent({
   /** Stable React node (not an inline component) for Optimize Listing step. */
   optimizeContentPanel?: ReactNode;
 }) {
-  const [graphicsStepPanel, setGraphicsStepPanel] = useState<GraphicsStepPanel>("graphics");
-
-  useEffect(() => {
-    if (step !== 3) {
-      setGraphicsStepPanel("graphics");
-    }
-  }, [step]);
-
   const imageUrls = useMemo(
     () => collectImageUrls(audit, productImageUrls),
     [audit, productImageUrls],
@@ -330,24 +364,12 @@ export function ProductWorkflowStepContent({
   if (step === 3) {
     return (
       <WorkflowStepShell {...shellProps}>
-        <GraphicsStepSubTabs active={graphicsStepPanel} onChange={setGraphicsStepPanel} />
-        {graphicsStepPanel === "graphics" ? (
-          <div className="min-w-0 pt-1">
-            <GraphicsWizard
-              embedded
-              createOnly
-              auditId={auditId}
-              productName={productName}
-              imageUrls={imageUrls}
-              category={audit?.category ?? null}
-              targetKeywords={audit?.targetKeywords ?? null}
-            />
-          </div>
-        ) : (
-          <div className="min-w-0 pt-1">
-            <AplusContentWizard embedded createOnly auditId={auditId} productName={productName} />
-          </div>
-        )}
+        <GraphicsCreateStepContent
+          auditId={auditId}
+          productName={productName}
+          audit={audit}
+          productImageUrls={productImageUrls}
+        />
       </WorkflowStepShell>
     );
   }
