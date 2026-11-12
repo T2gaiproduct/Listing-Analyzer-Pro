@@ -434,9 +434,8 @@ export default function ProductsPage() {
     isBillingAccountOwner,
     isAgencyAccountOverview,
   );
-  /** Bulk upload / Add product are workspace-scoped — hide on Account overview (all workspaces). */
-  const allowWorkspaceCatalogActions =
-    !showAccountProducts && !isAgencyAccountOverview && featureWorkspaceId != null;
+  /** Bulk upload / Add product on workspace view and Account overview (all workspaces). */
+  const showCatalogActions = showAccountProducts || (featureWorkspaceId != null && !needsWorkspaceSelection);
   const [, navigate] = useLocation();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
@@ -768,9 +767,9 @@ export default function ProductsPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
-          {allowWorkspaceCatalogActions && (
+          {showCatalogActions && (
             <BulkUploadCatalogTrigger
-              disabled={needsWorkspaceSelection}
+              disabled={!showAccountProducts && needsWorkspaceSelection}
               onImported={({ imported, failed }) => {
                 void queryClient.invalidateQueries({ queryKey: ["products"] });
                 void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
@@ -812,12 +811,12 @@ export default function ProductsPage() {
               </TooltipContent>
             </Tooltip>
           )}
-          {allowWorkspaceCatalogActions && (
+          {showCatalogActions && (
             <Button
               type="button"
               size="sm"
               className="h-8 shrink-0 rounded-md border border-orange-600 bg-orange-500 px-3 text-xs font-medium text-white shadow-none hover:bg-orange-600"
-              disabled={needsWorkspaceSelection}
+              disabled={!showAccountProducts && needsWorkspaceSelection}
               onClick={() => setAddProductDrawerOpen(true)}
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden />
