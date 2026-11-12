@@ -14,6 +14,13 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -430,6 +437,8 @@ export default function ProductsPage() {
     canDelete,
     isBillingAccountOwner,
     isAgencyAccountOverview,
+    workspaces,
+    setActiveWorkspaceId,
   } = useWorkspace();
   const showAccountProducts = isAgencyAccountOverviewDashboard(
     isBillingAccountOwner,
@@ -442,7 +451,12 @@ export default function ProductsPage() {
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [bulkExporting, setBulkExporting] = useState(false);
   const [addProductDrawerOpen, setAddProductDrawerOpen] = useState(false);
+  const [addProductWorkspacePickerOpen, setAddProductWorkspacePickerOpen] = useState(false);
   const { trigger: triggerDeleteDialog, dialog: deleteDialog } = useActionDialog();
+
+  const canShowAddProduct =
+    (!showAccountProducts && !!featureWorkspaceId)
+    || (showAccountProducts && isAccountOwner && workspaces.length > 0);
 
   function handleAddProductChoice(entry: BuildBrandStartEntry) {
     setAddProductDrawerOpen(false);
@@ -796,13 +810,19 @@ export default function ProductsPage() {
               </TooltipContent>
             </Tooltip>
           )}
-          {!showAccountProducts && featureWorkspaceId && (
+          {canShowAddProduct && (
             <Button
               type="button"
               size="sm"
               className="h-8 shrink-0 rounded-md border border-orange-600 bg-orange-500 px-3 text-xs font-medium text-white shadow-none hover:bg-orange-600"
-              disabled={needsWorkspaceSelection}
-              onClick={() => setAddProductDrawerOpen(true)}
+              disabled={!showAccountProducts && needsWorkspaceSelection}
+              onClick={() => {
+                if (showAccountProducts) {
+                  setAddProductWorkspacePickerOpen(true);
+                  return;
+                }
+                setAddProductDrawerOpen(true);
+              }}
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden />
               Add product
@@ -1114,6 +1134,36 @@ export default function ProductsPage() {
         </p>
       )}
       {deleteDialog}
+      <Dialog open={addProductWorkspacePickerOpen} onOpenChange={setAddProductWorkspacePickerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose workspace</DialogTitle>
+            <DialogDescription>
+              New products are created inside one workspace. Pick where this product should live.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="max-h-[min(50vh,320px)] overflow-y-auto space-y-1 py-1">
+            {workspaces.map((ws) => (
+              <li key={ws.id}>
+                <button
+                  type="button"
+                  className="w-full rounded-lg border border-border px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-orange-50 hover:border-orange-200 transition-colors"
+                  onClick={() => {
+                    setActiveWorkspaceId(ws.id);
+                    setAddProductWorkspacePickerOpen(false);
+                    setAddProductDrawerOpen(true);
+                  }}
+                >
+                  {ws.name}
+                  {ws.clientLabel ? (
+                    <span className="block text-xs font-normal text-muted-foreground mt-0.5">{ws.clientLabel}</span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
       <BuildBrandStartDrawer
         open={addProductDrawerOpen}
         onOpenChange={setAddProductDrawerOpen}
