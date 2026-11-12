@@ -41,6 +41,7 @@ import { GraphicsInDetailTabs } from "@/components/graphics-in-detail-tabs";
 import { GraphicsCreateStepContent } from "@/components/product-workflow-step-content";
 import {
   graphicsInDetailViewPath,
+  isOpenedFromGraphicsInDetailHub,
   parseGraphicsInDetailTab,
   type GraphicsInDetailTab,
 } from "@/lib/graphics-in-detail-nav";
@@ -90,6 +91,7 @@ interface GraphicsProject {
   generatedCount?: number;
   imageRecords?: ImageRecord[];
   auditId?: number | null;
+  sourceImageUrls?: string[] | null;
   updatedAt: string;
 }
 
@@ -120,8 +122,6 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     const q = raw.startsWith("?") ? raw.slice(1) : raw;
     return new URLSearchParams(q);
   }, [search]);
-  // Overview + Create Graphics tabs on every graphics project (legacy gallery: ?legacy=1).
-  const graphicsInDetailHub = searchParams.get("legacy") !== "1";
   const [graphicsDetailTab, setGraphicsDetailTab] = useState<GraphicsInDetailTab>(() =>
     parseGraphicsInDetailTab(search),
   );
@@ -134,11 +134,11 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     (tab: GraphicsInDetailTab) => {
       setGraphicsDetailTab(tab);
       const projectId = parseInt(id, 10);
-      if (!Number.isNaN(projectId)) {
+      if (!Number.isNaN(projectId) && isOpenedFromGraphicsInDetailHub(search)) {
         nav(graphicsInDetailViewPath(projectId, tab));
       }
     },
-    [id, nav],
+    [id, nav, search],
   );
 
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
@@ -195,6 +195,12 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   });
 
   const linkedAuditId = project?.auditId ?? null;
+  // Listing-linked hub (Graphics in Detail / audit products). Scratch projects use the standalone gallery.
+  const graphicsInDetailHub = useMemo(() => {
+    if (searchParams.get("legacy") === "1") return false;
+    if (isOpenedFromGraphicsInDetailHub(search)) return true;
+    return linkedAuditId != null && linkedAuditId > 0;
+  }, [search, searchParams, linkedAuditId]);
   const { data: linkedAudit } = useGetAudit(linkedAuditId ?? 0, {
     query: {
       enabled: linkedAuditId != null && linkedAuditId > 0,
@@ -422,8 +428,23 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const showCreateGraphicsTab =
     !graphicsInDetailHub || graphicsDetailTab === "create_graphics";
 
+  const scratchOverviewPreview = useMemo(() => {
+    if (linkedAuditId != null || !project) return null;
+    const urls = (project.sourceImageUrls ?? [])
+      .map((url) => resolveGraphicsImageUrl(url))
+      .filter(Boolean);
+    if (urls.length === 0 && !project.productName?.trim() && !project.name?.trim()) return null;
+    return {
+      imageUrls: urls,
+      title: project.productName?.trim() || project.name?.trim() || "Graphics project",
+      bulletPoints: [] as string[],
+      descriptionHtml: null as string | null,
+      attributes: [] as { attribute: string; value: string }[],
+    };
+  }, [linkedAuditId, project]);
+
   const overviewPreview = useMemo(() => {
-    if (!linkedAudit) return null;
+    if (!linkedAudit) return scratchOverviewPreview;
     type AttrRow = { attribute?: string; value?: string };
     const auditRecord = linkedAudit as {
       sourceListingContent?: { attributes?: AttrRow[] };
@@ -446,7 +467,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       descriptionHtml: linkedAudit.productDescription?.trim() || null,
       attributes: overviewAttributes,
     };
-  }, [linkedAudit, project?.productName]);
+  }, [linkedAudit, project?.productName, scratchOverviewPreview]);
 
   return (
     <div className="space-y-6">
@@ -503,16 +524,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
         </div>
       )}
 
-      {graphicsInDetailHub && showCreateGraphicsTab && linkedAuditId == null && !isLoading && (
-        <Card className="border-border/50">
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            This graphics project is not linked to a product listing. Create a project from an existing listing
-            via Create Graphics → Existing product.
-          </CardContent>
-        </Card>
-      )}
-
-      {showCreateGraphicsTab && !graphicsInDetailHub && (
+      {showCreateGraphicsTab && (!graphicsInDetailHub || linkedAuditId == null) && (
       <>
       {/* ── Action bar ── */}
       <div className="flex items-center justify-end gap-2 mb-6">
