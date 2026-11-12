@@ -250,7 +250,10 @@ pnpm --filter @workspace/listing-auditor run build
 cd /opt/listingauditor/artifacts/api-server
 
 # Load env and start
-pm2 start dist/index.mjs --name "listing-auditor-api" --env production
+cd /path/to/Listing-Analyzer-Pro
+set -a && source .env && set +a
+cd artifacts/api-server
+pm2 start dist/index.mjs --name "listing-auditor-api" --node-args="--enable-source-maps" --update-env
 
 # Save PM2 config so it restarts on reboot
 pm2 save

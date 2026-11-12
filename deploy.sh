@@ -180,7 +180,25 @@ sudo chown -R www-data:www-data "$FRONTEND_DIR"
 echo
 echo "==> Restarting backend (PM2 --update-env from loaded .env)..."
 deploy_load_env
-pm2 restart "$API_PM2_NAME" --update-env
+API_DIR="$APP_DIR/artifacts/api-server"
+if [[ ! -f "$API_DIR/dist/index.mjs" ]]; then
+  echo "ERROR: API bundle missing at $API_DIR/dist/index.mjs — build failed?"
+  exit 1
+fi
+if pm2 describe "$API_PM2_NAME" >/dev/null 2>&1; then
+  pm2 restart "$API_PM2_NAME" --update-env
+else
+  echo "==> PM2 process '$API_PM2_NAME' not found — starting (first deploy or new PM2 home)."
+  (
+    cd "$API_DIR"
+    pm2 start dist/index.mjs \
+      --name "$API_PM2_NAME" \
+      --node-args="--enable-source-maps" \
+      --update-env
+  )
+  pm2 save
+  echo "    Tip: run 'pm2 startup' once if this host should survive reboot."
+fi
 
 echo
 echo "==> Reloading Nginx..."
