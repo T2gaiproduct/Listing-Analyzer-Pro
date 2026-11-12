@@ -14,10 +14,6 @@ export default function ProjectsPage() {
 
   function handleStartChoice(entry: BuildBrandStartEntry) {
     setStartDrawerOpen(false);
-    if (entry === "import-link") {
-      nav("/audits/import-from-link");
-      return;
-    }
     if (entry === "scratch") {
       nav("/projects/create");
       return;
@@ -113,6 +109,7 @@ export default function ProjectsPage() {
               onChoose={handleStartChoice}
               title="Create graphics"
               description="Choose how you'd like to begin your graphics project"
+              excludeEntries={["import-link"]}
             />
 
             {/* Trust Badges */}
