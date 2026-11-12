@@ -67,6 +67,7 @@ import {
   CompetitorNew,
   AuditListings,
   AuditInDetail,
+  GraphicsInDetail,
   AuditWorkflow,
   Billing,
   Team,
@@ -1038,6 +1039,9 @@ function Router() {
       </Route>
       <Route path="/audit-in-detail">
         <WorkspaceProtectedRoute><AuditInDetail /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/graphics-in-detail">
+        <WorkspaceProtectedRoute><GraphicsInDetail /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/videos">
         <WorkspaceProtectedRoute><VideosPage /></WorkspaceProtectedRoute>

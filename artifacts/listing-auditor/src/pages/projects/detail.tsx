@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,14 @@ import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-mod
 import { readAplusFromAudit } from "@/components/aplus-content-wizard";
 import { downloadAppImage } from "@/lib/download-app-image";
 import { ProtectedAppImage } from "@/components/protected-app-image";
+import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
+import { GraphicsInDetailTabs } from "@/components/graphics-in-detail-tabs";
+import {
+  graphicsInDetailViewPath,
+  isOpenedFromGraphicsInDetailHub,
+  parseGraphicsInDetailTab,
+  type GraphicsInDetailTab,
+} from "@/lib/graphics-in-detail-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -101,11 +109,31 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const id = params?.id ?? "";
   const { imageTypes: GRAPHICS_IMAGE_TYPES } = useGraphicsImageTypesFromApi();
   const [, nav] = useLocation();
+  const search = useSearch();
   const { toast } = useToast();
   const qc = useQueryClient();
   const { canEditGraphics } = useTeam();
 
   const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/projects";
+  const graphicsInDetailHub = isOpenedFromGraphicsInDetailHub(search);
+  const [graphicsDetailTab, setGraphicsDetailTab] = useState<GraphicsInDetailTab>(() =>
+    parseGraphicsInDetailTab(search),
+  );
+
+  useEffect(() => {
+    setGraphicsDetailTab(parseGraphicsInDetailTab(search));
+  }, [search, id]);
+
+  const handleGraphicsDetailTabChange = useCallback(
+    (tab: GraphicsInDetailTab) => {
+      setGraphicsDetailTab(tab);
+      const projectId = parseInt(id, 10);
+      if (graphicsInDetailHub && !Number.isNaN(projectId)) {
+        nav(graphicsInDetailViewPath(projectId, tab));
+      }
+    },
+    [graphicsInDetailHub, id, nav],
+  );
 
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
@@ -384,9 +412,66 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const records = project?.imageRecords ?? [];
   const isGenerating = project?.status === "generating";
   const hasRecords = records.length > 0;
+  const showOverviewTab = graphicsInDetailHub && graphicsDetailTab === "overview";
+  const showReuseTab = !graphicsInDetailHub || graphicsDetailTab === "reuse_graphics";
+
+  const overviewPreview = linkedAudit
+    ? {
+        imageUrls: linkedAudit.imageUrls ?? [],
+        title: linkedAudit.title?.trim() || linkedAudit.productName || project?.productName || "",
+        bulletPoints: linkedAudit.bulletPoints ?? [],
+        descriptionHtml: linkedAudit.productDescription?.trim() || null,
+        attributes: [] as Array<{ attribute: string; value: string }>,
+      }
+    : null;
 
   return (
     <div className="space-y-6">
+      {graphicsInDetailHub && (
+        <GraphicsInDetailTabs
+          activeTab={graphicsDetailTab}
+          onTabChange={handleGraphicsDetailTabChange}
+        />
+      )}
+
+      {graphicsInDetailHub && isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        </div>
+      )}
+
+      {showOverviewTab && project && !isLoading && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+              {project.productName || project.name}
+            </h2>
+            {project.category?.trim() ? (
+              <p className="text-sm text-muted-foreground mt-1">{project.category}</p>
+            ) : null}
+          </div>
+          {overviewPreview ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm">
+              <ProductExplorerOverviewPreview
+                imageUrls={overviewPreview.imageUrls}
+                title={overviewPreview.title}
+                bulletPoints={overviewPreview.bulletPoints}
+                descriptionHtml={overviewPreview.descriptionHtml}
+                attributes={overviewPreview.attributes}
+              />
+            </div>
+          ) : (
+            <Card className="border-border/50">
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No linked listing overview for this project. Open the Reuse Graphics tab to view and regenerate images.
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {showReuseTab && (
+      <>
       {/* ── Action bar ── */}
       <div className="flex items-center justify-end gap-2 mb-6">
         {project?.status === "completed" && hasRecords && (
@@ -537,6 +622,8 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             )}
           </CardContent>
         </Card>
+      )}
+      </>
       )}
 
       {/* Edit Dialog */}

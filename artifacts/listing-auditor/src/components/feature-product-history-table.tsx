@@ -34,6 +34,10 @@ import {
   AUDIT_IN_DETAIL_FROM,
   type AuditListingDetailOpenFrom,
 } from "@/lib/audit-in-detail-nav";
+import {
+  graphicsInDetailViewPath,
+  GRAPHICS_IN_DETAIL_FROM,
+} from "@/lib/graphics-in-detail-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -100,11 +104,14 @@ function productKey(product: ProductListItem): string {
 
 function resolveProductViewUrl(
   product: ProductListItem,
-  viewTarget: "default" | "audit-detail",
+  viewTarget: "default" | "audit-detail" | "graphics-detail",
   auditDetailFrom: AuditListingDetailOpenFrom,
 ): string {
   if (viewTarget === "audit-detail" && product.sourceType === "audit") {
     return auditListingDetailViewPath(product.id, auditDetailFrom, "overview");
+  }
+  if (viewTarget === "graphics-detail" && product.sourceType === "graphics") {
+    return graphicsInDetailViewPath(product.id, "overview");
   }
   if (product.sourceType === "graphics" || product.sourceType === "video") {
     return product.workflowUrl || product.detailUrl;
@@ -401,14 +408,16 @@ export function FeatureProductHistoryTable({
   emptyDescription,
   viewTarget = "default",
   auditDetailFrom = AUDIT_IN_DETAIL_FROM,
+  graphicsDetailFrom: _graphicsDetailFrom = GRAPHICS_IN_DETAIL_FROM,
 }: {
   sourceType: FeatureProductHistorySource;
   sectionTitle: string;
   emptyTitle: string;
   emptyDescription: string;
   /** Open audit rows on `/audits/:id` (overview + audit result tabs) instead of Product Explorer. */
-  viewTarget?: "default" | "audit-detail";
+  viewTarget?: "default" | "audit-detail" | "graphics-detail";
   auditDetailFrom?: AuditListingDetailOpenFrom;
+  graphicsDetailFrom?: typeof GRAPHICS_IN_DETAIL_FROM;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();

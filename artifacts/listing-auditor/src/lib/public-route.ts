@@ -37,6 +37,7 @@ const PRIVATE_PREFIXES = [
   "/recent-projects",
   "/audit-listings",
   "/audit-in-detail",
+  "/graphics-in-detail",
   "/videos",
   "/ads",
 ];

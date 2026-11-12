@@ -7,6 +7,14 @@ import {
   isAuditListingSectionPath,
 } from "@/components/audit-listing-nav";
 import {
+  CreateGraphicsNavCollapsed,
+  CreateGraphicsNavGroup,
+} from "@/components/create-graphics-nav";
+import {
+  isCreateGraphicsSectionPath,
+  isOpenedFromGraphicsInDetail,
+} from "@/lib/graphics-in-detail-nav";
+import {
   Package,
   Store,
   FilePlus2,
@@ -132,9 +140,9 @@ function isBuildYourBrandNavActive(location: string, search = ""): boolean {
   return false;
 }
 
-/** Create Graphics landing, create wizard, generating screen, and project gallery. */
-function isCreateGraphicsNavActive(location: string): boolean {
-  return location === "/projects" || location.startsWith("/projects/");
+/** Create Graphics landing, wizard, generating, project gallery, and Graphics in Detail. */
+function isCreateGraphicsNavActive(location: string, search = ""): boolean {
+  return isCreateGraphicsSectionPath(location, search);
 }
 
 // --- Page title map ---------------------------------------------------------
@@ -152,6 +160,7 @@ function getPageTitle(location: string, appName: string): string {
   if (location.startsWith("/audits/")) return "Audit Details";
   if (location === "/audit-listings") return "Audit Listings";
   if (location === "/audit-in-detail") return "Audit in Detail";
+  if (location === "/graphics-in-detail") return "Graphics in Detail";
   if (location === "/projects/create") return "New Graphics Project";
   if (location.endsWith("/generating")) return "Generating Graphics";
   if (location.startsWith("/projects/")) return "Project Details";
@@ -186,6 +195,7 @@ function isRibbonVisible(location: string): boolean {
   if (location === "/ads" || location.startsWith("/ads/")) return false;
   if (location === "/audit-listings") return false;
   if (location === "/audit-in-detail") return false;
+  if (location === "/graphics-in-detail") return false;
   if (location === "/billing") return false;
   if (location === "/profile") return false;
   if (location === "/settings") return false;
@@ -268,7 +278,8 @@ export function Layout({ children }: { children: ReactNode }) {
       item.href !== "/recent-projects"
       && item.href !== "/marketplaces"
       && item.href !== "/ai"
-      && item.href !== "/audit-in-detail",
+      && item.href !== "/audit-in-detail"
+      && item.href !== "/graphics-in-detail",
   );
   const navItemsAfterManageAds = visibleNavItems.filter((item) => item.href === "/recent-projects" || item.href === "/marketplaces" || item.href === "/ai");
 
@@ -277,6 +288,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const [manageAdsNavOpen, setManageAdsNavOpen] = useState(() => isManageAdsPath(location));
   const [auditListingNavOpen, setAuditListingNavOpen] = useState(() =>
     isAuditListingSectionPath(location, search),
+  );
+  const [createGraphicsNavOpen, setCreateGraphicsNavOpen] = useState(() =>
+    isCreateGraphicsSectionPath(location, search),
   );
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
@@ -291,6 +305,10 @@ export function Layout({ children }: { children: ReactNode }) {
     const returnTo = params.get("returnTo")?.trim();
     if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
       navigate(returnTo);
+      return;
+    }
+    if (location.match(/^\/projects\/\d+/) && isOpenedFromGraphicsInDetail(search)) {
+      navigate("/graphics-in-detail");
       return;
     }
     if (location === "/projects/create" || location.startsWith("/projects/")) {
@@ -812,11 +830,36 @@ export function Layout({ children }: { children: ReactNode }) {
                   />
                 );
               }
+              if (href === "/projects") {
+                if (collapsed) {
+                  return (
+                    <SidebarTooltip key={href} label="Create Graphics" side="right">
+                      <div>
+                        <CreateGraphicsNavCollapsed
+                          location={location}
+                          search={search}
+                          onNavigate={(h) => handleFeatureNav(h)}
+                        />
+                      </div>
+                    </SidebarTooltip>
+                  );
+                }
+                return (
+                  <CreateGraphicsNavGroup
+                    key={href}
+                    location={location}
+                    search={search}
+                    expanded={createGraphicsNavOpen}
+                    onToggle={() => setCreateGraphicsNavOpen((v) => !v)}
+                    onNavigate={(h) => handleFeatureNav(h)}
+                  />
+                );
+              }
               const isActive =
                 location === href ||
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                 (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
-                (href === "/projects" && isCreateGraphicsNavActive(location)) ||
+                (href === "/projects" && isCreateGraphicsNavActive(location, search)) ||
                 (href === "/videos" && location === "/videos");
               const navDisabled = Boolean(comingSoon && !isActive);
               if (collapsed) {
@@ -1007,11 +1050,27 @@ export function Layout({ children }: { children: ReactNode }) {
                     />
                   );
                 }
+                if (href === "/projects") {
+                  return (
+                    <CreateGraphicsNavGroup
+                      key={href}
+                      location={location}
+                      search={search}
+                      expanded={createGraphicsNavOpen}
+                      onToggle={() => setCreateGraphicsNavOpen((v) => !v)}
+                      onNavigate={(h) => {
+                        handleFeatureNav(h);
+                        setMobileNavOpen(false);
+                      }}
+                      variant="mobile"
+                    />
+                  );
+                }
                 const isActive =
                   location === href ||
                   (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                   (href === "/audits/new" && isBuildYourBrandNavActive(location, search)) ||
-                  (href === "/projects" && isCreateGraphicsNavActive(location)) ||
+                  (href === "/projects" && isCreateGraphicsNavActive(location, search)) ||
                   (href === "/videos" && location === "/videos");
                 const navDisabled = Boolean(comingSoon && !isActive);
                 return (
