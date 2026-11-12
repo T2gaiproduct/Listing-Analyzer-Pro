@@ -692,27 +692,50 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "cta") && (
-      <section className={cn("py-16 sm:py-20 text-center bg-white border-t border-slate-100", LANDING_SECTION_PAD)}>
-        <div className={cn(LANDING_SECTION_CLASS, "max-w-3xl")}>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
-            {cmsText(cms, "cta.heading")}
-          </h2>
-          <p className="text-slate-500 mb-8">
-            {cmsText(cms, "cta.subheading")}
-          </p>
-          <div className="flex flex-row items-stretch justify-center gap-2 sm:gap-3">
-            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
+      <section
+        className={cn(
+          "relative py-14 sm:py-16 lg:py-20 bg-white border-t border-slate-100 overflow-hidden",
+          LANDING_SECTION_PAD,
+        )}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_100%,rgba(255,102,0,0.06),transparent_55%)]"
+          aria-hidden
+        />
+        <div
+          className={cn(
+            LANDING_SECTION_CLASS,
+            "relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 lg:gap-10 xl:gap-16 2xl:gap-20 w-full",
+          )}
+        >
+          <div className="text-center lg:text-left flex-1 min-w-0">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl xl:text-[2.5rem] font-bold text-slate-900 mb-3 sm:mb-4 leading-tight max-w-4xl mx-auto lg:mx-0">
+              {cmsText(cms, "cta.heading")}
+            </h2>
+            <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto lg:mx-0">
+              {cmsText(cms, "cta.subheading")}
+            </p>
+          </div>
+          <div className="flex flex-row items-stretch justify-center lg:justify-end gap-2 sm:gap-3 shrink-0 w-full lg:w-auto lg:min-w-[20rem] xl:min-w-[24rem]">
+            <Button
+              size="lg"
+              className="bg-orange-500 hover:bg-orange-600 px-4 sm:px-8 flex-1 lg:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12 whitespace-nowrap"
+              asChild
+            >
               <Link href={cmsText(cms, "cta.primary_url")}>{cmsText(cms, "cta.primary_text")}</Link>
             </Button>
             <Button
               size="lg"
               variant="outline"
-              className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12 border-slate-300 bg-white text-slate-900 hover:bg-slate-50 shadow-sm"
+              className="px-4 sm:px-8 flex-1 lg:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12 border-slate-300 bg-white text-slate-900 hover:bg-slate-50 shadow-sm whitespace-nowrap"
               asChild
             >
-              <Link href={cmsText(cms, "cta.secondary_url")} className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+              <Link
+                href={cmsText(cms, "cta.secondary_url")}
+                className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0"
+              >
                 <Play className="w-4 h-4 shrink-0" />
-                <span className="truncate">{cmsText(cms, "cta.secondary_text")}</span>
+                <span>{cmsText(cms, "cta.secondary_text")}</span>
               </Link>
             </Button>
           </div>
