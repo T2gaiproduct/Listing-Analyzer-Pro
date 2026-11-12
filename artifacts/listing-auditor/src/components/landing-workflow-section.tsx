@@ -1,12 +1,9 @@
-import { useEffect, useState } from "react";
 import {
   Upload, Search, Wand2, Image, Download, Globe,
 } from "lucide-react";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { cmsText } from "@/lib/homepage-cms";
 import { parseWorkflowMarqueeItems } from "@/lib/workflow-marquee-cms";
-import { LandingAnimatedStat } from "@/components/landing-animated-stat";
-import { useInViewOnce, usePrefersReducedMotion } from "@/lib/landing-motion";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -91,6 +88,7 @@ function MarqueeCard({
 
 export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
   const items = parseWorkflowMarqueeItems(cms, basePath);
+  if (items.length === 0) return null;
 
   const heading = cmsText(cms, "workflow.heading");
   const beforeLabel = cmsText(cms, "workflow.before_label");
@@ -102,38 +100,6 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
   }));
 
   const loopItems = items.length > 1 ? [...items, ...items] : items;
-
-  const subheading = cmsText(cms, "workflow.subheading");
-  const metricsHeading = cmsText(cms, "workflow.metrics_heading");
-  const workflowMetrics = [1, 2, 3, 4].map((i) => ({
-    value: cmsText(cms, `workflow.metric${i}_value`),
-    label: cmsText(cms, `workflow.metric${i}_label`),
-  })).filter((m) => m.value && m.label);
-
-  const { ref: stepsRef, inView: stepsInView } = useInViewOnce<HTMLDivElement>();
-  const reducedMotion = usePrefersReducedMotion();
-  const [highlightStep, setHighlightStep] = useState(-1);
-
-  useEffect(() => {
-    if (!stepsInView || reducedMotion) {
-      setHighlightStep(workflowSteps.length - 1);
-      return;
-    }
-    setHighlightStep(-1);
-    let i = 0;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const tick = () => {
-      setHighlightStep(i);
-      i += 1;
-      if (i < workflowSteps.length) {
-        timers.push(setTimeout(tick, 320));
-      }
-    };
-    timers.push(setTimeout(tick, 200));
-    return () => timers.forEach(clearTimeout);
-  }, [stepsInView, reducedMotion, workflowSteps.length]);
-
-  if (items.length === 0) return null;
 
   return (
     <section className="relative pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20 bg-white border-t border-slate-100">
@@ -155,36 +121,16 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
       `}</style>
 
       <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 relative">
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-3 sm:mb-4 text-center">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center">
           {heading}
         </h2>
-        {subheading && (
-          <p className="text-sm sm:text-base text-slate-500 text-center max-w-2xl mx-auto mb-6 sm:mb-8">
-            {subheading}
-          </p>
-        )}
 
-        <div
-          ref={stepsRef}
-          className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible mb-8 sm:mb-10"
-        >
+        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible mb-8 sm:mb-10">
           <div className="flex sm:justify-between gap-3 sm:gap-0 min-w-max sm:min-w-0 sm:w-full relative">
             {workflowSteps.map((step, i) => (
               <div key={step.label} className="flex flex-col items-center w-20 sm:flex-1 sm:min-w-0 relative">
-                <div
-                  className={cn(
-                    "w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center mb-2 z-10 transition-all duration-500",
-                    i <= highlightStep
-                      ? "bg-orange-500 border-orange-500 shadow-md shadow-orange-500/25 scale-105"
-                      : "bg-orange-50 border-orange-200",
-                  )}
-                >
-                  <step.icon
-                    className={cn(
-                      "w-4 h-4 sm:w-5 sm:h-5 transition-colors",
-                      i <= highlightStep ? "text-white" : "text-orange-600",
-                    )}
-                  />
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-orange-50 border-2 border-orange-200 flex items-center justify-center mb-2 z-10">
+                  <step.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
                 </div>
                 <span className="text-[10px] sm:text-xs font-medium text-slate-600 text-center leading-tight max-w-[4.5rem] sm:max-w-none">
                   {step.label}
@@ -215,27 +161,6 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
           ))}
         </div>
       </div>
-
-      {workflowMetrics.length > 0 && (
-        <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 mt-6 sm:mt-10">
-          {metricsHeading && (
-            <p className="text-center text-sm font-semibold text-slate-700 mb-6">{metricsHeading}</p>
-          )}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-4xl mx-auto">
-            {workflowMetrics.map((m) => (
-              <div
-                key={m.label}
-                className="text-center rounded-2xl border border-slate-200/80 bg-slate-50/50 px-4 py-5"
-              >
-                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">
-                  <LandingAnimatedStat value={m.value} />
-                </p>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">{m.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }
