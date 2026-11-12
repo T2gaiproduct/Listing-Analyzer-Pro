@@ -167,6 +167,16 @@ fi
 echo "Frontend build verified."
 
 echo
+echo "==> Verifying Product Explorer UI in build output..."
+if ! grep -rq 'Bulk upload' "$DIST_DIR/assets" --include='*.js' 2>/dev/null \
+  || ! grep -rq 'Add product' "$DIST_DIR/assets" --include='*.js' 2>/dev/null; then
+  echo "ERROR: Build output missing Product Explorer Bulk upload / Add product."
+  echo "       Deploy from staging or pradyuman (not old main) and rebuild the frontend."
+  exit 1
+fi
+echo "Product Explorer actions present in build."
+
+echo
 echo "==> Creating frontend backup..."
 BACKUP_DIR="/var/www/sellerlens.backup-$(date +%Y%m%d-%H%M%S)"
 sudo cp -a "$FRONTEND_DIR" "$BACKUP_DIR"
@@ -176,6 +186,12 @@ echo
 echo "==> Deploying frontend..."
 sudo cp -a "$DIST_DIR"/. "$FRONTEND_DIR"/
 sudo chown -R www-data:www-data "$FRONTEND_DIR"
+
+if ! grep -rq 'Bulk upload' "$FRONTEND_DIR/assets" --include='*.js' 2>/dev/null; then
+  echo "ERROR: /var/www/sellerlens is missing Bulk upload — frontend deploy did not copy the new bundle."
+  exit 1
+fi
+echo "Live web root includes Product Explorer bulk upload bundle."
 
 echo
 echo "==> Restarting backend (PM2 --update-env from loaded .env)..."
