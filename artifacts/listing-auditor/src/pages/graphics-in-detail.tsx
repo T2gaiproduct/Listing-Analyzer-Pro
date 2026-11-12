@@ -32,6 +32,7 @@ export default function GraphicsInDetail() {
       <FeatureProductHistoryTable
         sourceType="graphics"
         viewTarget="graphics-detail"
+        includeAuditListingsInGraphicsHistory
         graphicsDetailFrom={GRAPHICS_IN_DETAIL_FROM}
         sectionTitle="Your graphics projects"
         emptyTitle="No graphics projects yet"

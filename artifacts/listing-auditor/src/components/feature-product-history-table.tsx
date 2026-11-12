@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +38,7 @@ import {
   graphicsInDetailViewPath,
   GRAPHICS_IN_DETAIL_FROM,
 } from "@/lib/graphics-in-detail-nav";
+import { ensureGraphicsProjectForAudit } from "@/lib/ensure-graphics-project-for-audit";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -61,6 +62,7 @@ interface ProductListItem {
   auditScore?: number | null;
   auditPending?: boolean;
   workspaceId?: number | null;
+  updatedAt?: string;
 }
 
 const SOURCE_TYPE_LABELS: Record<ProductSourceType, string> = {
@@ -113,7 +115,12 @@ function resolveProductViewUrl(
   if (viewTarget === "graphics-detail" && product.sourceType === "graphics") {
     return graphicsInDetailViewPath(product.id, "overview");
   }
-  if (product.sourceType === "graphics" || product.sourceType === "video") {
+  if (product.sourceType === "graphics") {
+    return product.workflowUrl?.includes("from=graphics-in-detail")
+      ? product.workflowUrl
+      : graphicsInDetailViewPath(product.id, "overview");
+  }
+  if (product.sourceType === "video") {
     return product.workflowUrl || product.detailUrl;
   }
   return product.detailUrl;
@@ -383,8 +390,8 @@ function productActionTooltips(sourceType: ProductSourceType): {
 } {
   if (sourceType === "graphics") {
     return {
-      view: "View generated graphics",
-      open: "Open graphics project",
+      view: "Open overview & graphics tabs",
+      open: "Open Graphics in Detail",
     };
   }
   if (sourceType === "video") {
@@ -409,6 +416,7 @@ export function FeatureProductHistoryTable({
   viewTarget = "default",
   auditDetailFrom = AUDIT_IN_DETAIL_FROM,
   graphicsDetailFrom: _graphicsDetailFrom = GRAPHICS_IN_DETAIL_FROM,
+  includeAuditListingsInGraphicsHistory = false,
 }: {
   sourceType: FeatureProductHistorySource;
   sectionTitle: string;
@@ -418,6 +426,8 @@ export function FeatureProductHistoryTable({
   viewTarget?: "default" | "audit-detail" | "graphics-detail";
   auditDetailFrom?: AuditListingDetailOpenFrom;
   graphicsDetailFrom?: typeof GRAPHICS_IN_DETAIL_FROM;
+  /** When viewing graphics history, also list audit listings and open them in Graphics in Detail (Overview tab). */
+  includeAuditListingsInGraphicsHistory?: boolean;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -451,13 +461,50 @@ export function FeatureProductHistoryTable({
 
   const products = useMemo(() => {
     const raw = (apiData?.products ?? []) as ProductListItem[];
-    return raw
-      .map((p) => normalizeApiProduct(p))
-      .filter((p) => p.sourceType === sourceType);
-  }, [apiData?.products, sourceType]);
+    const normalized = raw.map((p) => normalizeApiProduct(p));
+    if (sourceType === "graphics" && includeAuditListingsInGraphicsHistory) {
+      const graphics = normalized.filter((p) => p.sourceType === "graphics");
+      const audits = normalized.filter((p) => p.sourceType === "audit");
+      return [...graphics, ...audits].sort(
+        (a, b) =>
+          new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
+      );
+    }
+    return normalized.filter((p) => p.sourceType === sourceType);
+  }, [apiData?.products, sourceType, includeAuditListingsInGraphicsHistory]);
 
   const canDeleteProduct = (product: ProductListItem) =>
     canDelete(productDeleteFeature(product.sourceType));
+
+  const [openingGraphicsKey, setOpeningGraphicsKey] = useState<string | null>(null);
+
+  const openHistoryProduct = useCallback(
+    async (product: ProductListItem) => {
+      const key = productKey(product);
+      if (
+        viewTarget === "graphics-detail"
+        && sourceType === "graphics"
+        && product.sourceType === "audit"
+      ) {
+        setOpeningGraphicsKey(key);
+        try {
+          const projectId = await ensureGraphicsProjectForAudit(product.id);
+          navigate(graphicsInDetailViewPath(projectId, "overview"));
+        } catch (error) {
+          toast({
+            title: "Could not open graphics project",
+            description: error instanceof Error ? error.message : "Try again from Create Graphics.",
+            variant: "destructive",
+          });
+        } finally {
+          setOpeningGraphicsKey(null);
+        }
+        return;
+      }
+      navigate(resolveProductViewUrl(product, viewTarget, auditDetailFrom));
+    },
+    [auditDetailFrom, navigate, sourceType, toast, viewTarget],
+  );
 
   const deleteProductsMutation = useMutation({
     mutationFn: async (items: Array<{ type: ProductSourceType; id: number; workspaceId?: number }>) => {
@@ -634,11 +681,11 @@ export function FeatureProductHistoryTable({
                   <div
                     role="link"
                     tabIndex={0}
-                    onClick={() => navigate(viewUrl)}
+                    onClick={() => void openHistoryProduct(product)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        navigate(viewUrl);
+                        void openHistoryProduct(product);
                       }
                     }}
                     className="p-4 space-y-3 hover:bg-muted/50 transition-colors cursor-pointer"
@@ -688,7 +735,13 @@ export function FeatureProductHistoryTable({
                         exportingKey={exportingKey}
                         canDelete={canDeleteProduct(product)}
                         deletePending={deleteProductsMutation.isPending}
-                        onNavigate={navigate}
+                        onNavigate={(url) => {
+                          if (viewTarget === "graphics-detail" && sourceType === "graphics") {
+                            void openHistoryProduct(product);
+                            return;
+                          }
+                          navigate(url);
+                        }}
                         onExport={handleExportProduct}
                         onDelete={requestDeleteProducts}
                         compact
@@ -746,14 +799,17 @@ export function FeatureProductHistoryTable({
                       key={key}
                       role="link"
                       tabIndex={0}
-                      onClick={() => navigate(viewUrl)}
+                      onClick={() => void openHistoryProduct(product)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          navigate(viewUrl);
+                          void openHistoryProduct(product);
                         }
                       }}
-                      className="border-b border-border/60 last:border-0 hover:bg-muted/60 transition-colors cursor-pointer"
+                      className={cn(
+                        "border-b border-border/60 last:border-0 hover:bg-muted/60 transition-colors cursor-pointer",
+                        openingGraphicsKey === key && "opacity-70",
+                      )}
                     >
                       <td className="px-3 py-2.5 align-middle" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
@@ -813,7 +869,13 @@ export function FeatureProductHistoryTable({
                           exportingKey={exportingKey}
                           canDelete={canDeleteProduct(product)}
                           deletePending={deleteProductsMutation.isPending}
-                          onNavigate={navigate}
+                          onNavigate={(url) => {
+                            if (viewTarget === "graphics-detail" && sourceType === "graphics") {
+                              void openHistoryProduct(product);
+                              return;
+                            }
+                            navigate(url);
+                          }}
                           onExport={handleExportProduct}
                           onDelete={requestDeleteProducts}
                         />
