@@ -1599,9 +1599,14 @@ router.patch(
     };
     const merged = mergeListingContentByFieldSources(sourceListing, ai, fieldSources);
 
+    const aiSnapshot =
+      body.aiSnapshot != null
+        ? ai
+        : (variant.aiSnapshot ?? ai);
+
     await upsertAuditContentVariant(id, marketplaceId, {
       ...merged,
-      aiSnapshot: variant.aiSnapshot ?? ai,
+      aiSnapshot,
       fieldSources,
     });
 
