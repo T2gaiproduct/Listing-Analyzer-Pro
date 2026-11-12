@@ -125,9 +125,23 @@ echo "    VITE_AUTH_PROVIDER=${VITE_AUTH_PROVIDER:-<unset> (Clerk UI)}"
 echo "    NATIVE_AUTH_ENABLED=${NATIVE_AUTH_ENABLED:-<unset>}"
 
 echo
+echo "==> Checking memory for frontend build (Vite needs ~1.5–2.5GB peak; exit 137 = OOM)..."
+TOTAL_MB="$(awk '/MemTotal:/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)"
+SWAP_MB="$(awk '/SwapTotal:/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)"
+echo "    RAM: ~${TOTAL_MB}MB  Swap: ~${SWAP_MB}MB"
+if [[ "$SWAP_MB" -lt 1024 && "$TOTAL_MB" -lt 3500 ]]; then
+  echo "WARN: Low RAM and little/no swap — Vite build may be Killed (137)."
+  echo "      Add swap once: sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile"
+fi
+
+echo
 echo "==> Building application (deploy path — skips full artifact tsc; see package.json build:deploy)..."
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=3072}"
-pnpm run build:deploy
+export VITE_BUILD_LOW_MEMORY=1
+# Do not request a huge V8 heap on small VPS (worsens OOM). Override in .env if you have RAM.
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
+pnpm --filter @workspace/api-server run build
+echo "==> Building frontend (low-memory Vite flags)..."
+pnpm run build:deploy:frontend
 
 echo
 echo "==> Verifying frontend build..."

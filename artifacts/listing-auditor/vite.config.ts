@@ -91,6 +91,36 @@ function devStackDefaultsToNativeAuth(): boolean {
 const useNativeAuthProvider =
   process.env.VITE_AUTH_PROVIDER === "native" || devStackDefaultsToNativeAuth();
 
+/** Small VPS / deploy hosts: less Rollup parallelism + skip gzip size report (saves RAM). */
+const lowMemoryBuild =
+  process.env.VITE_BUILD_LOW_MEMORY === "1" || process.env.VITE_BUILD_LOW_MEMORY === "true";
+
+function manualChunkForId(id: string): string | undefined {
+  if (
+    id.includes("/src/lib/utils") ||
+    id.includes("clsx") ||
+    id.includes("tailwind-merge")
+  ) {
+    return "vendor-utils";
+  }
+
+  if (!id.includes("node_modules")) return;
+
+  if (id.includes("@clerk")) return "vendor-clerk";
+  if (id.includes("@tanstack/react-query")) return "vendor-react-query";
+  if (
+    id.includes("/react-dom/") ||
+    id.includes("/react/") ||
+    id.includes("scheduler")
+  ) {
+    return "vendor-react";
+  }
+  if (id.includes("lucide-react")) return "vendor-icons";
+  if (id.includes("recharts") || id.includes("d3-")) return "vendor-charts";
+  if (id.includes("@radix-ui")) return "vendor-radix";
+  if (id.includes("framer-motion")) return "vendor-motion";
+}
+
 export default defineConfig({
   base: basePath,
   define: {
@@ -136,35 +166,28 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (
-            id.includes("/src/lib/utils") ||
-            id.includes("clsx") ||
-            id.includes("tailwind-merge")
-          ) {
-            return "vendor-utils";
-          }
-
-          if (!id.includes("node_modules")) return;
-
-          if (id.includes("@clerk")) return "vendor-clerk";
-          if (id.includes("@tanstack/react-query")) return "vendor-react-query";
-          if (
-            id.includes("/react-dom/") ||
-            id.includes("/react/") ||
-            id.includes("scheduler")
-          ) {
-            return "vendor-react";
-          }
-          if (id.includes("lucide-react")) return "vendor-icons";
-          if (id.includes("recharts") || id.includes("d3-")) return "vendor-charts";
-          if (id.includes("@radix-ui")) return "vendor-radix";
-          if (id.includes("framer-motion")) return "vendor-motion";
-        },
-      },
-    },
+    sourcemap: false,
+    reportCompressedSize: !lowMemoryBuild,
+    ...(lowMemoryBuild
+      ? {
+          rollupOptions: {
+            maxParallelFileOps: 2,
+            output: {
+              manualChunks(id) {
+                return manualChunkForId(id);
+              },
+            },
+          },
+        }
+      : {
+          rollupOptions: {
+            output: {
+              manualChunks(id) {
+                return manualChunkForId(id);
+              },
+            },
+          },
+        }),
   },
   server: {
     port,

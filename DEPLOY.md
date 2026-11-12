@@ -80,6 +80,15 @@ pnpm run build:deploy
 # pnpm run build
 ```
 
+**If `vite build` exits 137 (Killed)** on a small server, the kernel ran out of memory. Add **4GB swap** (once), then rebuild:
+
+```bash
+sudo bash scripts/ensure-swap-for-build.sh
+# or manually: fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+set -a && source .env && set +a
+pnpm run build:deploy
+```
+
 ---
 
 ## Step 4 — Environment Variables
