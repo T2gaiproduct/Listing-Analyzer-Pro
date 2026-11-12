@@ -155,12 +155,6 @@ function productTypeLabel(product: ProductListItem): string {
   return raw;
 }
 
-/** Live/target marketplace channels only — import type is filtered via TYPE pills, not duplicated here. */
-function productChannelTags(product: ProductListItem): string[] {
-  const tags = new Set(product.channels.map((c) => c.trim()).filter(Boolean));
-  return [...tags].sort((a, b) => a.localeCompare(b));
-}
-
 type DynamicFilterOption = { label: string; count: number };
 
 function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): ProductListItem {
@@ -443,7 +437,6 @@ export default function ProductsPage() {
   );
   const [, navigate] = useLocation();
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [channelFilter, setChannelFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [bulkExporting, setBulkExporting] = useState(false);
@@ -657,47 +650,23 @@ export default function ProductsPage() {
       .map(([label, count]) => ({ label, count }));
   }, [products]);
 
-  const dynamicChannelFilters = useMemo((): DynamicFilterOption[] => {
-    const counts = new Map<string, number>();
-    for (const product of products) {
-      for (const channel of productChannelTags(product)) {
-        counts.set(channel, (counts.get(channel) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([label, count]) => ({ label, count }));
-  }, [products]);
-
   useEffect(() => {
     if (typeFilter !== "all" && !dynamicTypeFilters.some((o) => o.label === typeFilter)) {
       setTypeFilter("all");
     }
   }, [dynamicTypeFilters, typeFilter]);
 
-  useEffect(() => {
-    if (channelFilter !== "all" && !dynamicChannelFilters.some((o) => o.label === channelFilter)) {
-      setChannelFilter("all");
-    }
-  }, [dynamicChannelFilters, channelFilter]);
-
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (typeFilter !== "all" && productTypeLabel(p) !== typeFilter) return false;
-      if (channelFilter !== "all") {
-        const channels = productChannelTags(p);
-        if (!channels.some((c) => c.toLowerCase() === channelFilter.toLowerCase())) return false;
-      }
       return true;
     });
-  }, [products, typeFilter, channelFilter]);
+  }, [products, typeFilter]);
 
   const activeFilterSummary = useMemo(() => {
-    const parts: string[] = [];
-    if (typeFilter !== "all") parts.push(typeFilter);
-    if (channelFilter !== "all") parts.push(channelFilter);
-    return parts.join(" · ");
-  }, [typeFilter, channelFilter]);
+    if (typeFilter === "all") return "";
+    return typeFilter;
+  }, [typeFilter]);
 
   const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(productKey(p)));
   const selectedProducts = useMemo(
@@ -832,51 +801,26 @@ export default function ProductsPage() {
       </div>
 
       {/* Dynamic filters (from current product list) */}
-      {(dynamicTypeFilters.length > 0 || dynamicChannelFilters.length > 0) && (
-        <div className="space-y-2 -mx-1 px-1">
-          {dynamicTypeFilters.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {dynamicTypeFilters.length > 0 && (
+        <div className="-mx-1 px-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <FilterPill
+                label="All"
+                active={typeFilter === "all"}
+                onClick={() => setTypeFilter("all")}
+              />
+              {dynamicTypeFilters.map(({ label, count }) => (
                 <FilterPill
-                  label="All"
-                  active={typeFilter === "all"}
-                  onClick={() => setTypeFilter("all")}
+                  key={label}
+                  label={label}
+                  count={count}
+                  active={typeFilter === label}
+                  onClick={() => setTypeFilter(label)}
                 />
-                {dynamicTypeFilters.map(({ label, count }) => (
-                  <FilterPill
-                    key={label}
-                    label={label}
-                    count={count}
-                    active={typeFilter === label}
-                    onClick={() => setTypeFilter(label)}
-                  />
-                ))}
-              </div>
+              ))}
             </div>
-          )}
-          {dynamicChannelFilters.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
-                Channel
-              </span>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <FilterPill
-                  label="All"
-                  active={channelFilter === "all"}
-                  onClick={() => setChannelFilter("all")}
-                />
-                {dynamicChannelFilters.map(({ label, count }) => (
-                  <FilterPill
-                    key={label}
-                    label={label}
-                    count={count}
-                    active={channelFilter === label}
-                    onClick={() => setChannelFilter(label)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
