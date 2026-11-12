@@ -76,6 +76,10 @@ import {
 } from "@/lib/audit-in-detail-nav";
 import { isAuditListingExistingProductWorkflow } from "@/lib/audit-listing-workflow";
 import { isCreateGraphicsExistingProductWorkflow } from "@/lib/create-graphics-workflow";
+import { ensureGraphicsProjectForAudit } from "@/lib/ensure-graphics-project-for-audit";
+import {
+  graphicsInDetailViewPath,
+} from "@/lib/graphics-in-detail-nav";
 import { PROJECT_ORIGIN_BUILD_BRAND_SCRATCH } from "@/lib/audit-project-origin";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
@@ -2053,19 +2057,36 @@ export default function AuditWorkflow() {
     });
   }, [nav, queryClient, selectedProduct, toast]);
 
+  const [graphicsProjectLinking, setGraphicsProjectLinking] = useState(false);
+
   const handleOpenSelectedProductGraphics = useCallback(() => {
     if (!selectedProduct) return;
     if (selectedProduct.sourceType === "graphics") {
-      nav(selectedProduct.workflowUrl);
+      nav(graphicsInDetailViewPath(selectedProduct.id, "overview"));
       return;
     }
-    const source = selectedProduct.sourceType === "audit" ? "audit" : "listing";
-    void queryClient.invalidateQueries({ queryKey: ["products"] });
-    nav(`${basePath}/products/${selectedProduct.id}?source=${source}&step=graphics`);
-    toast({
-      title: "Create Graphics",
-      description: "Continue on the Graphics step to generate product images and A+ modules.",
-    });
+    const auditId = selectedProduct.id;
+    setGraphicsProjectLinking(true);
+    void (async () => {
+      try {
+        const projectId = await ensureGraphicsProjectForAudit(auditId);
+        await queryClient.invalidateQueries({ queryKey: ["products"] });
+        await queryClient.invalidateQueries({ queryKey: ["graphics-project", String(projectId)] });
+        nav(graphicsInDetailViewPath(projectId, "overview"));
+        toast({
+          title: "Create Graphics",
+          description: "Review the product overview, then switch to Create Graphics to generate images.",
+        });
+      } catch (err) {
+        toast({
+          title: "Could not open graphics project",
+          description: err instanceof Error ? err.message : "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setGraphicsProjectLinking(false);
+      }
+    })();
   }, [nav, queryClient, selectedProduct, toast]);
 
   const step1OpensExistingDestination =
@@ -3248,9 +3269,18 @@ export default function AuditWorkflow() {
             <Button
               className="w-full sm:w-auto rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2 h-11"
               onClick={handleNextStep}
-              disabled={isCreating || (activeStep === 1 && selectedProduct === null)}
+              disabled={
+                isCreating
+                || graphicsProjectLinking
+                || (activeStep === 1 && selectedProduct === null)
+              }
             >
-              {isCreating && activeStep === 2 ? (
+              {graphicsProjectLinking ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Opening…
+                </>
+              ) : isCreating && activeStep === 2 ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Saving…

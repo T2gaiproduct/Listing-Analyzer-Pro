@@ -259,7 +259,7 @@ export function BuildBrandProductSearch({
               : primaryActionTarget === "audit"
                 ? "Opens this product on the Audit result tab — scores and listing fixes."
                 : primaryActionTarget === "graphics"
-                  ? "Opens this product on the Graphics step to create AI images and A+ content."
+                  ? "Opens Graphics in Detail — product overview first, then Create Graphics to generate images."
                   : "Opens this project in Product Explorer so you can continue where you left off."
             : "Optional — skip this step to create a brand-new product."}
         </p>
