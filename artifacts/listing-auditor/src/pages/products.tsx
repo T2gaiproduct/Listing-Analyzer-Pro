@@ -434,11 +434,6 @@ export default function ProductsPage() {
     isBillingAccountOwner,
     isAgencyAccountOverview,
   );
-  /** Bulk upload / Add product: workspace view or Account overview (revert prior hide-on-overview). */
-  const showCatalogActions =
-    showAccountProducts
-    || isAgencyAccountOverview
-    || (featureWorkspaceId != null && !needsWorkspaceSelection);
   const [, navigate] = useLocation();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
@@ -744,6 +739,31 @@ export default function ProductsPage() {
 
   if (!showAccountProducts && (!featureWorkspaceId || needsWorkspaceSelection)) {
     return (
+      <div className="space-y-4 animate-in fade-in duration-300">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-lg font-semibold text-foreground tracking-tight">Product Explorer</h1>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <BulkUploadCatalogTrigger
+              onImported={() => {
+                void queryClient.invalidateQueries({ queryKey: ["products"] });
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0 rounded-md border border-orange-600 bg-orange-500 px-3 text-xs font-medium text-white shadow-none hover:bg-orange-600"
+              onClick={() => setAddProductDrawerOpen(true)}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              Add product
+            </Button>
+          </div>
+        </div>
+        <BuildBrandStartDrawer
+          open={addProductDrawerOpen}
+          onOpenChange={setAddProductDrawerOpen}
+          onChoose={handleAddProductChoice}
+        />
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Package className="w-10 h-10 text-muted-foreground/60 mb-3" />
         <h2 className="text-base font-semibold text-foreground">Select a workspace</h2>
@@ -753,6 +773,7 @@ export default function ProductsPage() {
         <Button asChild size="sm" className="mt-5 bg-orange-500 hover:bg-orange-600 text-xs h-8">
           <Link href="/workspaces">{WORKSPACES_HUB_LABEL}</Link>
         </Button>
+      </div>
       </div>
     );
   }
@@ -770,10 +791,8 @@ export default function ProductsPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
-          {showCatalogActions && (
-            <BulkUploadCatalogTrigger
-              disabled={!showAccountProducts && needsWorkspaceSelection}
-              onImported={({ imported, failed }) => {
+          <BulkUploadCatalogTrigger
+            onImported={({ imported, failed }) => {
                 void queryClient.invalidateQueries({ queryKey: ["products"] });
                 void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
                 toast({
@@ -784,8 +803,7 @@ export default function ProductsPage() {
                       : `${imported} product${imported === 1 ? "" : "s"} added to Product Explorer.`,
                 });
               }}
-            />
-          )}
+          />
           {filtered.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -814,18 +832,15 @@ export default function ProductsPage() {
               </TooltipContent>
             </Tooltip>
           )}
-          {showCatalogActions && (
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 shrink-0 rounded-md border border-orange-600 bg-orange-500 px-3 text-xs font-medium text-white shadow-none hover:bg-orange-600"
-              disabled={!showAccountProducts && needsWorkspaceSelection}
-              onClick={() => setAddProductDrawerOpen(true)}
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              Add product
-            </Button>
-          )}
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 shrink-0 rounded-md border border-orange-600 bg-orange-500 px-3 text-xs font-medium text-white shadow-none hover:bg-orange-600"
+            onClick={() => setAddProductDrawerOpen(true)}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            Add product
+          </Button>
         </div>
       </div>
 
