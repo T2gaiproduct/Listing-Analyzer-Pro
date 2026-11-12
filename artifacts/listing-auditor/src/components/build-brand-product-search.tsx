@@ -35,6 +35,8 @@ export type BuildBrandProductPick = {
   workflowUrl: string;
 };
 
+export type BuildBrandProductSearchPrimaryTarget = "product-explorer" | "audit";
+
 function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
   const trimmed = url.trim();
@@ -87,12 +89,15 @@ interface BuildBrandProductSearchProps {
   selectedProduct: BuildBrandProductPick | null;
   onSelectProduct: (product: BuildBrandProductPick | null) => void;
   onSkipToUpload: () => void;
+  /** Controls helper copy when a catalog row is selected (Audit Listing vs Build Your Brand). */
+  primaryActionTarget?: BuildBrandProductSearchPrimaryTarget;
 }
 
 export function BuildBrandProductSearch({
   selectedProduct,
   onSelectProduct,
   onSkipToUpload,
+  primaryActionTarget = "product-explorer",
 }: BuildBrandProductSearchProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | ProductStatus>("");
@@ -251,7 +256,9 @@ export function BuildBrandProductSearch({
           {selectedProduct
             ? selectedProduct.sourceType === "graphics"
               ? "Opens your graphics project when you continue."
-              : "Opens this project in Product Explorer so you can continue where you left off."
+              : primaryActionTarget === "audit"
+                ? "Opens this product on the Audit result tab — scores and listing fixes."
+                : "Opens this project in Product Explorer so you can continue where you left off."
             : "Optional — skip this step to create a brand-new product."}
         </p>
         <Button

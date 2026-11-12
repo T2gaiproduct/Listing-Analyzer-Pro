@@ -22,7 +22,10 @@ import {
   IMPORT_FROM_LINK_AUDIT_LISTINGS,
   importFromLinkPath,
 } from "@/lib/import-from-link-return";
-import { AUDIT_LISTING_HISTORY_FROM } from "@/lib/audit-in-detail-nav";
+import {
+  AUDIT_LISTING_HISTORY_FROM,
+  auditListingExistingProductWorkflowSearch,
+} from "@/lib/audit-in-detail-nav";
 
 export default function AuditListings() {
   const [startDrawerOpen, setStartDrawerOpen] = useState(false);
@@ -32,6 +35,10 @@ export default function AuditListings() {
     setStartDrawerOpen(false);
     if (entry === "import-link") {
       navigate(importFromLinkPath(IMPORT_FROM_LINK_AUDIT_LISTINGS));
+      return;
+    }
+    if (entry === "existing") {
+      navigate(`/audits/workflow${auditListingExistingProductWorkflowSearch()}`);
       return;
     }
     navigate(`/audits/workflow?entry=${entry}`);

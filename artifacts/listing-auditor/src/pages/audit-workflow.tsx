@@ -19,6 +19,7 @@ import {
   FileText,
   Image as ImageIcon,
   Package,
+  FileSearch,
   Trash2,
   X,
   Zap,
@@ -69,6 +70,11 @@ import type {
   SellerProductDetail,
 } from "@/lib/reference-research";
 import { getSafeReturnTo } from "@/lib/navigation-return";
+import {
+  auditListingDetailViewPath,
+  AUDIT_LISTING_HISTORY_FROM,
+  isAuditListingWorkflowSearch,
+} from "@/lib/audit-in-detail-nav";
 import { PROJECT_ORIGIN_BUILD_BRAND_SCRATCH } from "@/lib/audit-project-origin";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
@@ -666,10 +672,15 @@ export default function AuditWorkflow() {
     return resume ? parseInt(resume, 10) : null;
   });
 
-  const returnTo = useMemo(
-    () => getSafeReturnTo(search, resumeAuditId ? "/dashboard" : "/audits/new"),
-    [search, resumeAuditId],
+  const workflowFromAuditListings = useMemo(
+    () => isAuditListingWorkflowSearch(search),
+    [search],
   );
+
+  const returnTo = useMemo(() => {
+    if (workflowFromAuditListings) return "/audit-listings";
+    return getSafeReturnTo(search, resumeAuditId ? "/dashboard" : "/audits/new");
+  }, [search, resumeAuditId, workflowFromAuditListings]);
 
   const [activeStep, setActiveStep] = useState<StepId>(() => {
     if (resumeAuditId && !isNaN(resumeAuditId)) return 2;
@@ -2025,10 +2036,28 @@ export default function AuditWorkflow() {
     });
   }, [nav, queryClient, selectedProduct, toast]);
 
-  const step1PrimaryOpensProductExplorer =
+  const handleSaveSelectedProductToAudit = useCallback(() => {
+    if (!selectedProduct || selectedProduct.sourceType === "graphics") return;
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    nav(auditListingDetailViewPath(selectedProduct.id, AUDIT_LISTING_HISTORY_FROM, "audit_result"));
+    toast({
+      title: "Saved to Audit",
+      description: "Review listing scores and recommendations on the Audit result tab.",
+    });
+  }, [nav, queryClient, selectedProduct, toast]);
+
+  const step1OpensExistingDestination =
     activeStep === 1
     && selectedProduct !== null
     && selectedProduct.sourceType !== "graphics";
+
+  const step1PrimaryOpensAudit =
+    step1OpensExistingDestination
+    && workflowFromAuditListings
+    && workflowEntry === "existing";
+
+  const step1PrimaryOpensProductExplorer =
+    step1OpensExistingDestination && !step1PrimaryOpensAudit;
 
   const handleStepClick = useCallback((step: StepId) => {
     setIsCreating(false);
@@ -2083,7 +2112,11 @@ export default function AuditWorkflow() {
           nav(selectedProduct.workflowUrl);
           return;
         }
-        handleSaveSelectedProductToExplorer();
+        if (step1PrimaryOpensAudit) {
+          handleSaveSelectedProductToAudit();
+        } else {
+          handleSaveSelectedProductToExplorer();
+        }
         return;
       }
       toast({
@@ -2300,6 +2333,7 @@ export default function AuditWorkflow() {
               selectedProduct={selectedProduct}
               onSelectProduct={setSelectedProduct}
               onSkipToUpload={handleSkipToUpload}
+              primaryActionTarget={workflowFromAuditListings ? "audit" : "product-explorer"}
             />
           )}
 
@@ -3183,6 +3217,11 @@ export default function AuditWorkflow() {
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Saving…
+                </>
+              ) : step1PrimaryOpensAudit ? (
+                <>
+                  <FileSearch className="w-4 h-4" />
+                  Save to Audit
                 </>
               ) : step1PrimaryOpensProductExplorer ? (
                 <>
