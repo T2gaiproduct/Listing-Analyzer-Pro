@@ -204,7 +204,7 @@ export function mapGraphicsToProductDetail(project: GraphicsProjectLike): Produc
   const name = project.name?.trim() || project.productName?.trim() || "Untitled Project";
   const brand = project.productName?.trim() || "Brand";
   const mapped = mapProductStatus(project.status ?? "draft", null);
-  const workflowUrl = `/projects/${project.id}`;
+  const workflowUrl = `/projects/${project.id}?from=graphics-in-detail&tab=overview`;
 
   return {
     id: project.id,

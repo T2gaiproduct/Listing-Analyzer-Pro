@@ -42,7 +42,6 @@ import { GraphicsCreateStepContent } from "@/components/product-workflow-step-co
 import { GraphicsProjectHistory } from "@/components/graphics-project-history";
 import {
   graphicsInDetailViewPath,
-  isOpenedFromGraphicsInDetailHub,
   parseGraphicsInDetailTab,
   type GraphicsInDetailTab,
 } from "@/lib/graphics-in-detail-nav";
@@ -117,7 +116,13 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const { canEditGraphics } = useTeam();
 
   const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/projects";
-  const graphicsInDetailHub = isOpenedFromGraphicsInDetailHub(search);
+  const searchParams = useMemo(() => {
+    const raw = search ?? "";
+    const q = raw.startsWith("?") ? raw.slice(1) : raw;
+    return new URLSearchParams(q);
+  }, [search]);
+  // Overview + Create Graphics tabs on every graphics project (legacy gallery: ?legacy=1).
+  const graphicsInDetailHub = searchParams.get("legacy") !== "1";
   const [graphicsDetailTab, setGraphicsDetailTab] = useState<GraphicsInDetailTab>(() =>
     parseGraphicsInDetailTab(search),
   );
@@ -130,11 +135,11 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     (tab: GraphicsInDetailTab) => {
       setGraphicsDetailTab(tab);
       const projectId = parseInt(id, 10);
-      if (graphicsInDetailHub && !Number.isNaN(projectId)) {
+      if (!Number.isNaN(projectId)) {
         nav(graphicsInDetailViewPath(projectId, tab));
       }
     },
-    [graphicsInDetailHub, id, nav],
+    [id, nav],
   );
 
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
