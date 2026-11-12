@@ -715,16 +715,8 @@ export function ListingMarketplaceContentCompare({
     );
   }
 
-  const contextLabel = marketplaceName ? ` on ${marketplaceName}` : "";
-
   return (
     <div className="px-4 py-4 space-y-4 min-w-0">
-      {hasExisting && (
-        <p className="text-[10px] text-slate-500">
-          Compare your current listing{contextLabel} with AI-optimized copy for this marketplace.
-        </p>
-      )}
-
       {(existing?.title?.trim() || optimized?.title?.trim()) && (() => {
         const titleDiff = Boolean(optimized?.title?.trim() && optimized.title.trim() !== (existing?.title?.trim() ?? ""));
         const titleSource = sourceFor("title");
