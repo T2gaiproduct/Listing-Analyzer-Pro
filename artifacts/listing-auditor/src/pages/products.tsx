@@ -434,8 +434,11 @@ export default function ProductsPage() {
     isBillingAccountOwner,
     isAgencyAccountOverview,
   );
-  /** Bulk upload / Add product on workspace view and Account overview (all workspaces). */
-  const showCatalogActions = showAccountProducts || (featureWorkspaceId != null && !needsWorkspaceSelection);
+  /** Bulk upload / Add product: workspace view or Account overview (revert prior hide-on-overview). */
+  const showCatalogActions =
+    showAccountProducts
+    || isAgencyAccountOverview
+    || (featureWorkspaceId != null && !needsWorkspaceSelection);
   const [, navigate] = useLocation();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
