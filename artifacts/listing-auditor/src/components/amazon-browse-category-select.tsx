@@ -131,9 +131,11 @@ export function AmazonBrowseCategorySelect({
           </div>
         </PopoverAnchor>
         <PopoverContent
+          side="bottom"
           align="start"
-          sideOffset={4}
-          className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[min(380px,65vh)] overflow-hidden flex flex-col"
+          sideOffset={6}
+          avoidCollisions={false}
+          className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[min(380px,55vh)] overflow-hidden flex flex-col"
           onOpenAutoFocus={(e) => e.preventDefault()}
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
