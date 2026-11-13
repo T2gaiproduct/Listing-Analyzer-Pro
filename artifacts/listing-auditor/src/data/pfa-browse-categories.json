@@ -4,13 +4,14 @@
     "BACKPACK_SUITCASE_WALLET_8efd.xlsm",
     "BATHWATER_ADDITIVE_PERSONAL_FRAGRANCE_SPRAY_BOTTLE_8956.xlsm",
     "ELECTRONIC_ADAPTER_b25d.xlsm",
+    "FINE_ART_adeb.xlsm",
     "INTEGRATED_STEREO_SYSTEM_WIRELESS_AUDIO_ADAPTER_e729.xlsm",
     "LEOTARD_COORDINATED_OUTFIT_ACCESSORY_802d.xlsm",
     "MOTORCYCLES_AUTO_ACCESSORY_beb1.xlsm",
     "SKIN_MOISTURIZER_PERSONAL_FRAGRANCE_CONDITIONER__1__8248.xlsm",
     "TOYS_AND_GAMES_BABY_SEAT_ff88.xlsm"
   ],
-  "updatedAt": "2026-11-13T08:43:02.190Z",
+  "updatedAt": "2026-11-13T08:45:07.630Z",
   "categories": [
     {
       "browseNodeId": "21731958031",
@@ -10196,6 +10197,111 @@
       "browseNodeId": "1968397031",
       "browsePath": "Clothing & Accessories > Women > Sunglasses & Spectacle Frames",
       "label": "Sunglasses & Spectacle Frames"
+    },
+    {
+      "browseNodeId": "13712258031",
+      "browsePath": "Collectibles & Fine Art",
+      "label": "Collectibles & Fine Art"
+    },
+    {
+      "browseNodeId": "13740856031",
+      "browsePath": "Collectibles & Fine Art > Fine Art",
+      "label": "Fine Art"
+    },
+    {
+      "browseNodeId": "13740857031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Drawings",
+      "label": "Drawings"
+    },
+    {
+      "browseNodeId": "13740858031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Drawings > Chalk Drawings",
+      "label": "Chalk Drawings"
+    },
+    {
+      "browseNodeId": "13740859031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Drawings > Charcoal Drawings",
+      "label": "Charcoal Drawings"
+    },
+    {
+      "browseNodeId": "13740860031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Drawings > Crayon Drawings",
+      "label": "Crayon Drawings"
+    },
+    {
+      "browseNodeId": "13740861031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Drawings > Ink Drawings",
+      "label": "Ink Drawings"
+    },
+    {
+      "browseNodeId": "13740862031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Drawings > Pastel Drawings",
+      "label": "Pastel Drawings"
+    },
+    {
+      "browseNodeId": "13740863031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Drawings > Pencil Drawings",
+      "label": "Pencil Drawings"
+    },
+    {
+      "browseNodeId": "13740864031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Mixed Media",
+      "label": "Mixed Media"
+    },
+    {
+      "browseNodeId": "13740865031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings",
+      "label": "Paintings"
+    },
+    {
+      "browseNodeId": "13740866031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Acrylic Paintings",
+      "label": "Acrylic Paintings"
+    },
+    {
+      "browseNodeId": "13740868031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Enamel Paintings",
+      "label": "Enamel Paintings"
+    },
+    {
+      "browseNodeId": "13740869031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Encaustic Paintings",
+      "label": "Encaustic Paintings"
+    },
+    {
+      "browseNodeId": "13740870031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Fresco Paintings",
+      "label": "Fresco Paintings"
+    },
+    {
+      "browseNodeId": "13740871031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Gouache Paintings",
+      "label": "Gouache Paintings"
+    },
+    {
+      "browseNodeId": "13740872031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Ink Wash Paintings",
+      "label": "Ink Wash Paintings"
+    },
+    {
+      "browseNodeId": "13740873031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Oil Paintings",
+      "label": "Oil Paintings"
+    },
+    {
+      "browseNodeId": "13740874031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Spray Paint Paintings",
+      "label": "Spray Paint Paintings"
+    },
+    {
+      "browseNodeId": "13740875031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Tempera Paintings",
+      "label": "Tempera Paintings"
+    },
+    {
+      "browseNodeId": "13740876031",
+      "browsePath": "Collectibles & Fine Art > Fine Art > Paintings > Watercolor Paintings",
+      "label": "Watercolor Paintings"
     },
     {
       "browseNodeId": "1375249031",
