@@ -36,16 +36,10 @@ export function AmazonBrowseCategorySelect({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) setSearch("");
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const id = window.requestAnimationFrame(() => searchInputRef.current?.focus());
-    return () => window.cancelAnimationFrame(id);
   }, [open]);
 
   const selected = useMemo(() => findBrowseCategoryByPath(value), [value]);
@@ -60,6 +54,18 @@ export function AmazonBrowseCategorySelect({
 
   const showRecent = !search.trim() && recent.length > 0;
   const listItems: AmazonBrowseCategory[] = showRecent ? recent : searchResults;
+
+  const closedDisplay = value ? leafLabel : "";
+  const inputValue = open ? search : closedDisplay;
+  const inputPlaceholder = !open && !value ? placeholder : searchPlaceholder;
+
+  function startSearch() {
+    if (!open) {
+      setOpen(true);
+      setSearch("");
+      window.requestAnimationFrame(() => inputRef.current?.select());
+    }
+  }
 
   function pick(category: AmazonBrowseCategory) {
     rememberBrowseCategorySelection(category.browsePath);
@@ -82,48 +88,46 @@ export function AmazonBrowseCategorySelect({
               triggerClassName,
             )}
           >
-            {open ? (
-              <>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                <input
-                  ref={searchInputRef}
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={searchPlaceholder}
-                  className={cn(
-                    "w-full h-11 sm:h-12 pl-9 pr-9 rounded-xl text-sm bg-transparent",
-                    "focus:outline-none text-foreground placeholder:text-muted-foreground",
-                  )}
-                  autoComplete="off"
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") setOpen(false);
-                  }}
-                />
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setOpen(true)}
-                className={cn(
-                  "relative w-full h-11 sm:h-12 pl-3 pr-9 rounded-xl text-sm bg-transparent text-left flex items-center",
-                  "focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400",
-                )}
-                title={displayPath || undefined}
-              >
-                {value ? (
-                  <span className="block min-w-0 pr-1 text-foreground truncate">{leafLabel}</span>
-                ) : (
-                  <span className="text-muted-foreground">{placeholder}</span>
-                )}
-              </button>
-            )}
-            <ChevronDown
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-[1]" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              readOnly={!open && Boolean(value)}
+              placeholder={inputPlaceholder}
               className={cn(
-                "absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground",
-                open && "rotate-180 transition-transform",
+                "w-full h-11 sm:h-12 pl-9 pr-9 rounded-xl text-sm bg-transparent",
+                "focus:outline-none text-foreground placeholder:text-muted-foreground",
+                !open && value && "cursor-pointer",
               )}
+              autoComplete="off"
+              title={displayPath || undefined}
+              onFocus={startSearch}
+              onClick={() => {
+                if (!open) startSearch();
+              }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (!open) setOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setOpen(false);
+                  inputRef.current?.blur();
+                }
+              }}
             />
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden
+              className="absolute right-0 top-0 bottom-0 w-10 flex items-center justify-center text-muted-foreground"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => (open ? setOpen(false) : startSearch())}
+            >
+              <ChevronDown className={cn("w-4 h-4", open && "rotate-180 transition-transform")} />
+            </button>
           </div>
         </PopoverAnchor>
         <PopoverContent
@@ -131,6 +135,7 @@ export function AmazonBrowseCategorySelect({
           sideOffset={4}
           className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[min(380px,65vh)] overflow-hidden flex flex-col"
           onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <div className="overflow-y-auto overscroll-contain flex-1">
             {showRecent ? (
@@ -151,6 +156,7 @@ export function AmazonBrowseCategorySelect({
                       "w-full text-left px-3 py-2.5 border-b border-border/40 last:border-0 hover:bg-orange-50",
                       isSelected && "bg-orange-50",
                     )}
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => pick(c)}
                   >
                     <span
