@@ -128,15 +128,15 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
         <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible mb-8 sm:mb-10">
           <div className="flex sm:justify-between gap-3 sm:gap-0 min-w-max sm:min-w-0 sm:w-full relative">
             {workflowSteps.map((step, i) => (
-              <div key={step.label} className="flex flex-col items-center w-20 sm:flex-1 sm:min-w-0 relative">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-orange-50 border-2 border-orange-200 flex items-center justify-center mb-2 z-10">
-                  <step.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+              <div key={step.label} className="flex flex-col items-center w-24 sm:flex-1 sm:min-w-0 relative">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full bg-orange-50 border-2 border-orange-200 flex items-center justify-center mb-2.5 sm:mb-3 z-10">
+                  <step.icon className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-orange-600" strokeWidth={2} />
                 </div>
-                <span className="text-[10px] sm:text-xs font-medium text-slate-600 text-center leading-tight max-w-[4.5rem] sm:max-w-none">
+                <span className="text-xs sm:text-sm font-medium text-slate-600 text-center leading-snug max-w-[5.5rem] sm:max-w-none px-0.5">
                   {step.label}
                 </span>
                 {i < workflowSteps.length - 1 && (
-                  <div className="hidden sm:block absolute top-5 sm:top-[1.375rem] left-[60%] w-[80%] h-0.5 bg-orange-100" />
+                  <div className="hidden sm:block absolute top-7 sm:top-8 lg:top-8 left-[60%] w-[80%] h-0.5 bg-orange-100" />
                 )}
               </div>
             ))}
