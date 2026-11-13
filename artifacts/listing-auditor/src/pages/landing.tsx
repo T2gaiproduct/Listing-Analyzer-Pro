@@ -18,6 +18,7 @@ import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { parseFeatureBullets } from "@/lib/features-cms";
 import { InteractiveFeaturesSection, type FeatureItem } from "@/components/interactive-features-section";
+import { CREATE_VIDEOS_COMING_SOON, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
 import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
 import { parsePortfolioItems } from "@/lib/portfolio-cms";
 import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
@@ -109,15 +110,21 @@ type PortfolioItem = {
 function useLandingCmsData() {
   const cms = useHomepageCmsContext();
 
-  const features: FeatureItem[] = [1, 2, 3, 4, 5].map((i) => ({
-    index: i,
-    icon: FEATURE_ICONS[i - 1],
-    title: cmsText(cms, `features.item${i}_title`),
-    description: cmsText(cms, `features.item${i}_desc`),
-    href: cmsText(cms, `features.item${i}_href`),
-    bullets: parseFeatureBullets(cms, i),
-    image: resolveCmsAssetUrl(cmsText(cms, `features.item${i}_image`), basePath),
-  })).filter((f) => f.title);
+  const features: FeatureItem[] = [1, 2, 3, 4, 5].map((i) => {
+    const comingSoon =
+      (i === 4 && CREATE_VIDEOS_COMING_SOON)
+      || (i === 5 && MANAGE_ADS_COMING_SOON);
+    return {
+      index: i,
+      icon: FEATURE_ICONS[i - 1],
+      title: cmsText(cms, `features.item${i}_title`),
+      description: cmsText(cms, `features.item${i}_desc`),
+      href: comingSoon ? "" : cmsText(cms, `features.item${i}_href`),
+      bullets: parseFeatureBullets(cms, i),
+      image: resolveCmsAssetUrl(cmsText(cms, `features.item${i}_image`), basePath),
+      comingSoon,
+    };
+  }).filter((f) => f.title);
 
   const heroSlides = parseHeroSlides(cms);
 

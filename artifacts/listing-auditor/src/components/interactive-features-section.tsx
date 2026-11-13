@@ -15,6 +15,8 @@ export type FeatureItem = {
   href: string;
   bullets: string[];
   image: string;
+  /** Home/marketing: show Soon badge and do not navigate to product routes. */
+  comingSoon?: boolean;
 };
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
@@ -74,7 +76,7 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
     </div>
   );
 
-  if (feature.href) {
+  if (feature.href && !feature.comingSoon) {
     return (
       <Link href={feature.href} className={cn("block", fitHeight ? "w-full" : "w-full")}>
         {panel}
@@ -141,7 +143,7 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
     </div>
   );
 
-  if (feature.href) {
+  if (feature.href && !feature.comingSoon) {
     return (
       <Link href={feature.href} className="block w-full">
         {card}
@@ -187,12 +189,17 @@ function ServiceTab({
         />
         <span
           className={cn(
-            "font-semibold text-[15px] leading-snug",
+            "font-semibold text-[15px] leading-snug flex-1 min-w-0",
             isActive ? "text-slate-900" : "text-slate-700",
           )}
         >
           {feature.title}
         </span>
+        {feature.comingSoon && (
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+            Soon
+          </span>
+        )}
       </button>
     );
   }
@@ -227,12 +234,17 @@ function ServiceTab({
       </div>
       <span
         className={cn(
-          "font-semibold text-sm sm:text-[15px] leading-snug",
+          "font-semibold text-sm sm:text-[15px] leading-snug flex-1 min-w-0",
           isActive ? "text-slate-900" : "text-slate-600",
         )}
       >
         {feature.title}
       </span>
+      {feature.comingSoon && (
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+          Soon
+        </span>
+      )}
     </button>
   );
 }
