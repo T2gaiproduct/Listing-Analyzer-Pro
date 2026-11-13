@@ -69,6 +69,7 @@ import {
 } from "../lib/amazon-sp-settings.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
+import { ensureSubscriptionCredits } from "../lib/subscription-credits.js";
 import {
   allKnownNotificationTypes,
   enrichNotificationsForAdminLog,
@@ -669,6 +670,34 @@ router.patch("/admin/customers/:userId/package", requireAdmin, async (req, res):
     ]);
   }
   res.json({ ok: true, plan });
+});
+
+router.post("/admin/customers/:userId/sync-subscription-credits", requireAdmin, async (req, res): Promise<void> => {
+  const userId = String(req.params.userId);
+  const [profile] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+  if (!profile) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+  const [before] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const credits = await ensureSubscriptionCredits(userId);
+  const [sub] = await db
+    .select({
+      status: subscriptionsTable.status,
+      planName: plansTable.name,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .where(eq(subscriptionsTable.userId, userId));
+  res.json({
+    ok: true,
+    userId,
+    loginEmail: profile.loginEmail,
+    companyName: profile.companyName,
+    subscription: sub ?? null,
+    creditsBefore: before ?? null,
+    credits: credits,
+  });
 });
 
 router.get("/admin/audits", requireAdmin, async (req, res): Promise<void> => {
