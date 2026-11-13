@@ -2,9 +2,10 @@
   "sources": [
     "TOYS_AND_GAMES_BABY_SEAT_ff88.xlsm",
     "BACKPACK_SUITCASE_WALLET_8efd.xlsm",
-    "BATHWATER_ADDITIVE_PERSONAL_FRAGRANCE_SPRAY_BOTTLE_8956.xlsm"
+    "BATHWATER_ADDITIVE_PERSONAL_FRAGRANCE_SPRAY_BOTTLE_8956.xlsm",
+    "SKIN_MOISTURIZER_PERSONAL_FRAGRANCE_CONDITIONER__1__8248.xlsm"
   ],
-  "updatedAt": "2026-11-13T08:25:14.108Z",
+  "updatedAt": "2026-11-13T08:27:31.984Z",
   "categories": [
     {
       "browseNodeId": "21731958031",
@@ -30,6 +31,16 @@
       "browseNodeId": "8360550031",
       "browsePath": "Baby > Baby Care > Bathing > Bath Seats",
       "label": "Bath Seats"
+    },
+    {
+      "browseNodeId": "1953137031",
+      "browsePath": "Baby > Baby Care > Skin Care > Lotions",
+      "label": "Lotions"
+    },
+    {
+      "browseNodeId": "1953138031",
+      "browsePath": "Baby > Baby Care > Skin Care > Oils",
+      "label": "Oils"
     },
     {
       "browseNodeId": "1953354031",
@@ -232,6 +243,71 @@
       "label": "Tub Teas"
     },
     {
+      "browseNodeId": "1374292031",
+      "browsePath": "Beauty > Bath & Body > Body Washes",
+      "label": "Body Washes"
+    },
+    {
+      "browseNodeId": "1374409031",
+      "browsePath": "Beauty > Bath & Body > Body Washes > Body Butters",
+      "label": "Body Butters"
+    },
+    {
+      "browseNodeId": "1374410031",
+      "browsePath": "Beauty > Bath & Body > Body Washes > Body Creams",
+      "label": "Body Creams"
+    },
+    {
+      "browseNodeId": "1374411031",
+      "browsePath": "Beauty > Bath & Body > Body Washes > Body Lotions",
+      "label": "Body Lotions"
+    },
+    {
+      "browseNodeId": "1374412031",
+      "browsePath": "Beauty > Bath & Body > Body Washes > Body Oils",
+      "label": "Body Oils"
+    },
+    {
+      "browseNodeId": "9530412031",
+      "browsePath": "Beauty > Bath & Body > Body Washes > Mousses",
+      "label": "Mousses"
+    },
+    {
+      "browseNodeId": "9851608031",
+      "browsePath": "Beauty > Fragrance > Attar",
+      "label": "Attar"
+    },
+    {
+      "browseNodeId": "9851607031",
+      "browsePath": "Beauty > Fragrance > Body Sprays & Mists",
+      "label": "Body Sprays & Mists"
+    },
+    {
+      "browseNodeId": "1374299031",
+      "browsePath": "Beauty > Fragrance > Eau de Cologne",
+      "label": "Eau de Cologne"
+    },
+    {
+      "browseNodeId": "1374300031",
+      "browsePath": "Beauty > Fragrance > Eau de Parfum",
+      "label": "Eau de Parfum"
+    },
+    {
+      "browseNodeId": "1374301031",
+      "browsePath": "Beauty > Fragrance > Eau de Toilette",
+      "label": "Eau de Toilette"
+    },
+    {
+      "browseNodeId": "1374302031",
+      "browsePath": "Beauty > Fragrance > Perfume",
+      "label": "Perfume"
+    },
+    {
+      "browseNodeId": "1374304031",
+      "browsePath": "Beauty > Fragrance > Sets",
+      "label": "Sets"
+    },
+    {
       "browseNodeId": "2790126031",
       "browsePath": "Beauty > Fragrances > Children",
       "label": "Children"
@@ -302,14 +378,84 @@
       "label": "Sets"
     },
     {
+      "browseNodeId": "27076142031",
+      "browsePath": "Beauty > Hair Care > Detanglers",
+      "label": "Detanglers"
+    },
+    {
+      "browseNodeId": "27076169031",
+      "browsePath": "Beauty > Hair Care > Hair Color > Colour Refreshers > Colour Conditioners",
+      "label": "Colour Conditioners"
+    },
+    {
       "browseNodeId": "27208874031",
       "browsePath": "Beauty > Hair Care > Hair Fragrances",
       "label": "Hair Fragrances"
     },
     {
+      "browseNodeId": "9851606031",
+      "browsePath": "Beauty > Hair Care > Hair Fragrances",
+      "label": "Hair Fragrances"
+    },
+    {
+      "browseNodeId": "9851599031",
+      "browsePath": "Beauty > Hair Care > Hair Masks & Packs",
+      "label": "Hair Masks & Packs"
+    },
+    {
+      "browseNodeId": "1374306031",
+      "browsePath": "Beauty > Hair Care > Shampoo & Conditioner > Conditioners",
+      "label": "Conditioners"
+    },
+    {
+      "browseNodeId": "1374318031",
+      "browsePath": "Beauty > Hair Care > Shampoo & Conditioner > Deep Conditioners & Treatments",
+      "label": "Deep Conditioners & Treatments"
+    },
+    {
       "browseNodeId": "2868008031",
       "browsePath": "Beauty > Salon & Spa Equipment > Spray Bottles",
       "label": "Spray Bottles"
+    },
+    {
+      "browseNodeId": "27928853031",
+      "browsePath": "Beauty > Skin Care > Eyes > Balms",
+      "label": "Balms"
+    },
+    {
+      "browseNodeId": "9530415031",
+      "browsePath": "Beauty > Skin Care > Eyes > Eye Creams",
+      "label": "Eye Creams"
+    },
+    {
+      "browseNodeId": "9530422031",
+      "browsePath": "Beauty > Skin Care > Face > Creams & Moisturisers > Face Creams",
+      "label": "Face Creams"
+    },
+    {
+      "browseNodeId": "10257749031",
+      "browsePath": "Beauty > Skin Care > Face > Creams & Moisturisers > Moisturizers",
+      "label": "Moisturizers"
+    },
+    {
+      "browseNodeId": "9530423031",
+      "browsePath": "Beauty > Skin Care > Face > Creams & Moisturisers > Night Creams",
+      "label": "Night Creams"
+    },
+    {
+      "browseNodeId": "1374421031",
+      "browsePath": "Beauty > Skin Care > Face > Creams & Moisturisers > Oils",
+      "label": "Oils"
+    },
+    {
+      "browseNodeId": "9530425031",
+      "browsePath": "Beauty > Skin Care > Face > Sunscreen & Aftercare",
+      "label": "Sunscreen & Aftercare"
+    },
+    {
+      "browseNodeId": "1374433031",
+      "browsePath": "Beauty > Skin Care > Hands & Nails > Hand Creams & Lotions",
+      "label": "Hand Creams & Lotions"
     },
     {
       "browseNodeId": "2799758031",
@@ -347,6 +493,46 @@
       "label": "Adhesive Card Holders"
     },
     {
+      "browseNodeId": "1374616031",
+      "browsePath": "Health & Personal Care > Personal Care > Foot Care > Foot Creams & Lotions",
+      "label": "Foot Creams & Lotions"
+    },
+    {
+      "browseNodeId": "1374643031",
+      "browsePath": "Health & Personal Care > Personal Care > Shaving, Waxing & Beard Care > Post-Treatments > Aftershave Treatments",
+      "label": "Aftershave Treatments"
+    },
+    {
+      "browseNodeId": "26953402031",
+      "browsePath": "Health & Personal Care > Personal Care > Shaving, Waxing & Beard Care > Post-Treatments > Aftershave Treatments > Balms",
+      "label": "Balms"
+    },
+    {
+      "browseNodeId": "26953403031",
+      "browsePath": "Health & Personal Care > Personal Care > Shaving, Waxing & Beard Care > Post-Treatments > Aftershave Treatments > Gels",
+      "label": "Gels"
+    },
+    {
+      "browseNodeId": "26953404031",
+      "browsePath": "Health & Personal Care > Personal Care > Shaving, Waxing & Beard Care > Post-Treatments > Aftershave Treatments > Soothing Lotions",
+      "label": "Soothing Lotions"
+    },
+    {
+      "browseNodeId": "22788595031",
+      "browsePath": "Health & Personal Care > Personal Care > Shaving, Waxing & Beard Care > Post-Treatments > Beard Conditioners & Oils > Beard Conditioners",
+      "label": "Beard Conditioners"
+    },
+    {
+      "browseNodeId": "26953396031",
+      "browsePath": "Health & Personal Care > Personal Care > Shaving, Waxing & Beard Care > Pre-Treatments > Men's > Oils",
+      "label": "Oils"
+    },
+    {
+      "browseNodeId": "26953393031",
+      "browsePath": "Health & Personal Care > Personal Care > Shaving, Waxing & Beard Care > Pre-Treatments > Women's > Oils",
+      "label": "Oils"
+    },
+    {
       "browseNodeId": "27972500031",
       "browsePath": "Home & Kitchen > Cooking & Dining > Kitchen Tools & Gadgets > Oil Preparation & Dispensers > Oil Sprayers",
       "label": "Oil Sprayers"
@@ -355,6 +541,21 @@
       "browseNodeId": "3576375031",
       "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Irons, Steamers & Accessories > Ironing Accessories > Spray Bottles",
       "label": "Spray Bottles"
+    },
+    {
+      "browseNodeId": "6563565031",
+      "browsePath": "Industrial & Scientific > Janitorial & Sanitation Supplies > Personal Care Products > Hand Creams",
+      "label": "Hand Creams"
+    },
+    {
+      "browseNodeId": "6563566031",
+      "browsePath": "Industrial & Scientific > Janitorial & Sanitation Supplies > Personal Care Products > Hand Lotions",
+      "label": "Hand Lotions"
+    },
+    {
+      "browseNodeId": "4771604031",
+      "browsePath": "Pet Supplies > Dogs > Grooming > Colognes",
+      "label": "Colognes"
     },
     {
       "browseNodeId": "471406031",
