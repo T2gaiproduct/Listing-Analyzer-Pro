@@ -460,8 +460,18 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       )
       .map((row) => ({ attribute: row.attribute!.trim(), value: row.value!.trim() }));
 
+    const imageUrls: string[] = [];
+    const pushUrl = (url: string | undefined | null) => {
+      const trimmed = url?.trim();
+      if (trimmed && !imageUrls.includes(trimmed)) imageUrls.push(trimmed);
+    };
+    for (const rec of linkedAudit.imageRecords ?? []) {
+      pushUrl((rec as { currentUrl?: string }).currentUrl);
+    }
+    for (const url of linkedAudit.imageUrls ?? []) pushUrl(url);
+
     return {
-      imageUrls: linkedAudit.imageUrls ?? [],
+      imageUrls,
       title: linkedAudit.title?.trim() || linkedAudit.productName || project?.productName || "",
       bulletPoints: linkedAudit.bulletPoints ?? [],
       descriptionHtml: linkedAudit.productDescription?.trim() || null,
