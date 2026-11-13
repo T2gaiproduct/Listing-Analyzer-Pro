@@ -103,7 +103,7 @@ function isAppGeneratedImageUrl(url: string): boolean {
   if (trimmed.startsWith("data:image/")) return true;
   if (trimmed.includes("/api/images/")) return true;
   if (trimmed.includes("/api/marketplace-publish/images/")) return true;
-  return !/^https?:\/\//i.test(trimmed);
+  return false;
 }
 
 function generatedImageFilename(url: string): string {
@@ -117,6 +117,8 @@ export function isGeneratedExportImageUrl(url: string): boolean {
   if (!trimmed) return false;
   if (/\/source(\/|_)/i.test(trimmed)) return false;
   if (trimmed.includes("/api/images/graphics/")) return true;
+  if (/dropbox/i.test(trimmed)) return true;
+  if (trimmed.includes("/api/marketplace-publish/images/")) return true;
   if (!isAppGeneratedImageUrl(trimmed)) return false;
 
   const name = generatedImageFilename(trimmed).toLowerCase();
@@ -130,15 +132,20 @@ export function isGeneratedExportImageUrl(url: string): boolean {
   return false;
 }
 
+function imageRecordHasGeneratedVersion(record: ImageRecord): boolean {
+  const versions = record.versions ?? [];
+  return versions.some((v) => !v.isEdit && isGeneratedExportImageUrl(v.url));
+}
+
 function isGeneratedExportImageRecord(record: ImageRecord): boolean {
   const url = record.currentUrl?.trim() ?? "";
-  if (!url) return false;
+  if (!url || !isGeneratedExportImageUrl(url)) return false;
   const type = record.type?.toLowerCase() ?? "";
   if (type === "source" || type === "upload") return false;
-  if (["lifestyle", "feature", "infographic", "main"].includes(type)) {
-    return isGeneratedExportImageUrl(url);
+  if (/^https?:\/\//i.test(url) && (/dropbox/i.test(url) || url.includes("/api/marketplace-publish/images/"))) {
+    return true;
   }
-  return isGeneratedExportImageUrl(url);
+  return imageRecordHasGeneratedVersion(record);
 }
 
 export function collectProductImages(audit: Audit, graphicsImageRecords?: ImageRecord[]): { url: string; type: string }[] {
@@ -199,34 +206,13 @@ export function collectGeneratedProductImages(
   audit: Audit,
   graphicsImageRecords?: ImageRecord[],
 ): { url: string; type: string }[] {
-  const seen = new Set<string>();
-  const out: { url: string; type: string }[] = [];
-
-  const push = (url: string | undefined | null, type: string) => {
-    const trimmed = url?.trim();
-    if (!trimmed || seen.has(trimmed) || !isGeneratedExportImageUrl(trimmed)) return;
-    seen.add(trimmed);
-    out.push({ url: trimmed, type });
-  };
-
   if (graphicsImageRecords?.length) {
     const fromGraphics = collectGeneratedFromRecords(graphicsImageRecords);
     if (fromGraphics.length > 0) return fromGraphics;
   }
 
   const auditRecords = (audit.imageRecords as ImageRecord[] | null) ?? [];
-  for (const record of sortGeneratedExportRecords(auditRecords)) {
-    if (isGeneratedExportImageRecord(record)) {
-      push(record.currentUrl, record.type);
-    }
-  }
-
-  const legacy = readLegacyImages(audit);
-  for (const url of legacy.main ?? []) push(url, "main");
-  for (const url of legacy.lifestyle ?? []) push(url, "lifestyle");
-  for (const url of legacy.infographic ?? []) push(url, "infographic");
-
-  return out;
+  return collectGeneratedFromRecords(auditRecords);
 }
 
 export function collectAplusImages(audit: Audit): { url: string; moduleId: string }[] {
