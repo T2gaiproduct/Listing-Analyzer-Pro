@@ -1,6 +1,7 @@
 {
   "sources": [
     "ABIS_BOOK_2bc3.xlsm",
+    "AIR_PURIFIER_SMALL_HOME_APPLIANCES_FOOD_OR_BEVERAGE_WARMER_MANUAL_FOOD_MILL_GRINDER_ecc9.xlsm",
     "BACKPACK_SUITCASE_WALLET_8efd.xlsm",
     "BATHWATER_ADDITIVE_PERSONAL_FRAGRANCE_SPRAY_BOTTLE_8956.xlsm",
     "ELECTRONIC_ADAPTER_b25d.xlsm",
@@ -11,7 +12,7 @@
     "SKIN_MOISTURIZER_PERSONAL_FRAGRANCE_CONDITIONER__1__8248.xlsm",
     "TOYS_AND_GAMES_BABY_SEAT_ff88.xlsm"
   ],
-  "updatedAt": "2026-11-13T08:45:07.630Z",
+  "updatedAt": "2026-11-13T08:47:29.867Z",
   "categories": [
     {
       "browseNodeId": "21731958031",
@@ -9174,6 +9175,11 @@
       "label": "Interior Accessories"
     },
     {
+      "browseNodeId": "10279697031",
+      "browsePath": "Car & Motorbike > Car Accessories > Interior Accessories > Air Purifiers & Ionizers",
+      "label": "Air Purifiers & Ionizers"
+    },
+    {
       "browseNodeId": "5257499031",
       "browsePath": "Car & Motorbike > Car Accessories > Interior Accessories > Alcohol Testers",
       "label": "Alcohol Testers"
@@ -10379,6 +10385,11 @@
       "label": "Laptop Roller Cases"
     },
     {
+      "browseNodeId": "1375336031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > USB Gadgets > Beverage Warmers",
+      "label": "Beverage Warmers"
+    },
+    {
       "browseNodeId": "4175441031",
       "browsePath": "Electronics > Cameras & Photography > Accessories > Cases & Bags > Camera Backpacks",
       "label": "Camera Backpacks"
@@ -10514,14 +10525,449 @@
       "label": "Oil Sprayers"
     },
     {
+      "browseNodeId": "2083423031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality",
+      "label": "Heating, Cooling & Air Quality"
+    },
+    {
+      "browseNodeId": "5403404031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Air Purifiers",
+      "label": "Air Purifiers"
+    },
+    {
+      "browseNodeId": "9290351031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Air Purifiers > Air Ionizers",
+      "label": "Air Ionizers"
+    },
+    {
+      "browseNodeId": "9290353031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Air Purifiers > Electrostatic Air Purifiers",
+      "label": "Electrostatic Air Purifiers"
+    },
+    {
+      "browseNodeId": "9290354031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Air Purifiers > HEPA Air Purifiers",
+      "label": "HEPA Air Purifiers"
+    },
+    {
+      "browseNodeId": "9290355031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Air Purifiers > Portable Air Purifiers",
+      "label": "Portable Air Purifiers"
+    },
+    {
+      "browseNodeId": "9290356031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Air Purifiers > ULPA Air Purifiers",
+      "label": "ULPA Air Purifiers"
+    },
+    {
+      "browseNodeId": "51396498031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Deodorisers",
+      "label": "Deodorisers"
+    },
+    {
+      "browseNodeId": "5403408031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories",
+      "label": "Parts & Accessories"
+    },
+    {
+      "browseNodeId": "5403409031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Air Purifier Parts & Accessories",
+      "label": "Air Purifier Parts & Accessories"
+    },
+    {
+      "browseNodeId": "5403413031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Dehumidifier Parts & Accessories",
+      "label": "Dehumidifier Parts & Accessories"
+    },
+    {
+      "browseNodeId": "23034522031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Evaporative Cooler Parts & Accessories",
+      "label": "Evaporative Cooler Parts & Accessories"
+    },
+    {
+      "browseNodeId": "201529509031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Evaporative Cooler Parts & Accessories > Accessories",
+      "label": "Accessories"
+    },
+    {
+      "browseNodeId": "201529508031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Evaporative Cooler Parts & Accessories > Replacement Parts",
+      "label": "Replacement Parts"
+    },
+    {
+      "browseNodeId": "201529511031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Evaporative Cooler Parts & Accessories > Replacement Parts > Pads",
+      "label": "Pads"
+    },
+    {
+      "browseNodeId": "5403417031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Fan Parts & Accessories",
+      "label": "Fan Parts & Accessories"
+    },
+    {
+      "browseNodeId": "96322322031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Fan Parts & Accessories > Accessories",
+      "label": "Accessories"
+    },
+    {
+      "browseNodeId": "96322321031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Fan Parts & Accessories > Replacement Parts",
+      "label": "Replacement Parts"
+    },
+    {
+      "browseNodeId": "5403422031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Heater Parts & Accessories",
+      "label": "Heater Parts & Accessories"
+    },
+    {
+      "browseNodeId": "5403423031",
+      "browsePath": "Home & Kitchen > Heating, Cooling & Air Quality > Parts & Accessories > Humidifer Parts & Accessories",
+      "label": "Humidifer Parts & Accessories"
+    },
+    {
+      "browseNodeId": "206246311031",
+      "browsePath": "Home & Kitchen > Kitchen & Dining > Kitchen Tools > Manual Shaved Ice Machines",
+      "label": "Manual Shaved Ice Machines"
+    },
+    {
+      "browseNodeId": "206246326031",
+      "browsePath": "Home & Kitchen > Kitchen & Dining > Kitchen Tools > Meat, Fish and Poultry Tools > Manual Meat Grinders",
+      "label": "Manual Meat Grinders"
+    },
+    {
+      "browseNodeId": "206246309031",
+      "browsePath": "Home & Kitchen > Kitchen & Dining > Kitchen Tools > Vegetable Mills",
+      "label": "Vegetable Mills"
+    },
+    {
+      "browseNodeId": "4951860031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances",
+      "label": "Kitchen & Home Appliances"
+    },
+    {
+      "browseNodeId": "206248398031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Coffee, Tea & Espresso > Beverage Warmers",
+      "label": "Beverage Warmers"
+    },
+    {
+      "browseNodeId": "1379976031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Coffee, Tea & Espresso > Coffee Grinders > Manual Grinders",
+      "label": "Manual Grinders"
+    },
+    {
+      "browseNodeId": "1379971031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Coffee, Tea & Espresso > Coffee Maker Accessories > Tea & Coffee Warmers",
+      "label": "Tea & Coffee Warmers"
+    },
+    {
+      "browseNodeId": "32075766031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Inverters & Sets",
+      "label": "Inverters & Sets"
+    },
+    {
+      "browseNodeId": "32075768031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Inverters & Sets > Inverter & Battery Sets",
+      "label": "Inverter & Battery Sets"
+    },
+    {
       "browseNodeId": "3576375031",
       "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Irons, Steamers & Accessories > Ironing Accessories > Spray Bottles",
       "label": "Spray Bottles"
     },
     {
+      "browseNodeId": "1380045031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances",
+      "label": "Small Kitchen Appliances"
+    },
+    {
+      "browseNodeId": "1380046031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Beer Tenders",
+      "label": "Beer Tenders"
+    },
+    {
+      "browseNodeId": "206248550031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Blenders, Mixers and Food Processors",
+      "label": "Blenders, Mixers and Food Processors"
+    },
+    {
+      "browseNodeId": "206248547031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Bread Makers and Baking Appliances",
+      "label": "Bread Makers and Baking Appliances"
+    },
+    {
+      "browseNodeId": "206248557031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Bread Makers and Baking Appliances > Cake Makers",
+      "label": "Cake Makers"
+    },
+    {
+      "browseNodeId": "206248555031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Bread Makers and Baking Appliances > Pie Makers",
+      "label": "Pie Makers"
+    },
+    {
+      "browseNodeId": "1380049031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Chocolate Funtains",
+      "label": "Chocolate Funtains"
+    },
+    {
+      "browseNodeId": "1380048031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Cotton Candy Makers",
+      "label": "Cotton Candy Makers"
+    },
+    {
+      "browseNodeId": "206248549031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Countertop Cooktops, Electric Pans and Hot Plates",
+      "label": "Countertop Cooktops, Electric Pans and Hot Plates"
+    },
+    {
+      "browseNodeId": "206248564031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Countertop Cooktops, Electric Pans and Hot Plates > Hot Trays",
+      "label": "Hot Trays"
+    },
+    {
+      "browseNodeId": "206248548031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Electric Pots and Soup Kettles",
+      "label": "Electric Pots and Soup Kettles"
+    },
+    {
+      "browseNodeId": "206248562031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Electric Pots and Soup Kettles > Electric Fondue Pots",
+      "label": "Electric Fondue Pots"
+    },
+    {
+      "browseNodeId": "206248561031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Electric Pots and Soup Kettles > Electric Hot Pots",
+      "label": "Electric Hot Pots"
+    },
+    {
+      "browseNodeId": "206248563031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Electric Pots and Soup Kettles > Electric Tajines",
+      "label": "Electric Tajines"
+    },
+    {
+      "browseNodeId": "100140623031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Electric Pressure, Steam & Slow Cookers",
+      "label": "Electric Pressure, Steam & Slow Cookers"
+    },
+    {
+      "browseNodeId": "206248559031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Electric Pressure, Steam & Slow Cookers > Preserving Cookers",
+      "label": "Preserving Cookers"
+    },
+    {
+      "browseNodeId": "206248551031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Electric Utensils",
+      "label": "Electric Utensils"
+    },
+    {
+      "browseNodeId": "1380063031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Electric Woks",
+      "label": "Electric Woks"
+    },
+    {
+      "browseNodeId": "1380067031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Hot Dog Machines",
+      "label": "Hot Dog Machines"
+    },
+    {
+      "browseNodeId": "27320744031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Mills & Grinders",
+      "label": "Mills & Grinders"
+    },
+    {
+      "browseNodeId": "11366949031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Roti Makers",
+      "label": "Roti Makers"
+    },
+    {
+      "browseNodeId": "206248560031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Roti Makers > Tortilla Makers",
+      "label": "Tortilla Makers"
+    },
+    {
+      "browseNodeId": "10543775031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories",
+      "label": "Small Appliance Parts & Accessories"
+    },
+    {
+      "browseNodeId": "10543776031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Bread Machine Accessories",
+      "label": "Bread Machine Accessories"
+    },
+    {
+      "browseNodeId": "10543777031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Bread Machine Replacement Parts",
+      "label": "Bread Machine Replacement Parts"
+    },
+    {
+      "browseNodeId": "10543778031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Countertop Blender Accessories",
+      "label": "Countertop Blender Accessories"
+    },
+    {
+      "browseNodeId": "10543779031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Countertop Blender Replacement Parts",
+      "label": "Countertop Blender Replacement Parts"
+    },
+    {
+      "browseNodeId": "10543780031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Food Processor Accessories",
+      "label": "Food Processor Accessories"
+    },
+    {
+      "browseNodeId": "10543781031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Food Processor Replacement Parts",
+      "label": "Food Processor Replacement Parts"
+    },
+    {
+      "browseNodeId": "10543782031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Hand Blender Accessories",
+      "label": "Hand Blender Accessories"
+    },
+    {
+      "browseNodeId": "10543783031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Hand Blender Replacement Parts",
+      "label": "Hand Blender Replacement Parts"
+    },
+    {
+      "browseNodeId": "10543784031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Hand Mixer Accessories",
+      "label": "Hand Mixer Accessories"
+    },
+    {
+      "browseNodeId": "10543785031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Hand Mixer Replacement Parts",
+      "label": "Hand Mixer Replacement Parts"
+    },
+    {
+      "browseNodeId": "10543787031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Microwave Oven Replacement Parts",
+      "label": "Microwave Oven Replacement Parts"
+    },
+    {
+      "browseNodeId": "10543788031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Soda Maker Accessories",
+      "label": "Soda Maker Accessories"
+    },
+    {
+      "browseNodeId": "10543789031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Stand Mixer Accessories",
+      "label": "Stand Mixer Accessories"
+    },
+    {
+      "browseNodeId": "10543790031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Stand Mixer Replacement Parts",
+      "label": "Stand Mixer Replacement Parts"
+    },
+    {
+      "browseNodeId": "10543791031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Small Appliance Parts & Accessories > Vacuum Sealer Accessories",
+      "label": "Vacuum Sealer Accessories"
+    },
+    {
+      "browseNodeId": "11366948031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Soup Kettles & Makers",
+      "label": "Soup Kettles & Makers"
+    },
+    {
+      "browseNodeId": "206248553031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Specialty Appliances",
+      "label": "Specialty Appliances"
+    },
+    {
+      "browseNodeId": "206248584031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Specialty Appliances > Herbal Decocting Pots",
+      "label": "Herbal Decocting Pots"
+    },
+    {
+      "browseNodeId": "206248587031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Specialty Appliances > Mochi Makers",
+      "label": "Mochi Makers"
+    },
+    {
+      "browseNodeId": "206248588031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Specialty Appliances > Rice Polishers",
+      "label": "Rice Polishers"
+    },
+    {
+      "browseNodeId": "206248574031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Specialty Appliances > Rice Warmers",
+      "label": "Rice Warmers"
+    },
+    {
+      "browseNodeId": "206248580031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Specialty Appliances > Sausage Stuffers",
+      "label": "Sausage Stuffers"
+    },
+    {
+      "browseNodeId": "206248578031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Specialty Appliances > Shaved Ice Machines",
+      "label": "Shaved Ice Machines"
+    },
+    {
+      "browseNodeId": "206248576031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Specialty Appliances > Soy Milk Makers",
+      "label": "Soy Milk Makers"
+    },
+    {
+      "browseNodeId": "206248552031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Vacuum Sealers and Bags",
+      "label": "Vacuum Sealers and Bags"
+    },
+    {
+      "browseNodeId": "206248571031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Vacuum Sealers and Bags > Vacuum Sealer Bags",
+      "label": "Vacuum Sealer Bags"
+    },
+    {
+      "browseNodeId": "1380084031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Small Kitchen Appliances > Yogurt Makers",
+      "label": "Yogurt Makers"
+    },
+    {
+      "browseNodeId": "1380565031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Vacuum, Cleaning & Ironing",
+      "label": "Vacuum, Cleaning & Ironing"
+    },
+    {
+      "browseNodeId": "1380566031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Vacuum, Cleaning & Ironing > Irons, Steamers & Accessories",
+      "label": "Irons, Steamers & Accessories"
+    },
+    {
+      "browseNodeId": "1380581031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Vacuum, Cleaning & Ironing > Irons, Steamers & Accessories > Steam Generator Accessories",
+      "label": "Steam Generator Accessories"
+    },
+    {
+      "browseNodeId": "1380584031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Vacuum, Cleaning & Ironing > Irons, Steamers & Accessories > Steam Presses",
+      "label": "Steam Presses"
+    },
+    {
       "browseNodeId": "2083413031",
       "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Vacuum, Cleaning & Ironing > Pressure Washers, Steam & Window Cleaners",
       "label": "Pressure Washers, Steam & Window Cleaners"
+    },
+    {
+      "browseNodeId": "1380585031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Vacuum, Cleaning & Ironing > Vacuums & Floor Care",
+      "label": "Vacuums & Floor Care"
+    },
+    {
+      "browseNodeId": "1380588031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Vacuum, Cleaning & Ironing > Vacuums & Floor Care > Carpet Sweepers",
+      "label": "Carpet Sweepers"
+    },
+    {
+      "browseNodeId": "1380589031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Vacuum, Cleaning & Ironing > Vacuums & Floor Care > Floor Polishers",
+      "label": "Floor Polishers"
+    },
+    {
+      "browseNodeId": "7110901031",
+      "browsePath": "Industrial & Scientific > Food Service Equipment & Supplies > Food Warmers",
+      "label": "Food Warmers"
     },
     {
       "browseNodeId": "6563565031",
