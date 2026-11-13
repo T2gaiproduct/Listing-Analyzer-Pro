@@ -114,7 +114,7 @@ export default function ProjectsPage() {
               onClick={() => setStartDrawerOpen(true)}
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Create Images
+              Create Graphics
             </Button>
             <BuildBrandStartDrawer
               open={startDrawerOpen}
