@@ -115,6 +115,7 @@ function generatedImageFilename(url: string): string {
 export function isGeneratedExportImageUrl(url: string): boolean {
   const trimmed = url.trim();
   if (!trimmed) return false;
+  if (/\/source(\/|_)/i.test(trimmed)) return false;
   if (trimmed.includes("/api/images/graphics/")) return true;
   if (!isAppGeneratedImageUrl(trimmed)) return false;
 
@@ -171,6 +172,28 @@ export function collectProductImages(audit: Audit, graphicsImageRecords?: ImageR
   return out;
 }
 
+function sortGeneratedExportRecords<T extends { type: string; index: number }>(records: T[]): T[] {
+  const order = { main: 0, lifestyle: 1, feature: 2, infographic: 2 };
+  return [...records].sort(
+    (a, b) =>
+      (order[a.type as keyof typeof order] ?? 3) - (order[b.type as keyof typeof order] ?? 3)
+      || a.index - b.index,
+  );
+}
+
+function collectGeneratedFromRecords(records: ImageRecord[]): { url: string; type: string }[] {
+  const seen = new Set<string>();
+  const out: { url: string; type: string }[] = [];
+  for (const record of sortGeneratedExportRecords(records)) {
+    if (!isGeneratedExportImageRecord(record)) continue;
+    const trimmed = record.currentUrl?.trim() ?? "";
+    if (!trimmed || seen.has(trimmed) || !isGeneratedExportImageUrl(trimmed)) continue;
+    seen.add(trimmed);
+    out.push({ url: trimmed, type: record.type });
+  }
+  return out;
+}
+
 /** Amazon/Excel export: generated graphics only (no scraped listing / upload URLs). */
 export function collectGeneratedProductImages(
   audit: Audit,
@@ -186,22 +209,15 @@ export function collectGeneratedProductImages(
     out.push({ url: trimmed, type });
   };
 
-  const auditRecords = (audit.imageRecords as ImageRecord[] | null) ?? [];
-  const sortedRecords = [...auditRecords].sort((a, b) => {
-    const order = { main: 0, lifestyle: 1, feature: 2, infographic: 2 };
-    return (order[a.type as keyof typeof order] ?? 3) - (order[b.type as keyof typeof order] ?? 3) || a.index - b.index;
-  });
-  for (const record of sortedRecords) {
-    if (isGeneratedExportImageRecord(record)) {
-      push(record.currentUrl, record.type);
-    }
+  if (graphicsImageRecords?.length) {
+    const fromGraphics = collectGeneratedFromRecords(graphicsImageRecords);
+    if (fromGraphics.length > 0) return fromGraphics;
   }
 
-  if (graphicsImageRecords?.length) {
-    for (const record of graphicsImageRecords) {
-      if (isGeneratedExportImageRecord(record)) {
-        push(record.currentUrl, record.type);
-      }
+  const auditRecords = (audit.imageRecords as ImageRecord[] | null) ?? [];
+  for (const record of sortGeneratedExportRecords(auditRecords)) {
+    if (isGeneratedExportImageRecord(record)) {
+      push(record.currentUrl, record.type);
     }
   }
 

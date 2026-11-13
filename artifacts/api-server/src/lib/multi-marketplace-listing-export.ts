@@ -8,6 +8,7 @@ import {
 } from "./listing-content-field-merge.js";
 import { htmlForListingExport, slugify, stripHtml } from "./listing-export-shared.js";
 import { resolveListingExportImageUrlsFromAudit } from "./materialize-audit-images-for-publish.js";
+import { collectGeneratedProductImages } from "./listing-export-shared.js";
 
 const MARKETPLACE_SHEET_NAMES: Record<string, string> = {
   amazon: "amazon_3p",
@@ -175,19 +176,20 @@ export async function buildMultiMarketplaceExcelBuffer(opts: {
 
   const sku = `SL-${audit.id}`;
   const folder = folderSlug(audit, sku);
+  const generatedProductImages = collectGeneratedProductImages(
+    audit,
+    opts.graphicsImageRecords,
+  );
   const publishUrls = await resolveListingExportImageUrlsFromAudit({
     audit,
     graphicsImageRecords: opts.graphicsImageRecords,
     graphicsProjectId: opts.graphicsProjectId ?? null,
     publicBaseUrl: opts.publicBaseUrl,
+    maxImages: 6,
   });
 
-  const imageRecords = opts.graphicsImageRecords ?? (audit.imageRecords as ImageRecord[] | null) ?? [];
-  const imageNotes: string[] = [];
-  publishUrls.slice(0, 8).forEach((url, index) => {
-    const rec = imageRecords[index];
-    const label = rec?.type ? `${rec.type}${rec.style ? ` — ${rec.style}` : ""}` : "product image";
-    imageNotes.push(`${index + 1}. (${label})`);
+  const imageNotes: string[] = generatedProductImages.slice(0, 6).map((img, index) => {
+    return `${index + 1}. (${img.type})`;
   });
 
   const workbook = new ExcelJS.Workbook();
@@ -236,10 +238,7 @@ export async function buildMultiMarketplaceExcelBuffer(opts: {
   ]);
   for (let i = 0; i < 6; i++) {
     const url = publishUrls[i];
-    if (!url) {
-      imageRow.getCell(i + 2).value = `${folder}_${String(i + 1).padStart(2, "0")}.jpg`;
-      continue;
-    }
+    if (!url) continue;
     applyUrlHyperlink(imageRow.getCell(i + 2), url);
   }
   imageRow.getCell(8).alignment = { wrapText: true, vertical: "top" };
