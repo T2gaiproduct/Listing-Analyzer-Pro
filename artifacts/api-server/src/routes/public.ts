@@ -179,7 +179,7 @@ router.get("/blog/:slug", async (req, res): Promise<void> => {
   res.json(post);
 });
 
-const BRANDING_KEYS = ["platform_name", "site_logo_url", "site_favicon_url"] as const;
+const BRANDING_KEYS = ["platform_name", "site_logo_url", "site_footer_logo_url", "site_favicon_url"] as const;
 
 const COMPANY_CONTACT_KEYS = [
   "support_email",
@@ -219,6 +219,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   const map = Object.fromEntries(rows.map((row) => [row.key, row.value]));
 
   let logoUrl = map.site_logo_url?.trim() || null;
+  let footerLogoUrl = map.site_footer_logo_url?.trim() || null;
   let faviconUrl = map.site_favicon_url?.trim() || null;
 
   if (logoUrl && isDataUrl(logoUrl)) {
@@ -228,6 +229,15 @@ router.get("/branding", async (_req, res): Promise<void> => {
       .set({ value: stored, updatedAt: new Date() })
       .where(eq(settingsTable.key, "site_logo_url"));
     logoUrl = stored || null;
+  }
+
+  if (footerLogoUrl && isDataUrl(footerLogoUrl)) {
+    const stored = normalizeBrandingSettingValue("site_footer_logo_url", footerLogoUrl);
+    await db
+      .update(settingsTable)
+      .set({ value: stored, updatedAt: new Date() })
+      .where(eq(settingsTable.key, "site_footer_logo_url"));
+    footerLogoUrl = stored || null;
   }
 
   if (faviconUrl && isDataUrl(faviconUrl)) {
@@ -242,6 +252,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   res.json({
     platformName: map.platform_name?.trim() || DEFAULT_PLATFORM_NAME,
     logoUrl,
+    footerLogoUrl,
     faviconUrl,
     supportEmail: map.support_email?.trim() ?? "",
     supportPhone: map.support_phone?.trim() ?? "",

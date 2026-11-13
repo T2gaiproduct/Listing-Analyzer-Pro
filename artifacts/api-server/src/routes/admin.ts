@@ -1836,6 +1836,9 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
       if ("site_logo_url" in s) {
         s.site_logo_url = normalizeBrandingSettingValue("site_logo_url", s.site_logo_url);
       }
+      if ("site_footer_logo_url" in s) {
+        s.site_footer_logo_url = normalizeBrandingSettingValue("site_footer_logo_url", s.site_footer_logo_url);
+      }
       if ("site_favicon_url" in s) {
         s.site_favicon_url = normalizeBrandingSettingValue("site_favicon_url", s.site_favicon_url);
       }

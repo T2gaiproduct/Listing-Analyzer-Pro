@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Settings, Save, Upload, Trash2 } from "lucide-react";
-import { defaultFaviconUrl, defaultLogoUrl, resolveBrandingAsset } from "@/lib/branding";
+import { defaultFaviconUrl, defaultFooterLogoUrl, defaultLogoUrl, resolveBrandingAsset } from "@/lib/branding";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -124,6 +124,7 @@ export default function AdminSettingsPlatform() {
     max_audits_per_user: "100",
     maintenance_mode: "false",
     site_logo_url: "",
+    site_footer_logo_url: "",
     site_favicon_url: "",
   });
 
@@ -161,19 +162,28 @@ export default function AdminSettingsPlatform() {
         <CardHeader>
           <CardTitle>Branding</CardTitle>
           <CardDescription>
-            Uploads apply site-wide (header, footer, sign-in, app sidebar, PDF exports, and browser tab). They stay after promo or notification banners are dismissed. Leave empty to use the bundled default logo.
+            Header logo is used in the nav, sign-in, app sidebar, PDF exports, and emails. Footer logo is used only on the marketing site footer (dark background). Leave empty to use bundled defaults.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {field("platform_name", "Platform Name")}
           <BrandingUploadField
-            label="Site Logo"
+            label="Site Logo (header)"
             description="Recommended: SVG or PNG with transparent background, up to 2 MB."
             value={form.site_logo_url}
             fallbackUrl={defaultLogoUrl()}
             accept="image/png,image/svg+xml,image/webp,image/jpeg"
             maxBytes={2 * 1024 * 1024}
             onChange={(site_logo_url) => setForm((f) => ({ ...f, site_logo_url }))}
+          />
+          <BrandingUploadField
+            label="Footer Logo"
+            description="Shown in the site footer on a dark background. Use a light or full-color variant (SVG/PNG, up to 2 MB). If empty, the header logo is used; if neither is set, the bundled footer logo is used."
+            value={form.site_footer_logo_url}
+            fallbackUrl={defaultFooterLogoUrl()}
+            accept="image/png,image/svg+xml,image/webp,image/jpeg"
+            maxBytes={2 * 1024 * 1024}
+            onChange={(site_footer_logo_url) => setForm((f) => ({ ...f, site_footer_logo_url }))}
           />
           <BrandingUploadField
             label="Favicon"

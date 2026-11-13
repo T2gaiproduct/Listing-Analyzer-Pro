@@ -6,6 +6,7 @@ export const BRANDING_DIR = path.join(IMAGES_DIR, "branding");
 
 const ASSET_BASENAMES = {
   site_logo_url: "site-logo",
+  site_footer_logo_url: "site-footer-logo",
   site_favicon_url: "site-favicon",
 } as const;
 

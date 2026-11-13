@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   DEFAULT_PLATFORM_NAME,
   defaultFaviconUrl,
+  defaultFooterLogoUrl,
   defaultLogoUrl,
   getBasePath,
   resolveBrandingAsset,
@@ -17,15 +18,23 @@ export function useBranding() {
 
   const platformName = data?.platformName?.trim() || DEFAULT_PLATFORM_NAME;
   const logoUrl = resolveBrandingAsset(data?.logoUrl, defaultLogoUrl());
+  const footerLogoResolved = data?.footerLogoUrl?.trim()
+    ? resolveBrandingAsset(data.footerLogoUrl, defaultFooterLogoUrl())
+    : data?.logoUrl?.trim()
+      ? logoUrl
+      : resolveBrandingAsset(null, defaultFooterLogoUrl());
   const faviconUrl = resolveBrandingAsset(data?.faviconUrl, defaultFaviconUrl());
   const hasCustomLogo = Boolean(data?.logoUrl?.trim());
+  const hasCustomFooterLogo = Boolean(data?.footerLogoUrl?.trim());
   const hasCustomFavicon = Boolean(data?.faviconUrl?.trim());
 
   return {
     platformName,
     logoUrl,
+    footerLogoUrl: footerLogoResolved,
     faviconUrl,
     hasCustomLogo,
+    hasCustomFooterLogo,
     hasCustomFavicon,
     supportEmail: data?.supportEmail?.trim() ?? "",
     supportPhone: data?.supportPhone?.trim() ?? "",
