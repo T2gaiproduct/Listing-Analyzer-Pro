@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +100,9 @@ interface GraphicsWizardProps {
   embedded?: boolean;
   /** Product Explorer split view: hide upload/results; keep create flow on the right column. */
   createOnly?: boolean;
+  /** Graphics in Detail hub: show save control that syncs and opens Product Explorer graphics step. */
+  redirectSaveToProductExplorer?: boolean;
+  productExplorerSource?: "listing" | "audit";
 }
 
 function fetchProjectForAudit(auditId: number): Promise<WizardProject | null> {
@@ -140,7 +144,18 @@ function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: str
   );
 }
 
-export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords, embedded = false, createOnly = false }: GraphicsWizardProps) {
+export function GraphicsWizard({
+  auditId,
+  productName,
+  imageUrls,
+  category,
+  targetKeywords,
+  embedded = false,
+  createOnly = false,
+  redirectSaveToProductExplorer = false,
+  productExplorerSource = "listing",
+}: GraphicsWizardProps) {
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { imageTypes: IMAGE_TYPES } = useGraphicsImageTypesFromApi();
@@ -750,8 +765,13 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       await saveGraphicsRecordsToProductExplorer(auditId, records, queryClient);
       toast({
         title: "Saved to Product Explorer",
-        description: "Generated graphics are on the product overview and listing preview.",
+        description: "Opening your product in Product Explorer…",
       });
+      if (redirectSaveToProductExplorer) {
+        navigate(
+          `${basePath}/products/${auditId}?source=${productExplorerSource}&step=graphics`,
+        );
+      }
     } catch (err) {
       toast({
         title: "Could not save",
@@ -1329,7 +1349,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             </p>
             {records.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                {canEditGraphics && (
+                {canEditGraphics && redirectSaveToProductExplorer && (
                   <Button
                     type="button"
                     size="sm"
