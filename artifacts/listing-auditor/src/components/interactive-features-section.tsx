@@ -22,11 +22,16 @@ export type FeatureItem = {
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
     fitHeight ? (
-      <div className="aspect-video w-full overflow-hidden bg-[#faf8f5]">
+      <div
+        className={cn(
+          "flex w-full h-full min-h-0 items-center justify-center bg-[#faf8f5] px-3 py-4 sm:px-6 sm:py-6",
+          DESKTOP_MOCKUP_MIN_HEIGHT,
+        )}
+      >
         <img
           src={feature.image}
           alt={feature.title}
-          className="block w-full h-full object-cover"
+          className="max-w-full max-h-full w-auto h-auto object-contain object-center"
           loading="lazy"
           decoding="async"
         />
@@ -62,7 +67,7 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
         "animate-in fade-in duration-300 overflow-hidden",
         fitHeight
           ? feature.image
-            ? "w-full leading-[0]"
+            ? cn("w-full h-full min-h-0", DESKTOP_MOCKUP_MIN_HEIGHT)
             : cn("h-full w-full", DESKTOP_MOCKUP_MIN_HEIGHT)
           : cn("rounded-2xl border border-slate-200/90", feature.image ? "h-52 sm:h-56" : "min-h-[150px]"),
         !feature.image && !fitHeight && "bg-white shadow-sm",
@@ -91,11 +96,11 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   const imageBlock = feature.image ? (
-    <div className="w-full aspect-video overflow-hidden bg-[#faf8f5]">
+    <div className="flex w-full aspect-video items-center justify-center overflow-hidden bg-[#faf8f5] px-3 py-2">
       <img
         src={feature.image}
         alt={feature.title}
-        className="block w-full h-full object-cover"
+        className="max-w-full max-h-full w-auto h-auto object-contain object-center"
         loading="lazy"
         decoding="async"
       />
