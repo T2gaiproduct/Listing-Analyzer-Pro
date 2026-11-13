@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -36,9 +36,16 @@ export function AmazonBrowseCategorySelect({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) setSearch("");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const id = window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(id);
   }, [open]);
 
   const selected = useMemo(() => findBrowseCategoryByPath(value), [value]);
@@ -68,39 +75,63 @@ export function AmazonBrowseCategorySelect({
       </label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverAnchor asChild>
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
+          <div
             className={cn(
-              "relative w-full h-11 sm:h-12 pl-3 pr-9 rounded-xl border border-border text-sm bg-card shadow-none",
-              "focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center",
+              "relative w-full rounded-xl border border-border bg-card shadow-none",
+              open && "ring-2 ring-orange-200 border-orange-400",
               triggerClassName,
             )}
-            title={displayPath || undefined}
           >
-            {value ? (
-              <span className="block min-w-0 pr-1 text-foreground truncate">{leafLabel}</span>
+            {open ? (
+              <>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className={cn(
+                    "w-full h-11 sm:h-12 pl-9 pr-9 rounded-xl text-sm bg-transparent",
+                    "focus:outline-none text-foreground placeholder:text-muted-foreground",
+                  )}
+                  autoComplete="off"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setOpen(false);
+                  }}
+                />
+              </>
             ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className={cn(
+                  "relative w-full h-11 sm:h-12 pl-3 pr-9 rounded-xl text-sm bg-transparent text-left flex items-center",
+                  "focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400",
+                )}
+                title={displayPath || undefined}
+              >
+                {value ? (
+                  <span className="block min-w-0 pr-1 text-foreground truncate">{leafLabel}</span>
+                ) : (
+                  <span className="text-muted-foreground">{placeholder}</span>
+                )}
+              </button>
             )}
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          </button>
+            <ChevronDown
+              className={cn(
+                "absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground",
+                open && "rotate-180 transition-transform",
+              )}
+            />
+          </div>
         </PopoverAnchor>
         <PopoverContent
           align="start"
-          className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[min(420px,70vh)] overflow-hidden flex flex-col"
+          sideOffset={4}
+          className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[min(380px,65vh)] overflow-hidden flex flex-col"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="sticky top-0 bg-popover border-b border-border px-3 py-2.5 flex items-center gap-2">
-            <Search className="w-4 h-4 text-muted-foreground shrink-0" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="w-full text-sm bg-transparent focus:outline-none text-foreground placeholder:text-muted-foreground"
-              autoComplete="off"
-            />
-          </div>
           <div className="overflow-y-auto overscroll-contain flex-1">
             {showRecent ? (
               <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
