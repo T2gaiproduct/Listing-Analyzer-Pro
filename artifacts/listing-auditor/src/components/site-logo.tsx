@@ -20,15 +20,15 @@ export function SiteLogo({
   const src = variant === "footer" ? footerLogoUrl : logoUrl;
 
   const footerClass =
-    "h-9 w-auto max-w-[14rem] sm:max-w-[18rem] object-contain object-left shrink-0";
+    "h-11 sm:h-12 md:h-14 w-auto max-w-[18rem] sm:max-w-[22rem] md:max-w-[26rem] object-contain object-left shrink-0";
 
   return (
     <span className={cn("inline-flex items-center min-w-0 max-w-full", className)}>
       <img
         src={src}
         alt={platformName}
-        width={176}
-        height={32}
+        width={variant === "footer" ? 280 : 176}
+        height={variant === "footer" ? 56 : 32}
         decoding="async"
         className={cn(
           variant === "footer" ? footerClass : imageClassName,

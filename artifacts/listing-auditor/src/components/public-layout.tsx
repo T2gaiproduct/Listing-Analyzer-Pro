@@ -402,7 +402,7 @@ export function PublicFooter() {
           <div className="col-span-2 lg:col-span-2 min-w-0">
             <Link
               href="/"
-              className="inline-flex items-center gap-2.5 font-bold text-lg text-white mb-4 max-w-full flex-nowrap min-w-0"
+              className="inline-flex items-center gap-2.5 font-bold text-lg text-white mb-5 sm:mb-6 max-w-full flex-nowrap min-w-0"
             >
               <SiteLogo variant="footer" />
             </Link>
