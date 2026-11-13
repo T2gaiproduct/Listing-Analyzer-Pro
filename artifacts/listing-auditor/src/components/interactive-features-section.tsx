@@ -154,6 +154,11 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   return card;
 }
 
+function firstSelectableFeatureIndex(features: FeatureItem[]): number {
+  const idx = features.findIndex((f) => !f.comingSoon);
+  return idx >= 0 ? idx : 0;
+}
+
 function ServiceTab({
   feature,
   isActive,
@@ -166,6 +171,48 @@ function ServiceTab({
   layout: "sidebar" | "mobile-vertical";
 }) {
   const Icon = feature.icon;
+  const soonBadge = feature.comingSoon ? (
+    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+      Soon
+    </span>
+  ) : null;
+
+  if (feature.comingSoon) {
+    const disabledShell = cn(
+      "flex items-center gap-3 w-full text-left border cursor-not-allowed opacity-70",
+      layout === "mobile-vertical"
+        ? "px-4 py-3.5 rounded-lg border-l-[4px] bg-slate-50/80 border-slate-200/80 border-l-transparent"
+        : "flex-1 min-h-[4.5rem] px-4 py-4 rounded-xl bg-slate-50/90 border-slate-200/90",
+    );
+
+    return (
+      <div
+        className={disabledShell}
+        aria-disabled="true"
+        title="Coming soon"
+      >
+        {layout === "mobile-vertical" ? (
+          <>
+            <Icon className="w-[18px] h-[18px] shrink-0 text-slate-400" strokeWidth={1.75} />
+            <span className="font-semibold text-[15px] leading-snug flex-1 min-w-0 text-slate-500">
+              {feature.title}
+            </span>
+            {soonBadge}
+          </>
+        ) : (
+          <>
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 border bg-slate-50 border-slate-200">
+              <Icon className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
+            </div>
+            <span className="font-semibold text-sm sm:text-[15px] leading-snug flex-1 min-w-0 text-slate-500">
+              {feature.title}
+            </span>
+            {soonBadge}
+          </>
+        )}
+      </div>
+    );
+  }
 
   if (layout === "mobile-vertical") {
     return (
@@ -195,11 +242,6 @@ function ServiceTab({
         >
           {feature.title}
         </span>
-        {feature.comingSoon && (
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-            Soon
-          </span>
-        )}
       </button>
     );
   }
@@ -240,17 +282,12 @@ function ServiceTab({
       >
         {feature.title}
       </span>
-      {feature.comingSoon && (
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-          Soon
-        </span>
-      )}
     </button>
   );
 }
 
 export function InteractiveFeaturesSection({ features }: { features: FeatureItem[] }) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(() => firstSelectableFeatureIndex(features));
   const activeFeature = features[activeIndex] ?? features[0];
 
   if (!activeFeature) return null;
@@ -267,7 +304,9 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
               key={feature.title}
               feature={feature}
               isActive={i === activeIndex}
-              onSelect={() => setActiveIndex(i)}
+              onSelect={() => {
+                if (!feature.comingSoon) setActiveIndex(i);
+              }}
               layout="mobile-vertical"
             />
           ))}
@@ -283,7 +322,9 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
               key={feature.title}
               feature={feature}
               isActive={i === activeIndex}
-              onSelect={() => setActiveIndex(i)}
+              onSelect={() => {
+                if (!feature.comingSoon) setActiveIndex(i);
+              }}
               layout="sidebar"
             />
           ))}
