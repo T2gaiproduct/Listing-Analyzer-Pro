@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { PageSeo } from "@/components/page-seo";
-import { Mail, Phone, MapPin, Clock, Calendar, Send, CheckCircle2 } from "lucide-react";
+import { Mail, Phone, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import { ECOMMERCE_GURU_PLACEHOLDERS } from "@/lib/ecommerce-guru-placeholders";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type FormType = "contact" | "demo" | "enterprise";
+type FormType = "contact" | "enterprise";
 
 export default function Contact() {
   const { contact } = useCompanyContact();
@@ -87,7 +87,6 @@ export default function Contact() {
 
   const tabs: { key: FormType; label: string }[] = [
     { key: "contact", label: "General Inquiry" },
-    { key: "demo", label: "Book a Demo" },
     { key: "enterprise", label: "Enterprise Sales" },
   ];
 
@@ -109,7 +108,7 @@ export default function Contact() {
           We'd love to hear from you
         </h1>
         <p className="text-lg text-slate-500 max-w-lg mx-auto">
-          Whether you have a question, want a demo, or need an enterprise solution — we're here.
+          Whether you have a question or need an enterprise solution — we're here.
         </p>
       </section>
 
@@ -140,20 +139,6 @@ export default function Contact() {
               </div>
             </div>
 
-            <div className="bg-orange-50 border border-orange-100 rounded-xl p-5">
-              <Calendar className="w-5 h-5 text-orange-500 mb-3" />
-              <p className="font-semibold text-slate-900 text-sm mb-1">Book a live demo</p>
-              <p className="text-slate-500 text-xs leading-relaxed">
-                See Ecommerce Guru in action with a 15-minute personalized walkthrough from our team.
-              </p>
-              <Button
-                size="sm"
-                className="mt-3 bg-orange-500 hover:bg-orange-600 text-white w-full"
-                onClick={() => setFormType("demo")}
-              >
-                Schedule demo
-              </Button>
-            </div>
           </div>
 
           {/* Right: form */}
@@ -211,7 +196,7 @@ export default function Contact() {
                   </div>
                 </div>
 
-                {(formType === "demo" || formType === "enterprise") && (
+                {formType === "enterprise" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="company">Company name</Label>
@@ -244,13 +229,6 @@ export default function Contact() {
                   </div>
                 )}
 
-                {formType === "demo" && (
-                  <div>
-                    <Label htmlFor="demoDate">Preferred demo date</Label>
-                    <Input id="demoDate" name="demoDate" type="date" value={form.demoDate} onChange={handleChange} className="mt-1" />
-                  </div>
-                )}
-
                 {formType === "contact" && (
                   <div>
                     <Label htmlFor="subject">Subject *</Label>
@@ -260,7 +238,7 @@ export default function Contact() {
 
                 <div>
                   <Label htmlFor="message">
-                    {formType === "enterprise" ? "Tell us about your needs *" : formType === "demo" ? "What would you like to see? *" : "Message *"}
+                    {formType === "enterprise" ? "Tell us about your needs *" : "Message *"}
                   </Label>
                   <Textarea
                     id="message"
@@ -270,8 +248,6 @@ export default function Contact() {
                     placeholder={
                       formType === "enterprise"
                         ? "Describe your catalog size, team, and goals..."
-                        : formType === "demo"
-                        ? "Share your product category or any specific questions..."
                         : "Your message..."
                     }
                     required
@@ -294,7 +270,7 @@ export default function Contact() {
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
-                      {formType === "demo" ? "Request Demo" : formType === "enterprise" ? "Contact Sales" : "Send Message"}
+                      {formType === "enterprise" ? "Contact Sales" : "Send Message"}
                     </>
                   )}
                 </Button>
