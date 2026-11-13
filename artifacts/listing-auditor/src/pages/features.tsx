@@ -149,7 +149,7 @@ export default function Features() {
         <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight mb-4 max-w-3xl mx-auto">
           Everything Amazon sellers need to win
         </h1>
-        <p className="text-xl text-slate-500 max-w-xl mx-auto mb-8">
+        <p className="text-xl md:text-2xl text-slate-500 max-w-2xl mx-auto mb-8 leading-relaxed">
           From initial audit to AI-generated content to professional images — one platform, zero guesswork.
         </p>
         <Button size="lg" className="px-8 shadow-md" asChild>
@@ -177,13 +177,13 @@ export default function Features() {
 
               {/* Content side */}
               <div className="flex-1">
-                <h2 className="text-3xl font-bold text-slate-900 mb-2">{f.title}</h2>
-                <p className="text-orange-500 font-semibold mb-4">{f.subtitle}</p>
-                <p className="text-slate-500 mb-6 leading-relaxed">{f.description}</p>
-                <ul className="space-y-2.5">
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">{f.title}</h2>
+                <p className="text-lg text-orange-500 font-semibold mb-4">{f.subtitle}</p>
+                <p className="text-lg text-slate-600 mb-6 leading-relaxed">{f.description}</p>
+                <ul className="space-y-3">
                   {f.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2 text-sm text-slate-700">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    <li key={b} className="flex items-start gap-2.5 text-base md:text-lg text-slate-700">
+                      <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                       {b}
                     </li>
                   ))}
@@ -197,8 +197,8 @@ export default function Features() {
       {/* Before / After */}
       <section className="bg-slate-50 px-6 py-20">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-3">See the difference AI makes</h2>
-          <p className="text-slate-500 text-center mb-12">Real examples of listings before and after Ecommerce Guru optimization.</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-3">See the difference AI makes</h2>
+          <p className="text-lg text-slate-600 text-center mb-12 max-w-2xl mx-auto leading-relaxed">Real examples of listings before and after Ecommerce Guru optimization.</p>
           <div className="space-y-8">
             {beforeAfter.map((ex) => (
               <div key={ex.label} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -207,14 +207,14 @@ export default function Features() {
                     <span className="text-xs font-semibold text-red-500 uppercase tracking-wide">Before — {ex.label}</span>
                     <span className="bg-red-100 text-red-600 text-sm font-bold px-2.5 py-0.5 rounded-full">Score: {ex.beforeScore}</span>
                   </div>
-                  <p className="text-slate-600 text-sm leading-relaxed">{ex.before}</p>
+                  <p className="text-slate-600 text-base md:text-lg leading-relaxed">{ex.before}</p>
                 </div>
                 <div className="bg-white border border-green-200 rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-semibold text-green-600 uppercase tracking-wide">After AI Optimization — {ex.label}</span>
                     <span className="bg-green-100 text-green-700 text-sm font-bold px-2.5 py-0.5 rounded-full">Score: {ex.afterScore}</span>
                   </div>
-                  <p className="text-slate-700 text-sm leading-relaxed font-medium">{ex.after}</p>
+                  <p className="text-slate-700 text-base md:text-lg leading-relaxed font-medium">{ex.after}</p>
                 </div>
               </div>
             ))}
@@ -225,7 +225,7 @@ export default function Features() {
       {/* Mini features */}
       <section className="px-6 py-20">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-slate-900 text-center mb-10">Plus everything else you need</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-10">Plus everything else you need</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {miniFeatures.map((f) => (
               <div key={f.title} className="flex gap-4 border border-slate-200 rounded-xl p-5">
@@ -233,8 +233,8 @@ export default function Features() {
                   <f.icon className="w-5 h-5 text-slate-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900 mb-1">{f.title}</p>
-                  <p className="text-slate-500 text-sm">{f.desc}</p>
+                  <p className="text-lg font-semibold text-slate-900 mb-1">{f.title}</p>
+                  <p className="text-slate-600 text-base md:text-lg leading-relaxed">{f.desc}</p>
                 </div>
               </div>
             ))}
@@ -245,7 +245,7 @@ export default function Features() {
       {/* CTA */}
       <section className="bg-slate-900 px-6 py-16 text-center">
         <h2 className="text-3xl font-bold text-white mb-3">Ready to transform your listings?</h2>
-        <p className="text-slate-400 mb-8 max-w-md mx-auto">Start your first audit in under 2 minutes. No credit card required.</p>
+        <p className="text-lg text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">Start your first audit in under 2 minutes. No credit card required.</p>
         <div className="flex justify-center gap-4 flex-wrap">
           <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-8" asChild>
             <Link href="/sign-up">Get Started</Link>
