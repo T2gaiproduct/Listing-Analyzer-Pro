@@ -259,10 +259,18 @@ async function handleSubscriptionUpdated(sub: Record<string, unknown> & { id: st
     const [newPlan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
     if (newPlan) {
       const grantCredits = await planRowToGrantCredits(newPlan);
+      let previousPlanCredits = null;
+      if (previousPlanId != null) {
+        const [oldPlan] = await db.select().from(plansTable).where(eq(plansTable.id, previousPlanId));
+        if (oldPlan) {
+          previousPlanCredits = await planRowToGrantCredits(oldPlan);
+        }
+      }
       const granted = await grantPlanCreditsDelta(
         userId,
         grantCredits,
         `${newPlan.name} plan — subscription plan changed`,
+        { previousPlan: previousPlanCredits },
       );
       logger.info(
         { userId, previousPlanId, planId, granted },

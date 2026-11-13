@@ -56,17 +56,37 @@ export async function subscriptionGrantsTotal(userId: string): Promise<CreditBal
  * Grant only the plan credits the user has not already received via subscription grants.
  * Returns true when any credits were added.
  */
+function planUpgradeBump(
+  previousPlan: PlanCredits,
+  plan: PlanCredits,
+): CreditBalances {
+  return {
+    aiCredits: Math.max(0, plan.aiCredits - previousPlan.aiCredits),
+    imageCredits: Math.max(0, plan.imageCredits - previousPlan.imageCredits),
+    auditCredits: Math.max(0, plan.auditCredits - previousPlan.auditCredits),
+  };
+}
+
 export async function grantPlanCreditsDelta(
   userId: string,
   plan: PlanCredits,
   reason: string,
+  options?: { previousPlan?: PlanCredits | null },
 ): Promise<boolean> {
   const granted = await subscriptionGrantsTotal(userId);
-  const toAdd = {
+  const lifetimeDelta: CreditBalances = {
     aiCredits: Math.max(0, plan.aiCredits - granted.aiCredits),
     imageCredits: Math.max(0, plan.imageCredits - granted.imageCredits),
     auditCredits: Math.max(0, plan.auditCredits - granted.auditCredits),
   };
+
+  const toAdd = { ...lifetimeDelta };
+  if (options?.previousPlan) {
+    const upgradeBump = planUpgradeBump(options.previousPlan, plan);
+    toAdd.aiCredits = Math.max(toAdd.aiCredits, upgradeBump.aiCredits);
+    toAdd.imageCredits = Math.max(toAdd.imageCredits, upgradeBump.imageCredits);
+    toAdd.auditCredits = Math.max(toAdd.auditCredits, upgradeBump.auditCredits);
+  }
 
   if (toAdd.aiCredits + toAdd.imageCredits + toAdd.auditCredits <= 0) {
     return false;
