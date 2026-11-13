@@ -8,7 +8,7 @@ export function GraphicsProjectHistory() {
       includeAuditListingsInGraphicsHistory
       sectionTitle="Your graphics history"
       emptyTitle="No graphics projects yet"
-      emptyDescription="Click Create Images and choose how to begin. Completed work will appear here."
+      emptyDescription="Click Create Graphics and choose how to begin. Completed work will appear here."
     />
   );
 }
