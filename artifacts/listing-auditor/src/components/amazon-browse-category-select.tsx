@@ -6,6 +6,8 @@ import {
   filterAmazonBrowseCategories,
   findBrowseCategoryByPath,
   leafLabelFromBrowsePath,
+  topLevelBrowseDepartment,
+  browsePathSegments,
   PFA_BROWSE_CATEGORIES,
   rememberBrowseCategorySelection,
   resolveRecentBrowseCategories,
@@ -41,8 +43,12 @@ export function AmazonBrowseCategorySelect({
   }, [open]);
 
   const selected = useMemo(() => findBrowseCategoryByPath(value), [value]);
-  const triggerLabel = selected?.label ?? (value ? leafLabelFromBrowsePath(value) : "");
-  const triggerSubtext = selected?.browsePath ?? (value && !selected ? value : "");
+  const displayPath = selected?.browsePath ?? value;
+  const leafLabel = selected?.label ?? (value ? leafLabelFromBrowsePath(value) : "");
+  const topLevel = displayPath ? topLevelBrowseDepartment(displayPath) : "";
+  const pathForDisplay = displayPath
+    ? browsePathSegments(displayPath).join(" > ")
+    : "";
 
   const recent = useMemo(() => resolveRecentBrowseCategories(PFA_BROWSE_CATEGORIES), [open]);
   const searchResults = useMemo(
@@ -71,24 +77,37 @@ export function AmazonBrowseCategorySelect({
             type="button"
             onClick={() => setOpen((o) => !o)}
             className={cn(
-              "relative w-full min-h-11 sm:min-h-12 pl-3 pr-9 rounded-xl border border-border text-sm bg-card shadow-none",
+              "relative w-full min-h-11 sm:min-h-12 py-2 pl-3 pr-9 rounded-xl border border-border text-sm bg-card shadow-none",
               "focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left",
               triggerClassName,
             )}
+            title={pathForDisplay || undefined}
           >
             {value ? (
               <span className="block min-w-0 pr-1">
-                <span className="block text-foreground truncate">{triggerLabel}</span>
-                {triggerSubtext && triggerSubtext !== triggerLabel ? (
-                  <span className="block text-[11px] text-muted-foreground truncate mt-0.5">
-                    {triggerSubtext}
+                <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-foreground leading-snug">
+                  {topLevel && topLevel !== leafLabel ? (
+                    <span className="font-medium text-foreground">{topLevel}</span>
+                  ) : null}
+                  {topLevel && topLevel !== leafLabel ? (
+                    <span className="text-muted-foreground" aria-hidden>
+                      ›
+                    </span>
+                  ) : null}
+                  <span className={cn("font-semibold", topLevel === leafLabel && "font-medium")}>
+                    {leafLabel}
+                  </span>
+                </span>
+                {pathForDisplay && pathForDisplay !== leafLabel ? (
+                  <span className="block text-[11px] text-muted-foreground mt-1 leading-snug whitespace-normal break-words">
+                    {pathForDisplay}
                   </span>
                 ) : null}
               </span>
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>
             )}
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <ChevronDown className="absolute right-3 top-3 sm:top-1/2 sm:-translate-y-1/2 w-4 h-4 text-muted-foreground" />
           </button>
         </PopoverAnchor>
         <PopoverContent
@@ -135,8 +154,8 @@ export function AmazonBrowseCategorySelect({
                     >
                       {c.label}
                     </span>
-                    <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">
-                      {c.browsePath}
+                    <span className="block text-xs text-muted-foreground mt-0.5 leading-snug whitespace-normal break-words">
+                      {browsePathSegments(c.browsePath).join(" > ")}
                     </span>
                   </button>
                 );

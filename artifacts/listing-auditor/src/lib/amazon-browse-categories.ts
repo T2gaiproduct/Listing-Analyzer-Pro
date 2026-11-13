@@ -12,9 +12,19 @@ const MAX_SEARCH_RESULTS = 120;
 
 export const PFA_BROWSE_CATEGORIES: AmazonBrowseCategory[] = browseCatalog.categories;
 
+export function browsePathSegments(browsePath: string): string[] {
+  return browsePath.split(">").map((p) => p.trim()).filter(Boolean);
+}
+
 export function leafLabelFromBrowsePath(browsePath: string): string {
-  const parts = browsePath.split(">").map((p) => p.trim()).filter(Boolean);
+  const parts = browsePathSegments(browsePath);
   return parts[parts.length - 1] ?? browsePath;
+}
+
+/** First department in the path (e.g. "Toys & Games"). */
+export function topLevelBrowseDepartment(browsePath: string): string {
+  const parts = browsePathSegments(browsePath);
+  return parts[0] ?? "";
 }
 
 export function findBrowseCategoryByPath(path: string): AmazonBrowseCategory | undefined {
