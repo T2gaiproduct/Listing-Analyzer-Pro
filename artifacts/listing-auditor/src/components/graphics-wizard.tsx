@@ -12,8 +12,9 @@ import { useTeam } from "@/hooks/use-team";
 import {
   Upload, ArrowRight, Check, ImageIcon, Loader2, Trash2,
   Wand2, Sparkles, Search, RefreshCw, Clock, Download,
-  ArrowLeft, Maximize2, AlertTriangle,
+  ArrowLeft, Maximize2, AlertTriangle, Package,
 } from "lucide-react";
+import { saveGraphicsRecordsToProductExplorer } from "@/lib/sync-graphics-to-product-explorer";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
@@ -740,6 +741,28 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     });
   };
 
+  const [isSavingToProductExplorer, setIsSavingToProductExplorer] = useState(false);
+
+  const handleSaveToProductExplorer = async () => {
+    if (!canEditGraphics || records.length === 0) return;
+    setIsSavingToProductExplorer(true);
+    try {
+      await saveGraphicsRecordsToProductExplorer(auditId, records, queryClient);
+      toast({
+        title: "Saved to Product Explorer",
+        description: "Generated graphics are on the product overview and listing preview.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not save",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingToProductExplorer(false);
+    }
+  };
+
   const displayProject = project ?? existingProject ?? null;
   const records: ImageRecord[] = displayProject?.imageRecords ?? [];
   const lifestyleRecords = records.filter((r) => r.type === "lifestyle");
@@ -1304,11 +1327,31 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
               Generated graphics ({records.length})
             </p>
-            {canEditGraphics && records.length > 0 && (
-              <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleDownloadAll}>
-                <Download className="w-3 h-3" />
-                Download all
-              </Button>
+            {records.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {canEditGraphics && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 text-[10px] gap-1 bg-orange-500 hover:bg-orange-600 text-white"
+                    disabled={isSavingToProductExplorer}
+                    onClick={() => void handleSaveToProductExplorer()}
+                  >
+                    {isSavingToProductExplorer ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Package className="w-3 h-3" />
+                    )}
+                    Save to Product Explorer
+                  </Button>
+                )}
+                {canEditGraphics && (
+                  <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleDownloadAll}>
+                    <Download className="w-3 h-3" />
+                    Download all
+                  </Button>
+                )}
+              </div>
             )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
