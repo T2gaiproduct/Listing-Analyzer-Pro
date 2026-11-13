@@ -404,6 +404,9 @@ export function Layout({ children }: { children: ReactNode }) {
       if (type === "audit" || type === "listing") {
         void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
       }
+      if (type === "graphics") {
+        void queryClient.invalidateQueries({ queryKey: ["graphics-project-ribbon", id] });
+      }
     },
   });
 
@@ -500,17 +503,42 @@ export function Layout({ children }: { children: ReactNode }) {
   // For audit/listing pages, fetch the audit to get product/project name for ribbon
   const isAuditPage = projectCtx?.type === "audit";
   const isListingPage = projectCtx?.type === "listing";
+  const isGraphicsPage = projectCtx?.type === "graphics";
   const ribbonAuditId = (isAuditPage || isListingPage) ? projectCtx!.id : 0;
+  const ribbonGraphicsId = isGraphicsPage ? projectCtx!.id : 0;
   const { data: ribbonAudit } = useGetAudit(
     ribbonAuditId,
     { query: { enabled: isAuditPage || isListingPage, queryKey: getGetAuditQueryKey(ribbonAuditId) } }
   );
 
+  const { data: ribbonGraphicsProject } = useQuery({
+    queryKey: ["graphics-project-ribbon", ribbonGraphicsId],
+    queryFn: async () => {
+      const r = await fetch(`${basePath}/api/graphics/projects/${ribbonGraphicsId}`, {
+        credentials: "include",
+      });
+      if (!r.ok) throw new Error("Failed to load graphics project");
+      return r.json() as { name?: string | null; productName?: string | null };
+    },
+    enabled: isGraphicsPage && ribbonGraphicsId > 0,
+    staleTime: 60_000,
+  });
+
+  const recentMatchName =
+    recents.find((r) => r.id === projectCtx?.id && r.type === projectCtx?.type)?.name?.trim() ?? "";
+
+  const graphicsRibbonTitle =
+    ribbonGraphicsProject?.productName?.trim()
+    || ribbonGraphicsProject?.name?.trim()
+    || recentMatchName;
+
   const ribbonTitle = isAuditPage
     ? (ribbonAudit?.productName ?? "")
     : isListingPage
     ? (ribbonAudit?.projectName ?? ribbonAudit?.productName ?? "")
-    : (recents.find((r) => r.id === projectCtx?.id && r.type === projectCtx?.type)?.name ?? "");
+    : isGraphicsPage
+    ? graphicsRibbonTitle
+    : recentMatchName;
 
   function handleShare() {
     const url = buildProjectShareUrl(
