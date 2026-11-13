@@ -619,14 +619,14 @@ export default function Landing() {
           </div>
         )}
         <div className={cn("relative", LANDING_SECTION_PAD, LANDING_SECTION_CLASS)}>
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 max-w-3xl lg:max-w-5xl mx-auto mt-8 sm:mt-10 justify-items-center">
             {heroStats.map((s) => (
-              <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-50 flex items-center justify-center mb-1.5 shrink-0">
-                  <s.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+              <div key={s.label} className="flex flex-col items-center text-center min-w-0 w-full max-w-[12rem] sm:max-w-none">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full bg-orange-50 flex items-center justify-center mb-2 sm:mb-3 shrink-0">
+                  <s.icon className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-orange-500" />
                 </div>
-                <p className="text-base sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">{s.value}</p>
-                <p className="text-[10px] sm:text-sm text-slate-500 leading-snug mt-0.5">{s.label}</p>
+                <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">{s.value}</p>
+                <p className="text-xs sm:text-sm text-slate-500 leading-snug mt-1">{s.label}</p>
               </div>
             ))}
           </div>
