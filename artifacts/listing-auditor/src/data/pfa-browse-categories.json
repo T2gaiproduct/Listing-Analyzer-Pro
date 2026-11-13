@@ -1,9 +1,10 @@
 {
   "sources": [
     "TOYS_AND_GAMES_BABY_SEAT_ff88.xlsm",
-    "BACKPACK_SUITCASE_WALLET_8efd.xlsm"
+    "BACKPACK_SUITCASE_WALLET_8efd.xlsm",
+    "BATHWATER_ADDITIVE_PERSONAL_FRAGRANCE_SPRAY_BOTTLE_8956.xlsm"
   ],
-  "updatedAt": "2026-11-13T08:15:40.268Z",
+  "updatedAt": "2026-11-13T08:25:14.108Z",
   "categories": [
     {
       "browseNodeId": "21731958031",
@@ -49,6 +50,11 @@
       "browseNodeId": "1953416031",
       "browsePath": "Baby > Nursery > Furniture > Hook-on Seats",
       "label": "Hook-on Seats"
+    },
+    {
+      "browseNodeId": "1804328031",
+      "browsePath": "Baby Products > Health & Baby Care > Bathing > Bath Salts",
+      "label": "Bath Salts"
     },
     {
       "browseNodeId": "2917430031",
@@ -191,6 +197,136 @@
       "label": "Wallets"
     },
     {
+      "browseNodeId": "3091964031",
+      "browsePath": "Beauty > Bath & Body > Bath Additives",
+      "label": "Bath Additives"
+    },
+    {
+      "browseNodeId": "344276031",
+      "browsePath": "Beauty > Bath & Body > Bath Additives > Bath Bombs",
+      "label": "Bath Bombs"
+    },
+    {
+      "browseNodeId": "344279031",
+      "browsePath": "Beauty > Bath & Body > Bath Additives > Bath Oils",
+      "label": "Bath Oils"
+    },
+    {
+      "browseNodeId": "344278031",
+      "browsePath": "Beauty > Bath & Body > Bath Additives > Bath Salts",
+      "label": "Bath Salts"
+    },
+    {
+      "browseNodeId": "344277031",
+      "browsePath": "Beauty > Bath & Body > Bath Additives > Bubble Bath",
+      "label": "Bubble Bath"
+    },
+    {
+      "browseNodeId": "65958852031",
+      "browsePath": "Beauty > Bath & Body > Bath Additives > Shower Steamers",
+      "label": "Shower Steamers"
+    },
+    {
+      "browseNodeId": "3091966031",
+      "browsePath": "Beauty > Bath & Body > Bath Additives > Tub Teas",
+      "label": "Tub Teas"
+    },
+    {
+      "browseNodeId": "2790126031",
+      "browsePath": "Beauty > Fragrances > Children",
+      "label": "Children"
+    },
+    {
+      "browseNodeId": "2790128031",
+      "browsePath": "Beauty > Fragrances > Men > Eau de Cologne",
+      "label": "Eau de Cologne"
+    },
+    {
+      "browseNodeId": "2790129031",
+      "browsePath": "Beauty > Fragrances > Men > Eau de Perfume",
+      "label": "Eau de Perfume"
+    },
+    {
+      "browseNodeId": "2790130031",
+      "browsePath": "Beauty > Fragrances > Men > Eau de Toilette",
+      "label": "Eau de Toilette"
+    },
+    {
+      "browseNodeId": "2790131031",
+      "browsePath": "Beauty > Fragrances > Men > Perfume Extract",
+      "label": "Perfume Extract"
+    },
+    {
+      "browseNodeId": "2790132031",
+      "browsePath": "Beauty > Fragrances > Men > Sets",
+      "label": "Sets"
+    },
+    {
+      "browseNodeId": "118463031",
+      "browsePath": "Beauty > Fragrances > Sets",
+      "label": "Sets"
+    },
+    {
+      "browseNodeId": "2790135031",
+      "browsePath": "Beauty > Fragrances > Women > Body Sprays",
+      "label": "Body Sprays"
+    },
+    {
+      "browseNodeId": "2790136031",
+      "browsePath": "Beauty > Fragrances > Women > Eau de Cologne",
+      "label": "Eau de Cologne"
+    },
+    {
+      "browseNodeId": "2790137031",
+      "browsePath": "Beauty > Fragrances > Women > Eau de Parfum",
+      "label": "Eau de Parfum"
+    },
+    {
+      "browseNodeId": "2790138031",
+      "browsePath": "Beauty > Fragrances > Women > Eau de Toilette",
+      "label": "Eau de Toilette"
+    },
+    {
+      "browseNodeId": "2790139031",
+      "browsePath": "Beauty > Fragrances > Women > Perfume Extract",
+      "label": "Perfume Extract"
+    },
+    {
+      "browseNodeId": "2790140031",
+      "browsePath": "Beauty > Fragrances > Women > Perfume Oils",
+      "label": "Perfume Oils"
+    },
+    {
+      "browseNodeId": "2790141031",
+      "browsePath": "Beauty > Fragrances > Women > Sets",
+      "label": "Sets"
+    },
+    {
+      "browseNodeId": "27208874031",
+      "browsePath": "Beauty > Hair Care > Hair Fragrances",
+      "label": "Hair Fragrances"
+    },
+    {
+      "browseNodeId": "2868008031",
+      "browsePath": "Beauty > Salon & Spa Equipment > Spray Bottles",
+      "label": "Spray Bottles"
+    },
+    {
+      "browseNodeId": "2799758031",
+      "browsePath": "Beauty > Tools & Accessories > Atomisers",
+      "label": "Atomisers"
+    },
+    {
+      "browseNodeId": "28047686031",
+      "browsePath": "Beauty > Tools & Accessories > Refillable Containers > Spray Bottles",
+      "label": "Spray Bottles"
+    },
+    {
+      "browseNodeId": "6284547031",
+      "browsePath": "Business, Industry & Science > Lab & Scientific Products > Glassware & Labware > Lab Bottles & Jars > Pump & Spray Bottles > Spray Bottles",
+      "label": "Spray Bottles"
+    },
+    {
       "browseNodeId": "1375464031",
       "browsePath": "Computers & Accessories > Accessories & Peripherals > Laptop Accessories > Bags & Sleeves > Laptop Backpacks",
       "label": "Laptop Backpacks"
@@ -209,6 +345,21 @@
       "browseNodeId": "21529675031",
       "browsePath": "Electronics > Mobiles & Accessories > Mobile Accessories > Adhesive Card Holders",
       "label": "Adhesive Card Holders"
+    },
+    {
+      "browseNodeId": "27972500031",
+      "browsePath": "Home & Kitchen > Cooking & Dining > Kitchen Tools & Gadgets > Oil Preparation & Dispensers > Oil Sprayers",
+      "label": "Oil Sprayers"
+    },
+    {
+      "browseNodeId": "3576375031",
+      "browsePath": "Home & Kitchen > Kitchen & Home Appliances > Irons, Steamers & Accessories > Ironing Accessories > Spray Bottles",
+      "label": "Spray Bottles"
+    },
+    {
+      "browseNodeId": "471406031",
+      "browsePath": "Pet Supplies > Dogs > Grooming > Colognes & Finishing Sprays",
+      "label": "Colognes & Finishing Sprays"
     },
     {
       "browseNodeId": "1983347031",
