@@ -42,6 +42,7 @@ import { GraphicsCreateStepContent } from "@/components/product-workflow-step-co
 import {
   graphicsInDetailViewPath,
   isOpenedFromGraphicsInDetailHub,
+  isScratchGraphicsProjectOpen,
   parseGraphicsInDetailTab,
   type GraphicsInDetailTab,
 } from "@/lib/graphics-in-detail-nav";
@@ -195,8 +196,11 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   });
 
   const linkedAuditId = project?.auditId ?? null;
-  /** Created via Create Graphics → From scratch (`returnTo=/projects`), not Graphics in Detail. */
-  const isStandaloneScratchGraphics = !isOpenedFromGraphicsInDetailHub(search);
+  /** From-scratch graphics: no listing overview — graphics workspace only. */
+  const isStandaloneScratchGraphics =
+    isScratchGraphicsProjectOpen(search)
+    || !isOpenedFromGraphicsInDetailHub(search)
+    || linkedAuditId == null;
 
   useEffect(() => {
     if (!isStandaloneScratchGraphics) return;

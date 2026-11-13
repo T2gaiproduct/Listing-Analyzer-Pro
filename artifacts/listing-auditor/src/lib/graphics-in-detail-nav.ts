@@ -1,5 +1,26 @@
 export const GRAPHICS_IN_DETAIL_FROM = "graphics-in-detail";
 
+/** Query flag when a graphics project was started via Create Graphics → From scratch. */
+export const GRAPHICS_PROJECT_ORIGIN_SCRATCH = "scratch";
+
+export function isScratchGraphicsProjectOpen(search: string | undefined): boolean {
+  const raw = search ?? "";
+  const q = raw.startsWith("?") ? raw.slice(1) : raw;
+  return new URLSearchParams(q).get("graphicsOrigin") === GRAPHICS_PROJECT_ORIGIN_SCRATCH;
+}
+
+export function graphicsScratchProjectViewPath(
+  projectId: number,
+  returnTo = "/projects",
+): string {
+  const params = new URLSearchParams({
+    returnTo,
+    graphicsOrigin: GRAPHICS_PROJECT_ORIGIN_SCRATCH,
+    tab: "create_graphics",
+  });
+  return `/projects/${projectId}?${params.toString()}`;
+}
+
 export type GraphicsInDetailTab = "overview" | "create_graphics";
 
 export function parseGraphicsDetailOpenFrom(search: string | undefined): typeof GRAPHICS_IN_DETAIL_FROM | null {

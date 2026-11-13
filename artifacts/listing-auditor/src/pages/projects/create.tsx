@@ -28,6 +28,10 @@ import {
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
+import {
+  GRAPHICS_PROJECT_ORIGIN_SCRATCH,
+  graphicsScratchProjectViewPath,
+} from "@/lib/graphics-in-detail-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -267,16 +271,18 @@ export default function CreateProject() {
     onSuccess: ({ project, flow }) => {
       refreshCreditBalances(queryClient);
       void queryClient.invalidateQueries({ queryKey: ["graphics-projects-list"] });
-      const returnTo = encodeURIComponent("/projects");
       if (flow === "aplus") {
         toast({
           title: "A+ generation started",
           description: "Track module progress on your graphics project.",
         });
-        nav(`/projects/${project.id}?returnTo=${returnTo}`);
+        nav(graphicsScratchProjectViewPath(project.id));
         return;
       }
-      nav(`/projects/${project.id}/generating?returnTo=${returnTo}`);
+      nav(`/projects/${project.id}/generating?${new URLSearchParams({
+        returnTo: "/projects",
+        graphicsOrigin: GRAPHICS_PROJECT_ORIGIN_SCRATCH,
+      }).toString()}`);
     },
     onError: (err) => {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to create", variant: "destructive" });

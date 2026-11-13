@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowRight } from "lucide-react";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import { ImageGenerationProgressPanel } from "@/components/image-generation-progress-panel";
+import { graphicsScratchProjectViewPath } from "@/lib/graphics-in-detail-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -66,9 +67,8 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
         void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
         void queryClient.invalidateQueries({ queryKey: ["graphics-projects-list"] });
       }
-      const returnTo = encodeURIComponent("/projects");
       setTimeout(
-        () => nav(`/projects/${id}?returnTo=${returnTo}`, { replace: true }),
+        () => nav(graphicsScratchProjectViewPath(Number(id)), { replace: true }),
         1000,
       );
       return;
