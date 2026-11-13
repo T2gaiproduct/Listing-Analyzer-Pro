@@ -6,9 +6,10 @@
     "SKIN_MOISTURIZER_PERSONAL_FRAGRANCE_CONDITIONER__1__8248.xlsm",
     "ABIS_BOOK_2bc3.xlsm",
     "MOTORCYCLES_AUTO_ACCESSORY_beb1.xlsm",
-    "LEOTARD_COORDINATED_OUTFIT_ACCESSORY_802d.xlsm"
+    "LEOTARD_COORDINATED_OUTFIT_ACCESSORY_802d.xlsm",
+    "ELECTRONIC_ADAPTER_b25d.xlsm"
   ],
-  "updatedAt": "2026-11-13T08:36:36.955Z",
+  "updatedAt": "2026-11-13T08:40:04.966Z",
   "categories": [
     {
       "browseNodeId": "21731958031",
@@ -10196,6 +10197,71 @@
       "label": "Sunglasses & Spectacle Frames"
     },
     {
+      "browseNodeId": "1375249031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters",
+      "label": "Adapters"
+    },
+    {
+      "browseNodeId": "1375250031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > DVI-HDMI Adapters",
+      "label": "DVI-HDMI Adapters"
+    },
+    {
+      "browseNodeId": "1375251031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > FireWire Adapters",
+      "label": "FireWire Adapters"
+    },
+    {
+      "browseNodeId": "1375252031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > Gender Changers",
+      "label": "Gender Changers"
+    },
+    {
+      "browseNodeId": "51348140031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > HDMI to VGA Adapters",
+      "label": "HDMI to VGA Adapters"
+    },
+    {
+      "browseNodeId": "51348138031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > Lightning Adapters",
+      "label": "Lightning Adapters"
+    },
+    {
+      "browseNodeId": "1375254031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > Parallel Adapters",
+      "label": "Parallel Adapters"
+    },
+    {
+      "browseNodeId": "1375253031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > PS > 2 Adapters",
+      "label": "2 Adapters"
+    },
+    {
+      "browseNodeId": "1375255031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > SCSI Adapters",
+      "label": "SCSI Adapters"
+    },
+    {
+      "browseNodeId": "1375256031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > Serial Adapters",
+      "label": "Serial Adapters"
+    },
+    {
+      "browseNodeId": "51348139031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > Thunderbolt Adapters",
+      "label": "Thunderbolt Adapters"
+    },
+    {
+      "browseNodeId": "1375257031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > USB to USB Adapters",
+      "label": "USB to USB Adapters"
+    },
+    {
+      "browseNodeId": "1375258031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Adapters > USB-VGA Adapters",
+      "label": "USB-VGA Adapters"
+    },
+    {
       "browseNodeId": "1375464031",
       "browsePath": "Computers & Accessories > Accessories & Peripherals > Laptop Accessories > Bags & Sleeves > Laptop Backpacks",
       "label": "Laptop Backpacks"
@@ -10211,9 +10277,59 @@
       "label": "Camera Backpacks"
     },
     {
+      "browseNodeId": "1389238031",
+      "browsePath": "Electronics > Car & Vehicle Electronics > Car & Vehicle Electronics Accessories > Audio & Video Accessories > Electronics Installation Equipment > Distribution Blocks",
+      "label": "Distribution Blocks"
+    },
+    {
+      "browseNodeId": "1389259031",
+      "browsePath": "Electronics > Car & Vehicle Electronics > Car & Vehicle Electronics Accessories > Audio & Video Accessories > Input Adapters",
+      "label": "Input Adapters"
+    },
+    {
+      "browseNodeId": "215602617031",
+      "browsePath": "Electronics > Car & Vehicle Electronics > Car & Vehicle Electronics Accessories > Audio & Video Accessories > Wireless Adapters",
+      "label": "Wireless Adapters"
+    },
+    {
+      "browseNodeId": "1388916031",
+      "browsePath": "Electronics > Headphones, Earbuds & Accessories > Adapters",
+      "label": "Adapters"
+    },
+    {
+      "browseNodeId": "1388880031",
+      "browsePath": "Electronics > Home Audio > Accessories > Adapters",
+      "label": "Adapters"
+    },
+    {
+      "browseNodeId": "1388962031",
+      "browsePath": "Electronics > Home Theater, TV & Video > Accessories > Video Converters",
+      "label": "Video Converters"
+    },
+    {
       "browseNodeId": "21529675031",
       "browsePath": "Electronics > Mobiles & Accessories > Mobile Accessories > Adhesive Card Holders",
       "label": "Adhesive Card Holders"
+    },
+    {
+      "browseNodeId": "11180536031",
+      "browsePath": "Electronics > Mobiles & Accessories > Mobile Accessories > Cables & Adapters > OTG Adapters",
+      "label": "OTG Adapters"
+    },
+    {
+      "browseNodeId": "51419978031",
+      "browsePath": "Electronics > Portable Media Players > Accessories > MP3 > MP4 Accessories > Cassette Player Adapters",
+      "label": "Cassette Player Adapters"
+    },
+    {
+      "browseNodeId": "51419956031",
+      "browsePath": "Electronics > Telephones & Accessories > Accessories > Adapters",
+      "label": "Adapters"
+    },
+    {
+      "browseNodeId": "51419954031",
+      "browsePath": "Electronics > Telephones & Accessories > Accessories > Wireless Jack Systems",
+      "label": "Wireless Jack Systems"
     },
     {
       "browseNodeId": "6648218031",
@@ -10734,6 +10850,31 @@
       "browseNodeId": "1378548031",
       "browsePath": "Toys & Games > Sport & Outdoor > Sandboxes & Beach Toys > Sand & Water Tables",
       "label": "Sand & Water Tables"
+    },
+    {
+      "browseNodeId": "13995124031",
+      "browsePath": "Video Games > Nintendo Switch > Accessories > Cables & Adapters > Adapters",
+      "label": "Adapters"
+    },
+    {
+      "browseNodeId": "14152987031",
+      "browsePath": "Video Games > PlayStation 4 > Accessories > Cables & Adapters > Adapters",
+      "label": "Adapters"
+    },
+    {
+      "browseNodeId": "20904630031",
+      "browsePath": "Video Games > PlayStation 5 > Accessories > Cables & Adapters > Adapters",
+      "label": "Adapters"
+    },
+    {
+      "browseNodeId": "14153193031",
+      "browsePath": "Video Games > Xbox One > Accessories > Cables & Adapters > Adapters",
+      "label": "Adapters"
+    },
+    {
+      "browseNodeId": "20904647031",
+      "browsePath": "Video Games > Xbox Series X & S > Accessories > Cables & Adapters > Adapters",
+      "label": "Adapters"
     }
   ]
 }
