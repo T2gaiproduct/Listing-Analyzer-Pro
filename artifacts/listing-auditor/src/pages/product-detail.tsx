@@ -86,6 +86,7 @@ import {
   resolveExistingContentForMarketplaceSlug,
   type ListingContentView,
 } from "@/components/listing-content-card";
+import { shouldShowExistingListingContent } from "@/lib/listing-compare-eligibility";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -171,16 +172,6 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function isStoreImportProduct(product?: Pick<ProductDetailView, "isShopifyImport" | "isWooCommerceImport"> | null): boolean {
   return Boolean(product?.isShopifyImport || product?.isWooCommerceImport);
-}
-
-/** Show the left "Existing Content" column for store imports and Amazon audit listings only. */
-function shouldShowExistingListingContent(
-  product?: Pick<ProductDetailView, "isShopifyImport" | "isWooCommerceImport"> | null,
-  audit?: { asin?: string | null } | null,
-): boolean {
-  if (isStoreImportProduct(product)) return true;
-  const asin = audit?.asin?.trim();
-  return Boolean(asin && !isShopifyImportAsin(asin) && !isWooCommerceImportAsin(asin));
 }
 
 /** Detect keywords that were tokenized from description/bullet text instead of real store tags. */

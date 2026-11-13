@@ -120,6 +120,10 @@ import {
   type ContentVariantRow,
 } from "@/components/listing-marketplace-content-panel";
 import type { ListingContentView } from "@/components/listing-content-card";
+import {
+  listingContentViewHasBaseline,
+  resolveScratchBaselineListingContent,
+} from "@/lib/listing-compare-eligibility";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -1138,14 +1142,22 @@ export default function AuditWorkflow() {
 
   const scratchExistingListingContent = useMemo((): ListingContentView | null => {
     if (!mergeGraphicsAplusSteps) return null;
-    const title = String(auditData?.title ?? productName ?? "").trim();
-    if (!title) return null;
-    return {
-      title,
-      bulletPoints: normalizeBulletPoints((auditData?.bulletPoints as string[] | undefined) ?? []),
-      keywords: ((auditData?.targetKeywords as string[] | undefined) ?? []).map(String),
-      htmlDescription: "",
-    };
+    const auditRecord = auditData as {
+      sourceListingContent?: GeneratedContent | null;
+      title?: string | null;
+      productName?: string | null;
+      bulletPoints?: string[] | null;
+      targetKeywords?: string[] | null;
+      productDescription?: string | null;
+    } | undefined;
+    return resolveScratchBaselineListingContent({
+      sourceListingContent: auditRecord?.sourceListingContent,
+      title: auditRecord?.title ?? undefined,
+      productName: auditRecord?.productName ?? productName,
+      bulletPoints: auditRecord?.bulletPoints ?? undefined,
+      targetKeywords: auditRecord?.targetKeywords ?? undefined,
+      productDescription: auditRecord?.productDescription ?? undefined,
+    });
   }, [mergeGraphicsAplusSteps, auditData, productName]);
 
   const scratchListingSuggestions = useMemo(
@@ -2151,7 +2163,7 @@ export default function AuditWorkflow() {
         optimizeDisabled={!workflowUploadReady || isCreating}
         marketplacesLoading={marketplacesLoading}
         existingContent={scratchExistingListingContent}
-        showListingCompare={Boolean(scratchExistingListingContent?.title?.trim())}
+        showListingCompare={listingContentViewHasBaseline(scratchExistingListingContent)}
         auditId={currentAuditId}
         onContentVariantsUpdated={(variants) => {
           if (!currentAuditId) return;
