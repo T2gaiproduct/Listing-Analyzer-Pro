@@ -34,12 +34,25 @@ function testOneColumnPerAttribute(): void {
     "Product Type",
     "Compliance Regulation Type",
     "Regulatory Identification",
-    "Compliance Regulation Type",
-    "Regulatory Identification",
   ]);
-  assert.equal(values[values.length - 4], "CDPR Pest Identification");
+  assert.equal(values[values.length - 2], "CDPR Pest Identification");
   assert.equal(values[values.length - 1], "1AB1331-121A");
 }
 
+function testDedupeCaseInsensitive(): void {
+  const { headers } = buildMarketplaceSheetRow({
+    title: "T",
+    bulletPoints: [],
+    keywords: [],
+    htmlDescription: "",
+    attributes: [
+      { attribute: "Brand", value: "A" },
+      { attribute: "brand", value: "B" },
+    ],
+  });
+  assert.equal(headers.filter((h) => h.toLowerCase() === "brand").length, 1);
+}
+
 testOneColumnPerAttribute();
-console.log("multi-marketplace-listing-export: one column per attribute");
+testDedupeCaseInsensitive();
+console.log("multi-marketplace-listing-export: one column per unique attribute");

@@ -62,6 +62,25 @@ function hasListingCopy(content: GeneratedContent): boolean {
   );
 }
 
+/** Keep first occurrence of each attribute name (case-insensitive). */
+export function dedupeAttributeRows(
+  rows: Array<{ attribute: string; value: string }>,
+): Array<{ attribute: string; value: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ attribute: string; value: string }> = [];
+  for (const row of rows) {
+    const name = row.attribute?.trim() ?? "";
+    const dedupeKey = name ? name.toLowerCase() : "__unnamed_attribute__";
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    out.push({
+      attribute: name,
+      value: row.value?.trim() ?? "",
+    });
+  }
+  return out;
+}
+
 /** One Excel column per listing attribute (header = attribute name, cell = value). */
 export function buildMarketplaceSheetRow(content: GeneratedContent): {
   headers: string[];
@@ -73,7 +92,7 @@ export function buildMarketplaceSheetRow(content: GeneratedContent): {
   const description = stripHtml(
     htmlForListingExport(content.htmlDescription?.trim() ?? "", 8000),
   );
-  const attrRows = content.attributes ?? [];
+  const attrRows = dedupeAttributeRows(content.attributes ?? []);
   const attributeHeaders = attrRows.map((row, index) => {
     const name = row.attribute?.trim();
     return name || `Attribute ${index + 1}`;
