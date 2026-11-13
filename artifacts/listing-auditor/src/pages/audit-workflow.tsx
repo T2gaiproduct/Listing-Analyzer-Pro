@@ -103,7 +103,7 @@ import {
   SelectedGraphicsTypesSummary,
 } from "@/components/graphics-type-customize-ui";
 import { useAplusModuleCards, useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
-import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
+import { AmazonBrowseCategorySelect } from "@/components/amazon-browse-category-select";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import {
   usePatchAudit,
@@ -171,59 +171,6 @@ function graphicsRecordToWorkflowImage(r: {
     recordId: r.id,
     imageType: r.imageType,
   };
-}
-
-/* ── Category Dropdown Portal (fixes autoFocus + full-width) ──────────── */
-function CategoryPortalDropdown({
-  catPos,
-  catSearch,
-  setCatSearch,
-  filteredCats,
-  category,
-  setCategory,
-  setCatOpen,
-}: {
-  catPos: { top: number; left: number; width: number };
-  catSearch: string;
-  setCatSearch: (v: string) => void;
-  filteredCats: string[];
-  category: string;
-  setCategory: (v: string) => void;
-  setCatOpen: (v: boolean) => void;
-}) {
-  const searchRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    searchRef.current?.focus();
-  }, []);
-  return (
-    <div
-      data-cat-portal
-      style={{ position: "fixed", top: catPos.top, left: catPos.left, width: catPos.width, zIndex: 9999 }}
-      className="bg-card border border-border rounded-xl shadow-2xl max-h-[60vh] overflow-y-auto"
-    >
-      <div className="sticky top-0 bg-card border-b border-border px-3 py-2">
-        <input
-          ref={searchRef}
-          value={catSearch}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCatSearch(e.target.value)}
-          placeholder="Search categories…"
-          className="w-full text-sm focus:outline-none text-foreground placeholder:text-muted-foreground"
-        />
-      </div>
-      {filteredCats.length === 0
-        ? <div className="px-3 py-2 text-xs text-muted-foreground">No categories found</div>
-        : filteredCats.map((c) => (
-          <div
-            key={c}
-            className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-orange-500/10", category === c ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 font-medium" : "text-foreground")}
-            onClick={() => { setCategory(c); setCatSearch(""); setCatOpen(false); }}
-          >
-            {c}
-          </div>
-        ))
-      }
-    </div>
-  );
 }
 
 /* ── Steps ─────────────────────────────────────────────────────────────── */
@@ -632,7 +579,6 @@ function CreatingPanel({
 ═══════════════════════════════════════════════════════════════════════════ */
 export default function AuditWorkflow() {
   const { imageTypes: IMAGE_TYPES } = useGraphicsImageTypesFromApi();
-  const { categories: productCategories } = useProductCategories();
   const { modules: APLUS_MODULE_CARDS } = useAplusModuleCards();
   const allAplusModuleIds = useMemo(() => APLUS_MODULE_CARDS.map((m) => m.id), [APLUS_MODULE_CARDS]);
   const [, nav]         = useLocation();
@@ -727,11 +673,6 @@ export default function AuditWorkflow() {
   const [productName, setProductName]   = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [category, setCategory]         = useState("");
-  const [catSearch, setCatSearch]       = useState("");
-  const [catOpen, setCatOpen]           = useState(false);
-  const catRef     = useRef<HTMLDivElement>(null);
-  const catBtnRef  = useRef<HTMLButtonElement>(null);
-  const [catPos, setCatPos] = useState({ top: 0, left: 0, width: 0 });
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading]       = useState(false);
 
@@ -957,18 +898,6 @@ export default function AuditWorkflow() {
       [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
     }));
     setIsDirty(true);
-  }, []);
-
-  /* ── Close category dropdown on outside click ── */
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      const target = e.target as Node;
-      const inTrigger = catRef.current?.contains(target);
-      const inPortal  = (target as Element)?.closest?.("[data-cat-portal]");
-      if (!inTrigger && !inPortal) setCatOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   /* ── Graphics generation state (inline in workflow) ── */
@@ -2205,7 +2134,6 @@ export default function AuditWorkflow() {
     toast({ title: "Product saved", description: "Your listing package is saved to this project." });
   }, [autoSave, currentAuditId, toast]);
 
-  const filteredCats = filterProductCategories(productCategories, catSearch);
   const workflowUploadReady = Boolean(productName.trim() && category);
 
   const scratchOptimizeListingPanel = useMemo(
@@ -2552,47 +2480,15 @@ export default function AuditWorkflow() {
                   />
                   <p className="text-[11px] text-muted-foreground">Optional. Combined with your uploaded images and product name for AI generation.</p>
                 </div>
-                <div className="space-y-1.5" ref={catRef}>
-                  <label className="text-xs font-medium text-foreground">Select Category</label>
-                  <div className="relative">
-                    <button
-                      ref={catBtnRef}
-                      type="button"
-                      onClick={() => {
-                        const rect = catBtnRef.current?.getBoundingClientRect();
-                        if (rect) {
-                          const spaceBelow = window.innerHeight - rect.bottom;
-                          const portalHeight = Math.min(420, window.innerHeight * 0.6);
-                          const placeAbove = spaceBelow < portalHeight + 8 && rect.top > portalHeight + 8;
-                          setCatPos({
-                            top: placeAbove ? rect.top - portalHeight - 4 : rect.bottom + 4,
-                            left: rect.left,
-                            width: rect.width,
-                          });
-                        }
-                        setCatOpen((o) => !o);
-                      }}
-                      className="w-full h-11 sm:h-12 pl-3 pr-9 rounded-xl border border-border text-sm bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
-                    >
-                      <span className={category ? "text-foreground" : "text-muted-foreground"}>
-                        {category || "Search or select category"}
-                      </span>
-                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {catOpen && createPortal(
-                      <CategoryPortalDropdown
-                        catPos={catPos}
-                        catSearch={catSearch}
-                        setCatSearch={setCatSearch}
-                        filteredCats={filteredCats}
-                        category={category}
-                        setCategory={(v) => { setCategory(v); if (currentAuditId) setIsDirty(true); }}
-                        setCatOpen={setCatOpen}
-                      />,
-                      document.body
-                    )}
-                  </div>
-                </div>
+                <AmazonBrowseCategorySelect
+                  required
+                  label="Category"
+                  value={category}
+                  onChange={(v) => {
+                    setCategory(v);
+                    if (currentAuditId) setIsDirty(true);
+                  }}
+                />
 
                 <BuildBrandUploadAttributesSection
                   key={currentAuditId ?? "new-upload"}

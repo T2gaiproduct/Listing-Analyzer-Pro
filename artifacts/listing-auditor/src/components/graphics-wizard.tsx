@@ -30,7 +30,7 @@ import {
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
-import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
+import { AmazonBrowseCategorySelect } from "@/components/amazon-browse-category-select";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { GraphicsWizardImageDialogs } from "@/components/graphics-wizard-image-dialogs";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
@@ -143,7 +143,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { imageTypes: IMAGE_TYPES } = useGraphicsImageTypesFromApi();
-  const { categories: productCategories } = useProductCategories();
   const { canEditGraphics, isTeamMember, memberCredits } = useTeam();
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
     queryKey: ["credit-rules"],
@@ -170,15 +169,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     return false;
   };
   const fileRef = useRef<HTMLInputElement>(null);
-  const categoryRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number>(0);
 
   const [step, setStep] = useState<Step>(() => (
     createOnly ? 2 : ((imageUrls?.length ?? 0) > 0 ? 2 : 1)
   ));
   const [wizardCategory, setWizardCategory] = useState(category ?? "");
-  const [categorySearch, setCategorySearch] = useState(category ?? "");
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   const effectiveCategory = wizardCategory.trim() || category?.trim() || "";
   const [uploadedImages, setUploadedImages] = useState<string[]>(imageUrls ?? []);
@@ -380,14 +376,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   }, [auditId, createOnly, project, totalImages, queryClient, refetchProject]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
-        setShowCategoryDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    if (category?.trim()) setWizardCategory(category);
+  }, [category]);
 
   useEffect(() => {
     if (createOnly && step === 1) {
@@ -1038,7 +1028,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             setStep(createOnly ? 2 : 1);
             setUploadedImages(imageUrls ?? []);
             setWizardCategory(category ?? "");
-            setCategorySearch(category ?? "");
           }}
         >
           <Sparkles className="w-4 h-4" />
@@ -1194,35 +1183,13 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     className="border-slate-200 h-11 rounded-lg bg-slate-50"
                   />
                 </div>
-                <div className="relative" ref={categoryRef}>
-                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Product Category</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    <Input
-                      value={categorySearch}
-                      onChange={(e) => { setCategorySearch(e.target.value); setShowCategoryDropdown(true); }}
-                      onFocus={() => setShowCategoryDropdown(true)}
-                      placeholder="Search Amazon category..."
-                      className="border-slate-200 h-11 rounded-lg pl-9"
-                    />
-                    {showCategoryDropdown && (
-                      <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-y-auto overscroll-contain">
-                        {filterProductCategories(productCategories, categorySearch).length === 0 && (
-                          <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
-                        )}
-                        {filterProductCategories(productCategories, categorySearch).map((c) => (
-                          <div
-                            key={c}
-                            className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-orange-50 ${wizardCategory === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
-                            onClick={() => { setWizardCategory(c); setCategorySearch(c); setShowCategoryDropdown(false); }}
-                          >
-                            {c}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <AmazonBrowseCategorySelect
+                  label="Product Category"
+                  required
+                  value={wizardCategory}
+                  onChange={setWizardCategory}
+                  triggerClassName="rounded-lg"
+                />
               </div>
             </div>
           )}

@@ -27,7 +27,7 @@ import {
   GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
-import { filterProductCategories, useProductCategories } from "@/lib/product-categories";
+import { AmazonBrowseCategorySelect } from "@/components/amazon-browse-category-select";
 import {
   GRAPHICS_PROJECT_ORIGIN_SCRATCH,
   graphicsScratchProjectViewPath,
@@ -65,15 +65,12 @@ export default function CreateProject() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const categoryRef = useRef<HTMLDivElement>(null);
 
   const [step, setStep] = useState<Step>(1);
   const [createPath, setCreatePath] = useState<CreatePath | null>(null);
   const [brandName, setBrandName] = useState("");
   const [productName, setProductName] = useState("");
   const [category, setCategory] = useState("");
-  const [categorySearch, setCategorySearch] = useState("");
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
@@ -164,19 +161,6 @@ export default function CreateProject() {
 
   const graphicsCreditsNeeded = selectedGraphicsTypes.length * imageCreditPerUnit;
   const aplusCreditsNeeded = selectedAplusModules.length * imageCreditPerUnit;
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
-        setShowCategoryDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const { categories: productCategories } = useProductCategories();
-  const filteredCategories = filterProductCategories(productCategories, categorySearch);
 
   const createProject = useMutation({
     mutationFn: async (input: {
@@ -618,41 +602,13 @@ export default function CreateProject() {
                 />
               </div>
             </div>
-            <div ref={categoryRef}>
-              <label className="text-xs font-medium text-slate-700 mb-1 block">Select Category</label>
-              <div className="relative">
-                <Input
-                  value={categorySearch}
-                  onChange={(e) => {
-                    setCategorySearch(e.target.value);
-                    setShowCategoryDropdown(true);
-                  }}
-                  onFocus={() => setShowCategoryDropdown(true)}
-                  placeholder="Search or select category"
-                  className="border-slate-200 h-9 rounded-lg text-sm w-full"
-                />
-                {showCategoryDropdown && (
-                  <div className="absolute z-[100] inset-x-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto overscroll-contain">
-                    {filteredCategories.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-slate-400">No categories found</div>
-                    )}
-                    {filteredCategories.map((c) => (
-                      <div
-                        key={c}
-                        className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-orange-50 ${category === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
-                        onClick={() => {
-                          setCategory(c);
-                          setCategorySearch(c);
-                          setShowCategoryDropdown(false);
-                        }}
-                      >
-                        {c}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+            <AmazonBrowseCategorySelect
+              label="Category"
+              required
+              value={category}
+              onChange={setCategory}
+              triggerClassName="h-9 min-h-9 rounded-lg"
+            />
           </div>
         </div>
       )}

@@ -16,6 +16,7 @@
     "db:generate-schema": "bash scripts/generate-additive-schema-from-local.sh",
     "db:align-production-with-local": "bash scripts/align-production-with-local-schema.sh",
     "db:compare-production": "bash scripts/compare-db-to-local.sh",
+    "import:pfa-browse-categories": "node scripts/import-pfa-browse-data.mjs",
     "test:plan-capabilities": "pnpm --filter @workspace/db exec tsx ../../scripts/test-plan-capabilities.mjs",
     "test:plan-workspaces": "pnpm --filter @workspace/db exec tsx ../../scripts/test-plan-workspaces-integration.mjs",
     "test": "pnpm run test:plan-capabilities && pnpm run test:plan-workspaces",
@@ -27,6 +28,8 @@
   },
   "private": true,
   "devDependencies": {
+    "adm-zip": "^0.6.1",
+    "fast-xml-parser": "^5.12.0",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"
   },

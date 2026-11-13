@@ -1,0 +1,438 @@
+{
+  "sources": [
+    "TOYS_AND_GAMES_BABY_SEAT_ff88.xlsm"
+  ],
+  "updatedAt": "2026-11-13T07:54:58.948Z",
+  "categories": [
+    {
+      "browseNodeId": "21731958031",
+      "browsePath": "Baby > Activity & Play Time > Activity Centres",
+      "label": "Activity Centres"
+    },
+    {
+      "browseNodeId": "1953107031",
+      "browsePath": "Baby > Activity & Play Time > Door Bouncers",
+      "label": "Door Bouncers"
+    },
+    {
+      "browseNodeId": "9836105031",
+      "browsePath": "Baby > Activity & Play Time > Swings, Bouncers & Rockers > Rockers",
+      "label": "Rockers"
+    },
+    {
+      "browseNodeId": "9836107031",
+      "browsePath": "Baby > Activity & Play Time > Swings, Bouncers & Rockers > Swings",
+      "label": "Swings"
+    },
+    {
+      "browseNodeId": "8360550031",
+      "browsePath": "Baby > Baby Care > Bathing > Bath Seats",
+      "label": "Bath Seats"
+    },
+    {
+      "browseNodeId": "1953400031",
+      "browsePath": "Baby > Nursery > Furniture > Booster Seats",
+      "label": "Booster Seats"
+    },
+    {
+      "browseNodeId": "1953415031",
+      "browsePath": "Baby > Nursery > Furniture > Highchairs, Covers & Cushions > Highchairs",
+      "label": "Highchairs"
+    },
+    {
+      "browseNodeId": "1953416031",
+      "browsePath": "Baby > Nursery > Furniture > Hook-on Seats",
+      "label": "Hook-on Seats"
+    },
+    {
+      "browseNodeId": "3404623031",
+      "browsePath": "Sports, Fitness & Outdoors > Disc Sports > Disc Golf > Starter Kits",
+      "label": "Starter Kits"
+    },
+    {
+      "browseNodeId": "1350381031",
+      "browsePath": "Toys & Games",
+      "label": "Toys & Games"
+    },
+    {
+      "browseNodeId": "1378179031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Baby Toys > Mirrors",
+      "label": "Mirrors"
+    },
+    {
+      "browseNodeId": "1378182031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Baby Toys > Stroller Toys",
+      "label": "Stroller Toys"
+    },
+    {
+      "browseNodeId": "22649541031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Early Development & Activity Toys > Activity Cubes",
+      "label": "Activity Cubes"
+    },
+    {
+      "browseNodeId": "26995331031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Early Development & Activity Toys > Bead Mazes",
+      "label": "Bead Mazes"
+    },
+    {
+      "browseNodeId": "1378184031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Early Development & Activity Toys > Bricks & Blocks",
+      "label": "Bricks & Blocks"
+    },
+    {
+      "browseNodeId": "1378185031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Early Development & Activity Toys > Counting Frames",
+      "label": "Counting Frames"
+    },
+    {
+      "browseNodeId": "1378186031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Early Development & Activity Toys > Hammering & Pounding Toys",
+      "label": "Hammering & Pounding Toys"
+    },
+    {
+      "browseNodeId": "1378197031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Early Development & Activity Toys > Teaching Clocks",
+      "label": "Teaching Clocks"
+    },
+    {
+      "browseNodeId": "1378187031",
+      "browsePath": "Toys & Games > Baby & Toddler Toys > Hobbyhorses",
+      "label": "Hobbyhorses"
+    },
+    {
+      "browseNodeId": "1378198031",
+      "browsePath": "Toys & Games > Bikes, Trikes & Ride-Ons",
+      "label": "Bikes, Trikes & Ride-Ons"
+    },
+    {
+      "browseNodeId": "26388792031",
+      "browsePath": "Toys & Games > Bikes, Trikes & Ride-Ons > Ride-On Parts & Accessories",
+      "label": "Ride-On Parts & Accessories"
+    },
+    {
+      "browseNodeId": "1378206031",
+      "browsePath": "Toys & Games > Bikes, Trikes & Ride-Ons > Ride-On Parts & Accessories > Accessories",
+      "label": "Accessories"
+    },
+    {
+      "browseNodeId": "26388796031",
+      "browsePath": "Toys & Games > Bikes, Trikes & Ride-Ons > Ride-On Parts & Accessories > Accessories > Traffic Lights",
+      "label": "Traffic Lights"
+    },
+    {
+      "browseNodeId": "26388794031",
+      "browsePath": "Toys & Games > Bikes, Trikes & Ride-Ons > Ride-On Parts & Accessories > Accessories > Traffic Signs",
+      "label": "Traffic Signs"
+    },
+    {
+      "browseNodeId": "1378208031",
+      "browsePath": "Toys & Games > Bikes, Trikes & Ride-Ons > Ride-On Parts & Accessories > Accessories > Trailers",
+      "label": "Trailers"
+    },
+    {
+      "browseNodeId": "26388793031",
+      "browsePath": "Toys & Games > Bikes, Trikes & Ride-Ons > Ride-On Parts & Accessories > Parts",
+      "label": "Parts"
+    },
+    {
+      "browseNodeId": "26163121031",
+      "browsePath": "Toys & Games > Building & Construction Toys > Gear Sets",
+      "label": "Gear Sets"
+    },
+    {
+      "browseNodeId": "28167150031",
+      "browsePath": "Toys & Games > Collectible Toys",
+      "label": "Collectible Toys"
+    },
+    {
+      "browseNodeId": "14158321031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Coins & Paper Money",
+      "label": "Collectible Coins & Paper Money"
+    },
+    {
+      "browseNodeId": "14158325031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Coins & Paper Money > Paper Money",
+      "label": "Paper Money"
+    },
+    {
+      "browseNodeId": "1378219031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Display & Storage",
+      "label": "Collectible Display & Storage"
+    },
+    {
+      "browseNodeId": "30444473031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Display & Storage > Card Storage & Display",
+      "label": "Card Storage & Display"
+    },
+    {
+      "browseNodeId": "30444484031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Display & Storage > Card Storage & Display > Card Screwdowns",
+      "label": "Card Screwdowns"
+    },
+    {
+      "browseNodeId": "1378220031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Display & Storage > Coin Collecting Storage",
+      "label": "Coin Collecting Storage"
+    },
+    {
+      "browseNodeId": "28167153031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Display & Storage > Collectible Paper Money Storage",
+      "label": "Collectible Paper Money Storage"
+    },
+    {
+      "browseNodeId": "1378223031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Display & Storage > Storage Cases & Boxes",
+      "label": "Storage Cases & Boxes"
+    },
+    {
+      "browseNodeId": "28167152031",
+      "browsePath": "Toys & Games > Collectible Toys > Collectible Postage Stamps",
+      "label": "Collectible Postage Stamps"
+    },
+    {
+      "browseNodeId": "1378459031",
+      "browsePath": "Toys & Games > Dolls & Accessories > Paper & Magnetic Dolls",
+      "label": "Paper & Magnetic Dolls"
+    },
+    {
+      "browseNodeId": "27346147031",
+      "browsePath": "Toys & Games > Dolls & Accessories > Paper & Magnetic Dolls > Magnetic Dress-Up Dolls",
+      "label": "Magnetic Dress-Up Dolls"
+    },
+    {
+      "browseNodeId": "27346146031",
+      "browsePath": "Toys & Games > Dolls & Accessories > Paper & Magnetic Dolls > Paper Dolls",
+      "label": "Paper Dolls"
+    },
+    {
+      "browseNodeId": "51396176031",
+      "browsePath": "Toys & Games > Dress Up & Pretend Play > Dress-Up Accessories > Toy Weapons > Battle Axes",
+      "label": "Battle Axes"
+    },
+    {
+      "browseNodeId": "51396175031",
+      "browsePath": "Toys & Games > Dress Up & Pretend Play > Dress-Up Accessories > Toy Weapons > Sabres",
+      "label": "Sabres"
+    },
+    {
+      "browseNodeId": "51396173031",
+      "browsePath": "Toys & Games > Dress Up & Pretend Play > Dress-Up Accessories > Toy Weapons > Shields",
+      "label": "Shields"
+    },
+    {
+      "browseNodeId": "51396174031",
+      "browsePath": "Toys & Games > Dress Up & Pretend Play > Dress-Up Accessories > Toy Weapons > Spears",
+      "label": "Spears"
+    },
+    {
+      "browseNodeId": "51396171031",
+      "browsePath": "Toys & Games > Dress Up & Pretend Play > Dress-Up Accessories > Toy Weapons > Swords",
+      "label": "Swords"
+    },
+    {
+      "browseNodeId": "1378287031",
+      "browsePath": "Toys & Games > Dress Up & Pretend Play > Dress-Up Accessories > Wands",
+      "label": "Wands"
+    },
+    {
+      "browseNodeId": "1378292031",
+      "browsePath": "Toys & Games > Electronic Toys > Dance Mats",
+      "label": "Dance Mats"
+    },
+    {
+      "browseNodeId": "51396094031",
+      "browsePath": "Toys & Games > Electronic Toys > Electronic Diaries",
+      "label": "Electronic Diaries"
+    },
+    {
+      "browseNodeId": "51396127031",
+      "browsePath": "Toys & Games > Games > Magic Supplies > Chinese Rings",
+      "label": "Chinese Rings"
+    },
+    {
+      "browseNodeId": "1378332031",
+      "browsePath": "Toys & Games > Games > Tabletop Games > Pachinko",
+      "label": "Pachinko"
+    },
+    {
+      "browseNodeId": "1378384031",
+      "browsePath": "Toys & Games > Model Trains & Accessories",
+      "label": "Model Trains & Accessories"
+    },
+    {
+      "browseNodeId": "1378390031",
+      "browsePath": "Toys & Games > Model Trains & Accessories > Decoration Parts",
+      "label": "Decoration Parts"
+    },
+    {
+      "browseNodeId": "1378392031",
+      "browsePath": "Toys & Games > Model Trains & Accessories > Landscaping",
+      "label": "Landscaping"
+    },
+    {
+      "browseNodeId": "1378399031",
+      "browsePath": "Toys & Games > Model Trains & Accessories > Landscaping > Road Construction",
+      "label": "Road Construction"
+    },
+    {
+      "browseNodeId": "1378402031",
+      "browsePath": "Toys & Games > Model Trains & Accessories > Lighting & Signal Engineering",
+      "label": "Lighting & Signal Engineering"
+    },
+    {
+      "browseNodeId": "1378404031",
+      "browsePath": "Toys & Games > Model Trains & Accessories > Replacement Parts",
+      "label": "Replacement Parts"
+    },
+    {
+      "browseNodeId": "1378406031",
+      "browsePath": "Toys & Games > Model Trains & Accessories > Tools & Cleaning",
+      "label": "Tools & Cleaning"
+    },
+    {
+      "browseNodeId": "51396080031",
+      "browsePath": "Toys & Games > Novelty & Gag Toys > Drinking Games",
+      "label": "Drinking Games"
+    },
+    {
+      "browseNodeId": "51396077031",
+      "browsePath": "Toys & Games > Novelty & Gag Toys > Fortune Telling Toys",
+      "label": "Fortune Telling Toys"
+    },
+    {
+      "browseNodeId": "1378421031",
+      "browsePath": "Toys & Games > Novelty & Gag Toys > Kaleidoscopes",
+      "label": "Kaleidoscopes"
+    },
+    {
+      "browseNodeId": "51396079031",
+      "browsePath": "Toys & Games > Novelty & Gag Toys > Prisms",
+      "label": "Prisms"
+    },
+    {
+      "browseNodeId": "51396081031",
+      "browsePath": "Toys & Games > Novelty & Gag Toys > Squirting Gag Toys",
+      "label": "Squirting Gag Toys"
+    },
+    {
+      "browseNodeId": "51396076031",
+      "browsePath": "Toys & Games > Novelty & Gag Toys > Toy-Filled Easter Eggs",
+      "label": "Toy-Filled Easter Eggs"
+    },
+    {
+      "browseNodeId": "1378432031",
+      "browsePath": "Toys & Games > Novelty & Gag Toys > View Finders",
+      "label": "View Finders"
+    },
+    {
+      "browseNodeId": "1378433031",
+      "browsePath": "Toys & Games > Novelty & Gag Toys > Wind-Up Toys",
+      "label": "Wind-Up Toys"
+    },
+    {
+      "browseNodeId": "51396071031",
+      "browsePath": "Toys & Games > Party Supplies > Pin Games",
+      "label": "Pin Games"
+    },
+    {
+      "browseNodeId": "1378469031",
+      "browsePath": "Toys & Games > Puppets & Puppet Theatres > Puppet Theatres",
+      "label": "Puppet Theatres"
+    },
+    {
+      "browseNodeId": "1378490031",
+      "browsePath": "Toys & Games > School Supplies",
+      "label": "School Supplies"
+    },
+    {
+      "browseNodeId": "1378498031",
+      "browsePath": "Toys & Games > School Supplies > Letter Sets",
+      "label": "Letter Sets"
+    },
+    {
+      "browseNodeId": "4379868031",
+      "browsePath": "Toys & Games > School Supplies > Lunch Boxes & Water Bottles",
+      "label": "Lunch Boxes & Water Bottles"
+    },
+    {
+      "browseNodeId": "1378501031",
+      "browsePath": "Toys & Games > School Supplies > Paper",
+      "label": "Paper"
+    },
+    {
+      "browseNodeId": "1378505031",
+      "browsePath": "Toys & Games > School Supplies > Rulers & Set Squares",
+      "label": "Rulers & Set Squares"
+    },
+    {
+      "browseNodeId": "1378506031",
+      "browsePath": "Toys & Games > School Supplies > School Cones",
+      "label": "School Cones"
+    },
+    {
+      "browseNodeId": "1378507031",
+      "browsePath": "Toys & Games > School Supplies > School Supply Sets",
+      "label": "School Supply Sets"
+    },
+    {
+      "browseNodeId": "26275736031",
+      "browsePath": "Toys & Games > Soft Toys > Plush Toy & Blanket Sets",
+      "label": "Plush Toy & Blanket Sets"
+    },
+    {
+      "browseNodeId": "51396138031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Beanbags & Foot Bags > Bean Bag Game Boards",
+      "label": "Bean Bag Game Boards"
+    },
+    {
+      "browseNodeId": "27013844031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Blasters & Toy Guns > Foam Blaster Sets",
+      "label": "Foam Blaster Sets"
+    },
+    {
+      "browseNodeId": "51396137031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Calisthenics & Ability > Cup & Ball Games",
+      "label": "Cup & Ball Games"
+    },
+    {
+      "browseNodeId": "51396135031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Calisthenics & Ability > Juggling Sets",
+      "label": "Juggling Sets"
+    },
+    {
+      "browseNodeId": "51396136031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Calisthenics & Ability > Kendama",
+      "label": "Kendama"
+    },
+    {
+      "browseNodeId": "51396141031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Kites & Flight Toys > Airplane Construction Kits",
+      "label": "Airplane Construction Kits"
+    },
+    {
+      "browseNodeId": "51396143031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Kites & Flight Toys > Boomerangs",
+      "label": "Boomerangs"
+    },
+    {
+      "browseNodeId": "51396182031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Pools & Water Fun > Basketball & Volleyball Sets > Basketball",
+      "label": "Basketball"
+    },
+    {
+      "browseNodeId": "51396183031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Pools & Water Fun > Basketball & Volleyball Sets > Volleyball",
+      "label": "Volleyball"
+    },
+    {
+      "browseNodeId": "1378539031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Pools & Water Fun > Pool Toys > Dive Rings & Toys",
+      "label": "Dive Rings & Toys"
+    },
+    {
+      "browseNodeId": "1378548031",
+      "browsePath": "Toys & Games > Sport & Outdoor > Sandboxes & Beach Toys > Sand & Water Tables",
+      "label": "Sand & Water Tables"
+    }
+  ]
+}
