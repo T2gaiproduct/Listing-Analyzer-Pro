@@ -1,8 +1,9 @@
 {
   "sources": [
-    "TOYS_AND_GAMES_BABY_SEAT_ff88.xlsm"
+    "TOYS_AND_GAMES_BABY_SEAT_ff88.xlsm",
+    "BACKPACK_SUITCASE_WALLET_8efd.xlsm"
   ],
-  "updatedAt": "2026-11-13T07:54:58.948Z",
+  "updatedAt": "2026-11-13T08:15:40.268Z",
   "categories": [
     {
       "browseNodeId": "21731958031",
@@ -30,6 +31,11 @@
       "label": "Bath Seats"
     },
     {
+      "browseNodeId": "1953354031",
+      "browsePath": "Baby > Diapering & Nappy Changing > Diaper Backpacks",
+      "label": "Diaper Backpacks"
+    },
+    {
       "browseNodeId": "1953400031",
       "browsePath": "Baby > Nursery > Furniture > Booster Seats",
       "label": "Booster Seats"
@@ -45,9 +51,209 @@
       "label": "Hook-on Seats"
     },
     {
+      "browseNodeId": "2917430031",
+      "browsePath": "Bags, Wallets and Luggage > Bags & Backpacks > Backpacks",
+      "label": "Backpacks"
+    },
+    {
+      "browseNodeId": "2917436031",
+      "browsePath": "Bags, Wallets and Luggage > Bags & Backpacks > Backpacks > Casual Backpacks",
+      "label": "Casual Backpacks"
+    },
+    {
+      "browseNodeId": "1984997031",
+      "browsePath": "Bags, Wallets and Luggage > Bags & Backpacks > Backpacks > Rucksacks & Trekking Backpacks",
+      "label": "Rucksacks & Trekking Backpacks"
+    },
+    {
+      "browseNodeId": "2917503031",
+      "browsePath": "Bags, Wallets and Luggage > Bags & Backpacks > Gym Bags > Drawstring Bags",
+      "label": "Drawstring Bags"
+    },
+    {
+      "browseNodeId": "2917441031",
+      "browsePath": "Bags, Wallets and Luggage > Bags & Backpacks > Laptop Bags",
+      "label": "Laptop Bags"
+    },
+    {
+      "browseNodeId": "2917437031",
+      "browsePath": "Bags, Wallets and Luggage > Bags & Backpacks > School Bags & Sets > Children's Backpacks",
+      "label": "Children's Backpacks"
+    },
+    {
+      "browseNodeId": "1664725031",
+      "browsePath": "Bags, Wallets and Luggage > Bags & Backpacks > School Bags & Sets > School Bags",
+      "label": "School Bags"
+    },
+    {
+      "browseNodeId": "2917446031",
+      "browsePath": "Bags, Wallets and Luggage > Luggage > Children's Trolley Bags",
+      "label": "Children's Trolley Bags"
+    },
+    {
+      "browseNodeId": "2917448031",
+      "browsePath": "Bags, Wallets and Luggage > Luggage > Luggage Sets",
+      "label": "Luggage Sets"
+    },
+    {
+      "browseNodeId": "2917443031",
+      "browsePath": "Bags, Wallets and Luggage > Luggage > Pilot's Cases",
+      "label": "Pilot's Cases"
+    },
+    {
+      "browseNodeId": "2917450031",
+      "browsePath": "Bags, Wallets and Luggage > Luggage > Suitcases & Trolley Bags",
+      "label": "Suitcases & Trolley Bags"
+    },
+    {
+      "browseNodeId": "2917466031",
+      "browsePath": "Bags, Wallets and Luggage > Travel Accessories > Passport Wallets & Covers > Passport Covers",
+      "label": "Passport Covers"
+    },
+    {
+      "browseNodeId": "2917464031",
+      "browsePath": "Bags, Wallets and Luggage > Travel Accessories > Travel Kits & Organisers > Neck Pouches",
+      "label": "Neck Pouches"
+    },
+    {
+      "browseNodeId": "2917495031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Kids' > Wallets",
+      "label": "Wallets"
+    },
+    {
+      "browseNodeId": "2917476031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Men's > Card & ID Cases",
+      "label": "Card & ID Cases"
+    },
+    {
+      "browseNodeId": "2917490031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Men's > Card & ID Cases > Business Card Cases",
+      "label": "Business Card Cases"
+    },
+    {
+      "browseNodeId": "2917491031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Men's > Card & ID Cases > Chequebook Cases",
+      "label": "Chequebook Cases"
+    },
+    {
+      "browseNodeId": "2917492031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Men's > Card & ID Cases > Commuter Pass Cases",
+      "label": "Commuter Pass Cases"
+    },
+    {
+      "browseNodeId": "2917493031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Men's > Card & ID Cases > Credit Card Cases",
+      "label": "Credit Card Cases"
+    },
+    {
+      "browseNodeId": "2917494031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Men's > Card & ID Cases > ID Cases",
+      "label": "ID Cases"
+    },
+    {
+      "browseNodeId": "2917496031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Men's > Wallets",
+      "label": "Wallets"
+    },
+    {
+      "browseNodeId": "17549990031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Women's > Card & ID Cases",
+      "label": "Card & ID Cases"
+    },
+    {
+      "browseNodeId": "17549991031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Women's > Card & ID Cases > Business Card Holders",
+      "label": "Business Card Holders"
+    },
+    {
+      "browseNodeId": "17549992031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Women's > Card & ID Cases > Commuter Pass Covers",
+      "label": "Commuter Pass Covers"
+    },
+    {
+      "browseNodeId": "17549993031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Women's > Card & ID Cases > Credit Card Holders",
+      "label": "Credit Card Holders"
+    },
+    {
+      "browseNodeId": "17549994031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Women's > Card & ID Cases > ID Holders",
+      "label": "ID Holders"
+    },
+    {
+      "browseNodeId": "17549996031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Women's > Chequebook Covers",
+      "label": "Chequebook Covers"
+    },
+    {
+      "browseNodeId": "2917497031",
+      "browsePath": "Bags, Wallets and Luggage > Wallets, Card Cases & Money Organisers > Women's > Wallets",
+      "label": "Wallets"
+    },
+    {
+      "browseNodeId": "1375464031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Laptop Accessories > Bags & Sleeves > Laptop Backpacks",
+      "label": "Laptop Backpacks"
+    },
+    {
+      "browseNodeId": "1375467031",
+      "browsePath": "Computers & Accessories > Accessories & Peripherals > Laptop Accessories > Bags & Sleeves > Laptop Roller Cases",
+      "label": "Laptop Roller Cases"
+    },
+    {
+      "browseNodeId": "4175441031",
+      "browsePath": "Electronics > Cameras & Photography > Accessories > Cases & Bags > Camera Backpacks",
+      "label": "Camera Backpacks"
+    },
+    {
+      "browseNodeId": "21529675031",
+      "browsePath": "Electronics > Mobiles & Accessories > Mobile Accessories > Adhesive Card Holders",
+      "label": "Adhesive Card Holders"
+    },
+    {
+      "browseNodeId": "1983347031",
+      "browsePath": "Shoes & Handbags > Handbags, Purses & Clutches > Women's Backpacks",
+      "label": "Women's Backpacks"
+    },
+    {
+      "browseNodeId": "3414049031",
+      "browsePath": "Sports, Fitness & Outdoors > Cycling > Accessories > Cycle Backpacks, Bags & Panniers > Cycle Backpacks",
+      "label": "Cycle Backpacks"
+    },
+    {
       "browseNodeId": "3404623031",
       "browsePath": "Sports, Fitness & Outdoors > Disc Sports > Disc Golf > Starter Kits",
       "label": "Starter Kits"
+    },
+    {
+      "browseNodeId": "3404877031",
+      "browsePath": "Sports, Fitness & Outdoors > Fishing > Accessories > Backpacks",
+      "label": "Backpacks"
+    },
+    {
+      "browseNodeId": "11370267031",
+      "browsePath": "Sports, Fitness & Outdoors > Outdoor Recreation > Camping & Hiking > Bags & Packs > Solar Backpacks",
+      "label": "Solar Backpacks"
+    },
+    {
+      "browseNodeId": "1984995031",
+      "browsePath": "Sports, Fitness & Outdoors > Outdoor Recreation > Camping & Hiking > Hiking Daypacks",
+      "label": "Hiking Daypacks"
+    },
+    {
+      "browseNodeId": "5780286031",
+      "browsePath": "Sports, Fitness & Outdoors > Supporters' Gear > Football > Wallets",
+      "label": "Wallets"
+    },
+    {
+      "browseNodeId": "3415160031",
+      "browsePath": "Sports, Fitness & Outdoors > Winter Sports > Skiing > Backcountry Equipment > Backcountry Packs",
+      "label": "Backcountry Packs"
+    },
+    {
+      "browseNodeId": "3405477031",
+      "browsePath": "Sports, Fitness & Outdoors > Winter Sports > Skiing > Skiing Backpacks",
+      "label": "Skiing Backpacks"
     },
     {
       "browseNodeId": "1350381031",
