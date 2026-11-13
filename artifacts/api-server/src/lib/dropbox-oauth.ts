@@ -1,0 +1,225 @@
+/** Dropbox OAuth access token for Excel export uploads (refresh-token flow). */
+
+export const DROPBOX_OAUTH_TOKEN_URL = "https://api.dropbox.com/oauth2/token";
+
+export const DROPBOX_EXPORT_REQUIRED_SCOPES = [
+  "files.content.write",
+  "sharing.write",
+] as const;
+
+const TOKEN_REFRESH_LEEWAY_MS = 60_000;
+const DEFAULT_ACCESS_TOKEN_TTL_SEC = 14_400;
+
+export class DropboxOAuthError extends Error {
+  readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "DropboxOAuthError";
+    this.status = status;
+  }
+}
+
+type DropboxTokenCache = {
+  accessToken: string;
+  expiresAtMs: number;
+};
+
+type TokenRefreshResponse = {
+  access_token?: string;
+  expires_in?: number;
+  scope?: string;
+  error?: string;
+  error_description?: string;
+};
+
+let accessTokenCache: DropboxTokenCache | null = null;
+let refreshInFlight: Promise<string> | null = null;
+let scopesValidated = false;
+
+export function readDropboxClientId(): string | null {
+  return (
+    process.env.DROPBOX_APP_KEY?.trim()
+    || process.env.DROPBOX_CLIENT_ID?.trim()
+    || null
+  );
+}
+
+export function readDropboxClientSecret(): string | null {
+  return (
+    process.env.DROPBOX_APP_SECRET?.trim()
+    || process.env.DROPBOX_CLIENT_SECRET?.trim()
+    || null
+  );
+}
+
+export function readDropboxRefreshToken(): string | null {
+  return process.env.DROPBOX_REFRESH_TOKEN?.trim() || null;
+}
+
+/** @deprecated Console tokens expire in hours — use refresh token env vars. */
+export function readDropboxAccessToken(): string | null {
+  return process.env.DROPBOX_ACCESS_TOKEN?.trim() || null;
+}
+
+export function hasDropboxRefreshTokenConfig(): boolean {
+  return Boolean(
+    readDropboxRefreshToken()
+    && readDropboxClientId()
+    && readDropboxClientSecret(),
+  );
+}
+
+export function isDropboxExcelExportEnabled(): boolean {
+  if (hasDropboxRefreshTokenConfig()) return true;
+  return readDropboxAccessToken() != null;
+}
+
+export function assertDropboxRefreshEnvConfigured(): void {
+  const missing: string[] = [];
+  if (!readDropboxClientId()) missing.push("DROPBOX_APP_KEY");
+  if (!readDropboxClientSecret()) missing.push("DROPBOX_APP_SECRET");
+  if (!readDropboxRefreshToken()) missing.push("DROPBOX_REFRESH_TOKEN");
+  if (missing.length > 0) {
+    throw new DropboxOAuthError(
+      `Dropbox export is missing: ${missing.join(", ")}. See DEPLOY.md or scripts/dropbox-oauth-offline.mjs.`,
+    );
+  }
+}
+
+/** Redact bearer tokens and long secrets from Dropbox error text. */
+export function sanitizeDropboxErrorMessage(raw: string): string {
+  return raw
+    .replace(/\bsl\.[A-Za-z0-9_.-]+/g, "[redacted]")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/refresh_token=\S+/gi, "refresh_token=[redacted]")
+    .replace(/access_token["']?\s*[:=]\s*["']?[^"'\s,}]+/gi, "access_token=[redacted]")
+    .slice(0, 400);
+}
+
+export function validateDropboxExportScopes(scopeField: string | undefined): void {
+  if (!scopeField?.trim()) {
+    throw new DropboxOAuthError(
+      `Dropbox did not return OAuth scopes. Re-authorize the app with: ${DROPBOX_EXPORT_REQUIRED_SCOPES.join(", ")}.`,
+    );
+  }
+  const granted = new Set(scopeField.trim().split(/\s+/));
+  const missing = DROPBOX_EXPORT_REQUIRED_SCOPES.filter((s) => !granted.has(s));
+  if (missing.length > 0) {
+    throw new DropboxOAuthError(
+      `Dropbox app is missing required scopes: ${missing.join(", ")}. Enable them in the Dropbox App Console and re-run offline OAuth.`,
+    );
+  }
+}
+
+function readCachedAccessToken(): string | null {
+  if (!accessTokenCache) return null;
+  if (Date.now() >= accessTokenCache.expiresAtMs - TOKEN_REFRESH_LEEWAY_MS) {
+    return null;
+  }
+  return accessTokenCache.accessToken;
+}
+
+function storeAccessToken(accessToken: string, expiresInSec: number): string {
+  const ttl = Number.isFinite(expiresInSec) && expiresInSec > 0
+    ? expiresInSec
+    : DEFAULT_ACCESS_TOKEN_TTL_SEC;
+  accessTokenCache = {
+    accessToken,
+    expiresAtMs: Date.now() + ttl * 1000,
+  };
+  return accessToken;
+}
+
+async function requestRefreshedAccessToken(): Promise<string> {
+  assertDropboxRefreshEnvConfigured();
+  const refreshToken = readDropboxRefreshToken()!;
+  const clientId = readDropboxClientId()!;
+  const clientSecret = readDropboxClientSecret()!;
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
+
+  const res = await fetch(DROPBOX_OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  const text = await res.text();
+  let data: TokenRefreshResponse = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new DropboxOAuthError(
+      sanitizeDropboxErrorMessage(text) || `Dropbox token refresh HTTP ${res.status}`,
+      res.status,
+    );
+  }
+
+  if (!res.ok || !data.access_token) {
+    const detail = sanitizeDropboxErrorMessage(
+      data.error_description || data.error || text,
+    );
+    throw new DropboxOAuthError(
+      detail || `Dropbox token refresh failed (${res.status}). Re-run scripts/dropbox-oauth-offline.mjs.`,
+      res.status,
+    );
+  }
+
+  if (!scopesValidated) {
+    validateDropboxExportScopes(data.scope);
+    scopesValidated = true;
+  }
+
+  return storeAccessToken(data.access_token, Number(data.expires_in));
+}
+
+async function resolveRefreshAccessToken(): Promise<string> {
+  const cached = readCachedAccessToken();
+  if (cached) return cached;
+
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
+  refreshInFlight = requestRefreshedAccessToken().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
+/** Bearer token for Dropbox export API calls. */
+export async function getDropboxBearerTokenForExport(): Promise<string> {
+  if (hasDropboxRefreshTokenConfig()) {
+    return resolveRefreshAccessToken();
+  }
+  const staticToken = readDropboxAccessToken();
+  if (staticToken) return staticToken;
+  throw new DropboxOAuthError("Dropbox export is not configured.");
+}
+
+export function invalidateDropboxAccessTokenCache(): void {
+  accessTokenCache = null;
+  scopesValidated = false;
+}
+
+/** Tests / dev — reset in-memory OAuth state. */
+export function resetDropboxOAuthStateForTests(): void {
+  accessTokenCache = null;
+  refreshInFlight = null;
+  scopesValidated = false;
+}
+
+/** @internal Tests with a fixed cache without calling Dropbox. */
+export function __setDropboxAccessTokenCacheForTests(
+  accessToken: string,
+  expiresAtMs: number,
+): void {
+  accessTokenCache = { accessToken, expiresAtMs };
+}

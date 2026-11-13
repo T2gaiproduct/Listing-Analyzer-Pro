@@ -186,7 +186,7 @@ export function buildAuditExportBundle(opts: {
   return buildAuditExportBundleWithPublishUrls(opts, publishUrls);
 }
 
-/** Amazon flat-file / Excel — uses Dropbox image URLs when DROPBOX_ACCESS_TOKEN is set. */
+/** Amazon flat-file / Excel — uses Dropbox image URLs when Dropbox export env is configured. */
 export async function buildAuditExportBundleForExcel(opts: {
   audit: Audit;
   marketplaceId?: string | null;
