@@ -245,9 +245,31 @@ async function handleSubscriptionUpdated(sub: Record<string, unknown> & { id: st
   if (planId) updateData.planId = planId;
   if (billingCycle) updateData.billingCycle = billingCycle;
 
+  const [subBefore] = await db
+    .select({ planId: subscriptionsTable.planId })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.userId, userId));
+  const previousPlanId = subBefore?.planId ?? null;
+
   await db.update(subscriptionsTable)
     .set(updateData)
     .where(eq(subscriptionsTable.userId, userId));
+
+  if (planId != null && planId !== previousPlanId) {
+    const [newPlan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
+    if (newPlan) {
+      const grantCredits = await planRowToGrantCredits(newPlan);
+      const granted = await grantPlanCreditsDelta(
+        userId,
+        grantCredits,
+        `${newPlan.name} plan — subscription plan changed`,
+      );
+      logger.info(
+        { userId, previousPlanId, planId, granted },
+        "Subscription plan changed — synced subscription credits",
+      );
+    }
+  }
 
   logger.info({ userId, status: newStatus, planId, billingCycle }, "Subscription updated from Stripe");
 }
