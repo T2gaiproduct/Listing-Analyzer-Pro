@@ -489,7 +489,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       || (profileLoading && workspaces.length === 0 && !listError),
     // Always gate routes while role permissions load (including members); skipPermLoadingForNav
     // only applies to isLoading so nav/shell can render without blocking the whole app on first paint.
-    permissionsLoading: Boolean(activeWorkspaceId && permLoading),
+    permissionsLoading: Boolean(activeWorkspaceId && permLoading && !isAgencyAccountOverview),
     workspacesLoadFailed: listError,
     setActiveWorkspaceId: setWorkspace,
     can,

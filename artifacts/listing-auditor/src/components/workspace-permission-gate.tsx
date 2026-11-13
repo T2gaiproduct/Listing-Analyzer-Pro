@@ -9,6 +9,10 @@ import {
   canViewPath,
   pathRequiresCommittedWorkspace,
 } from "@/lib/workspace-route-access";
+import {
+  isAgencyAccountOverviewDashboard,
+  pathUsesAgencyAccountWideApiScope,
+} from "@/lib/agency-dashboard-scope";
 
 interface WorkspacePermissionGateProps {
   path: string;
@@ -57,11 +61,16 @@ export function WorkspacePermissionGate({ path, requireCreate, children }: Works
     needsWorkspaceSelection,
     workspaces,
     activeWorkspaceId,
+    isAgencyAccountOverview,
     can,
     canView,
   } = useWorkspace();
 
-  if (isLoading || permissionsLoading) {
+  const accountWideAgencyRoute =
+    pathUsesAgencyAccountWideApiScope(path)
+    && isAgencyAccountOverviewDashboard(isBillingAccountOwner, isAgencyAccountOverview);
+
+  if (isLoading || (permissionsLoading && !accountWideAgencyRoute)) {
     return <GateLoadingSkeleton />;
   }
 
