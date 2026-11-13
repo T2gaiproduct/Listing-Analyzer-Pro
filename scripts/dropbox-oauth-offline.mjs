@@ -30,6 +30,7 @@ if (command === "authorize") {
     response_type: "code",
     token_access_type: "offline",
     redirect_uri: REDIRECT_URI,
+    scope: "files.content.write sharing.write",
   });
   console.log("\n1. In Dropbox App Console → OAuth 2, add Redirect URI:\n");
   console.log(`   ${REDIRECT_URI}\n`);

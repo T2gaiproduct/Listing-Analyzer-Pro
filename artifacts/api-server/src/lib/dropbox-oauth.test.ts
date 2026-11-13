@@ -53,7 +53,53 @@ function testValidateScopes(): void {
       return true;
     },
   );
-  assert.throws(() => validateDropboxExportScopes(undefined));
+}
+
+async function testRefreshWithoutScopeRunsProbe(): Promise<void> {
+  await withEnv(
+    {
+      DROPBOX_APP_KEY: "app-key",
+      DROPBOX_APP_SECRET: "app-secret",
+      DROPBOX_REFRESH_TOKEN: "refresh-token",
+    },
+    async () => {
+      const originalFetch = globalThis.fetch;
+      const calls: string[] = [];
+      globalThis.fetch = (async (input, init) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.includes("oauth2/token")) {
+          return new Response(
+            JSON.stringify({ access_token: "tok_no_scope", expires_in: 3600 }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.includes("content.dropboxapi.com/2/files/upload")) {
+          return new Response("", { status: 200 });
+        }
+        if (url.includes("sharing/list_shared_links")) {
+          return new Response(JSON.stringify({ links: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (url.includes("files/delete_v2")) {
+          return new Response(JSON.stringify({ metadata: { ".tag": "deleted" } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response("unexpected", { status: 500 });
+      }) as typeof fetch;
+      try {
+        const token = await getDropboxBearerTokenForExport();
+        assert.equal(token, "tok_no_scope");
+        assert.ok(calls.some((u) => u.includes("files/upload")));
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
 }
 
 function testIsEnabledWithRefreshConfig(): void {
@@ -241,4 +287,5 @@ await testRefreshPostsToDropboxTokenEndpoint();
 await testConcurrentRefreshSingleFlight();
 await testExpiredCacheTriggersNewRefresh();
 await testRefreshErrorIsSanitized();
+await testRefreshWithoutScopeRunsProbe();
 console.log("dropbox-oauth.test.ts: ok");
