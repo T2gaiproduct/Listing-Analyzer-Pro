@@ -35,6 +35,54 @@ export function findBrowseCategoryByPath(path: string): AmazonBrowseCategory | u
   );
 }
 
+function splitSearchWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[\s&/|,-]+/)
+    .map((w) => w.replace(/[^\w]/g, ""))
+    .filter(Boolean);
+}
+
+/** Match a query token to a single word (avoids e.g. "car" matching inside "card"). */
+export function browseCategoryTokenMatchesWord(word: string, token: string): boolean {
+  const w = word.toLowerCase();
+  const t = token.toLowerCase();
+  if (!w || !t) return false;
+  if (w === t) return true;
+  if (!w.startsWith(t)) return false;
+  if (w.length === t.length) return true;
+
+  const remainder = w.slice(t.length);
+  if (/^(?:s|es|'s)$/i.test(remainder)) return true;
+  if (remainder.length >= 2) return true;
+  if (remainder.length === 1 && /[aeiou]/i.test(remainder)) return true;
+  return false;
+}
+
+function tokenMatchScore(category: AmazonBrowseCategory, token: string): number {
+  const labelWords = splitSearchWords(category.label);
+  for (const word of labelWords) {
+    if (word === token) return 100;
+    if (browseCategoryTokenMatchesWord(word, token)) return 90;
+  }
+
+  const segments = browsePathSegments(category.browsePath);
+  for (const segment of segments) {
+    const segWords = splitSearchWords(segment);
+    for (const word of segWords) {
+      if (word === token) return 70;
+      if (browseCategoryTokenMatchesWord(word, token)) return 60;
+    }
+  }
+
+  if (token.length >= 4) {
+    const hay = `${category.label} ${category.browsePath}`.toLowerCase();
+    if (hay.includes(token)) return 20;
+  }
+
+  return 0;
+}
+
 export function filterAmazonBrowseCategories(
   categories: readonly AmazonBrowseCategory[],
   search: string,
@@ -43,12 +91,19 @@ export function filterAmazonBrowseCategories(
   const q = search.trim().toLowerCase();
   if (!q) return [...categories].slice(0, limit);
   const tokens = q.split(/\s+/).filter(Boolean);
-  return categories
-    .filter((c) => {
-      const hay = `${c.label} ${c.browsePath} ${c.browseNodeId}`.toLowerCase();
-      return tokens.every((t) => hay.includes(t));
+
+  const scored = categories
+    .map((c) => {
+      const perToken = tokens.map((t) => tokenMatchScore(c, t));
+      if (perToken.some((s) => s === 0)) return null;
+      const score = perToken.reduce((sum, s) => sum + s, 0);
+      return { category: c, score };
     })
-    .slice(0, limit);
+    .filter((row): row is { category: AmazonBrowseCategory; score: number } => row != null);
+
+  scored.sort((a, b) => b.score - a.score || a.category.label.localeCompare(b.category.label));
+
+  return scored.slice(0, limit).map((row) => row.category);
 }
 
 export function getRecentBrowseCategoryPaths(): string[] {
