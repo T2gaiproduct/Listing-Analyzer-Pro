@@ -12,6 +12,7 @@ export function platformAiName(name?: string | null): string {
 export interface SiteBranding {
   platformName: string;
   logoUrl: string | null;
+  footerLogoUrl?: string | null;
   faviconUrl: string | null;
   supportEmail?: string;
   supportPhone?: string;
@@ -29,7 +30,9 @@ export function defaultLogoUrl() {
 }
 
 export function defaultFooterLogoUrl() {
-  return defaultLogoUrl();
+  const basePath = getBasePath();
+  if (typeof window === "undefined") return `${basePath}/logo-footer.svg`;
+  return `${window.location.origin}${basePath}/logo-footer.svg`;
 }
 
 export function defaultFaviconUrl() {

@@ -16,7 +16,8 @@ export function SiteLogo({
   imageClassName = wordmarkClass,
   variant = "public",
 }: SiteLogoProps) {
-  const { platformName, logoUrl } = useBranding();
+  const { platformName, logoUrl, footerLogoUrl } = useBranding();
+  const src = variant === "footer" ? footerLogoUrl : logoUrl;
 
   const footerClass =
     "h-9 w-auto max-w-[14rem] sm:max-w-[18rem] object-contain object-left shrink-0";
@@ -24,7 +25,7 @@ export function SiteLogo({
   return (
     <span className={cn("inline-flex items-center min-w-0 max-w-full", className)}>
       <img
-        src={logoUrl}
+        src={src}
         alt={platformName}
         width={176}
         height={32}
