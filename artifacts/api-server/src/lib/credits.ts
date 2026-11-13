@@ -299,8 +299,17 @@ export async function checkCreditsTeamAware(
 
   if (ctx.workspaceId != null && !ctx.isTeamMember && !ctx.isDefaultWorkspace) {
     const pool = await getWorkspaceCredits(ctx.workspaceId);
-    const currentBalance = pool[type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits"];
-    return { hasCredits: currentBalance >= amount, currentBalance, needed: amount };
+    const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
+    const poolBalance = pool[key];
+    if (poolBalance >= amount) {
+      return { hasCredits: true, currentBalance: poolBalance, needed: amount };
+    }
+  // Account owner: unassigned billing balance may still be spendable when the workspace pool is empty.
+    if (ctx.isAccountOwner) {
+      return checkCredits(ctx.userId, type, amount);
+    }
+    const currentBalance = poolBalance;
+    return { hasCredits: false, currentBalance, needed: amount };
   }
 
   if (ctx.isTeamMember && ctx.memberId != null) {
@@ -395,6 +404,22 @@ export async function deductCreditsTeamAware(
   }
 
   if (ctx.workspaceId != null && !ctx.isTeamMember && !ctx.isDefaultWorkspace) {
+    const pool = await getWorkspaceCredits(ctx.workspaceId);
+    const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
+    if (pool[key] >= amount) {
+      return deductWorkspacePoolForOwner(
+        ctx.workspaceId,
+        ctx.userId,
+        type,
+        amount,
+        reason,
+        featureType,
+        metadata,
+      );
+    }
+    if (ctx.isAccountOwner) {
+      return deductCredits(ctx.userId, type, amount, reason, featureType, metadata);
+    }
     return deductWorkspacePoolForOwner(
       ctx.workspaceId,
       ctx.userId,
