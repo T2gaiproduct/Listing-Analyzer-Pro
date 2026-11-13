@@ -205,35 +205,41 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5 lg:gap-6">
+      {/*
+        Fixed 2×N / 4×N columns so row counts stay even (e.g. 8 items = 2 rows of 4).
+        Inner 1:1 box uses explicit aspect-ratio for consistent tile height across browsers.
+      */}
+      <div className="grid w-full min-w-0 grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 auto-rows-fr items-stretch justify-items-stretch">
         {items.map((item, index) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setSelected(item)}
-            className="group relative w-full aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-slate-50 shadow-sm hover:shadow-lg transition-shadow duration-300 cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+            className="group relative block w-full min-w-0 h-full p-0 m-0 border-0 bg-transparent cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 rounded-2xl sm:rounded-[1.25rem]"
             aria-label={`View ${item.title} — ${item.brand}`}
           >
-            <img
-              src={item.image}
-              alt={`${item.title} — ${item.brand}`}
-              className={cn(
-                "absolute inset-0 w-full h-full object-center pointer-events-none",
-                item.square ? "object-cover" : "object-contain p-2 sm:p-3",
+            <span className="relative block w-full aspect-square overflow-hidden rounded-2xl sm:rounded-[1.25rem] border border-slate-200/80 bg-white shadow-sm group-hover:shadow-lg transition-shadow duration-300">
+              <img
+                src={item.image}
+                alt={`${item.title} — ${item.brand}`}
+                className={cn(
+                  "absolute inset-0 h-full w-full object-center pointer-events-none",
+                  item.square ? "object-cover" : "object-contain p-2 sm:p-3",
+                )}
+                loading={index < 4 ? "eager" : "lazy"}
+                decoding="async"
+                fetchPriority={index < 4 ? "high" : "auto"}
+              />
+              {item.badge && (
+                <span className="pointer-events-none absolute top-3 right-3 z-10 bg-pink-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
+                  {item.badge}
+                </span>
               )}
-              loading={index < 4 ? "eager" : "lazy"}
-              decoding="async"
-              fetchPriority={index < 4 ? "high" : "auto"}
-            />
-            {item.badge && (
-              <span className="pointer-events-none absolute top-3 right-3 z-10 bg-pink-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
-                {item.badge}
-              </span>
-            )}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-              {item.title && <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>}
-              {item.brand && <p className={cn("text-xs text-white/80", item.title && "mt-0.5")}>{item.brand}</p>}
-            </div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                {item.title && <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>}
+                {item.brand && <p className={cn("text-xs text-white/80", item.title && "mt-0.5")}>{item.brand}</p>}
+              </div>
+            </span>
           </button>
         ))}
       </div>
