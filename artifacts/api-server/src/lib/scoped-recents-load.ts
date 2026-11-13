@@ -155,6 +155,7 @@ export async function loadScopedRecents(
       .select({
         id: graphicsProjectsTable.id,
         name: graphicsProjectsTable.name,
+        productName: graphicsProjectsTable.productName,
         category: graphicsProjectsTable.category,
         status: graphicsProjectsTable.status,
         sourceImageUrls: graphicsProjectsTable.sourceImageUrls,

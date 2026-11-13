@@ -193,6 +193,7 @@ export async function loadRecentsScoped(
           .select({
             id: graphicsProjectsTable.id,
             name: graphicsProjectsTable.name,
+            productName: graphicsProjectsTable.productName,
             category: graphicsProjectsTable.category,
             status: graphicsProjectsTable.status,
             sourceImageUrls: graphicsProjectsTable.sourceImageUrls,
@@ -306,7 +307,7 @@ export function buildRecentsItems(
     ...data.graphics.map((g) => ({
       type: "graphics" as const,
       id: g.id,
-      name: g.name,
+      name: g.name?.trim() || g.productName?.trim() || "Untitled Project",
       createdAt: g.createdAt,
       updatedAt: g.updatedAt ?? g.createdAt,
       url: `/projects/${g.id}`,
