@@ -17,13 +17,106 @@ function isPublicRemoteImageUrl(url: string): boolean {
 
 const uploadCache = new Map<string, string>();
 
+type DropboxTokenCache = {
+  accessToken: string;
+  expiresAtMs: number;
+};
+
+let refreshTokenCache: DropboxTokenCache | null = null;
+
+function readDropboxClientId(): string | null {
+  return (
+    process.env.DROPBOX_APP_KEY?.trim()
+    || process.env.DROPBOX_CLIENT_ID?.trim()
+    || null
+  );
+}
+
+function readDropboxClientSecret(): string | null {
+  return (
+    process.env.DROPBOX_APP_SECRET?.trim()
+    || process.env.DROPBOX_CLIENT_SECRET?.trim()
+    || null
+  );
+}
+
+function readDropboxRefreshToken(): string | null {
+  return process.env.DROPBOX_REFRESH_TOKEN?.trim() || null;
+}
+
+/** @deprecated Short-lived — prefer refresh token env vars for production. */
 export function readDropboxAccessToken(): string | null {
   const token = process.env.DROPBOX_ACCESS_TOKEN?.trim();
   return token || null;
 }
 
+export function hasDropboxRefreshTokenConfig(): boolean {
+  return Boolean(
+    readDropboxRefreshToken()
+    && readDropboxClientId()
+    && readDropboxClientSecret(),
+  );
+}
+
 export function isDropboxExcelExportEnabled(): boolean {
-  return readDropboxAccessToken() != null;
+  return hasDropboxRefreshTokenConfig() || readDropboxAccessToken() != null;
+}
+
+async function fetchDropboxAccessTokenFromRefresh(): Promise<string> {
+  const refreshToken = readDropboxRefreshToken();
+  const clientId = readDropboxClientId();
+  const clientSecret = readDropboxClientSecret();
+  if (!refreshToken || !clientId || !clientSecret) {
+    throw new Error("Dropbox refresh token is not configured (DROPBOX_REFRESH_TOKEN, DROPBOX_APP_KEY, DROPBOX_APP_SECRET).");
+  }
+
+  if (refreshTokenCache && Date.now() < refreshTokenCache.expiresAtMs - 60_000) {
+    return refreshTokenCache.accessToken;
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
+
+  const res = await fetch("https://api.dropbox.com/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const text = await res.text();
+  let data: { access_token?: string; expires_in?: number; error?: string; error_description?: string } = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(text.slice(0, 200) || `Dropbox token refresh HTTP ${res.status}`);
+  }
+  if (!res.ok || !data.access_token) {
+    const detail = data.error_description || data.error || text.slice(0, 200);
+    throw new Error(
+      detail
+      || `Dropbox token refresh failed (${res.status}). Re-run offline OAuth (see scripts/dropbox-oauth-offline.mjs).`,
+    );
+  }
+
+  const expiresInSec = Number.isFinite(data.expires_in) ? Number(data.expires_in) : 14_400;
+  refreshTokenCache = {
+    accessToken: data.access_token,
+    expiresAtMs: Date.now() + expiresInSec * 1000,
+  };
+  return refreshTokenCache.accessToken;
+}
+
+/** Bearer token for export uploads — refresh flow when configured, else static DROPBOX_ACCESS_TOKEN. */
+export async function getDropboxBearerTokenForExport(): Promise<string> {
+  if (hasDropboxRefreshTokenConfig()) {
+    return fetchDropboxAccessTokenFromRefresh();
+  }
+  const staticToken = readDropboxAccessToken();
+  if (staticToken) return staticToken;
+  throw new Error("Dropbox export is not configured.");
 }
 
 export function isDropboxUrl(url: string): boolean {
@@ -109,6 +202,11 @@ async function dropboxApi<T>(token: string, url: string, body: unknown): Promise
       typeof data === "object" && data && "error_summary" in data
         ? String((data as { error_summary?: string }).error_summary)
         : text.slice(0, 200);
+    if (/expired_access_token/i.test(summary) && !hasDropboxRefreshTokenConfig()) {
+      throw new Error(
+        `${summary} — Dropbox console tokens expire in hours. Set DROPBOX_REFRESH_TOKEN + DROPBOX_APP_KEY + DROPBOX_APP_SECRET (see DEPLOY.md).`,
+      );
+    }
     throw new Error(summary || `Dropbox API ${res.status}`);
   }
   return data as T;
@@ -202,8 +300,7 @@ export async function ensureDropboxExportUrlForSource(opts: {
   graphicsProjectId?: number | null;
   index: number;
 }): Promise<string | null> {
-  const token = readDropboxAccessToken();
-  if (!token) return null;
+  if (!isDropboxExcelExportEnabled()) return null;
 
   let source = repairCorruptedImageUrl(opts.sourceUrl);
   if (!source) return null;
@@ -211,6 +308,8 @@ export async function ensureDropboxExportUrlForSource(opts: {
   if (isDropboxUrl(source)) {
     return toDirectDropboxImageUrl(source);
   }
+
+  const token = await getDropboxBearerTokenForExport();
 
   const localPath = resolveLocalImagePath(source, opts.auditId, opts.graphicsProjectId);
   if (localPath) {
@@ -242,4 +341,5 @@ export async function ensureDropboxExportUrlForSource(opts: {
 /** Clear in-memory upload cache (tests). */
 export function clearDropboxExportUploadCache(): void {
   uploadCache.clear();
+  refreshTokenCache = null;
 }

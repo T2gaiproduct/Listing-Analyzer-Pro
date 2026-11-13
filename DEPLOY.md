@@ -118,6 +118,18 @@ CLERK_PROXY_URL=https://yourdomain.com/clerk
 # Admin user IDs (comma-separated Clerk user IDs)
 ADMIN_USER_IDS=user_XXXXXXXX,user_YYYYYYYY
 
+# Dropbox — Excel/CSV export image columns (optional; staging test.sellerlens.io or production)
+# Do NOT use the console "Generated access token" (sl.…) on servers — it expires in ~4 hours.
+# One-time OAuth → long-lived refresh token:
+#   1) Dropbox app: scopes files.content.write + sharing.write; OAuth redirect http://127.0.0.1:53682/
+#   2) DROPBOX_APP_KEY=... DROPBOX_APP_SECRET=... node scripts/dropbox-oauth-offline.mjs authorize
+#   3) Approve in browser, then: ... node scripts/dropbox-oauth-offline.mjs exchange <code>
+#   4) Put refresh token + app key/secret in .env; remove DROPBOX_ACCESS_TOKEN; pm2 restart listing-auditor-api --update-env
+DROPBOX_APP_KEY=
+DROPBOX_APP_SECRET=
+DROPBOX_REFRESH_TOKEN=
+DROPBOX_EXPORT_PREFIX=/ecommerce-guru/exports
+
 # OpenAI (via Replit AI Integrations or direct key)
 OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXX
 

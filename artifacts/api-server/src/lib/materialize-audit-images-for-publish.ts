@@ -196,7 +196,7 @@ export async function resolveListingExportImageUrlsFromAudit(opts: {
     });
     if (!url) {
       throw new Error(
-        `Could not upload listing image ${index + 1} to Dropbox. Check DROPBOX_ACCESS_TOKEN, files.content.write, and sharing.write scopes.`,
+        `Could not upload listing image ${index + 1} to Dropbox. Check DROPBOX_REFRESH_TOKEN (or DROPBOX_ACCESS_TOKEN), files.content.write, and sharing.write scopes.`,
       );
     }
     const safe = sanitizeMarketplacePublishImageUrl(url);
