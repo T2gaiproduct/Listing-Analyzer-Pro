@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import {
@@ -16,6 +17,7 @@ import {
 import { youtubeThumbnailUrl, youtubeEmbedUrl } from "@/lib/video-embed";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const TUTORIALS_SECTION_ENABLED_KEY = "sections.tutorials.enabled";
 
 interface TutorialsCmsEditorProps {
   data: HomepageCmsMap;
@@ -66,6 +68,8 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
     setVisibleCount((count) => count + 1);
   }
 
+  const homepageTutorialsVisible = data[TUTORIALS_SECTION_ENABLED_KEY] !== "false";
+
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
@@ -85,6 +89,20 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Show tutorials section on homepage</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Hides the &quot;Learn how to get the most out of SellerLens&quot; block on the public homepage. Tutorials still appear on the dedicated tutorials page.
+            </p>
+          </div>
+          <Switch
+            checked={homepageTutorialsVisible}
+            onCheckedChange={(checked) =>
+              onChange(TUTORIALS_SECTION_ENABLED_KEY, checked ? "true" : "false")
+            }
+          />
+        </div>
         {Array.from({ length: visibleCount }, (_, i) => i + 1).map((index) => {
           const keys = tutorialItemKeys(index);
           const customPreview = data[keys.image]
