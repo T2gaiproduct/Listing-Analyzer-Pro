@@ -33,6 +33,7 @@ import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser, resolveSessionEmail } from "../lib/admin-auth.js";
 import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
 import { sendSupportTicketCreatedEmails } from "../lib/support-ticket-email.js";
+import { sendFormSubmissionNotificationEmails } from "../lib/form-submission-email.js";
 import { planIncludesWorkspacesFromPlan, type PlanEnabledFeatures } from "@workspace/workspace-permissions";
 import { parseEmailForApi } from "@workspace/email-validation";
 import { listWorkspaceEntitledPlanNames } from "../lib/plan-workspaces.js";
@@ -373,6 +374,13 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
       message: trimmedEmail,
       link: "/admin/marketing/forms?type=newsletter",
     });
+    void sendFormSubmissionNotificationEmails({
+      submissionId: item.id,
+      formType: "newsletter",
+      email: trimmedEmail,
+      name: trimmedName,
+      data: { source, message: source ? `Source: ${source}` : "Newsletter signup" },
+    });
 
     res.status(201).json(item);
     return;
@@ -420,6 +428,14 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
     title: `New ${label}`,
     message: `${trimmedName || trimmedEmail}: ${preview}`,
     link: `/admin/marketing/forms?type=${formType}`,
+  });
+  void sendFormSubmissionNotificationEmails({
+    submissionId: item.id,
+    formType,
+    email: trimmedEmail,
+    name: trimmedName,
+    data: submissionData,
+    sendCustomerConfirmation: formType === "contact" || formType === "enterprise",
   });
 
   res.status(201).json(item);
