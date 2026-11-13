@@ -530,6 +530,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             auditId={linkedAuditId}
             productName={project.productName || project.name}
             audit={linkedAudit ?? undefined}
+            redirectSaveToProductExplorer
           />
         </div>
       )}

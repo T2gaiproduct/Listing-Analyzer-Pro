@@ -149,11 +149,15 @@ export function GraphicsCreateStepContent({
   productName,
   audit,
   productImageUrls,
+  redirectSaveToProductExplorer = false,
+  productExplorerSource = "listing",
 }: {
   auditId: number;
   productName: string;
   audit?: AuditLike | null;
   productImageUrls?: string[] | null;
+  redirectSaveToProductExplorer?: boolean;
+  productExplorerSource?: "listing" | "audit";
 }) {
   const [graphicsStepPanel, setGraphicsStepPanel] = useState<GraphicsStepPanel>("graphics");
   const imageUrls = useMemo(
@@ -174,6 +178,8 @@ export function GraphicsCreateStepContent({
           imageUrls={imageUrls}
           category={audit?.category ?? null}
           targetKeywords={audit?.targetKeywords ?? null}
+          redirectSaveToProductExplorer={redirectSaveToProductExplorer}
+          productExplorerSource={productExplorerSource}
         />
       </div>
     ) : (
