@@ -22,7 +22,8 @@
     "test:email-templates": "tsx src/lib/email-template-layout.test.ts",
     "test:walmart-items": "tsx src/lib/walmart-items-client.test.ts",
     "test:native-auth-password": "tsx src/lib/native-auth/password.test.ts",
-    "test:dropbox-oauth": "tsx src/lib/dropbox-oauth.test.ts"
+    "test:dropbox-oauth": "tsx src/lib/dropbox-oauth.test.ts",
+    "test:multi-marketplace-export": "tsx src/lib/multi-marketplace-listing-export.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",

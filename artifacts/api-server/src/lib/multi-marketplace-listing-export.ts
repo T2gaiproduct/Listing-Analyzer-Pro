@@ -14,7 +14,7 @@ const MARKETPLACE_SHEET_NAMES: Record<string, string> = {
   walmart: "wallmart",
 };
 
-const MARKETPLACE_CONTENT_HEADERS = [
+const MARKETPLACE_CONTENT_BASE_HEADERS = [
   "Title",
   "Bullet 1",
   "Bullet 2",
@@ -23,7 +23,6 @@ const MARKETPLACE_CONTENT_HEADERS = [
   "Bullet 5",
   "Keywords",
   "Description",
-  "Attributes",
 ] as const;
 
 export type ContentMarketplaceMeta = {
@@ -63,24 +62,39 @@ function hasListingCopy(content: GeneratedContent): boolean {
   );
 }
 
-function marketplaceContentRow(content: GeneratedContent): string[] {
+/** One Excel column per listing attribute (header = attribute name, cell = value). */
+export function buildMarketplaceSheetRow(content: GeneratedContent): {
+  headers: string[];
+  values: string[];
+} {
   const bullets = [...(content.bulletPoints ?? [])];
   while (bullets.length < 5) bullets.push("");
   const keywords = (content.keywords ?? []).filter(Boolean).join(", ");
   const description = stripHtml(
     htmlForListingExport(content.htmlDescription?.trim() ?? "", 8000),
   );
-  const attributes = (content.attributes ?? [])
-    .map((row) => `${row.attribute}: ${row.value}`)
-    .join(" · ");
+  const attrRows = content.attributes ?? [];
+  const attributeHeaders = attrRows.map((row, index) => {
+    const name = row.attribute?.trim();
+    return name || `Attribute ${index + 1}`;
+  });
+  const attributeValues = attrRows.map((row) => row.value?.trim() ?? "");
 
-  return [
+  const headers = [...MARKETPLACE_CONTENT_BASE_HEADERS, ...attributeHeaders];
+  const values = [
     content.title?.trim() ?? "",
     ...bullets.slice(0, 5).map((b) => b?.trim() ?? ""),
     keywords,
     description,
-    attributes,
+    ...attributeValues,
   ];
+
+  return { headers, values };
+}
+
+function marketplaceColumnWidth(header: string): number {
+  if (header === "Description") return 56;
+  return Math.min(44, Math.max(12, header.length + 6));
 }
 
 function applyUrlHyperlink(cell: ExcelJS.Cell, url: string): void {
@@ -217,13 +231,12 @@ export async function buildMultiMarketplaceExcelBuffer(opts: {
 
   for (const sheet of sheets) {
     const ws = workbook.addWorksheet(excelSheetName(sheet.slug));
-    ws.addRow([...MARKETPLACE_CONTENT_HEADERS]);
-    ws.addRow(marketplaceContentRow(sheet.content));
+    const { headers, values } = buildMarketplaceSheetRow(sheet.content);
+    ws.addRow(headers);
+    ws.addRow(values);
     boldHeaderRow(ws);
-    ws.columns = MARKETPLACE_CONTENT_HEADERS.map((header) => ({
-      width: header === "Description" ? 56 : header === "Attributes" ? 40 : Math.min(36, header.length + 20),
-    }));
-    const descCol = MARKETPLACE_CONTENT_HEADERS.indexOf("Description") + 1;
+    ws.columns = headers.map((header) => ({ width: marketplaceColumnWidth(header) }));
+    const descCol = headers.indexOf("Description") + 1;
     if (descCol > 0) {
       ws.getRow(2).getCell(descCol).alignment = { wrapText: true, vertical: "top" };
     }
