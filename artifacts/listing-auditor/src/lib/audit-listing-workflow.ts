@@ -68,3 +68,7 @@ export function auditListingExistingProductWorkflowQuery(): string {
   });
   return params.toString();
 }
+
+export function isAuditListingWorkflowPath(location: string, search = ""): boolean {
+  return location === "/audits/workflow" && isAuditListingExistingProductWorkflow(search);
+}
