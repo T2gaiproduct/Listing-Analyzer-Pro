@@ -63,3 +63,25 @@ export async function applyProductProfileUpdates(
     targetMarketplaces: [],
   });
 }
+
+/** Ensures Product Explorer has a profile row (e.g. Create Graphics scratch → save). */
+export async function ensureProductProfileForAudit(
+  auditId: number,
+  fallbackProductName: string,
+): Promise<void> {
+  const [existingProfile] = await db
+    .select({ auditId: productProfilesTable.auditId })
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, auditId))
+    .limit(1);
+  if (existingProfile) return;
+
+  await db.insert(productProfilesTable).values({
+    auditId,
+    sku: deriveSku(fallbackProductName, auditId),
+    priority: "medium",
+    assignedManager: null,
+    workflowTemplate: "build-brand-standard",
+    targetMarketplaces: [],
+  });
+}

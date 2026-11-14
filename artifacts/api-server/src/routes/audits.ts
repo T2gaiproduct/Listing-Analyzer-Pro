@@ -25,6 +25,7 @@ import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/lis
 import {
   PROJECT_ORIGIN_AUDIT_LISTING,
   PROJECT_ORIGIN_BUILD_BRAND_SCRATCH,
+  PROJECT_ORIGIN_GRAPHICS_SCRATCH,
   projectOriginInsertFields,
 } from "../lib/audit-project-origin.js";
 import {
@@ -101,7 +102,10 @@ import {
   loadAuditForRequest,
   type AuditAccessMode,
 } from "../lib/workspace-route-helpers";
-import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
+import {
+  applyProductProfileUpdates,
+  ensureProductProfileForAudit,
+} from "../lib/product-profile-update.js";
 import { applyProductListingUpdates } from "../lib/product-listing-update.js";
 import { syncListingToConnectedMarketplaces } from "../lib/product-listing-sync.js";
 import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
@@ -526,6 +530,11 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
         sourceUrl: sourceListingUrl || null,
         marketplaceNotes,
       });
+    }
+
+    if (originFields.projectOrigin === PROJECT_ORIGIN_GRAPHICS_SCRATCH) {
+      const profileName = productName?.trim() || projectName?.trim() || "Product";
+      await ensureProductProfileForAudit(audit.id, profileName);
     }
 
     res.status(201).json(audit);
