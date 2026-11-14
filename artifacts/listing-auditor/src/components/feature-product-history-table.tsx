@@ -11,8 +11,10 @@ import {
   Package,
   Trash2,
   History,
+  Search,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -102,6 +104,21 @@ function productDetailUrl(id: number, sourceType: ProductSourceType): string {
 
 function productKey(product: ProductListItem): string {
   return `${product.sourceType}-${product.id}`;
+}
+
+function matchesHistorySearch(product: ProductListItem, rawQuery: string): boolean {
+  const q = rawQuery.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    product.name,
+    product.sku,
+    product.sourceTypeLabel,
+    ...(product.channels ?? []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
 }
 
 function resolveProductViewUrl(
@@ -438,6 +455,7 @@ export function FeatureProductHistoryTable({
     canDelete,
   } = useWorkspace();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const { trigger: triggerDeleteDialog, dialog: deleteDialog } = useActionDialog();
 
@@ -457,7 +475,7 @@ export function FeatureProductHistoryTable({
     isEnabled: productsQueryEnabled,
   });
 
-  const products = useMemo(() => {
+  const sourceProducts = useMemo(() => {
     const raw = (apiData?.products ?? []) as ProductListItem[];
     const normalized = raw.map((p) => normalizeApiProduct(p));
     if (sourceType === "graphics" && includeAuditListingsInGraphicsHistory) {
@@ -473,6 +491,13 @@ export function FeatureProductHistoryTable({
     }
     return normalized.filter((p) => p.sourceType === sourceType);
   }, [apiData?.products, sourceType, includeAuditListingsInGraphicsHistory]);
+
+  const products = useMemo(
+    () => sourceProducts.filter((p) => matchesHistorySearch(p, searchQuery)),
+    [sourceProducts, searchQuery],
+  );
+
+  const searchActive = searchQuery.trim().length > 0;
 
   const canDeleteProduct = (product: ProductListItem) =>
     canDelete(productDeleteFeature(product.sourceType));
@@ -657,18 +682,43 @@ export function FeatureProductHistoryTable({
 
   return (
     <div className="w-full min-w-0 space-y-4">
-      <div className="flex items-center gap-2 justify-center sm:justify-start">
-        <History className="w-4 h-4 text-orange-500" />
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-          {sectionTitle}
-        </h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 justify-center sm:justify-start">
+          <History className="w-4 h-4 text-orange-500" />
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            {sectionTitle}
+          </h2>
+        </div>
+        {sourceProducts.length > 0 ? (
+          <div className="relative w-full sm:max-w-sm sm:ml-auto">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by product name or SKU…"
+              className="h-9 pl-9 text-sm"
+              aria-label="Search projects"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="md:hidden rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-        {products.length === 0 ? (
+        {sourceProducts.length === 0 ? (
           <div className="py-10 px-6 text-center">
             <p className="text-sm font-medium text-foreground">{emptyTitle}</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">{emptyDescription}</p>
+          </div>
+        ) : products.length === 0 && searchActive ? (
+          <div className="py-10 px-6 text-center">
+            <p className="text-sm font-medium text-foreground">No matches</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+              Nothing matches &ldquo;{searchQuery.trim()}&rdquo;. Try another name or SKU.
+            </p>
           </div>
         ) : (
           <ul className="divide-y divide-border/60">
@@ -776,12 +826,23 @@ export function FeatureProductHistoryTable({
               </tr>
             </thead>
             <tbody>
-              {products.length === 0 ? (
+              {sourceProducts.length === 0 ? (
                 <tr>
                   <td colSpan={8}>
                     <div className="py-10 px-6 text-center">
                       <p className="text-sm font-medium text-foreground">{emptyTitle}</p>
                       <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">{emptyDescription}</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : products.length === 0 && searchActive ? (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="py-10 px-6 text-center">
+                      <p className="text-sm font-medium text-foreground">No matches</p>
+                      <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                        Nothing matches &ldquo;{searchQuery.trim()}&rdquo;. Try another name or SKU.
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -881,9 +942,11 @@ export function FeatureProductHistoryTable({
         </div>
       </div>
 
-      {products.length > 0 && (
+      {sourceProducts.length > 0 && (
         <p className="text-[10px] text-muted-foreground text-right">
-          {products.length} product{products.length === 1 ? "" : "s"}
+          {searchActive
+            ? `${products.length} of ${sourceProducts.length} shown`
+            : `${products.length} product${products.length === 1 ? "" : "s"}`}
           {selectedCount > 0 ? ` · ${selectedCount} selected` : ""}
         </p>
       )}
