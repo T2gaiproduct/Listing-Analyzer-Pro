@@ -257,7 +257,7 @@ function ConnectCard({
   );
 }
 
-export default function MarketplacesPage() {
+export default function MarketplacesPage({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { platformName } = useBranding();
@@ -858,20 +858,30 @@ export default function MarketplacesPage() {
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300 w-full min-w-0">
-      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-        <span>{platformName}</span>
-        <ChevronRight className="w-3 h-3" />
-        <span className="text-foreground">Marketplaces</span>
-      </div>
+      {!embedded ? (
+        <>
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <span>{platformName}</span>
+            <ChevronRight className="w-3 h-3" />
+            <span className="text-foreground">Marketplaces</span>
+          </div>
 
-      <div className="space-y-2">
-        <h1 className="text-lg font-semibold text-foreground tracking-tight">Marketplaces</h1>
-        <p className="text-xs text-muted-foreground max-w-2xl">
+          <div className="space-y-2">
+            <h1 className="text-lg font-semibold text-foreground tracking-tight">Marketplaces</h1>
+            <p className="text-xs text-muted-foreground max-w-2xl">
+              {marketplaceUiScrubBranding(
+                "Connect the sales channels you use in this workspace. eBay and Walmart use OAuth (you approve access on their site; Ecommerce Guru stores tokens, not your marketplace password). Shopify and WooCommerce use store API credentials in the dialog.",
+              )}
+            </p>
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground max-w-3xl">
           {marketplaceUiScrubBranding(
-            "Connect the sales channels you use in this workspace. eBay and Walmart use OAuth (you approve access on their site; Ecommerce Guru stores tokens, not your marketplace password). Shopify and WooCommerce use store API credentials in the dialog.",
+            "Connect the sales channels you use in this workspace. eBay and Walmart use OAuth; Shopify and WooCommerce use store API credentials in the connect dialog.",
           )}
         </p>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="space-y-2">
