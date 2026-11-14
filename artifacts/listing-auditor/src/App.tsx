@@ -59,7 +59,6 @@ import {
   Dashboard,
   RecentProjectsPage,
   ProductsPage,
-  MarketplacesPage,
   ProductDetailPage,
   AuditNew,
   AuditImportFromLink,
@@ -1016,7 +1015,7 @@ function Router() {
         <ProtectedRoute><Dashboard /></ProtectedRoute>
       </Route>
       <Route path="/marketplaces">
-        <WorkspaceProtectedRoute><MarketplacesPage /></WorkspaceProtectedRoute>
+        <Redirect to="/settings?tab=marketplaces" />
       </Route>
       <Route path="/ai">
         <WorkspaceProtectedRoute><SellerMateAiPage /></WorkspaceProtectedRoute>

@@ -18,7 +18,6 @@ import { isCreateGraphicsWorkflowPath } from "@/lib/create-graphics-workflow";
 import { isAuditListingWorkflowPath } from "@/lib/audit-listing-workflow";
 import {
   Package,
-  Store,
   FilePlus2,
   FileSearch,
   Palette,
@@ -102,7 +101,6 @@ const mainNavItems: Array<{
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: CREATE_VIDEOS_COMING_SOON },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
   { icon: Sparkles, label: "__AI__", href: "/ai", feature: "sellermate_ai" },
-  { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "amazon" },
 ];
 
 // --- Tooltip ----------------------------------------------------------------
@@ -153,7 +151,6 @@ function isCreateGraphicsNavActive(location: string, search = ""): boolean {
 // --- Page title map ---------------------------------------------------------
 function getPageTitle(location: string, appName: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
-  if (location === "/marketplaces") return "Marketplaces";
   if (location === "/ai") return platformAiName(appName);
   if (location === "/products") return "Product Explorer";
   if (location.startsWith("/products/")) return "Product Details";
@@ -189,7 +186,6 @@ function getPageTitle(location: string, appName: string): string {
 // --- Ribbon visibility -------------------------------------------------------
 function isRibbonVisible(location: string): boolean {
   if (location === "/" || location === "/dashboard") return false;
-  if (location === "/marketplaces") return false;
   if (location === "/ai") return false;
   if (location === "/products") return false;
   if (location.startsWith("/products/")) return false;
@@ -281,12 +277,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const navItemsBeforeManageAds = visibleNavItems.filter(
     (item) =>
       item.href !== "/recent-projects"
-      && item.href !== "/marketplaces"
       && item.href !== "/ai"
       && item.href !== "/audit-in-detail"
       && item.href !== "/graphics-in-detail",
   );
-  const navItemsAfterManageAds = visibleNavItems.filter((item) => item.href === "/recent-projects" || item.href === "/marketplaces" || item.href === "/ai");
+  const navItemsAfterManageAds = visibleNavItems.filter((item) => item.href === "/recent-projects" || item.href === "/ai");
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -967,7 +962,6 @@ export function Layout({ children }: { children: ReactNode }) {
             {navItemsAfterManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
               const isActive =
                 location === href ||
-                (href === "/marketplaces" && location === "/marketplaces") ||
                 (href === "/ai" && location === "/ai") ||
                 (href === "/recent-projects" && location === "/recent-projects");
               if (collapsed) {
@@ -1145,7 +1139,6 @@ export function Layout({ children }: { children: ReactNode }) {
               {navItemsAfterManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
                 const isActive =
                   location === href ||
-                  (href === "/marketplaces" && location === "/marketplaces") ||
                   (href === "/ai" && location === "/ai") ||
                   (href === "/recent-projects" && location === "/recent-projects");
                 return (

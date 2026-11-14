@@ -10,6 +10,7 @@ import { fetchAmazonStatus } from "@/lib/amazon-publish";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
 import { settingsPanelClassName } from "@/components/settings-panel";
 import { marketplaceUiPublicName } from "@/lib/marketplace-ui-visibility";
+import { SETTINGS_MARKETPLACES_HREF } from "@/lib/settings-nav";
 
 function ConnectionRow({
   name,
@@ -55,7 +56,7 @@ export function SettingsIntegrationsCard() {
           Integrations
         </CardTitle>
         <CardDescription>
-          Marketplace connections for your active workspace. Manage credentials and sync on the Marketplaces page.
+          Marketplace connections for your active workspace. Manage credentials and sync in Settings → Marketplaces.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -78,7 +79,7 @@ export function SettingsIntegrationsCard() {
           detail={amazon?.sellerId ? `Seller ${amazon.sellerId}` : null}
         />
         <Button asChild variant="outline" size="sm" className="mt-1">
-          <Link href="/marketplaces">
+          <Link href={SETTINGS_MARKETPLACES_HREF}>
             <Store className="w-4 h-4 mr-2" />
             Manage marketplaces
           </Link>

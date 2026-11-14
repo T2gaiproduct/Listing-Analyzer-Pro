@@ -366,7 +366,7 @@ function MarketplaceCard({
           {!connected || !publishReady ? (
             <p className="text-[10px] text-slate-500 leading-relaxed">
               {connectHint}{" "}
-              <Link href="/marketplaces" className="text-orange-600 hover:underline font-medium">
+              <Link href="/settings?tab=marketplaces" className="text-orange-600 hover:underline font-medium">
                 Open Marketplaces
               </Link>
             </p>
