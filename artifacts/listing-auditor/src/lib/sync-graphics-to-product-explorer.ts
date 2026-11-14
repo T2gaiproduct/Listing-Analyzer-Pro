@@ -1,5 +1,6 @@
 import { getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { QueryClient } from "@tanstack/react-query";
+import { buildProductExplorerDraftFromGraphicsProject } from "@/lib/graphics-audit-draft";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -97,4 +98,66 @@ export async function saveGraphicsRecordsToProductExplorer(
   void queryClient?.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
   void queryClient?.invalidateQueries({ queryKey: ["products"] });
   void queryClient?.invalidateQueries({ queryKey: ["product", auditId] });
+}
+
+export type ScratchGraphicsProject = {
+  id: number;
+  name: string;
+  productName: string;
+  category: string | null;
+  sourceImageUrls?: string[] | null;
+  auditId?: number | null;
+};
+
+async function linkGraphicsProjectToAudit(projectId: number, auditId: number): Promise<void> {
+  const res = await fetch(`${basePath}/api/graphics/projects/${projectId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ auditId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? "Could not link graphics to product.");
+  }
+}
+
+export async function ensureAuditForScratchGraphicsProject(
+  project: ScratchGraphicsProject,
+): Promise<number> {
+  if (project.auditId != null && project.auditId > 0) {
+    return project.auditId;
+  }
+
+  const draftBody = buildProductExplorerDraftFromGraphicsProject(project);
+  if (!draftBody) {
+    throw new Error("Product name is required to save to Product Explorer.");
+  }
+
+  const draftRes = await fetch(`${basePath}/api/audits/draft`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(draftBody),
+  });
+  if (!draftRes.ok) {
+    const err = await draftRes.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? "Could not create product.");
+  }
+  const audit = (await draftRes.json()) as { id: number };
+
+  await linkGraphicsProjectToAudit(project.id, audit.id);
+  return audit.id;
+}
+
+/** Scratch (or unlinked) graphics → create/link listing + sync images + return audit id for navigation. */
+export async function saveScratchGraphicsProjectToProductExplorer(
+  project: ScratchGraphicsProject,
+  records: GraphicsRecordForSync[],
+  queryClient?: QueryClient,
+): Promise<number> {
+  const auditId = await ensureAuditForScratchGraphicsProject(project);
+  await saveGraphicsRecordsToProductExplorer(auditId, records, queryClient);
+  void queryClient?.invalidateQueries({ queryKey: ["graphics-project", String(project.id)] });
+  return auditId;
 }

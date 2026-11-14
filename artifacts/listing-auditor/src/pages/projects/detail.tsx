@@ -12,8 +12,12 @@ import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import {
   Download, RefreshCw, Wand2, ImageIcon, Loader2,
-  Trash2, Clock, Sparkles, Maximize2, Plus, Check, ArrowRight,
+  Trash2, Clock, Sparkles, Maximize2, Plus, Check, ArrowRight, Package,
 } from "lucide-react";
+import {
+  saveGraphicsRecordsToProductExplorer,
+  saveScratchGraphicsProjectToProductExplorer,
+} from "@/lib/sync-graphics-to-product-explorer";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
@@ -112,6 +116,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const id = params?.id ?? "";
   const { imageTypes: GRAPHICS_IMAGE_TYPES } = useGraphicsImageTypesFromApi();
   const [, nav] = useLocation();
+  const [isSavingToProductExplorer, setIsSavingToProductExplorer] = useState(false);
   const search = useSearch();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -439,6 +444,44 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const records = project?.imageRecords ?? [];
   const isGenerating = project?.status === "generating";
   const hasRecords = records.length > 0;
+
+  const handleSaveToProductExplorer = useCallback(async () => {
+    if (!project || !canEditGraphics || records.length === 0) return;
+    setIsSavingToProductExplorer(true);
+    try {
+      let auditId: number;
+      if (linkedAuditId != null && linkedAuditId > 0) {
+        auditId = linkedAuditId;
+        await saveGraphicsRecordsToProductExplorer(auditId, records, qc);
+      } else {
+        auditId = await saveScratchGraphicsProjectToProductExplorer(
+          {
+            id: project.id,
+            name: project.name,
+            productName: project.productName,
+            category: project.category,
+            sourceImageUrls: project.sourceImageUrls,
+            auditId: project.auditId,
+          },
+          records,
+          qc,
+        );
+      }
+      toast({
+        title: "Saved to Product Explorer",
+        description: "Opening your product graphics workspace…",
+      });
+      nav(`${basePath}/products/${auditId}?source=listing&step=graphics`);
+    } catch (err) {
+      toast({
+        title: "Could not save",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingToProductExplorer(false);
+    }
+  }, [project, canEditGraphics, records, linkedAuditId, qc, toast, nav]);
   const showOverviewTab = showGraphicsHubTabs && graphicsDetailTab === "overview";
   const showCreateGraphicsTab =
     isStandaloneScratchGraphics || !graphicsInDetailHub || graphicsDetailTab === "create_graphics";
@@ -538,9 +581,28 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       {showCreateGraphicsTab && (!graphicsInDetailHub || linkedAuditId == null) && (
       <>
       {/* ── Action bar ── */}
-      <div className="flex items-center justify-end gap-2 mb-6">
+      <div className="flex items-center justify-end gap-2 mb-6 flex-wrap">
+        {hasRecords && canEditGraphics && (
+          <Button
+            type="button"
+            className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer gap-2"
+            disabled={isSavingToProductExplorer}
+            onClick={() => void handleSaveToProductExplorer()}
+          >
+            {isSavingToProductExplorer ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Package className="w-4 h-4" />
+            )}
+            Save to Product Explorer
+          </Button>
+        )}
         {project?.status === "completed" && hasRecords && (
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" onClick={handleDownloadAll}>
+          <Button
+            variant="outline"
+            className="cursor-pointer"
+            onClick={handleDownloadAll}
+          >
             <Download className="w-4 h-4 mr-2" />
             Download All
           </Button>
