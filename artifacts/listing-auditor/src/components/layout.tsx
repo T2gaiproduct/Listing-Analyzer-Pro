@@ -14,6 +14,7 @@ import {
   isCreateGraphicsSectionPath,
   isOpenedFromGraphicsInDetail,
 } from "@/lib/graphics-in-detail-nav";
+import { isCreateGraphicsWorkflowPath } from "@/lib/create-graphics-workflow";
 import {
   Package,
   Store,
@@ -136,7 +137,9 @@ function isBuildYourBrandNavActive(location: string, search = ""): boolean {
   if (location === "/audits/import-from-link") {
     return !isImportFromLinkForAuditListings(search);
   }
-  if (location === "/audits/workflow") return true;
+  if (location === "/audits/workflow") {
+    return !isCreateGraphicsWorkflowPath(location, search);
+  }
   return false;
 }
 

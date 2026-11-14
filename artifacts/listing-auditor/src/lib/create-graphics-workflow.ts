@@ -42,3 +42,7 @@ export function createGraphicsExistingProductWorkflowSearch(): string {
   });
   return `?${params.toString()}`;
 }
+
+export function isCreateGraphicsWorkflowPath(location: string, search = ""): boolean {
+  return location === "/audits/workflow" && isCreateGraphicsExistingProductWorkflow(search);
+}

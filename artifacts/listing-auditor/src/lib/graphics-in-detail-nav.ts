@@ -1,3 +1,5 @@
+import { isCreateGraphicsWorkflowPath } from "@/lib/create-graphics-workflow";
+
 export const GRAPHICS_IN_DETAIL_FROM = "graphics-in-detail";
 
 /** Query flag when a graphics project was started via Create Graphics → From scratch. */
@@ -76,5 +78,9 @@ export function isCreateGraphicsLandingActive(location: string, search = ""): bo
 }
 
 export function isCreateGraphicsSectionPath(location: string, search = ""): boolean {
-  return isCreateGraphicsLandingActive(location, search) || isGraphicsInDetailNavActive(location, search);
+  return (
+    isCreateGraphicsLandingActive(location, search)
+    || isGraphicsInDetailNavActive(location, search)
+    || isCreateGraphicsWorkflowPath(location, search)
+  );
 }

@@ -2,7 +2,6 @@ import { ChevronDown, ImageIcon, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   GRAPHICS_IN_DETAIL_HREF,
-  isCreateGraphicsLandingActive,
   isCreateGraphicsSectionPath,
   isGraphicsInDetailNavActive,
 } from "@/lib/graphics-in-detail-nav";
@@ -26,16 +25,17 @@ export function CreateGraphicsNavGroup({
   onNavigate,
   variant = "sidebar",
 }: CreateGraphicsNavGroupProps) {
-  const isOnHome = isCreateGraphicsLandingActive(location, search) && !isGraphicsInDetailNavActive(location, search);
   const isMobile = variant === "mobile";
   const childActive = isGraphicsInDetailNavActive(location, search);
+  const sectionActive = isCreateGraphicsSectionPath(location, search);
+  const parentActive = sectionActive && !childActive;
 
   return (
     <div className="space-y-0.5">
       <div
         className={cn(
           "flex items-center rounded-lg transition-colors",
-          isOnHome
+          parentActive
             ? "bg-orange-500 text-white shadow-sm"
             : isMobile
               ? "hover:bg-slate-100"
@@ -51,7 +51,7 @@ export function CreateGraphicsNavGroup({
           className={cn(
             "flex flex-1 items-center gap-1.5 text-left min-w-0",
             isMobile ? "px-3 py-2.5 min-h-9 text-xs" : "px-2.5 py-2 text-[11px]",
-            isOnHome
+            parentActive
               ? "font-medium text-white"
               : isMobile
                 ? "text-slate-600 font-normal"
@@ -62,7 +62,7 @@ export function CreateGraphicsNavGroup({
             className={cn(
               "w-3.5 h-3.5 flex-shrink-0",
               isMobile ? "w-4 h-4" : "",
-              isOnHome ? "text-white" : isMobile ? "" : "text-sidebar-foreground/75",
+              parentActive ? "text-white" : isMobile ? "" : "text-sidebar-foreground/75",
             )}
           />
           <span className="truncate flex-1 min-w-0">Create Graphics</span>
@@ -73,7 +73,7 @@ export function CreateGraphicsNavGroup({
           aria-label={expanded ? "Collapse Create Graphics menu" : "Expand Create Graphics menu"}
           className={cn(
             "shrink-0 p-1.5 rounded-md",
-            isOnHome ? "text-white/90 hover:bg-white/10" : "opacity-70 hover:opacity-100",
+            parentActive ? "text-white/90 hover:bg-white/10" : "opacity-70 hover:opacity-100",
           )}
         >
           <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", expanded && "rotate-180")} />
