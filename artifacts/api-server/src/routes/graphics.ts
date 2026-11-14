@@ -27,6 +27,7 @@ import {
   graphicsWorkspaceScopeFilter,
   loadGraphicsProjectForRequest,
   buildTeamAwareCreditCtx,
+  loadAuditForRequest,
 } from "../lib/workspace-route-helpers";
 import { requireWorkspacePerm } from "../lib/workspace-context";
 import { formatGraphicsProjectError, isGraphicsSchemaError } from "../lib/db-client-errors";
@@ -999,13 +1000,43 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, req
   const existing = await loadGraphicsProject(req, id);
   if (!existing) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const body = req.body as { name?: string; productName?: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number };
+  const body = req.body as {
+    name?: string;
+    productName?: string;
+    category?: string;
+    sourceImageUrls?: string[];
+    lifestyleCount?: number;
+    featureCount?: number;
+    auditId?: number | null;
+  };
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (body.name !== undefined) updates.name = body.name;
   if (body.productName !== undefined) updates.productName = body.productName;
   if (body.category !== undefined) updates.category = body.category;
   if (body.lifestyleCount !== undefined) updates.lifestyleCount = body.lifestyleCount;
   if (body.featureCount !== undefined) updates.featureCount = body.featureCount;
+
+  if (body.auditId !== undefined) {
+    if (existing.auditId != null && body.auditId !== existing.auditId) {
+      res.status(400).json({ error: "This graphics project is already linked to a product." });
+      return;
+    }
+    if (body.auditId === null) {
+      updates.auditId = null;
+    } else {
+      const nextAuditId = Number(body.auditId);
+      if (!Number.isFinite(nextAuditId) || nextAuditId <= 0) {
+        res.status(400).json({ error: "Invalid audit id" });
+        return;
+      }
+      const audit = await loadAuditForRequest(req, nextAuditId, "write");
+      if (!audit) {
+        res.status(404).json({ error: "Product not found" });
+        return;
+      }
+      updates.auditId = nextAuditId;
+    }
+  }
 
   if (body.sourceImageUrls !== undefined) {
     const savedPaths = await persistGraphicsProjectSourceImages(id, body.sourceImageUrls, { auditId: existing.auditId });

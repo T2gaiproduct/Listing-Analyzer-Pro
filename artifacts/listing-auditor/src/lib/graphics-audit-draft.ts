@@ -32,6 +32,33 @@ export function buildSyntheticListingFields(productName: string, brandName: stri
   };
 }
 
+/** Listing draft for a scratch graphics project entering Product Explorer (not A+ shell). */
+export function buildProductExplorerDraftFromGraphicsProject(project: {
+  name: string;
+  productName: string;
+  category: string | null;
+  sourceImageUrls?: string[] | null;
+}) {
+  const productName = project.productName?.trim();
+  if (!productName) return null;
+  const category = project.category?.trim() || "General";
+  const { syntheticTitle, syntheticBullets, syntheticKeywords } = buildSyntheticListingFields(
+    productName,
+    "",
+    category,
+  );
+  return {
+    projectName: (project.name?.trim() || productName),
+    productName,
+    category,
+    title: syntheticTitle,
+    bulletPoints: syntheticBullets,
+    targetKeywords: syntheticKeywords,
+    imageUrls: [...(project.sourceImageUrls ?? [])].filter((u) => u?.trim()),
+    projectOrigin: "build_brand_scratch",
+  };
+}
+
 export function buildGraphicsAuditDraftBody(
   projectName: string,
   productName: string,
