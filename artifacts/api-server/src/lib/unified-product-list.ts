@@ -7,7 +7,10 @@ import { getAccountOwnerId, getListScopeWorkspaceId, getWorkspaceCtx } from "./w
 import { resolveTeamContext } from "../middlewares/team-auth";
 import { requireWorkspacePerm } from "./workspace-context";
 import { listLiveChannelsForAudits, loadAuditCatalogExtras } from "./product-marketplaces.js";
-import { classifyAuditForProductExplorer } from "./audit-project-origin.js";
+import {
+  classifyAuditForProductExplorer,
+  PROJECT_ORIGIN_GRAPHICS_SCRATCH,
+} from "./audit-project-origin.js";
 import { loadAuditIdsWithProductProfiles } from "./audit-product-source.js";
 
 export type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
@@ -156,7 +159,10 @@ export async function loadUnifiedProductList(
   const profileAuditIds = await loadAuditIdsWithProductProfiles(audits.map((a) => a.id));
 
   const graphicsLinkedRows = await db
-    .select({ auditId: graphicsProjectsTable.auditId })
+    .select({
+      id: graphicsProjectsTable.id,
+      auditId: graphicsProjectsTable.auditId,
+    })
     .from(graphicsProjectsTable)
     .where(
       and(
@@ -168,6 +174,12 @@ export async function loadUnifiedProductList(
   const graphicsLinkedAuditIds = new Set(
     graphicsLinkedRows.map((r) => r.auditId).filter((id): id is number => id != null && id > 0),
   );
+  const graphicsProjectIdByAuditId = new Map<number, number>();
+  for (const row of graphicsLinkedRows) {
+    if (row.auditId != null && row.auditId > 0) {
+      graphicsProjectIdByAuditId.set(row.auditId, row.id);
+    }
+  }
 
   for (const a of audits) {
     if (shouldExcludeAuditFromProductExplorer(
@@ -177,6 +189,7 @@ export async function loadUnifiedProductList(
         overallScore: a.overallScore,
         generatedContent: a.generatedContent,
         currentStep: a.currentStep,
+        imageRecords: a.imageRecords as unknown[] | null,
       },
       graphicsLinkedAuditIds.has(a.id),
     )) {
@@ -194,8 +207,16 @@ export async function loadUnifiedProductList(
     const name = a.name?.trim() || a.productName?.trim() || "Untitled Project";
     const hasAuditScore = (a.overallScore ?? 0) > 0;
     const mapped = mapAuditStatus(a.status, a.currentStep ?? null, hasAuditScore);
-    const workflowUrl = isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`;
-    const detailUrl = `/products/${a.id}?source=${sourceType}`;
+    const isGraphicsScratch = a.projectOrigin === PROJECT_ORIGIN_GRAPHICS_SCRATCH;
+    const linkedGraphicsProjectId = graphicsProjectIdByAuditId.get(a.id);
+    const workflowUrl = isAuditListing
+      ? `/audits/${a.id}`
+      : isGraphicsScratch && linkedGraphicsProjectId
+        ? `/projects/${linkedGraphicsProjectId}?from=graphics-in-detail&tab=overview`
+        : `/audits/workflow?resume=${a.id}`;
+    const detailUrl = isGraphicsScratch
+      ? `/products/${a.id}?source=listing&step=graphics`
+      : `/products/${a.id}?source=${sourceType}`;
 
     items.push({
       id: a.id,

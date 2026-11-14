@@ -55,7 +55,7 @@ export function buildProductExplorerDraftFromGraphicsProject(project: {
     bulletPoints: syntheticBullets,
     targetKeywords: syntheticKeywords,
     imageUrls: [...(project.sourceImageUrls ?? [])].filter((u) => u?.trim()),
-    projectOrigin: "build_brand_scratch",
+    projectOrigin: "graphics_scratch",
   };
 }
 

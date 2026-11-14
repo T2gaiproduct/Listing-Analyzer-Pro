@@ -29,6 +29,7 @@ import {
   buildTeamAwareCreditCtx,
   loadAuditForRequest,
 } from "../lib/workspace-route-helpers";
+import { ensureProductProfileForAudit } from "../lib/product-profile-update.js";
 import { requireWorkspacePerm } from "../lib/workspace-context";
 import { formatGraphicsProjectError, isGraphicsSchemaError } from "../lib/db-client-errors";
 import {
@@ -1048,6 +1049,12 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, req
     .set(updates)
     .where(eq(graphicsProjectsTable.id, id))
     .returning();
+
+  if (body.auditId != null && body.auditId > 0) {
+    const profileName =
+      (updated.productName?.trim() || updated.name?.trim() || "Product");
+    await ensureProductProfileForAudit(body.auditId, profileName);
+  }
 
   res.json(updated);
 });

@@ -15,15 +15,18 @@ export function shouldExcludeAuditFromProductExplorer(
     overallScore?: number | null;
     generatedContent?: unknown | null;
     currentStep?: number | null;
+    imageRecords?: unknown[] | null;
   },
   linkedToGraphicsProject: boolean,
 ): boolean {
   if (isGraphicsAplusShellAudit(audit)) return true;
   if (!linkedToGraphicsProject) return false;
+  const imageRecordCount = Array.isArray(audit.imageRecords) ? audit.imageRecords.length : 0;
   const hasListingProgress =
     audit.generatedContent != null
     || (audit.overallScore ?? 0) > 0
     || Boolean(audit.asin?.trim())
-    || (audit.currentStep ?? 1) > 1;
+    || (audit.currentStep ?? 1) > 1
+    || imageRecordCount > 0;
   return !hasListingProgress;
 }

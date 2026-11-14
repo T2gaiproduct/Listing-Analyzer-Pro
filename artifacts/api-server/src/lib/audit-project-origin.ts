@@ -6,11 +6,14 @@ import {
 export const PROJECT_ORIGIN_AUDIT_LISTING = "audit_listing";
 export const PROJECT_ORIGIN_BUILD_BRAND_SCRATCH = "build_brand_scratch";
 export const PROJECT_ORIGIN_BUILD_BRAND_IMPORT = "build_brand_import";
+/** Scratch Create Graphics → Save to Product Explorer (listing host, not BYB workflow). */
+export const PROJECT_ORIGIN_GRAPHICS_SCRATCH = "graphics_scratch";
 
 export type ProjectOrigin =
   | typeof PROJECT_ORIGIN_AUDIT_LISTING
   | typeof PROJECT_ORIGIN_BUILD_BRAND_SCRATCH
-  | typeof PROJECT_ORIGIN_BUILD_BRAND_IMPORT;
+  | typeof PROJECT_ORIGIN_BUILD_BRAND_IMPORT
+  | typeof PROJECT_ORIGIN_GRAPHICS_SCRATCH;
 
 export type ImportMarketplaceId = "amazon" | "shopify" | "woocommerce" | "ebay" | "walmart";
 
@@ -38,6 +41,7 @@ export function parseProjectOriginFromBody(body: unknown): ProjectOrigin | null 
     value === PROJECT_ORIGIN_AUDIT_LISTING
     || value === PROJECT_ORIGIN_BUILD_BRAND_SCRATCH
     || value === PROJECT_ORIGIN_BUILD_BRAND_IMPORT
+    || value === PROJECT_ORIGIN_GRAPHICS_SCRATCH
   ) {
     return value;
   }
@@ -106,6 +110,16 @@ export function classifyAuditForProductExplorer(opts: {
     return {
       sourceType: "listing",
       sourceTypeLabel: "Build Your Brand",
+      isAuditListing: false,
+      isShopifyImport: false,
+      isWooCommerceImport: false,
+      isEbayImport: false,
+    };
+  }
+  if (origin === PROJECT_ORIGIN_GRAPHICS_SCRATCH) {
+    return {
+      sourceType: "listing",
+      sourceTypeLabel: "Create Graphics",
       isAuditListing: false,
       isShopifyImport: false,
       isWooCommerceImport: false,

@@ -115,6 +115,13 @@ function resolveProductViewUrl(
   if (viewTarget === "graphics-detail" && product.sourceType === "graphics") {
     return graphicsInDetailViewPath(product.id, "overview");
   }
+  if (
+    viewTarget === "graphics-detail"
+    && product.sourceType === "listing"
+    && product.sourceTypeLabel === "Create Graphics"
+  ) {
+    return product.workflowUrl || product.detailUrl;
+  }
   if (product.sourceType === "graphics") {
     return product.workflowUrl?.includes("from=graphics-in-detail")
       ? product.workflowUrl
@@ -456,7 +463,10 @@ export function FeatureProductHistoryTable({
     if (sourceType === "graphics" && includeAuditListingsInGraphicsHistory) {
       const graphics = normalized.filter((p) => p.sourceType === "graphics");
       const audits = normalized.filter((p) => p.sourceType === "audit");
-      return [...graphics, ...audits].sort(
+      const graphicsInExplorer = normalized.filter(
+        (p) => p.sourceType === "listing" && p.sourceTypeLabel === "Create Graphics",
+      );
+      return [...graphics, ...audits, ...graphicsInExplorer].sort(
         (a, b) =>
           new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
       );
