@@ -5,6 +5,7 @@ import {
   isOpenedFromAuditInDetail,
   isOpenedFromAuditListingsHistory,
 } from "@/lib/audit-in-detail-nav";
+import { isAuditListingWorkflowPath } from "@/lib/audit-listing-workflow";
 
 export const AUDIT_LISTING_HOME_HREF = "/audit-listings";
 export const AUDIT_IN_DETAIL_HREF = "/audit-in-detail";
@@ -31,7 +32,11 @@ export function isAuditInDetailNavActive(location: string, search = ""): boolean
 }
 
 export function isAuditListingSectionPath(location: string, search = ""): boolean {
-  return isAuditListingNavActive(location, search) || isAuditInDetailNavActive(location, search);
+  return (
+    isAuditListingNavActive(location, search)
+    || isAuditInDetailNavActive(location, search)
+    || isAuditListingWorkflowPath(location, search)
+  );
 }
 
 export function isAuditListingHomePath(location: string, search = ""): boolean {
@@ -55,16 +60,17 @@ export function AuditListingNavGroup({
   onNavigate,
   variant = "sidebar",
 }: AuditListingNavGroupProps) {
-  const isOnHome = isAuditListingHomePath(location, search);
   const isMobile = variant === "mobile";
   const childActive = isAuditInDetailNavActive(location, search);
+  const sectionActive = isAuditListingSectionPath(location, search);
+  const parentActive = sectionActive && !childActive;
 
   return (
     <div className="space-y-0.5">
       <div
         className={cn(
           "flex items-center rounded-lg transition-colors",
-          isOnHome
+          parentActive
             ? "bg-orange-500 text-white shadow-sm"
             : isMobile
               ? "hover:bg-slate-100"
@@ -80,7 +86,7 @@ export function AuditListingNavGroup({
           className={cn(
             "flex flex-1 items-center gap-1.5 text-left min-w-0",
             isMobile ? "px-3 py-2.5 min-h-9 text-xs" : "px-2.5 py-2 text-[11px]",
-            isOnHome
+            parentActive
               ? "font-medium text-white"
               : isMobile
                 ? "text-slate-600 font-normal"
@@ -91,7 +97,7 @@ export function AuditListingNavGroup({
             className={cn(
               "w-3.5 h-3.5 flex-shrink-0",
               isMobile ? "w-4 h-4" : "",
-              isOnHome ? "text-white" : isMobile ? "" : "text-sidebar-foreground/75",
+              parentActive ? "text-white" : isMobile ? "" : "text-sidebar-foreground/75",
             )}
           />
           <span className="truncate flex-1 min-w-0">Audit Listing</span>
@@ -102,7 +108,7 @@ export function AuditListingNavGroup({
           aria-label={expanded ? "Collapse Audit Listing menu" : "Expand Audit Listing menu"}
           className={cn(
             "shrink-0 p-1.5 rounded-md",
-            isOnHome ? "text-white/90 hover:bg-white/10" : "opacity-70 hover:opacity-100",
+            parentActive ? "text-white/90 hover:bg-white/10" : "opacity-70 hover:opacity-100",
           )}
         >
           <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", expanded && "rotate-180")} />
