@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   Users, FileText, TrendingUp, AlertTriangle,
   UserPlus, Activity, Clock, CheckCircle, ArrowRight,
-  CalendarDays, LogIn,
+  CalendarDays, LogIn, Image,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -223,6 +223,14 @@ export default function AdminDashboard() {
           </Button>
           <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-11" onClick={() => nav("/admin/audits")}>
             <FileText className="w-4 h-4 mr-1.5" /> All Audits
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto min-h-11"
+            onClick={() => nav("/admin/settings/category-samples")}
+          >
+            <Image className="w-4 h-4 mr-1.5" /> Category samples
           </Button>
         </div>
       </div>
