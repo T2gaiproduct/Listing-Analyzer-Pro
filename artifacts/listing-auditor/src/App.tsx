@@ -135,7 +135,6 @@ import {
   AdminSettingsPaymentGateway,
   AdminSettingsEmail,
   AdminSettingsImagePromptTemplates,
-  AdminCategorySamples,
   AdminMarketingHomepage,
   AdminMarketingPages,
   AdminMarketingBlog,
@@ -830,9 +829,6 @@ function Router() {
       </Route>
       <Route path="/admin/settings/ai/overview">
         <AdminRoute><AdminAiOverview /></AdminRoute>
-      </Route>
-      <Route path="/admin/settings/category-samples">
-        <AdminRoute><AdminCategorySamples /></AdminRoute>
       </Route>
       <Route path="/admin/settings/ai/skills/new">
         <AdminRoute><AdminAiSkillEditor /></AdminRoute>
