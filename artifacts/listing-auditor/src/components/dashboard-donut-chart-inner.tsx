@@ -19,7 +19,7 @@ export function DashboardDonutChartInner({
   const display = chartData.length > 0 ? chartData : data;
 
   return (
-    <div className="relative h-40 sm:h-52">
+    <div className="relative h-28 sm:h-52 max-sm:max-w-[14rem] max-sm:mx-auto">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -40,8 +40,8 @@ export function DashboardDonutChartInner({
         </PieChart>
       </ResponsiveContainer>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <p className="text-xl sm:text-2xl font-bold text-slate-900">{total.toLocaleString()}</p>
-        <p className="text-[10px] sm:text-xs text-slate-500">Total Credits</p>
+        <p className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums">{total.toLocaleString()}</p>
+        <p className="text-[10px] sm:text-xs text-slate-500">Total</p>
       </div>
     </div>
   );
