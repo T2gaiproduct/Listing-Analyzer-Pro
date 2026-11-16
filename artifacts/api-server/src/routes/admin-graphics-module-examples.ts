@@ -9,6 +9,7 @@ import {
   deleteGraphicsModuleExampleById,
   deleteGraphicsModuleExamplesForSlug,
   getGraphicsModuleExamplesForCategory,
+  listGraphicsExampleImageCountsByCategory,
   listProductCategoriesAdmin,
 } from "../lib/graphics-module-examples-service.js";
 import { saveGraphicsExampleImageFromDataUrl } from "../lib/graphics-example-image-storage.js";
@@ -67,6 +68,17 @@ router.delete(
 );
 
 router.get(
+  "/admin/graphics-module-examples/ref-counts",
+  requireAdmin,
+  requireAdminPermission("manage_settings"),
+  async (req, res): Promise<void> => {
+    const templateCategory = req.query.templateCategory === "aplus" ? "aplus" : "graphics";
+    const counts = await listGraphicsExampleImageCountsByCategory(templateCategory);
+    res.json({ counts });
+  },
+);
+
+router.get(
   "/admin/graphics-module-examples",
   requireAdmin,
   requireAdminPermission("manage_settings"),
@@ -76,7 +88,11 @@ router.get(
     const categoryRaw = req.query.category;
     const category = typeof categoryRaw === "string" ? categoryRaw : null;
     const templateCategory = req.query.templateCategory === "aplus" ? "aplus" : "graphics";
-    const payload = await getGraphicsModuleExamplesForCategory(category, {}, templateCategory);
+    const payload = await getGraphicsModuleExamplesForCategory(
+      category,
+      { exactCategory: true },
+      templateCategory,
+    );
     res.json(payload);
   },
 );

@@ -1,9 +1,19 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { eq, sql } from "drizzle-orm";
 import { db, graphicsProductCategoriesTable } from "@workspace/db";
 import {
   AMAZON_CATEGORY_SEEDS,
   DEFAULT_GRAPHICS_PRODUCT_CATEGORY,
 } from "./amazon-category-seeds.js";
+
+const PFA_BROWSE_JSON = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../listing-auditor/src/data/pfa-browse-categories.json",
+);
+
+type PfaBrowseCatalog = { categories?: { browsePath: string }[] };
 
 let migrated = false;
 let seeded = false;
@@ -72,27 +82,58 @@ export async function ensureGraphicsProductCategoriesSchemaMigrated(): Promise<v
 }
 
 export async function seedGraphicsProductCategories(): Promise<void> {
-  if (seeded) return;
   await ensureGraphicsProductCategoriesSchemaMigrated();
 
-  const seeds: { name: string; isSystem: number; sortOrder: number }[] = [
-    { name: DEFAULT_GRAPHICS_PRODUCT_CATEGORY, isSystem: 1, sortOrder: 0 },
-    ...AMAZON_CATEGORY_SEEDS.map((name, i) => ({
-      name,
-      isSystem: 1,
-      sortOrder: 10 + i,
-    })),
-  ];
+  if (!seeded) {
+    const seeds: { name: string; isSystem: number; sortOrder: number }[] = [
+      { name: DEFAULT_GRAPHICS_PRODUCT_CATEGORY, isSystem: 1, sortOrder: 0 },
+      ...AMAZON_CATEGORY_SEEDS.map((name, i) => ({
+        name,
+        isSystem: 1,
+        sortOrder: 10 + i,
+      })),
+    ];
 
-  for (const seed of seeds) {
-    const existing = await db
-      .select({ id: graphicsProductCategoriesTable.id })
-      .from(graphicsProductCategoriesTable)
-      .where(eq(graphicsProductCategoriesTable.name, seed.name))
-      .limit(1);
-    if (existing.length > 0) continue;
-    await db.insert(graphicsProductCategoriesTable).values(seed);
+    for (const seed of seeds) {
+      const existing = await db
+        .select({ id: graphicsProductCategoriesTable.id })
+        .from(graphicsProductCategoriesTable)
+        .where(eq(graphicsProductCategoriesTable.name, seed.name))
+        .limit(1);
+      if (existing.length > 0) continue;
+      await db.insert(graphicsProductCategoriesTable).values(seed);
+    }
+
+    seeded = true;
   }
 
-  seeded = true;
+  await seedPfaBrowsePaths();
+}
+
+async function seedPfaBrowsePaths(): Promise<void> {
+  let raw: PfaBrowseCatalog;
+  try {
+    const text = fs.readFileSync(PFA_BROWSE_JSON, "utf8");
+    raw = JSON.parse(text) as PfaBrowseCatalog;
+  } catch {
+    return;
+  }
+
+  const paths = (raw.categories ?? [])
+    .map((c) => c.browsePath?.trim())
+    .filter((p): p is string => Boolean(p));
+
+  const chunkSize = 200;
+  for (let i = 0; i < paths.length; i += chunkSize) {
+    const chunk = paths.slice(i, i + chunkSize);
+    const values = chunk.map((name, j) => ({
+      name,
+      isSystem: 1,
+      sortOrder: 1000 + i + j,
+    }));
+    await db
+      .insert(graphicsProductCategoriesTable)
+      .values(values)
+      .onConflictDoNothing({ target: graphicsProductCategoriesTable.name });
+  }
 }
