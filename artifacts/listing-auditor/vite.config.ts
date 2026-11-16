@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import path from "path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +22,7 @@ function appBuildIdPlugin(buildId: string): Plugin {
     name: "app-build-id-json",
     async closeBundle() {
       if (buildId === "dev") return;
+      mkdirSync(distPublicDir, { recursive: true });
       await writeFile(
         path.join(distPublicDir, "build-id.json"),
         `${JSON.stringify({ buildId }, null, 2)}\n`,
