@@ -1,6 +1,14 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import {
+  Carousel,
+  type CarouselApi,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import {
   BuildBrandStartDrawer,
   type BuildBrandStartEntry,
@@ -65,6 +73,126 @@ const steps = [
     border: "border-b-amber-500",
   },
 ];
+
+type BrandStep = (typeof steps)[number];
+
+function BuildBrandStepCard({
+  step,
+  layout,
+}: {
+  step: BrandStep;
+  layout: "mobile-slide" | "desktop-grid";
+}) {
+  const Icon = step.icon;
+  const mobileSlide = layout === "mobile-slide";
+
+  return (
+    <div
+      className={cn(
+        "bg-card border border-border shadow-sm transition-shadow min-w-0",
+        step.border,
+        mobileSlide &&
+          "mx-1 flex flex-col items-center text-center gap-3 rounded-2xl border-b-4 p-5 min-h-[11.5rem]",
+        !mobileSlide &&
+          "flex-1 flex flex-col items-center text-center gap-4 rounded-2xl p-5 border-b-4 hover:shadow-md",
+      )}
+    >
+      <div className={cn(mobileSlide ? "self-center" : "self-start")}>
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
+          {step.number}
+        </span>
+      </div>
+      <div
+        className={cn(
+          "rounded-full bg-gradient-to-br flex items-center justify-center shadow-inner shrink-0",
+          step.gradient,
+          mobileSlide ? "w-14 h-14" : "w-16 h-16",
+        )}
+      >
+        <Icon className={cn(step.iconColor, mobileSlide ? "w-6 h-6" : "w-7 h-7")} />
+      </div>
+      <div className="flex-1 w-full">
+        <p className={cn("font-bold text-foreground leading-snug", mobileSlide ? "text-sm" : "text-sm")}>
+          {step.title}
+        </p>
+        <p
+          className={cn(
+            "text-[11px] mt-1.5 leading-relaxed text-muted-foreground",
+            mobileSlide ? "px-2" : "text-foreground",
+          )}
+        >
+          {step.desc}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function BuildBrandStepsMobileCarousel() {
+  const [api, setApi] = useState<CarouselApi>();
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const onSelect = useCallback(() => {
+    if (!api) return;
+    setActiveIndex(api.selectedScrollSnap());
+  }, [api]);
+
+  useEffect(() => {
+    if (!api) return;
+    onSelect();
+    api.on("select", onSelect);
+    api.on("reInit", onSelect);
+    return () => {
+      api.off("select", onSelect);
+      api.off("reInit", onSelect);
+    };
+  }, [api, onSelect]);
+
+  return (
+    <div className="sm:hidden relative -mx-1">
+      <Carousel
+        setApi={setApi}
+        opts={{ align: "start", loop: false, dragFree: false }}
+        className="w-full"
+      >
+        <CarouselContent className="-ml-0">
+          {steps.map((step) => (
+            <CarouselItem key={step.number} className="pl-0 basis-full">
+              <BuildBrandStepCard step={step} layout="mobile-slide" />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        <CarouselPrevious
+          variant="outline"
+          className="left-1 top-1/2 -translate-y-1/2 h-8 w-8 border-orange-200 bg-background/95 shadow-sm text-orange-700"
+        />
+        <CarouselNext
+          variant="outline"
+          className="right-1 top-1/2 -translate-y-1/2 h-8 w-8 border-orange-200 bg-background/95 shadow-sm text-orange-700"
+        />
+      </Carousel>
+      <div className="flex items-center justify-center gap-1.5 mt-3" role="tablist" aria-label="How it works steps">
+        {steps.map((step, index) => (
+          <button
+            key={step.number}
+            type="button"
+            role="tab"
+            aria-selected={index === activeIndex}
+            aria-label={`Step ${step.number}: ${step.title}`}
+            className={cn(
+              "h-1.5 rounded-full transition-all duration-200",
+              index === activeIndex ? "w-5 bg-orange-500" : "w-1.5 bg-orange-200 hover:bg-orange-300",
+            )}
+            onClick={() => api?.scrollTo(index)}
+          />
+        ))}
+      </div>
+      <p className="text-center text-[10px] text-muted-foreground mt-1.5">
+        {activeIndex + 1} of {steps.length} · swipe or use arrows
+      </p>
+    </div>
+  );
+}
 
 export default function AuditNew() {
   const [, setLocation] = useLocation();
@@ -143,81 +271,43 @@ export default function AuditNew() {
           </div>
         </div>
 
-        {/* Step cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-0 relative">
-          {steps.map((step, i) => {
-            const Icon = step.icon;
-            return (
-              <div key={step.number} className="relative flex items-stretch min-w-0">
-                {/* Card — mobile: compact horizontal row; sm+: centered column */}
-                <div
-                  className={cn(
-                    "flex-1 min-w-0 bg-card border border-border rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow",
-                    "max-sm:flex max-sm:flex-row max-sm:items-center max-sm:gap-3 max-sm:p-3 max-sm:text-left max-sm:border-b-2",
-                    "sm:flex sm:flex-col sm:items-center sm:text-center sm:gap-4 sm:p-5 sm:border-b-4",
-                    step.border,
-                  )}
-                >
-                  <div className="hidden sm:block self-start">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
-                      {step.number}
-                    </span>
-                  </div>
+        <BuildBrandStepsMobileCarousel />
 
-                  <div
-                    className={cn(
-                      "rounded-full bg-gradient-to-br flex items-center justify-center shadow-inner shrink-0",
-                      step.gradient,
-                      "w-11 h-11 sm:w-16 sm:h-16",
-                    )}
+        {/* Step cards — tablet/desktop grid */}
+        <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-0 relative">
+          {steps.map((step, i) => (
+            <div key={step.number} className="relative flex items-stretch min-w-0">
+              <BuildBrandStepCard step={step} layout="desktop-grid" />
+
+              {i < steps.length - 1 && (
+                <div className="hidden lg:flex absolute top-16 -right-4 z-10 items-center justify-center w-8">
+                  <svg
+                    width="32"
+                    height="16"
+                    viewBox="0 0 32 16"
+                    fill="none"
+                    className="text-orange-300"
                   >
-                    <Icon className={cn(step.iconColor, "w-5 h-5 sm:w-7 sm:h-7")} />
-                  </div>
-
-                  <div className="flex-1 min-w-0 max-sm:py-0.5">
-                    <p className="text-[13px] sm:text-sm font-bold text-foreground leading-snug">
-                      <span className="sm:hidden text-muted-foreground font-semibold mr-1.5 tabular-nums">
-                        {step.number}.
-                      </span>
-                      {step.title}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground sm:text-foreground mt-0.5 sm:mt-1.5 leading-snug sm:leading-relaxed line-clamp-2 sm:line-clamp-none">
-                      {step.desc}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Dashed arrow connector */}
-                {i < steps.length - 1 && (
-                  <div className="hidden lg:flex absolute top-16 -right-4 z-10 items-center justify-center w-8">
-                    <svg
-                      width="32"
-                      height="16"
-                      viewBox="0 0 32 16"
+                    <path
+                      d="M0 8 Q8 8 16 8 Q24 8 28 8"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeDasharray="4 3"
+                      strokeLinecap="round"
+                    />
+                    <polyline
+                      points="25,4 30,8 25,12"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                       fill="none"
-                      className="text-orange-300"
-                    >
-                      <path
-                        d="M0 8 Q8 8 16 8 Q24 8 28 8"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeDasharray="4 3"
-                        strokeLinecap="round"
-                      />
-                      <polyline
-                        points="25,4 30,8 25,12"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    />
+                  </svg>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
