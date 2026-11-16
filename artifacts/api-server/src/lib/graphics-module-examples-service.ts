@@ -49,11 +49,37 @@ export async function listProductCategoriesAdmin(): Promise<
   }));
 }
 
-function resolveCategoryName(requested: string | null | undefined, knownNames: Set<string>): string {
+function resolveCategoryName(
+  requested: string | null | undefined,
+  knownNames: Set<string>,
+  exactCategory?: boolean,
+): string {
   const trimmed = requested?.trim();
+  if (exactCategory && trimmed) return trimmed;
   if (trimmed && knownNames.has(trimmed)) return trimmed;
+  if (trimmed && trimmed.includes(">")) return trimmed;
   if (knownNames.has(DEFAULT_GRAPHICS_PRODUCT_CATEGORY)) return DEFAULT_GRAPHICS_PRODUCT_CATEGORY;
   return trimmed || DEFAULT_GRAPHICS_PRODUCT_CATEGORY;
+}
+
+export async function listGraphicsExampleImageCountsByCategory(
+  templateCategory: ImagePromptTemplateCategory = "graphics",
+): Promise<Record<string, number>> {
+  const tplCategory = parseTemplateCategory(templateCategory);
+  const rows = await db
+    .select({
+      name: graphicsModuleExamplesTable.productCategoryName,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(graphicsModuleExamplesTable)
+    .where(eq(graphicsModuleExamplesTable.templateCategory, tplCategory))
+    .groupBy(graphicsModuleExamplesTable.productCategoryName);
+
+  const out: Record<string, number> = {};
+  for (const row of rows) {
+    out[row.name] = row.count;
+  }
+  return out;
 }
 
 function groupExampleImages(
@@ -92,6 +118,8 @@ function mergeCategoryAndDefaultImages(
 export type GetGraphicsModuleExamplesOptions = {
   /** Seller API: include Default category examples after category-specific ones (same module). */
   mergeDefaultExamples?: boolean;
+  /** Admin UI: load examples for the requested category string without catalog fallback. */
+  exactCategory?: boolean;
 };
 
 function parseTemplateCategory(raw: unknown): ImagePromptTemplateCategory {
@@ -113,7 +141,7 @@ export async function getGraphicsModuleExamplesForCategory(
   const categoryNames = await listProductCategoryNames();
   const known = new Set(categoryNames);
   const requested = requestedCategory?.trim() || null;
-  const resolvedCategory = resolveCategoryName(requested, known);
+  const resolvedCategory = resolveCategoryName(requested, known, options.exactCategory);
   const usedDefaultFallback = Boolean(requested && requested !== resolvedCategory);
 
   const templates = await listEnabledImagePromptTemplates(templateCategory);

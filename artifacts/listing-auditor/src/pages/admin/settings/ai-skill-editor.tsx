@@ -833,7 +833,6 @@ export default function AdminAiSkillEditorPage() {
           initialCategory={previewCategory || category.trim() || "Default"}
           initialTemplateCategory={imageTemplateCategory}
           initialFilterSlug={imageTemplateSlug ?? undefined}
-          coverageRows={[]}
         />
       )}
     </div>

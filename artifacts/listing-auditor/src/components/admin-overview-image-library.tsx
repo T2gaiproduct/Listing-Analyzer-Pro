@@ -19,7 +19,6 @@ import {
   type GraphicsModuleExampleItem,
 } from "@/lib/graphics-module-examples";
 import { useAdminImagePromptTemplates, type ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
-import type { CategoryCoverageRow } from "@/lib/admin-ai-skills-overview";
 import { GraphicsModuleExamplesGrid } from "@/components/graphics-module-examples-grid";
 import { AdminImageLibraryModuleDialog } from "@/components/admin-image-library-module-dialog";
 import type { ImagePromptTemplateAdmin } from "@/lib/image-prompt-templates";
@@ -30,7 +29,10 @@ type CategoryReferenceLibraryDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialCategory: string;
-  coverageRows: CategoryCoverageRow[];
+  /** Full browse-path catalog for the category picker (PFA upload paths). */
+  categoryCatalog?: string[];
+  /** Reference image counts per category name. */
+  refCounts?: Record<string, number>;
   initialTemplateCategory?: ImagePromptTemplateCategory;
   /** When set, module filter preselects this template slug (e.g. brand_story). */
   initialFilterSlug?: string;
@@ -46,7 +48,8 @@ export function CategoryReferenceLibraryDialog({
   open,
   onOpenChange,
   initialCategory,
-  coverageRows,
+  categoryCatalog,
+  refCounts,
   initialTemplateCategory = "graphics",
   initialFilterSlug,
 }: CategoryReferenceLibraryDialogProps) {
@@ -76,7 +79,8 @@ export function CategoryReferenceLibraryDialog({
           <CategoryReferenceLibraryBody
             selectedCategory={selectedCategory}
             onSelectedCategoryChange={setSelectedCategory}
-            coverageRows={coverageRows}
+            categoryCatalog={categoryCatalog}
+            refCounts={refCounts}
             enabled={open}
             templateCategory={templateCategory}
             onTemplateCategoryChange={setTemplateCategory}
@@ -91,7 +95,8 @@ export function CategoryReferenceLibraryDialog({
 type BodyProps = {
   selectedCategory: string;
   onSelectedCategoryChange: (name: string) => void;
-  coverageRows: CategoryCoverageRow[];
+  categoryCatalog?: string[];
+  refCounts?: Record<string, number>;
   enabled: boolean;
   templateCategory: ImagePromptTemplateCategory;
   onTemplateCategoryChange: (v: ImagePromptTemplateCategory) => void;
@@ -101,7 +106,8 @@ type BodyProps = {
 function CategoryReferenceLibraryBody({
   selectedCategory,
   onSelectedCategoryChange,
-  coverageRows,
+  categoryCatalog,
+  refCounts,
   enabled,
   templateCategory,
   onTemplateCategoryChange,
@@ -115,16 +121,18 @@ function CategoryReferenceLibraryBody({
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
   const categoryNames = useMemo(() => {
-    const fromCoverage = coverageRows.map((r) => r.category);
+    const fromBrowse = categoryCatalog ?? [];
     const fromCatalog = categories.map((c) => c.name);
-    return [...new Set([...fromCoverage, ...fromCatalog])].sort((a, b) => a.localeCompare(b));
-  }, [coverageRows, categories]);
+    return [...new Set([...fromBrowse, ...fromCatalog])].sort((a, b) => a.localeCompare(b));
+  }, [categoryCatalog, categories]);
 
   const refCountByCategory = useMemo(() => {
     const m = new Map<string, number>();
-    for (const row of coverageRows) m.set(row.category, row.approvedRefCount);
+    if (refCounts) {
+      for (const [name, count] of Object.entries(refCounts)) m.set(name, count);
+    }
     return m;
-  }, [coverageRows]);
+  }, [refCounts]);
 
   const categoryPageCount = Math.max(1, Math.ceil(categoryNames.length / CATEGORIES_PER_PAGE));
 

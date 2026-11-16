@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, Plus, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import { useAdminAiSkillsOverview } from "@/lib/admin-ai-skills-overview";
 import { useAdminAiSkills } from "@/lib/admin-ai-skills-api";
 import { CategoryReferenceLibraryDialog } from "@/components/admin-overview-image-library";
@@ -45,20 +46,29 @@ function StatusPill({
 
 export default function AdminAiOverviewPage() {
   const [, navigate] = useLocation();
-  const { isLoading, stats, coverageRows } = useAdminAiSkillsOverview();
+  const [coverageSearch, setCoverageSearch] = useState("");
+  const [coveragePage, setCoveragePage] = useState(0);
+
+  const { isLoading, stats, coverageRows, categoryCatalog, refCounts, filteredCatalogLength } =
+    useAdminAiSkillsOverview({
+      searchQuery: coverageSearch,
+      page: coveragePage,
+      pageSize: COVERAGE_ROWS_PER_PAGE,
+    });
   const { data: skillsData } = useAdminAiSkills();
   const skills = skillsData?.skills ?? [];
 
   const [refLibraryOpen, setRefLibraryOpen] = useState(false);
   const [refLibraryCategory, setRefLibraryCategory] = useState("Default");
-  const [coveragePage, setCoveragePage] = useState(0);
 
-  const coveragePageCount = Math.max(1, Math.ceil(coverageRows.length / COVERAGE_ROWS_PER_PAGE));
+  const coveragePageCount = Math.max(
+    1,
+    Math.ceil(filteredCatalogLength / COVERAGE_ROWS_PER_PAGE),
+  );
 
-  const pagedCoverageRows = useMemo(() => {
-    const start = coveragePage * COVERAGE_ROWS_PER_PAGE;
-    return coverageRows.slice(start, start + COVERAGE_ROWS_PER_PAGE);
-  }, [coverageRows, coveragePage]);
+  useEffect(() => {
+    setCoveragePage(0);
+  }, [coverageSearch]);
 
   function openReferenceLibrary(category: string) {
     setRefLibraryCategory(category);
@@ -140,7 +150,20 @@ export default function AdminAiOverviewPage() {
             visible score sections, and score offset for Audit Results.
           </p>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="overflow-x-auto space-y-4">
+          <div className="max-w-md">
+            <Input
+              value={coverageSearch}
+              onChange={(e) => setCoverageSearch(e.target.value)}
+              placeholder="Search categories — e.g. lipstick, car cleaning"
+              className="border-orange-200 focus-visible:ring-orange-400"
+              aria-label="Search category coverage"
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Same browse paths as the product upload category picker ({stats.categoryTotal.toLocaleString()}{" "}
+              total).
+            </p>
+          </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -160,14 +183,14 @@ export default function AdminAiOverviewPage() {
                   </td>
                 </tr>
               )}
-              {!isLoading && coverageRows.length === 0 && (
+              {!isLoading && filteredCatalogLength === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     No product categories yet. Add categories on the Skills page under Studio references.
                   </td>
                 </tr>
               )}
-              {pagedCoverageRows.map((row) => (
+              {coverageRows.map((row) => (
                 <tr
                   key={row.category}
                   className="border-b border-border/60 hover:bg-slate-50/80 transition-colors"
@@ -260,12 +283,13 @@ export default function AdminAiOverviewPage() {
               ))}
             </tbody>
           </table>
-          {coverageRows.length > COVERAGE_ROWS_PER_PAGE ? (
+          {filteredCatalogLength > COVERAGE_ROWS_PER_PAGE ? (
             <div className="flex items-center justify-between gap-3 pt-4 border-t border-orange-100 mt-2">
               <p className="text-xs text-muted-foreground">
                 Showing {coveragePage * COVERAGE_ROWS_PER_PAGE + 1}–
-                {Math.min((coveragePage + 1) * COVERAGE_ROWS_PER_PAGE, coverageRows.length)} of{" "}
-                {coverageRows.length} categories
+                {Math.min((coveragePage + 1) * COVERAGE_ROWS_PER_PAGE, filteredCatalogLength)} of{" "}
+                {filteredCatalogLength.toLocaleString()} categories
+                {coverageSearch.trim() ? ` matching “${coverageSearch.trim()}”` : ""}
               </p>
               <div className="flex items-center gap-1">
                 <Button
@@ -303,7 +327,8 @@ export default function AdminAiOverviewPage() {
         open={refLibraryOpen}
         onOpenChange={setRefLibraryOpen}
         initialCategory={refLibraryCategory}
-        coverageRows={coverageRows}
+        categoryCatalog={categoryCatalog}
+        refCounts={refCounts}
       />
 
       <p className="text-xs text-muted-foreground">
