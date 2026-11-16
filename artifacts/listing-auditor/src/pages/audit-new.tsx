@@ -92,7 +92,7 @@ function BuildBrandStepCard({
         "bg-card border border-border shadow-sm transition-shadow min-w-0",
         step.border,
         mobileSlide &&
-          "mx-1 flex flex-col items-center text-center gap-3 rounded-2xl border-b-4 p-5 min-h-[11.5rem]",
+          "mx-8 flex flex-col items-center text-center gap-2 rounded-xl border-b-[3px] px-3 py-4",
         !mobileSlide &&
           "flex-1 flex flex-col items-center text-center gap-4 rounded-2xl p-5 border-b-4 hover:shadow-md",
       )}
@@ -111,14 +111,12 @@ function BuildBrandStepCard({
       >
         <Icon className={cn(step.iconColor, mobileSlide ? "w-6 h-6" : "w-7 h-7")} />
       </div>
-      <div className="flex-1 w-full">
-        <p className={cn("font-bold text-foreground leading-snug", mobileSlide ? "text-sm" : "text-sm")}>
-          {step.title}
-        </p>
+      <div className={cn("w-full", !mobileSlide && "flex-1")}>
+        <p className="text-sm font-bold text-foreground leading-snug">{step.title}</p>
         <p
           className={cn(
-            "text-[11px] mt-1.5 leading-relaxed text-muted-foreground",
-            mobileSlide ? "px-2" : "text-foreground",
+            "text-[11px] mt-1 leading-snug text-muted-foreground",
+            !mobileSlide && "mt-1.5 leading-relaxed text-foreground",
           )}
         >
           {step.desc}
@@ -149,7 +147,7 @@ function BuildBrandStepsMobileCarousel() {
   }, [api, onSelect]);
 
   return (
-    <div className="sm:hidden relative -mx-1">
+    <div className="sm:hidden relative">
       <Carousel
         setApi={setApi}
         opts={{ align: "start", loop: false, dragFree: false }}
@@ -164,14 +162,14 @@ function BuildBrandStepsMobileCarousel() {
         </CarouselContent>
         <CarouselPrevious
           variant="outline"
-          className="left-1 top-1/2 -translate-y-1/2 h-8 w-8 border-orange-200 bg-background/95 shadow-sm text-orange-700"
+          className="left-0 top-[42%] -translate-y-1/2 h-7 w-7 border-orange-200 bg-background/95 shadow-sm text-orange-700"
         />
         <CarouselNext
           variant="outline"
-          className="right-1 top-1/2 -translate-y-1/2 h-8 w-8 border-orange-200 bg-background/95 shadow-sm text-orange-700"
+          className="right-0 top-[42%] -translate-y-1/2 h-7 w-7 border-orange-200 bg-background/95 shadow-sm text-orange-700"
         />
       </Carousel>
-      <div className="flex items-center justify-center gap-1.5 mt-3" role="tablist" aria-label="How it works steps">
+      <div className="flex items-center justify-center gap-1.5 mt-2" role="tablist" aria-label="How it works steps">
         {steps.map((step, index) => (
           <button
             key={step.number}
@@ -187,8 +185,8 @@ function BuildBrandStepsMobileCarousel() {
           />
         ))}
       </div>
-      <p className="text-center text-[10px] text-muted-foreground mt-1.5">
-        {activeIndex + 1} of {steps.length} · swipe or use arrows
+      <p className="text-center text-[10px] text-muted-foreground/80 mt-1 tabular-nums">
+        {activeIndex + 1}/{steps.length}
       </p>
     </div>
   );
@@ -210,9 +208,9 @@ export default function AuditNew() {
   }
 
   return (
-    <div className="min-h-full animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 sm:min-h-full">
       {/* Hero */}
-      <div className="text-center pt-8 pb-6 px-4 sm:pt-12 sm:pb-10 sm:px-6 relative overflow-hidden bg-card border-b border-border">
+      <div className="text-center pt-7 pb-5 px-4 sm:pt-12 sm:pb-10 sm:px-6 relative overflow-hidden bg-card border-b border-border">
         <div
           className="pointer-events-none absolute inset-0 opacity-100 dark:opacity-60"
           style={{
@@ -255,9 +253,9 @@ export default function AuditNew() {
       </div>
 
       {/* How It Works */}
-      <div className="pb-8 sm:pb-10 w-full min-w-0 px-4 sm:px-6 max-w-6xl mx-auto">
+      <div className="pb-3 sm:pb-10 w-full min-w-0 px-4 sm:px-6 max-w-6xl mx-auto">
         {/* Section header */}
-        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-5 sm:mb-8">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-8">
           <div className="hidden sm:flex items-center gap-1">
             <span className="text-orange-300 text-sm sm:text-base">✦</span>
             <div className="h-px w-8 sm:w-12 bg-gradient-to-r from-transparent to-orange-300" />
