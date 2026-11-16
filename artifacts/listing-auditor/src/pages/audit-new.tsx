@@ -84,7 +84,7 @@ export default function AuditNew() {
   return (
     <div className="min-h-full animate-in fade-in duration-500">
       {/* Hero */}
-      <div className="text-center pt-12 pb-10 px-6 relative overflow-hidden bg-card border-b border-border">
+      <div className="text-center pt-8 pb-6 px-4 sm:pt-12 sm:pb-10 sm:px-6 relative overflow-hidden bg-card border-b border-border">
         <div
           className="pointer-events-none absolute inset-0 opacity-100 dark:opacity-60"
           style={{
@@ -93,27 +93,30 @@ export default function AuditNew() {
           }}
         />
         <div className="relative">
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+        <h1 className="text-[1.65rem] sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
           Build Your Brand Content
         </h1>
-        <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight mt-1">
+        <h2 className="text-[1.65rem] sm:text-5xl font-extrabold tracking-tight leading-tight mt-1">
           <span className="bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-transparent">
             Using AI
           </span>{" "}
-          <Sparkles className="inline w-8 h-8 text-orange-400 align-middle -mt-1" />
+          <Sparkles className="inline w-6 h-6 sm:w-8 sm:h-8 text-orange-400 align-middle -mt-0.5 sm:-mt-1" />
         </h2>
-        <p className="text-[11px] text-foreground mt-4 max-w-md mx-auto leading-relaxed">
+        <p className="text-[11px] text-muted-foreground sm:text-foreground mt-3 sm:mt-4 max-w-md mx-auto leading-relaxed px-1">
           Turn product information into high-converting listings in minutes.
         </p>
 
         <Button
           size="lg"
-          className={cn("mt-7", HERO_PRIMARY_CTA_CLASS)}
+          className={cn(
+            "mt-5 sm:mt-7 w-full max-w-sm mx-auto sm:w-auto sm:max-w-none max-sm:min-w-0 max-sm:py-3.5 max-sm:px-6",
+            HERO_PRIMARY_CTA_CLASS,
+          )}
           onClick={() => setStartDrawerOpen(true)}
         >
-          <Sparkles className="w-5 h-5 mr-2" />
+          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 shrink-0" />
           Start Generating
-          <ArrowRight className="w-5 h-5 ml-2" />
+          <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 shrink-0" />
         </Button>
         <BuildBrandStartDrawer
           open={startDrawerOpen}
@@ -124,52 +127,61 @@ export default function AuditNew() {
       </div>
 
       {/* How It Works */}
-      <div className="pb-10 w-full min-w-0">
+      <div className="pb-8 sm:pb-10 w-full min-w-0 px-4 sm:px-6 max-w-6xl mx-auto">
         {/* Section header */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="flex items-center gap-1">
-            <span className="text-orange-300 text-base">✦</span>
-            <div className="h-px w-12 bg-gradient-to-r from-transparent to-orange-300" />
+        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-5 sm:mb-8">
+          <div className="hidden sm:flex items-center gap-1">
+            <span className="text-orange-300 text-sm sm:text-base">✦</span>
+            <div className="h-px w-8 sm:w-12 bg-gradient-to-r from-transparent to-orange-300" />
           </div>
-          <span className="text-xs font-bold text-orange-500 uppercase tracking-[0.2em]">
+          <span className="text-[10px] sm:text-xs font-bold text-orange-500 uppercase tracking-[0.15em] sm:tracking-[0.2em]">
             How It Works
           </span>
-          <div className="flex items-center gap-1">
-            <div className="h-px w-12 bg-gradient-to-l from-transparent to-orange-300" />
-            <span className="text-orange-300 text-base">✦</span>
+          <div className="hidden sm:flex items-center gap-1">
+            <div className="h-px w-8 sm:w-12 bg-gradient-to-l from-transparent to-orange-300" />
+            <span className="text-orange-300 text-sm sm:text-base">✦</span>
           </div>
         </div>
 
         {/* Step cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-0 relative">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-0 relative">
           {steps.map((step, i) => {
             const Icon = step.icon;
             return (
-              <div key={step.number} className="relative flex items-stretch">
-                {/* Card */}
+              <div key={step.number} className="relative flex items-stretch min-w-0">
+                {/* Card — mobile: compact horizontal row; sm+: centered column */}
                 <div
-                  className={`flex-1 bg-card border border-border rounded-2xl p-5 flex flex-col items-center text-center gap-4 shadow-sm hover:shadow-md transition-shadow border-b-4 ${step.border}`}
+                  className={cn(
+                    "flex-1 min-w-0 bg-card border border-border rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow",
+                    "max-sm:flex max-sm:flex-row max-sm:items-center max-sm:gap-3 max-sm:p-3 max-sm:text-left max-sm:border-b-2",
+                    "sm:flex sm:flex-col sm:items-center sm:text-center sm:gap-4 sm:p-5 sm:border-b-4",
+                    step.border,
+                  )}
                 >
-                  {/* Step number badge */}
-                  <div className="self-start">
+                  <div className="hidden sm:block self-start">
                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
                       {step.number}
                     </span>
                   </div>
 
-                  {/* Icon circle */}
                   <div
-                    className={`w-16 h-16 rounded-full bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-inner`}
+                    className={cn(
+                      "rounded-full bg-gradient-to-br flex items-center justify-center shadow-inner shrink-0",
+                      step.gradient,
+                      "w-11 h-11 sm:w-16 sm:h-16",
+                    )}
                   >
-                    <Icon className={`w-7 h-7 ${step.iconColor}`} />
+                    <Icon className={cn(step.iconColor, "w-5 h-5 sm:w-7 sm:h-7")} />
                   </div>
 
-                  {/* Text */}
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-foreground leading-snug">
+                  <div className="flex-1 min-w-0 max-sm:py-0.5">
+                    <p className="text-[13px] sm:text-sm font-bold text-foreground leading-snug">
+                      <span className="sm:hidden text-muted-foreground font-semibold mr-1.5 tabular-nums">
+                        {step.number}.
+                      </span>
                       {step.title}
                     </p>
-                    <p className="text-[11px] text-foreground mt-1.5 leading-relaxed">
+                    <p className="text-[11px] text-muted-foreground sm:text-foreground mt-0.5 sm:mt-1.5 leading-snug sm:leading-relaxed line-clamp-2 sm:line-clamp-none">
                       {step.desc}
                     </p>
                   </div>
