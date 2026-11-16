@@ -24,7 +24,7 @@ export function DashboardDonutChart({
   return (
     <Suspense
       fallback={
-        <div className="relative h-40 sm:h-52 flex items-center justify-center">
+        <div className="relative h-28 sm:h-52 flex items-center justify-center">
           <Skeleton className="h-32 w-32 rounded-full" />
         </div>
       }

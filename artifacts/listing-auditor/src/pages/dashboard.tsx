@@ -36,6 +36,7 @@ import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { appendReturnTo } from "@/lib/navigation-return";
+import { leafLabelFromBrowsePath } from "@/lib/amazon-browse-categories";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { WorkspacesPlanUpgradeBanner } from "@/components/workspaces-plan-upgrade";
 import { DashboardDonutChart } from "@/components/dashboard-donut-chart";
@@ -172,20 +173,20 @@ function StatCard({
   const card = (
     <div
       className={cn(
-        "bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-5 min-w-0",
+        "bg-white rounded-lg sm:rounded-2xl border border-slate-200/80 shadow-sm p-2.5 sm:p-5 min-w-0",
         !locked && href && "hover:border-orange-300 hover:shadow-md hover:bg-orange-50/30 transition-all cursor-pointer",
         locked && "opacity-90 border-dashed border-amber-200 bg-amber-50/20",
       )}
     >
-      <div className="flex items-center gap-2 sm:block">
-        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
+      <div className="flex items-start justify-between gap-1 sm:block">
+        <p className="text-[11px] sm:text-sm text-slate-500 sm:mt-4 truncate min-w-0 leading-tight">{title}</p>
+        <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-md sm:rounded-xl bg-slate-100 flex items-center justify-center shrink-0 sm:mb-0">
+          <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-slate-600" />
         </div>
-        <p className="text-xs sm:text-sm text-slate-500 sm:mt-4 truncate min-w-0">{title}</p>
       </div>
-      <p className="text-lg sm:text-2xl font-semibold text-slate-900 mt-1 sm:mt-1 tracking-tight">{value}</p>
+      <p className="text-xl sm:text-2xl font-semibold text-slate-900 mt-1.5 sm:mt-1 tracking-tight tabular-nums">{value}</p>
       <p className={cn(
-        "text-[10px] sm:text-xs mt-1 sm:mt-2 line-clamp-2 leading-snug",
+        "hidden sm:block text-xs mt-2 line-clamp-2 leading-snug",
         locked ? "text-amber-700" : subtextPositive ? "text-emerald-600" : "text-slate-400",
       )}>
         {subtext}
@@ -722,14 +723,14 @@ export default function Dashboard() {
     : creditBreakdown;
 
   return (
-    <div className={cn("space-y-4 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
+    <div className={cn("space-y-3 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
       {/* Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight">
-            Welcome back, {name}! 👋
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2.5 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-xl font-semibold text-slate-900 tracking-tight truncate">
+            Hi, {name} 👋
           </h1>
-          <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">
+          <p className="hidden sm:block text-sm sm:text-base text-slate-500 mt-1">
             {showAgencyAccountOverview || dashboard.viewMode === "account"
               ? "Account overview across all your workspaces."
               : <>Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? "this workspace"}</span>.</>}
@@ -737,7 +738,7 @@ export default function Dashboard() {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white shrink-0" disabled={newProjectMenuItems.length === 0}>
+            <Button className="gap-2 w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white shrink-0 h-10 sm:h-9" disabled={newProjectMenuItems.length === 0}>
               <Plus className="w-4 h-4" />
               New Project
             </Button>
@@ -753,7 +754,7 @@ export default function Dashboard() {
       )}
 
       {/* Top stats row */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4 2xl:gap-6">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4 2xl:gap-6">
         <StatCard
           title="Projects Saved"
           value={stats.projectsSaved}
@@ -841,18 +842,20 @@ export default function Dashboard() {
       </div>
 
       {/* Main two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 2xl:grid-cols-12 gap-4 sm:gap-6 2xl:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 2xl:grid-cols-12 gap-3 sm:gap-6 2xl:gap-8">
         {/* Left column */}
         <div className="lg:col-span-2 2xl:col-span-8 space-y-4 sm:space-y-6">
           {/* Recent projects */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 gap-2">
+          <div className="bg-white rounded-lg sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2.5 sm:px-6 sm:py-4 border-b border-slate-100 gap-2">
               <h2 className="text-sm sm:text-base font-semibold text-slate-900">Recent Projects</h2>
               <Link
                 href="/recent-projects"
-                className="text-sm font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1"
+                className="text-xs sm:text-sm font-medium text-orange-500 hover:text-orange-600 flex items-center gap-0.5 shrink-0"
               >
-                View All Projects <ChevronRight className="w-4 h-4" />
+                <span className="sm:hidden">All</span>
+                <span className="hidden sm:inline">View All Projects</span>{" "}
+                <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </Link>
             </div>
             {recentProjects.length === 0 ? (
@@ -864,13 +867,13 @@ export default function Dashboard() {
                 {recentProjects.map((project) => {
                   const thumb = resolveDashboardImageUrl(project.imageUrl);
                   const activityDate = project.updatedAt ?? project.createdAt;
-                  const subtitleParts = [project.typeLabel];
-                  if (project.category?.trim()) subtitleParts.push(project.category.trim());
-                  subtitleParts.push(format(new Date(activityDate), "MMM d, yyyy"));
+                  const categoryFull = project.category?.trim() ?? "";
+                  const categoryShort = categoryFull ? leafLabelFromBrowsePath(categoryFull) : "";
+                  const dateLabel = format(new Date(activityDate), "MMM d");
                   return (
                   <li key={`${project.type}-${project.id}`}>
                     <Link href={appendReturnTo(project.url, "/dashboard")}>
-                      <div className="flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+                      <div className="flex items-center gap-2.5 sm:gap-4 px-3 py-2.5 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
                         <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           <DashboardProjectThumb imageUrl={thumb} alt="" />
                         </div>
@@ -878,17 +881,24 @@ export default function Dashboard() {
                           <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-orange-600 transition-colors">
                             {project.name}
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
-                            {subtitleParts.join(" • ")}
+                          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 truncate">
+                            <span className="sm:hidden">
+                              {[project.typeLabel, categoryShort, dateLabel].filter(Boolean).join(" · ")}
+                            </span>
+                            <span className="hidden sm:inline">
+                              {[project.typeLabel, categoryFull, format(new Date(activityDate), "MMM d, yyyy")]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </span>
                           </p>
                         </div>
                         <span className={cn(
-                          "text-xs font-medium px-2.5 py-1 rounded-full border flex-shrink-0",
+                          "text-[10px] sm:text-xs font-medium px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border flex-shrink-0 max-w-[5.5rem] sm:max-w-none truncate",
                           STATUS_STYLES[project.statusColor] ?? STATUS_STYLES.gray,
                         )}>
                           {project.statusLabel}
                         </span>
-                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 group-hover:text-orange-400 flex-shrink-0" />
+                        <ChevronRight className="hidden sm:block w-5 h-5 text-slate-300 group-hover:text-orange-400 flex-shrink-0" />
                       </div>
                     </Link>
                   </li>
@@ -902,8 +912,16 @@ export default function Dashboard() {
         {/* Right column */}
         <div className="lg:col-span-1 2xl:col-span-4 space-y-4 sm:space-y-6">
           {/* Credits donut */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
-            <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 sm:mb-4">Credits Usage</h2>
+          <div className="bg-white rounded-lg sm:rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-6">
+            <div className="flex items-baseline justify-between gap-2 mb-2 sm:mb-4">
+              <h2 className="text-sm sm:text-base font-semibold text-slate-900">Credits</h2>
+              <Link
+                href="/billing"
+                className="text-xs font-medium text-orange-500 hover:text-orange-600 sm:hidden"
+              >
+                Details
+              </Link>
+            </div>
             <DonutChart data={creditBreakdownForDisplay} total={creditsBalance} />
             {creditBreakdownForDisplay.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500 text-center">
@@ -914,15 +932,16 @@ export default function Dashboard() {
                     : "No credits available."}
               </p>
             ) : (
-              <ul className="mt-4 space-y-2.5">
+              <ul className="mt-3 sm:mt-4 space-y-1.5 sm:space-y-2.5">
                 {creditBreakdownForDisplay.map((seg) => (
-                  <li key={seg.key} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                      <span className="text-slate-600">{seg.label}</span>
+                  <li key={seg.key} className="flex items-center justify-between text-xs sm:text-sm gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                      <span className="text-slate-600 truncate">{seg.label}</span>
                     </div>
-                    <span className="text-slate-800 font-medium">
-                      {seg.balance.toLocaleString()} ({seg.pct}%)
+                    <span className="text-slate-800 font-medium tabular-nums shrink-0">
+                      {seg.balance.toLocaleString()}
+                      <span className="hidden sm:inline"> ({seg.pct}%)</span>
                     </span>
                   </li>
                 ))}
@@ -930,14 +949,14 @@ export default function Dashboard() {
             )}
             <Link
               href="/billing"
-              className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"
+              className="mt-4 sm:mt-5 hidden sm:inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"
             >
               View Detailed Usage <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
 
-          {/* Quick actions */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
+          {/* Quick actions — desktop / tablet only (New Project covers mobile) */}
+          <div className="hidden sm:block bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
             <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 sm:mb-4">Quick Actions</h2>
             <div className="grid grid-cols-2 2xl:grid-cols-2 gap-2 sm:gap-3">
               {quickActions.map((action) => {
