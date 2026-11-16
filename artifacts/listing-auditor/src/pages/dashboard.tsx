@@ -725,8 +725,8 @@ export default function Dashboard() {
   return (
     <div className={cn("space-y-3 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
       {/* Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2.5 sm:gap-4">
-        <div className="min-w-0">
+      <div className="flex flex-row items-center justify-between gap-2 sm:items-start sm:gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-base sm:text-xl font-semibold text-slate-900 tracking-tight truncate">
             Hi, {name} 👋
           </h1>
@@ -738,8 +738,11 @@ export default function Dashboard() {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="gap-2 w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white shrink-0 h-10 sm:h-9" disabled={newProjectMenuItems.length === 0}>
-              <Plus className="w-4 h-4" />
+            <Button
+              className="gap-1.5 w-auto px-3 sm:px-4 h-9 text-sm sm:text-base bg-orange-500 hover:bg-orange-600 text-white shrink-0 whitespace-nowrap"
+              disabled={newProjectMenuItems.length === 0}
+            >
+              <Plus className="w-4 h-4 shrink-0" />
               New Project
             </Button>
           </DropdownMenuTrigger>
