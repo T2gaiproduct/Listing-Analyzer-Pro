@@ -36,6 +36,7 @@ import { AmazonBrowseCategorySelect } from "@/components/amazon-browse-category-
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { GraphicsWizardImageDialogs } from "@/components/graphics-wizard-image-dialogs";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
+import { resolveGraphicsPromptReferenceImageUrls } from "@/lib/graphics-prompt-references";
 import { ImageGenerationProgressPanel } from "@/components/image-generation-progress-panel";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { downloadAppImage } from "@/lib/download-app-image";
@@ -267,11 +268,14 @@ export function GraphicsWizard({
         customPrompt: config.customPrompt.trim() || undefined,
         aspectRatio: config.aspectRatio,
         quality: config.quality,
-        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
+          config.referenceImages,
+          sourceImages,
+        ),
       };
     }
     return configs;
-  }, [selectedImageTypes, imageTypePromptConfigs]);
+  }, [selectedImageTypes, imageTypePromptConfigs, sourceImages]);
 
   const getMoreImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
     ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -298,11 +302,14 @@ export function GraphicsWizard({
         customPrompt: config.customPrompt.trim() || undefined,
         aspectRatio: config.aspectRatio,
         quality: config.quality,
-        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
+          config.referenceImages,
+          sourceImages,
+        ),
       };
     }
     return configs;
-  }, [moreImageTypes, moreImageTypePromptConfigs]);
+  }, [moreImageTypes, moreImageTypePromptConfigs, sourceImages]);
 
   const { data: existingProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId],

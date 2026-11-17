@@ -77,6 +77,7 @@ import {
 import { isAuditListingExistingProductWorkflow } from "@/lib/audit-listing-workflow";
 import { isCreateGraphicsExistingProductWorkflow } from "@/lib/create-graphics-workflow";
 import { ensureGraphicsProjectForAudit } from "@/lib/ensure-graphics-project-for-audit";
+import { resolveGraphicsPromptReferenceImageUrls } from "@/lib/graphics-prompt-references";
 import {
   graphicsInDetailViewPath,
 } from "@/lib/graphics-in-detail-nav";
@@ -153,12 +154,6 @@ type WorkflowGeneratedImage = {
   recordId?: string;
   imageType?: string;
 };
-
-/** Image generation uses only per-type reference images — not Upload product photos. */
-function resolvePromptReferenceImages(userReferenceImages: string[]): string[] | undefined {
-  const urls = userReferenceImages.filter((url) => url?.trim());
-  return urls.length > 0 ? urls : undefined;
-}
 
 function graphicsRecordToWorkflowImage(r: {
   id?: string;
@@ -1336,12 +1331,15 @@ export default function AuditWorkflow() {
       const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
       configs[moduleId] = {
         imageCustomPrompt: (config.customPrompt ?? "").trim() || undefined,
-        promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages),
+        promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
+          config.referenceImages,
+          uploadedImages,
+        ),
         quality: config.quality,
       };
     }
     return configs;
-  }, [selectedAplusModules, aplusModulePromptConfigs]);
+  }, [selectedAplusModules, aplusModulePromptConfigs, uploadedImages]);
 
   const aplusGenerateOptions = useMemo(() => ({
     moduleConfigs: aplusModuleConfigsPayload,
@@ -1360,11 +1358,14 @@ export default function AuditWorkflow() {
         customPrompt: config.customPrompt.trim() || undefined,
         aspectRatio: config.aspectRatio,
         quality: config.quality,
-        promptReferenceImageUrls: resolvePromptReferenceImages(config.referenceImages),
+        promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
+          config.referenceImages,
+          uploadedImages,
+        ),
       };
     }
     return configs;
-  }, [selectedImageTypes, imageTypePromptConfigs]);
+  }, [selectedImageTypes, imageTypePromptConfigs, uploadedImages]);
 
   type GraphicsTypeConfigs = Record<string, {
     customPrompt?: string;
