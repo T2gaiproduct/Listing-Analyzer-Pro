@@ -3,7 +3,7 @@ import {
   generatedContentToListingView,
   type ListingContentView,
 } from "@/components/listing-content-card";
-import { isGraphicsAplusShellDescription } from "@workspace/graphics-aplus-audit";
+import { isGraphicsAplusShellAudit } from "@workspace/graphics-aplus-audit";
 import { normalizeBulletPoints } from "@/lib/listing-content-format";
 
 function listingViewHasBaseline(view: ListingContentView | null | undefined): boolean {
@@ -94,7 +94,7 @@ function uploadListingKeywords(
 
 function uploadListingDescription(audit: { productDescription?: string | null }): string {
   const desc = audit.productDescription?.trim() ?? "";
-  if (!desc || isGraphicsAplusShellDescription({ productDescription: desc })) return "";
+  if (!desc || isGraphicsAplusShellAudit({ productDescription: desc })) return "";
   const escaped = desc
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
