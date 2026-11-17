@@ -68,8 +68,8 @@ export function ProductExplorerOverviewPreview({
       >
         <p className="text-[11px] text-slate-500">
           {uploadSummary
-            ? "Add product photos on Upload or in Create Graphics. Generated listing copy and images appear on Listing Preview after Optimize Listing and Graphics."
-            : "No existing listing to show yet. Import a product or sync store data. Optimized copy appears on Listing Preview after you generate on Optimize Listing."}
+            ? "Add photos on Upload. AI copy and images show on Listing Preview."
+            : "No listing yet. Import or sync, then generate on Optimize Listing."}
         </p>
       </div>
     );
@@ -78,8 +78,8 @@ export function ProductExplorerOverviewPreview({
   return (
     <div className={cn("rounded-lg border border-slate-200 bg-slate-50/30 p-3 sm:p-4", className)}>
       {uploadSummary ? (
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-3">
-          Product summary (uploads) — generated listing appears on Listing Preview
+        <p className="text-[10px] font-medium text-slate-500 mb-2">
+          Your upload
         </p>
       ) : null}
       <div
@@ -151,7 +151,7 @@ export function ProductExplorerOverviewPreview({
             <p className="text-[11px] text-slate-600 leading-relaxed">{plainDesc}</p>
           ) : null}
           {uploadSummary && !title.trim() && bullets.length === 0 && images.length > 0 ? (
-            <p className="text-[11px] text-slate-500">Product images from your upload. Add a name on the project or run Optimize Listing for storefront copy.</p>
+            <p className="text-[11px] text-slate-500">Photos only. Run Optimize Listing for copy.</p>
           ) : null}
           {!hasContent && images.length > 0 && (
             <p className="text-[11px] text-slate-400">Images only — generate or import listing copy to preview text.</p>
