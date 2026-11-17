@@ -5,6 +5,8 @@ import { formatHtmlDescriptionForPreview } from "@/lib/listing-content-format";
 import { cleanListingDisplayText } from "@/lib/listing-display-sanitize";
 import type { SellerProductDetail } from "@/lib/reference-research";
 import { SpecificationsFeaturesSection } from "@/components/specifications-features-section";
+import { ProtectedAppImage } from "@/components/protected-app-image";
+import { resolveListingPreviewImageUrl } from "@/lib/collect-listing-preview-images";
 
 function stripHtmlToPlain(html: string): string {
   const safe = sanitizeHtmlDescription(formatHtmlDescriptionForPreview(html));
@@ -14,6 +16,14 @@ function stripHtmlToPlain(html: string): string {
 const MAIN_IMAGE_FRAME =
   "relative aspect-square w-full max-w-md mx-auto lg:mx-0 lg:max-w-full max-h-[min(420px,70vw)] lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden";
 
+function OverviewThumb({ url, className }: { url: string; className?: string }) {
+  const src = resolveListingPreviewImageUrl(url);
+  if (src.startsWith("/api/images/") || src.includes("/api/images/")) {
+    return <ProtectedAppImage src={url} alt="" className={className} />;
+  }
+  return <img src={src} alt="" className={className} />;
+}
+
 export function ProductExplorerOverviewPreview({
   imageUrls,
   title,
@@ -21,6 +31,7 @@ export function ProductExplorerOverviewPreview({
   descriptionHtml,
   attributes,
   className,
+  uploadSummary = false,
 }: {
   imageUrls: string[];
   title: string;
@@ -28,6 +39,8 @@ export function ProductExplorerOverviewPreview({
   descriptionHtml?: string | null;
   attributes: SellerProductDetail[];
   className?: string;
+  /** Create Graphics scratch — uploads + product name only (not storefront listing). */
+  uploadSummary?: boolean;
 }) {
   const images = imageUrls.filter((u) => u?.trim());
   const [activeImage, setActiveImage] = useState(0);
@@ -50,8 +63,9 @@ export function ProductExplorerOverviewPreview({
         )}
       >
         <p className="text-[11px] text-slate-500">
-          No existing listing to show yet. Import a product or sync store data. Optimized copy appears on Listing Preview
-          after you generate on Optimize Listing.
+          {uploadSummary
+            ? "Add product photos on Upload or in Create Graphics. Generated listing copy and images appear on Listing Preview after Optimize Listing and Graphics."
+            : "No existing listing to show yet. Import a product or sync store data. Optimized copy appears on Listing Preview after you generate on Optimize Listing."}
         </p>
       </div>
     );
@@ -59,6 +73,11 @@ export function ProductExplorerOverviewPreview({
 
   return (
     <div className={cn("rounded-lg border border-slate-200 bg-slate-50/30 p-3 sm:p-4", className)}>
+      {uploadSummary ? (
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-3">
+          Product summary (uploads) — generated listing appears on Listing Preview
+        </p>
+      ) : null}
       <div
         className={cn(
           "grid grid-cols-1 gap-4 items-start",
@@ -90,7 +109,7 @@ export function ProductExplorerOverviewPreview({
                       : "border-slate-200 hover:border-slate-300",
                   )}
                 >
-                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  <OverviewThumb url={url} className="h-full w-full object-cover" />
                 </button>
               ))
             ) : (
@@ -104,7 +123,7 @@ export function ProductExplorerOverviewPreview({
         {/* Main image — Amazon PDP square frame */}
         <div className={cn(MAIN_IMAGE_FRAME, "order-1 lg:order-2")}>
           {mainImage ? (
-            <img src={mainImage} alt="" className="h-full w-full object-contain" />
+            <OverviewThumb url={mainImage} className="h-full w-full object-contain" />
           ) : (
             <p className="text-[11px] text-slate-400">No images</p>
           )}
@@ -124,8 +143,11 @@ export function ProductExplorerOverviewPreview({
               ))}
             </ul>
           ) : null}
-          {plainDesc ? (
+          {!uploadSummary && plainDesc ? (
             <p className="text-[11px] text-slate-600 leading-relaxed">{plainDesc}</p>
+          ) : null}
+          {uploadSummary && !title.trim() && bullets.length === 0 && images.length > 0 ? (
+            <p className="text-[11px] text-slate-500">Product images from your upload. Add a name on the project or run Optimize Listing for storefront copy.</p>
           ) : null}
           {!hasContent && images.length > 0 && (
             <p className="text-[11px] text-slate-400">Images only — generate or import listing copy to preview text.</p>
@@ -133,7 +155,7 @@ export function ProductExplorerOverviewPreview({
         </div>
       </div>
 
-      {hasAttributes ? <SpecificationsFeaturesSection rows={rows} /> : null}
+      {hasAttributes && !uploadSummary ? <SpecificationsFeaturesSection rows={rows} /> : null}
     </div>
   );
 }

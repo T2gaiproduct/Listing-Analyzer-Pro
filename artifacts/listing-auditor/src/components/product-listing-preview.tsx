@@ -131,7 +131,8 @@ export function ProductListingPreview({
     queryKey: ["graphics-project-for-audit", auditId, refreshKey],
     queryFn: () => fetchGraphicsProjectForAudit(auditId),
     enabled: !publicView && auditId > 0,
-    staleTime: 10_000,
+    staleTime: 5_000,
+    refetchOnMount: "always",
   });
 
   async function handleCopyPreviewLink() {
@@ -461,10 +462,10 @@ export function ProductListingPreview({
         <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2">
           {generatedOnly
             ? !hasListingCopy && !hasImages
-              ? "This preview shows your approved optimized copy per marketplace, plus graphics and A+ content from earlier steps."
+              ? "Listing Preview shows AI output only: run Optimize Listing for copy and Create Graphics for images, then return here."
               : !hasListingCopy
-                ? "Select a marketplace above or generate optimized copy on the Optimize Listing step."
-                : "Generate graphics on the Graphics step to preview the image gallery here."
+                ? "Generate optimized copy on the Optimize Listing step, or use ✓ / ✕ to confirm sections."
+                : "Generate graphics on the Graphics step (or Save to Product Explorer from Create Graphics) to see images here."
             : !hasListingCopy && !hasImages
               ? "Generate listing content and graphics in the earlier steps to see a full preview."
               : !hasListingCopy
