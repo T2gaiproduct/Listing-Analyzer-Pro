@@ -28,6 +28,7 @@ import {
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
 import { AmazonBrowseCategorySelect } from "@/components/amazon-browse-category-select";
+import { UPLOAD_TAB_FIELD_CLASS } from "@/components/build-brand-upload-attributes-section";
 import {
   GRAPHICS_PROJECT_ORIGIN_SCRATCH,
   graphicsScratchProjectViewPath,
@@ -574,35 +575,37 @@ export default function CreateProject() {
             </div>
           </div>
 
-          {/* Product Details section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-                <ImageIcon className="w-4 h-4 text-orange-600" />
+          {/* Product Details — match Build Your Brand / Upload category search */}
+          <div className="w-full max-w-none space-y-3 sm:space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                <ImageIcon className="w-4 h-4 text-orange-500" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Product Details</h2>
-                <p className="text-xs text-slate-500">Provide basic information about your product</p>
+                <p className="text-xs font-semibold text-foreground">Product Details</p>
+                <p className="text-xs text-muted-foreground">Provide basic information about your product</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-slate-700 mb-1 block">Brand Name</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+              <div className="space-y-1.5 min-w-0">
+                <label className="text-xs font-medium text-foreground">Brand Name</label>
                 <Input
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
                   placeholder={egPlaceholderCompanyWithPrefix()}
-                  className="border-slate-200 h-9 rounded-lg text-sm"
+                  className={cn(UPLOAD_TAB_FIELD_CLASS, "h-11 sm:h-12 text-sm")}
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium text-slate-700 mb-1 block">Product Name</label>
+              <div className="space-y-1.5 min-w-0">
+                <label className="text-xs font-medium text-foreground">
+                  Product Name <span className="text-red-500">*</span>
+                </label>
                 <Input
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
                   placeholder="Enter product name"
-                  className="border-slate-200 h-9 rounded-lg text-sm"
+                  className={cn(UPLOAD_TAB_FIELD_CLASS, "h-11 sm:h-12 text-sm")}
                 />
               </div>
             </div>
@@ -611,7 +614,6 @@ export default function CreateProject() {
               required
               value={category}
               onChange={setCategory}
-              triggerClassName="h-9 min-h-9 rounded-lg"
             />
           </div>
         </div>
