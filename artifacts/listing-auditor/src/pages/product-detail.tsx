@@ -95,6 +95,7 @@ import {
   type ListingContentView,
 } from "@/components/listing-content-card";
 import { shouldShowExistingListingContent } from "@/lib/listing-compare-eligibility";
+import { PROJECT_ORIGIN_GRAPHICS_SCRATCH } from "@/lib/audit-project-origin";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -386,9 +387,14 @@ function resolveExistingListingContent(
     storeDescriptionHtml?: string | null;
     generatedContent?: GeneratedContent | null;
     sourceListingContent?: GeneratedContent | null;
+    projectOrigin?: string | null;
   } | null,
 ): ListingContentView | null {
   const isWooImport = Boolean(product?.isWooCommerceImport) || isWooCommerceImportAsin(audit?.asin);
+
+  if (audit?.projectOrigin?.trim() === PROJECT_ORIGIN_GRAPHICS_SCRATCH) {
+    return null;
+  }
 
   if (!isWooImport && audit?.sourceListingContent) {
     const snapshot = toListingContentView({
@@ -1834,14 +1840,22 @@ export default function ProductDetailPage({ id }: { id: number }) {
             keywords: payload.keywords,
             htmlDescription: payload.htmlDescription,
           };
-          const sourceSnapshot = existingListingContent
+          const auditOrigin = (effectiveAudit as { projectOrigin?: string | null } | undefined)?.projectOrigin;
+          const sourceSnapshot = auditOrigin?.trim() === PROJECT_ORIGIN_GRAPHICS_SCRATCH
             ? {
-                title: existingListingContent.title,
-                bulletPoints: existingListingContent.bulletPoints,
-                keywords: existingListingContent.keywords,
-                htmlDescription: existingListingContent.htmlDescription,
+                title: effectiveAudit?.productName?.trim() || product?.name?.trim() || "",
+                bulletPoints: [] as string[],
+                keywords: [] as string[],
+                htmlDescription: "",
               }
-            : undefined;
+            : existingListingContent
+              ? {
+                  title: existingListingContent.title,
+                  bulletPoints: existingListingContent.bulletPoints,
+                  keywords: existingListingContent.keywords,
+                  htmlDescription: existingListingContent.htmlDescription,
+                }
+              : undefined;
 
           const mergeAudit = (current: GetAuditQueryResult | undefined) => (current
             ? {
@@ -1905,6 +1919,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     source,
     toast,
     existingListingContent,
+    effectiveAudit?.productName,
+    product?.name,
   ]);
 
   const optimizeContentPanel = useMemo(

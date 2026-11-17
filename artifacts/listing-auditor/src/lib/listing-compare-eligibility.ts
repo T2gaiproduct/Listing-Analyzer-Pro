@@ -6,6 +6,7 @@ import {
 import {
   PROJECT_ORIGIN_BUILD_BRAND_IMPORT,
   PROJECT_ORIGIN_BUILD_BRAND_SCRATCH,
+  PROJECT_ORIGIN_GRAPHICS_SCRATCH,
 } from "@/lib/audit-project-origin";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
@@ -65,6 +66,10 @@ export function shouldShowExistingListingContent(
   } | null,
 ): boolean {
   if (product?.isShopifyImport || product?.isWooCommerceImport) return true;
+
+  if (audit?.projectOrigin?.trim() === PROJECT_ORIGIN_GRAPHICS_SCRATCH) {
+    return false;
+  }
 
   const asin = audit?.asin?.trim();
   if (asin && !isShopifyImportAsin(asin) && !isWooCommerceImportAsin(asin)) {
