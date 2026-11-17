@@ -47,6 +47,7 @@ import {
   isGraphicsScratchProductExplorerAudit,
 } from "@/lib/product-explorer-upload-summary";
 import { isGeneratedListingPreviewImageUrl } from "@/lib/collect-listing-preview-images";
+import { toGraphicsSourcePublicUrl } from "@/lib/graphics-source-image-urls";
 import { GraphicsInDetailTabs } from "@/components/graphics-in-detail-tabs";
 import { GraphicsCreateStepContent } from "@/components/product-workflow-step-content";
 import {
@@ -522,9 +523,13 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     const imageUrls: string[] = [];
     const pushUrl = (url: string | undefined | null) => {
       const trimmed = url?.trim();
-      if (!trimmed || imageUrls.includes(trimmed)) return;
-      if (uploadSummary && isGeneratedListingPreviewImageUrl(trimmed)) return;
-      imageUrls.push(trimmed);
+      if (!trimmed) return;
+      const normalized = project?.id
+        ? (toGraphicsSourcePublicUrl(project.id, trimmed) ?? trimmed)
+        : trimmed;
+      if (!normalized || imageUrls.includes(normalized)) return;
+      if (uploadSummary && isGeneratedListingPreviewImageUrl(normalized)) return;
+      imageUrls.push(normalized);
     };
     if (!uploadSummary) {
       for (const rec of linkedAudit.imageRecords ?? []) {
@@ -546,7 +551,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       attributes: overviewAttributes,
       uploadSummary,
     };
-  }, [linkedAudit, project?.productName, project?.sourceImageUrls]);
+  }, [linkedAudit, project?.id, project?.productName, project?.sourceImageUrls]);
 
   return (
     <div className="space-y-6">
@@ -582,6 +587,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                 descriptionHtml={overviewPreview.descriptionHtml}
                 attributes={overviewPreview.attributes}
                 uploadSummary={overviewPreview.uploadSummary}
+                graphicsProjectId={project.id}
               />
             </div>
           ) : (

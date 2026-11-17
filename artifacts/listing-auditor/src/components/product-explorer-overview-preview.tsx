@@ -7,6 +7,8 @@ import type { SellerProductDetail } from "@/lib/reference-research";
 import { SpecificationsFeaturesSection } from "@/components/specifications-features-section";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { resolveListingPreviewImageUrl } from "@/lib/collect-listing-preview-images";
+import { isProtectedAuditImageUrl, resolveAppImageUrl } from "@/lib/protected-app-image";
+import { repairProductExplorerImageUrl } from "@/lib/graphics-source-image-urls";
 
 function stripHtmlToPlain(html: string): string {
   const safe = sanitizeHtmlDescription(formatHtmlDescriptionForPreview(html));
@@ -16,16 +18,26 @@ function stripHtmlToPlain(html: string): string {
 const MAIN_IMAGE_FRAME =
   "relative aspect-square w-full max-w-md mx-auto lg:mx-0 lg:max-w-full max-h-[min(420px,70vw)] lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden";
 
-function OverviewThumb({ url, className }: { url: string; className?: string }) {
-  const src = resolveListingPreviewImageUrl(url);
+function OverviewThumb({
+  url,
+  className,
+  graphicsProjectId,
+}: {
+  url: string;
+  className?: string;
+  graphicsProjectId?: number;
+}) {
+  const repaired = graphicsProjectId ? repairProductExplorerImageUrl(graphicsProjectId, url) : url;
+  const src = resolveListingPreviewImageUrl(repaired);
+  const display = repaired.startsWith("data:") ? repaired : src;
   if (
-    url.includes("/api/images/")
-    || src.includes("/api/images/")
-    || url.startsWith("data:image/")
+    repaired.startsWith("data:image/")
+    || isProtectedAuditImageUrl(repaired)
+    || isProtectedAuditImageUrl(resolveAppImageUrl(display))
   ) {
-    return <ProtectedAppImage src={url.startsWith("data:") ? url : src} alt="" className={className} />;
+    return <ProtectedAppImage src={display} alt="" className={className} />;
   }
-  return <img src={src} alt="" className={className} />;
+  return <img src={display} alt="" className={className} />;
 }
 
 export function ProductExplorerOverviewPreview({
@@ -36,6 +48,7 @@ export function ProductExplorerOverviewPreview({
   attributes,
   className,
   uploadSummary = false,
+  graphicsProjectId,
 }: {
   imageUrls: string[];
   title: string;
@@ -45,8 +58,11 @@ export function ProductExplorerOverviewPreview({
   className?: string;
   /** Create Graphics scratch — uploads + product name only (not storefront listing). */
   uploadSummary?: boolean;
+  graphicsProjectId?: number;
 }) {
-  const images = imageUrls.filter((u) => u?.trim());
+  const images = imageUrls
+    .map((u) => (graphicsProjectId ? repairProductExplorerImageUrl(graphicsProjectId, u) : u))
+    .filter((u) => u?.trim());
   const [activeImage, setActiveImage] = useState(0);
   const bullets = bulletPoints
     .map((b) => cleanListingDisplayText(b ?? ""))
@@ -113,7 +129,7 @@ export function ProductExplorerOverviewPreview({
                       : "border-slate-200 hover:border-slate-300",
                   )}
                 >
-                  <OverviewThumb url={url} className="h-full w-full object-cover" />
+                  <OverviewThumb url={url} className="h-full w-full object-cover" graphicsProjectId={graphicsProjectId} />
                 </button>
               ))
             ) : (
@@ -127,7 +143,7 @@ export function ProductExplorerOverviewPreview({
         {/* Main image — Amazon PDP square frame */}
         <div className={cn(MAIN_IMAGE_FRAME, "order-1 lg:order-2")}>
           {mainImage ? (
-            <OverviewThumb url={mainImage} className="h-full w-full object-contain" />
+            <OverviewThumb url={mainImage} className="h-full w-full object-contain" graphicsProjectId={graphicsProjectId} />
           ) : (
             <p className="text-[11px] text-slate-400">No images</p>
           )}

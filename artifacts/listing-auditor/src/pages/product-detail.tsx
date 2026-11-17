@@ -2419,6 +2419,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               descriptionHtml={overviewPreview.descriptionHtml}
               attributes={overviewPreview.attributes}
               uploadSummary={graphicsScratchPeSummary}
+              graphicsProjectId={scratchGraphicsProject?.id}
             />
           }
           listingEditorContent={
