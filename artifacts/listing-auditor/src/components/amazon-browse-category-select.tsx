@@ -22,6 +22,8 @@ type Props = {
   searchPlaceholder?: string;
   className?: string;
   triggerClassName?: string;
+  /** Center the field and search text (Create Graphics from scratch). */
+  centered?: boolean;
 };
 
 export function AmazonBrowseCategorySelect({
@@ -33,6 +35,7 @@ export function AmazonBrowseCategorySelect({
   searchPlaceholder = "Search a category or product — e.g. lipstick, boots",
   className,
   triggerClassName,
+  centered = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -74,8 +77,8 @@ export function AmazonBrowseCategorySelect({
   }
 
   return (
-    <div className={cn("space-y-1.5", className)}>
-      <label className="text-xs font-medium text-foreground">
+    <div className={cn("space-y-1.5", centered && "mx-auto w-full max-w-xl", className)}>
+      <label className={cn("text-xs font-medium text-foreground", centered && "block text-center")}>
         {label}
         {required ? <span className="text-red-500"> *</span> : null}
       </label>
@@ -99,6 +102,7 @@ export function AmazonBrowseCategorySelect({
                 "w-full h-11 sm:h-12 pl-9 pr-9 rounded-xl text-sm bg-transparent",
                 "focus:outline-none text-foreground placeholder:text-muted-foreground",
                 !open && value && "cursor-pointer",
+                centered && "text-center placeholder:text-center",
               )}
               autoComplete="off"
               title={displayPath || undefined}
@@ -132,7 +136,7 @@ export function AmazonBrowseCategorySelect({
         </PopoverAnchor>
         <PopoverContent
           side="bottom"
-          align="start"
+          align={centered ? "center" : "start"}
           sideOffset={6}
           avoidCollisions={false}
           className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[min(380px,55vh)] overflow-hidden flex flex-col"
@@ -146,7 +150,9 @@ export function AmazonBrowseCategorySelect({
               </p>
             ) : null}
             {listItems.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-muted-foreground">No categories found</div>
+              <div className={cn("px-3 py-3 text-sm text-muted-foreground", centered && "text-center")}>
+                No categories found
+              </div>
             ) : (
               listItems.map((c) => {
                 const isSelected = value === c.browsePath;
