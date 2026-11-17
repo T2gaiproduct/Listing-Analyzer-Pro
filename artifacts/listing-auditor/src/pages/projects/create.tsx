@@ -32,6 +32,7 @@ import {
   GRAPHICS_PROJECT_ORIGIN_SCRATCH,
   graphicsScratchProjectViewPath,
 } from "@/lib/graphics-in-detail-nav";
+import { resolveGraphicsPromptReferenceImageUrls } from "@/lib/graphics-prompt-references";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -124,11 +125,14 @@ export default function CreateProject() {
         customPrompt: config.customPrompt.trim() || undefined,
         aspectRatio: config.aspectRatio,
         quality: config.quality,
-        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
+          config.referenceImages,
+          uploadedImages,
+        ),
       };
     }
     return configs;
-  }, [selectedImageTypes, imageTypePromptConfigs]);
+  }, [selectedImageTypes, imageTypePromptConfigs, uploadedImages]);
 
   const getAplusModuleConfig = useCallback((moduleId: string): ImageTypePromptConfig => ({
     ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,

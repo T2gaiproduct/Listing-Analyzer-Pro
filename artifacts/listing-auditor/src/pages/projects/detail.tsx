@@ -41,6 +41,11 @@ import { readAplusFromAudit } from "@/components/aplus-content-wizard";
 import { downloadAppImage } from "@/lib/download-app-image";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
+import {
+  filterProductExplorerUploadImageUrls,
+  isGraphicsScratchProductExplorerAudit,
+} from "@/lib/product-explorer-upload-summary";
+import { isGeneratedListingPreviewImageUrl } from "@/lib/collect-listing-preview-images";
 import { GraphicsInDetailTabs } from "@/components/graphics-in-detail-tabs";
 import { GraphicsCreateStepContent } from "@/components/product-workflow-step-content";
 import {
@@ -488,6 +493,8 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
 
   const overviewPreview = useMemo(() => {
     if (!linkedAudit) return null;
+    const uploadSummary = isGraphicsScratchProductExplorerAudit(linkedAudit);
+
     type AttrRow = { attribute?: string; value?: string };
     const auditRecord = linkedAudit as {
       sourceListingContent?: { attributes?: AttrRow[] };
@@ -495,32 +502,42 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     };
     const snapshotAttrs = auditRecord.sourceListingContent?.attributes ?? [];
     const refDetails = auditRecord.referenceResearch?.productDetails ?? [];
-    const overviewAttributes = (
-      refDetails.length > 0 ? refDetails : snapshotAttrs
-    )
-      .filter((row): row is { attribute: string; value: string } =>
-        Boolean(row.attribute?.trim() && row.value?.trim()),
-      )
-      .map((row) => ({ attribute: row.attribute!.trim(), value: row.value!.trim() }));
+    const overviewAttributes = uploadSummary
+      ? []
+      : (refDetails.length > 0 ? refDetails : snapshotAttrs)
+          .filter((row): row is { attribute: string; value: string } =>
+            Boolean(row.attribute?.trim() && row.value?.trim()),
+          )
+          .map((row) => ({ attribute: row.attribute!.trim(), value: row.value!.trim() }));
 
     const imageUrls: string[] = [];
     const pushUrl = (url: string | undefined | null) => {
       const trimmed = url?.trim();
-      if (trimmed && !imageUrls.includes(trimmed)) imageUrls.push(trimmed);
+      if (!trimmed || imageUrls.includes(trimmed)) return;
+      if (uploadSummary && isGeneratedListingPreviewImageUrl(trimmed)) return;
+      imageUrls.push(trimmed);
     };
-    for (const rec of linkedAudit.imageRecords ?? []) {
-      pushUrl((rec as { currentUrl?: string }).currentUrl);
+    if (!uploadSummary) {
+      for (const rec of linkedAudit.imageRecords ?? []) {
+        pushUrl((rec as { currentUrl?: string }).currentUrl);
+      }
     }
     for (const url of linkedAudit.imageUrls ?? []) pushUrl(url);
+    for (const url of project?.sourceImageUrls ?? []) pushUrl(url);
+
+    const filteredUrls = uploadSummary ? filterProductExplorerUploadImageUrls(imageUrls) : imageUrls;
 
     return {
-      imageUrls,
-      title: linkedAudit.title?.trim() || linkedAudit.productName || project?.productName || "",
-      bulletPoints: linkedAudit.bulletPoints ?? [],
-      descriptionHtml: linkedAudit.productDescription?.trim() || null,
+      imageUrls: filteredUrls,
+      title: uploadSummary
+        ? (linkedAudit.productName?.trim() || project?.productName || "")
+        : (linkedAudit.title?.trim() || linkedAudit.productName || project?.productName || ""),
+      bulletPoints: uploadSummary ? [] : (linkedAudit.bulletPoints ?? []),
+      descriptionHtml: uploadSummary ? null : (linkedAudit.productDescription?.trim() || null),
       attributes: overviewAttributes,
+      uploadSummary,
     };
-  }, [linkedAudit, project?.productName]);
+  }, [linkedAudit, project?.productName, project?.sourceImageUrls]);
 
   return (
     <div className="space-y-6">
@@ -555,6 +572,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                 bulletPoints={overviewPreview.bulletPoints}
                 descriptionHtml={overviewPreview.descriptionHtml}
                 attributes={overviewPreview.attributes}
+                uploadSummary={overviewPreview.uploadSummary}
               />
             </div>
           ) : (

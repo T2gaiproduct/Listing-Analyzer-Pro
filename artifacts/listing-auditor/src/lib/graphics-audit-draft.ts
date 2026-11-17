@@ -1,4 +1,5 @@
 import { GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION } from "@workspace/graphics-aplus-audit";
+import { PROJECT_ORIGIN_GRAPHICS_SCRATCH } from "@/lib/audit-project-origin";
 
 /** Minimal audit draft for standalone Create Graphics + optional A+ generation. */
 
@@ -42,20 +43,15 @@ export function buildProductExplorerDraftFromGraphicsProject(project: {
   const productName = project.productName?.trim();
   if (!productName) return null;
   const category = project.category?.trim() || "General";
-  const { syntheticTitle, syntheticBullets, syntheticKeywords } = buildSyntheticListingFields(
-    productName,
-    "",
-    category,
-  );
   return {
     projectName: (project.name?.trim() || productName),
     productName,
     category,
-    title: syntheticTitle,
-    bulletPoints: syntheticBullets,
-    targetKeywords: syntheticKeywords,
+    title: productName,
+    bulletPoints: [],
+    targetKeywords: [],
     imageUrls: [...(project.sourceImageUrls ?? [])].filter((u) => u?.trim()),
-    projectOrigin: "graphics_scratch",
+    projectOrigin: PROJECT_ORIGIN_GRAPHICS_SCRATCH,
   };
 }
 

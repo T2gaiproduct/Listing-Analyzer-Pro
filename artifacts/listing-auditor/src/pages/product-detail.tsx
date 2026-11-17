@@ -82,6 +82,10 @@ import {
 } from "@/lib/listing-content-field-merge";
 import { ProductExplorerOverviewPreview } from "@/components/product-explorer-overview-preview";
 import {
+  filterProductExplorerUploadImageUrls,
+  isGraphicsScratchProductExplorerAudit,
+} from "@/lib/product-explorer-upload-summary";
+import {
   listingViewToGenerated,
   resolveExistingContentForMarketplaceSlug,
   type ListingContentView,
@@ -1241,8 +1245,22 @@ export default function ProductDetailPage({ id }: { id: number }) {
     return urls;
   }, [product?.imageUrls, product?.imageUrl, effectiveAudit?.imageUrls]);
 
-  /** Overview tab: imported / live listing only — never AI-optimized or merged variant copy. */
+  const graphicsScratchPeSummary = useMemo(
+    () => isGraphicsScratchProductExplorerAudit(effectiveAudit ?? undefined),
+    [effectiveAudit],
+  );
+
+  /** Overview tab: imported / live listing or upload summary — never AI-optimized listing copy. */
   const overviewPreview = useMemo(() => {
+    if (graphicsScratchPeSummary) {
+      return {
+        imageUrls: filterProductExplorerUploadImageUrls(productImageUrls),
+        title: product?.name?.trim() || effectiveAudit?.productName?.trim() || "",
+        bulletPoints: [] as string[],
+        descriptionHtml: null,
+        attributes: [],
+      };
+    }
     const title =
       existingListingContent?.title?.trim()
       || listingProduct?.listingTitle?.trim()
@@ -1280,10 +1298,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
       attributes,
     };
   }, [
+    graphicsScratchPeSummary,
     existingListingContent,
     listingProduct,
     effectiveAudit?.title,
     effectiveAudit?.bulletPoints,
+    effectiveAudit?.productName,
     effectiveAudit,
     product?.name,
     productImageUrls,
@@ -1342,6 +1362,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
       return effectiveAudit?.generatedContent ?? null;
     }
     if (listingPreviewMarketplaces.length === 0) {
+      const legacy = effectiveAudit?.generatedContent;
+      if (legacy?.title?.trim() || (legacy?.bulletPoints?.some((b) => b?.trim()))) {
+        return legacy;
+      }
       return null;
     }
     return null;
@@ -2342,6 +2366,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               bulletPoints={overviewPreview.bulletPoints}
               descriptionHtml={overviewPreview.descriptionHtml}
               attributes={overviewPreview.attributes}
+              uploadSummary={graphicsScratchPeSummary}
             />
           }
           listingEditorContent={
