@@ -609,7 +609,6 @@ export default function CreateProject() {
             <AmazonBrowseCategorySelect
               label="Category"
               required
-              centered
               value={category}
               onChange={setCategory}
               triggerClassName="h-9 min-h-9 rounded-lg"
