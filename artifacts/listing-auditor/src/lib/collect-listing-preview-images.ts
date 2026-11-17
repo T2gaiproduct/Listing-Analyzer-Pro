@@ -78,14 +78,14 @@ function generatedImageFilename(url: string): string {
 export function isGeneratedListingPreviewImageUrl(url: string): boolean {
   const trimmed = url.trim();
   if (!trimmed) return false;
-  if (trimmed.includes("/api/images/graphics/")) return true;
-  if (!isAppGeneratedImageUrl(trimmed)) return false;
 
   const name = generatedImageFilename(trimmed).toLowerCase();
   if (!name) return false;
   if (name.startsWith("source_") || name.includes("aplus_source") || name.startsWith("edit_ref")) {
     return false;
   }
+  if (trimmed.includes("/api/images/graphics/")) return true;
+  if (!isAppGeneratedImageUrl(trimmed)) return false;
   if (/^publish_\d+_\d+\.[a-z0-9]+$/i.test(name)) return false;
   if (/^(lifestyle|feature|main|infographic)_/i.test(name)) return true;
   if (name.startsWith("aplus_")) return false;

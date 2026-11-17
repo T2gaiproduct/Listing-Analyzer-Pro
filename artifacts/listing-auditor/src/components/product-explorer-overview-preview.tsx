@@ -18,8 +18,12 @@ const MAIN_IMAGE_FRAME =
 
 function OverviewThumb({ url, className }: { url: string; className?: string }) {
   const src = resolveListingPreviewImageUrl(url);
-  if (src.startsWith("/api/images/") || src.includes("/api/images/")) {
-    return <ProtectedAppImage src={url} alt="" className={className} />;
+  if (
+    url.includes("/api/images/")
+    || src.includes("/api/images/")
+    || url.startsWith("data:image/")
+  ) {
+    return <ProtectedAppImage src={url.startsWith("data:") ? url : src} alt="" className={className} />;
   }
   return <img src={src} alt="" className={className} />;
 }

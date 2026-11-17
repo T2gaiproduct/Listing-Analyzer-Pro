@@ -1,6 +1,7 @@
 import { getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { QueryClient } from "@tanstack/react-query";
 import { buildProductExplorerDraftFromGraphicsProject } from "@/lib/graphics-audit-draft";
+import { toGraphicsSourcePublicUrls } from "@/lib/graphics-source-image-urls";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -151,12 +152,32 @@ export async function ensureAuditForScratchGraphicsProject(
 }
 
 /** Scratch (or unlinked) graphics → create/link listing + sync images + return audit id for navigation. */
+async function syncUploadUrlsToAudit(
+  auditId: number,
+  projectId: number,
+  sourceImageUrls: string[] | null | undefined,
+): Promise<void> {
+  const uploadUrls = toGraphicsSourcePublicUrls(projectId, sourceImageUrls);
+  if (uploadUrls.length === 0) return;
+  const res = await fetch(`${basePath}/api/audits/${auditId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ imageUrls: uploadUrls }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? "Could not sync upload images to product.");
+  }
+}
+
 export async function saveScratchGraphicsProjectToProductExplorer(
   project: ScratchGraphicsProject,
   records: GraphicsRecordForSync[],
   queryClient?: QueryClient,
 ): Promise<number> {
   const auditId = await ensureAuditForScratchGraphicsProject(project);
+  await syncUploadUrlsToAudit(auditId, project.id, project.sourceImageUrls);
   await saveGraphicsRecordsToProductExplorer(auditId, records, queryClient);
   void queryClient?.invalidateQueries({ queryKey: ["graphics-project", String(project.id)] });
   return auditId;

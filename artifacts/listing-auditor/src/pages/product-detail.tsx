@@ -86,6 +86,10 @@ import {
   isGraphicsScratchProductExplorerAudit,
 } from "@/lib/product-explorer-upload-summary";
 import {
+  repairProductExplorerImageUrl,
+  toGraphicsSourcePublicUrls,
+} from "@/lib/graphics-source-image-urls";
+import {
   listingViewToGenerated,
   resolveExistingContentForMarketplaceSlug,
   type ListingContentView,
@@ -1250,11 +1254,38 @@ export default function ProductDetailPage({ id }: { id: number }) {
     [effectiveAudit],
   );
 
+  const peWorkflowAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+
+  const { data: scratchGraphicsProject } = useQuery({
+    queryKey: ["graphics-project-for-audit", peWorkflowAuditId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/graphics/projects?auditId=${peWorkflowAuditId}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as {
+        projects?: Array<{ id: number; auditId?: number | null; sourceImageUrls?: string[] | null }>;
+      };
+      return data.projects?.find((p) => p.auditId === peWorkflowAuditId) ?? data.projects?.[0] ?? null;
+    },
+    enabled: graphicsScratchPeSummary && peWorkflowAuditId > 0,
+    staleTime: 10_000,
+  });
+
   /** Overview tab: imported / live listing or upload summary — never AI-optimized listing copy. */
   const overviewPreview = useMemo(() => {
     if (graphicsScratchPeSummary) {
+      const projectId = scratchGraphicsProject?.id;
+      const fromProject = projectId != null
+        ? toGraphicsSourcePublicUrls(projectId, scratchGraphicsProject?.sourceImageUrls ?? [])
+        : [];
+      const fromAudit = productImageUrls.map((u) => repairProductExplorerImageUrl(projectId ?? null, u));
+      const uploadUrls = filterProductExplorerUploadImageUrls(
+        fromProject.length > 0 ? fromProject : fromAudit,
+      );
       return {
-        imageUrls: filterProductExplorerUploadImageUrls(productImageUrls),
+        imageUrls: uploadUrls,
         title: product?.name?.trim() || effectiveAudit?.productName?.trim() || "",
         bulletPoints: [] as string[],
         descriptionHtml: null,
@@ -1299,6 +1330,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     };
   }, [
     graphicsScratchPeSummary,
+    scratchGraphicsProject?.id,
+    scratchGraphicsProject?.sourceImageUrls,
     existingListingContent,
     listingProduct,
     effectiveAudit?.title,

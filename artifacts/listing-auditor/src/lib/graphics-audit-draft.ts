@@ -1,5 +1,6 @@
 import { GRAPHICS_APLUS_AUDIT_SHELL_DESCRIPTION } from "@workspace/graphics-aplus-audit";
 import { PROJECT_ORIGIN_GRAPHICS_SCRATCH } from "@/lib/audit-project-origin";
+import { toGraphicsSourcePublicUrls } from "@/lib/graphics-source-image-urls";
 
 /** Minimal audit draft for standalone Create Graphics + optional A+ generation. */
 
@@ -35,6 +36,7 @@ export function buildSyntheticListingFields(productName: string, brandName: stri
 
 /** Listing draft for a scratch graphics project entering Product Explorer (not A+ shell). */
 export function buildProductExplorerDraftFromGraphicsProject(project: {
+  id: number;
   name: string;
   productName: string;
   category: string | null;
@@ -50,7 +52,7 @@ export function buildProductExplorerDraftFromGraphicsProject(project: {
     title: productName,
     bulletPoints: [],
     targetKeywords: [],
-    imageUrls: [...(project.sourceImageUrls ?? [])].filter((u) => u?.trim()),
+    imageUrls: toGraphicsSourcePublicUrls(project.id, project.sourceImageUrls),
     projectOrigin: PROJECT_ORIGIN_GRAPHICS_SCRATCH,
   };
 }
