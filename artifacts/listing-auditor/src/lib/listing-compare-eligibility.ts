@@ -8,6 +8,7 @@ import {
   PROJECT_ORIGIN_BUILD_BRAND_SCRATCH,
   PROJECT_ORIGIN_GRAPHICS_SCRATCH,
 } from "@/lib/audit-project-origin";
+import { graphicsScratchUploadListingHasBaseline } from "@/lib/graphics-scratch-listing-baseline";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
 import { normalizeBulletPoints } from "@/lib/listing-content-format";
@@ -68,7 +69,7 @@ export function shouldShowExistingListingContent(
   if (product?.isShopifyImport || product?.isWooCommerceImport) return true;
 
   if (audit?.projectOrigin?.trim() === PROJECT_ORIGIN_GRAPHICS_SCRATCH) {
-    return false;
+    return graphicsScratchUploadListingHasBaseline(audit);
   }
 
   const asin = audit?.asin?.trim();

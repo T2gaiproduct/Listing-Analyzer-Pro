@@ -108,6 +108,8 @@ export type ScratchGraphicsProject = {
   category: string | null;
   sourceImageUrls?: string[] | null;
   auditId?: number | null;
+  brandName?: string | null;
+  productDescription?: string | null;
 };
 
 async function linkGraphicsProjectToAudit(projectId: number, auditId: number): Promise<void> {
@@ -152,22 +154,31 @@ export async function ensureAuditForScratchGraphicsProject(
 }
 
 /** Scratch (or unlinked) graphics → create/link listing + sync images + return audit id for navigation. */
-async function syncUploadUrlsToAudit(
+/** Keep Product Explorer audit aligned with Create Graphics upload fields (not synthetic listing). */
+export async function syncScratchUploadBaselinesToAudit(
   auditId: number,
-  projectId: number,
-  sourceImageUrls: string[] | null | undefined,
+  project: ScratchGraphicsProject,
 ): Promise<void> {
-  const uploadUrls = toGraphicsSourcePublicUrls(projectId, sourceImageUrls);
-  if (uploadUrls.length === 0) return;
+  const draft = buildProductExplorerDraftFromGraphicsProject(project);
+  if (!draft) return;
   const res = await fetch(`${basePath}/api/audits/${auditId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ imageUrls: uploadUrls }),
+    body: JSON.stringify({
+      productName: draft.productName,
+      brandName: draft.brandName,
+      category: draft.category,
+      title: draft.title,
+      bulletPoints: draft.bulletPoints,
+      targetKeywords: draft.targetKeywords,
+      productDescription: draft.productDescription,
+      imageUrls: draft.imageUrls,
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? "Could not sync upload images to product.");
+    throw new Error((err as { error?: string }).error ?? "Could not sync upload listing fields to product.");
   }
 }
 
@@ -177,7 +188,7 @@ export async function saveScratchGraphicsProjectToProductExplorer(
   queryClient?: QueryClient,
 ): Promise<number> {
   const auditId = await ensureAuditForScratchGraphicsProject(project);
-  await syncUploadUrlsToAudit(auditId, project.id, project.sourceImageUrls);
+  await syncScratchUploadBaselinesToAudit(auditId, project);
   await saveGraphicsRecordsToProductExplorer(auditId, records, queryClient);
   void queryClient?.invalidateQueries({ queryKey: ["graphics-project", String(project.id)] });
   return auditId;

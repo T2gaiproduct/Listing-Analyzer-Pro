@@ -96,6 +96,11 @@ import {
 } from "@/components/listing-content-card";
 import { shouldShowExistingListingContent } from "@/lib/listing-compare-eligibility";
 import { PROJECT_ORIGIN_GRAPHICS_SCRATCH } from "@/lib/audit-project-origin";
+import {
+  graphicsScratchUploadListingSnapshot,
+  resolveGraphicsScratchExistingForCompare,
+  resolveGraphicsScratchUploadListingBaseline,
+} from "@/lib/graphics-scratch-listing-baseline";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -393,7 +398,7 @@ function resolveExistingListingContent(
   const isWooImport = Boolean(product?.isWooCommerceImport) || isWooCommerceImportAsin(audit?.asin);
 
   if (audit?.projectOrigin?.trim() === PROJECT_ORIGIN_GRAPHICS_SCRATCH) {
-    return null;
+    return resolveGraphicsScratchUploadListingBaseline(audit);
   }
 
   if (!isWooImport && audit?.sourceListingContent) {
@@ -1178,6 +1183,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }, [product, marketplaceData, effectiveAudit]);
 
   const existingListingContent = useMemo(() => {
+    if (isGraphicsScratchProductExplorerAudit(effectiveAudit ?? undefined)) {
+      return resolveGraphicsScratchExistingForCompare(effectiveAudit ?? undefined);
+    }
     const content = resolveExistingListingContent(listingProduct, effectiveAudit);
     if (!content || !isStoreImportProduct(listingProduct)) return content;
     return { ...content, bulletPoints: [] };
@@ -1842,12 +1850,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           };
           const auditOrigin = (effectiveAudit as { projectOrigin?: string | null } | undefined)?.projectOrigin;
           const sourceSnapshot = auditOrigin?.trim() === PROJECT_ORIGIN_GRAPHICS_SCRATCH
-            ? {
-                title: effectiveAudit?.productName?.trim() || product?.name?.trim() || "",
-                bulletPoints: [] as string[],
-                keywords: [] as string[],
-                htmlDescription: "",
-              }
+            ? graphicsScratchUploadListingSnapshot(effectiveAudit ?? undefined)
             : existingListingContent
               ? {
                   title: existingListingContent.title,

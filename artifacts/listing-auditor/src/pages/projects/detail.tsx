@@ -17,6 +17,7 @@ import {
 import {
   saveGraphicsRecordsToProductExplorer,
   saveScratchGraphicsProjectToProductExplorer,
+  syncScratchUploadBaselinesToAudit,
 } from "@/lib/sync-graphics-to-product-explorer";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -457,6 +458,14 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       let auditId: number;
       if (linkedAuditId != null && linkedAuditId > 0) {
         auditId = linkedAuditId;
+        await syncScratchUploadBaselinesToAudit(auditId, {
+          id: project.id,
+          name: project.name,
+          productName: project.productName,
+          category: project.category,
+          sourceImageUrls: project.sourceImageUrls,
+          auditId: project.auditId,
+        });
         await saveGraphicsRecordsToProductExplorer(auditId, records, qc);
       } else {
         auditId = await saveScratchGraphicsProjectToProductExplorer(

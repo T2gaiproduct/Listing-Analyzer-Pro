@@ -41,17 +41,23 @@ export function buildProductExplorerDraftFromGraphicsProject(project: {
   productName: string;
   category: string | null;
   sourceImageUrls?: string[] | null;
+  brandName?: string | null;
+  productDescription?: string | null;
 }) {
   const productName = project.productName?.trim();
   if (!productName) return null;
   const category = project.category?.trim() || "General";
+  const brand = project.brandName?.trim() ?? "";
+  const title = brand ? `${brand} ${productName}` : productName;
   return {
     projectName: (project.name?.trim() || productName),
     productName,
+    brandName: brand || undefined,
     category,
-    title: productName,
+    title,
     bulletPoints: [],
     targetKeywords: [],
+    productDescription: project.productDescription?.trim() || undefined,
     imageUrls: toGraphicsSourcePublicUrls(project.id, project.sourceImageUrls),
     projectOrigin: PROJECT_ORIGIN_GRAPHICS_SCRATCH,
   };
