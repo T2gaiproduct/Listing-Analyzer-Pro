@@ -41,6 +41,7 @@ import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { WorkspacesPlanUpgradeBanner } from "@/components/workspaces-plan-upgrade";
 import { DashboardDonutChart } from "@/components/dashboard-donut-chart";
 import { CREATE_VIDEOS_COMING_SOON, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
+import { isEcommGuruProductionNavHiddenFeature } from "@/lib/ecomm-guru-production-nav";
 import {
   NewProjectDropdownMenuItems,
   defaultNewProjectMenuItems,
@@ -366,6 +367,7 @@ export default function Dashboard() {
   ].filter(
     (item) =>
       (isAccountOwner || canView(item.feature))
+      && !isEcommGuruProductionNavHiddenFeature(item.feature)
       && !(MANAGE_ADS_COMING_SOON && item.feature === "ads")
       && !(CREATE_VIDEOS_COMING_SOON && item.feature === "videos"),
   );

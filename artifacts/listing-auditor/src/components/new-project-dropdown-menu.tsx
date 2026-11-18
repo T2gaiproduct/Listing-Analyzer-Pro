@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { CREATE_VIDEOS_COMING_SOON, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
+import { isEcommGuruProductionNavHiddenFeature } from "@/lib/ecomm-guru-production-nav";
 import { cn } from "@/lib/utils";
 
 export type NewProjectMenuItem = {
@@ -28,7 +29,9 @@ export function filterNewProjectMenuItems(
   items: NewProjectMenuItem[],
   canAccess: (feature: WorkspaceFeature) => boolean,
 ): NewProjectMenuItem[] {
-  return items.filter((item) => canAccess(item.feature));
+  return items.filter(
+    (item) => canAccess(item.feature) && !isEcommGuruProductionNavHiddenFeature(item.feature),
+  );
 }
 
 export const defaultNewProjectMenuItems = NEW_PROJECT_ITEMS;

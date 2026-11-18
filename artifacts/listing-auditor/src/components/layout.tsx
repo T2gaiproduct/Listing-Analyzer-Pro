@@ -83,6 +83,7 @@ import { Button } from "@/components/ui/button";
 import { Building2, ChevronRight } from "lucide-react";
 import { ManageAdsNavCollapsed, ManageAdsNavGroup } from "@/components/manage-ads-nav";
 import { CREATE_VIDEOS_COMING_SOON, isManageAdsPath, MANAGE_ADS_COMING_SOON } from "@/lib/ads-nav";
+import { isEcommGuruProductionNavHiddenFeature, isEcommGuruProductionSite } from "@/lib/ecomm-guru-production-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -262,14 +263,18 @@ export function Layout({ children }: { children: ReactNode }) {
   const homeHref = "/dashboard";
   const canViewArchive = isAccountOwner || canView("archive");
   const canViewNotifications = isAccountOwner || canView("notifications");
-  const canViewAds = isAccountOwner || canView("ads");
+  const canViewAds = (isAccountOwner || canView("ads")) && !isEcommGuruProductionSite();
 
   const navReady =
     isAccountOwner
     || (activeWorkspaceId != null && !wsNavLoading)
     || (clerkLoaded && !!user && workspacesLoadFailed && !wsNavLoading);
   const visibleNavItems = (navReady
-    ? mainNavItems.filter((item) => isAccountOwner || canView(item.feature))
+    ? mainNavItems.filter(
+      (item) =>
+        (isAccountOwner || canView(item.feature))
+        && !isEcommGuruProductionNavHiddenFeature(item.feature),
+    )
     : []
   ).map((item) =>
     item.label === "__AI__" ? { ...item, label: platformAiName(platformName) } : item,

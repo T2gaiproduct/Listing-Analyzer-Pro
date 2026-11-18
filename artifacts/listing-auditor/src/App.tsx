@@ -18,6 +18,7 @@ import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { WorkspacePermissionGate } from "@/components/workspace-permission-gate";
 import { ManageAdsComingSoonGate } from "@/components/manage-ads-coming-soon-gate";
+import { EcommGuruProductionNavGate } from "@/components/ecomm-guru-production-nav-gate";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge, useApiAuthReady } from "@/components/api-token-bridge";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
@@ -1018,7 +1019,11 @@ function Router() {
         <Redirect to="/settings?tab=marketplaces" />
       </Route>
       <Route path="/ai">
-        <WorkspaceProtectedRoute><SellerMateAiPage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <EcommGuruProductionNavGate>
+            <SellerMateAiPage />
+          </EcommGuruProductionNavGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/products/:id">
         {params => (
@@ -1043,7 +1048,11 @@ function Router() {
         <WorkspaceProtectedRoute><GraphicsInDetail /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/videos">
-        <WorkspaceProtectedRoute><VideosPage /></WorkspaceProtectedRoute>
+        <WorkspaceProtectedRoute>
+          <EcommGuruProductionNavGate>
+            <VideosPage />
+          </EcommGuruProductionNavGate>
+        </WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/new">
         <WorkspaceProtectedRoute requireCreate>
