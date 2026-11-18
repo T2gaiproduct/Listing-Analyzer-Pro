@@ -29,8 +29,8 @@ export function AmazonBrowseCategorySelect({
   onChange,
   required,
   label = "Category",
-  placeholder = "Select a category",
-  searchPlaceholder = "Search a category or product — e.g. lipstick, boots",
+  placeholder: _placeholder = "Select a category",
+  searchPlaceholder: _searchPlaceholder = "Search a category or product — e.g. lipstick, boots",
   className,
   triggerClassName,
 }: Props) {
@@ -57,8 +57,6 @@ export function AmazonBrowseCategorySelect({
 
   const closedDisplay = value ? leafLabel : "";
   const inputValue = open ? search : closedDisplay;
-  const inputPlaceholder = !open && !value ? placeholder : searchPlaceholder;
-
   function startSearch() {
     if (!open) {
       setOpen(true);
@@ -94,7 +92,6 @@ export function AmazonBrowseCategorySelect({
               type="text"
               value={inputValue}
               readOnly={!open && Boolean(value)}
-              placeholder={inputPlaceholder}
               className={cn(
                 "w-full h-11 sm:h-12 pl-9 pr-9 rounded-xl text-sm bg-transparent",
                 "focus:outline-none text-foreground placeholder:text-muted-foreground",

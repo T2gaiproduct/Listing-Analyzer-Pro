@@ -84,7 +84,6 @@ export function CustomPromptGenerationPanel({
       onQualityChange={onQualityChange}
       promptMaxChars={promptMaxChars}
       hideAspectRatio={hideAspectRatio}
-      placeholder="Optional — scene, lighting, composition, and mood…"
       flatSurface
       prominentReferenceThumbs={prominentReferenceThumbs}
       composerAttachTop={composerAttachTop}
@@ -96,7 +95,6 @@ export function CustomPromptGenerationPanel({
       <textarea
         value={customPrompt}
         onChange={(e) => onCustomPromptChange(e.target.value)}
-        placeholder="Optional — added on top of the admin image prompt. Describe scene, lighting, composition, and mood."
         rows={4}
         maxLength={promptMaxChars}
         className="w-full resize-none text-sm sm:text-base bg-transparent border-0 p-4 focus:outline-none focus:ring-0 placeholder:text-slate-400 min-h-[7rem]"

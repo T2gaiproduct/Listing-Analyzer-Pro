@@ -141,7 +141,6 @@ export function ChatGptStyleGenerationInput({
             ref={textareaRef}
             value={customPrompt}
             onChange={(e) => onCustomPromptChange(e.target.value)}
-            placeholder={placeholder}
             maxLength={promptMaxChars}
             rows={1}
             className={cn(
