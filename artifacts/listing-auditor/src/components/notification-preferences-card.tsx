@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Bell, Info, Mail } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,71 @@ import {
   type NotificationPreferences,
 } from "@/lib/notification-preferences";
 import { settingsPanelClassName } from "@/components/settings-panel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+
+const NOTIFICATION_TAB_LABELS: Record<NotificationPreferenceCategory, string> = {
+  projects: "Projects",
+  team: "Team",
+  billing: "Billing",
+  audits: "Audits",
+  admin: "Admin",
+};
+
+function NotificationCategoryPanel({
+  category,
+  resolvedPreferences,
+  savePending,
+  onToggleApp,
+  onToggleEmail,
+}: {
+  category: NotificationPreferenceCategory;
+  resolvedPreferences: NotificationPreferences;
+  savePending: boolean;
+  onToggleApp: (category: NotificationPreferenceCategory, enabled: boolean) => void;
+  onToggleEmail: (category: NotificationPreferenceCategory, enabled: boolean) => void;
+}) {
+  const meta = NOTIFICATION_PREFERENCE_META[category];
+  const emailEnabled = resolvedPreferences.email![category];
+  return (
+    <div className={settingsPanelClassName("grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-4 items-start")}>
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm font-semibold text-foreground">{meta.label}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
+        <p className="text-[11px] text-muted-foreground/80">e.g. {meta.examples}</p>
+      </div>
+      <div className="flex sm:flex-col items-center justify-between sm:justify-center gap-2 sm:gap-1.5 sm:pt-1">
+        <Label
+          htmlFor={`notif-app-${category}`}
+          className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+        >
+          In-app
+        </Label>
+        <Switch
+          id={`notif-app-${category}`}
+          checked={resolvedPreferences[category]}
+          disabled={savePending}
+          onCheckedChange={(checked) => onToggleApp(category, checked)}
+        />
+      </div>
+      <div className="flex sm:flex-col items-center justify-between sm:justify-center gap-2 sm:gap-1.5 sm:pt-1">
+        <Label
+          htmlFor={`notif-email-${category}`}
+          className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1"
+        >
+          <Mail className="w-3 h-3" />
+          Email
+        </Label>
+        <Switch
+          id={`notif-email-${category}`}
+          checked={emailEnabled}
+          disabled={savePending}
+          onCheckedChange={(checked) => onToggleEmail(category, checked)}
+        />
+      </div>
+    </div>
+  );
+}
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -157,9 +223,15 @@ export function NotificationPreferencesCard({
     });
   };
 
-  const categories = showAdminAlerts
-    ? NOTIFICATION_PREFERENCE_CATEGORIES
-    : CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES;
+  const categories = useMemo(
+    () => (showAdminAlerts ? [...NOTIFICATION_PREFERENCE_CATEGORIES] : [...CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES]),
+    [showAdminAlerts],
+  );
+
+  const [activeTab, setActiveTab] = useState<string>(categories[0] ?? "projects");
+  const tabValue = categories.includes(activeTab as NotificationPreferenceCategory)
+    ? activeTab
+    : categories[0];
 
   return (
     <Card className={compact ? "border-border" : undefined}>
@@ -199,53 +271,28 @@ export function NotificationPreferencesCard({
           </div>
         ) : (
           <>
-            {categories.map((category) => {
-              const meta = NOTIFICATION_PREFERENCE_META[category];
-              const emailEnabled = resolvedPreferences.email![category];
-              return (
-                <div
-                  key={category}
-                  className={settingsPanelClassName("grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-4 items-start")}
-                >
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{meta.label}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
-                    <p className="text-[11px] text-muted-foreground/80">e.g. {meta.examples}</p>
-                  </div>
-                  <div className="flex sm:flex-col items-center justify-between sm:justify-center gap-2 sm:gap-1.5 sm:pt-1">
-                    <Label
-                      htmlFor={`notif-app-${category}`}
-                      className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                    >
-                      In-app
-                    </Label>
-                    <Switch
-                      id={`notif-app-${category}`}
-                      checked={resolvedPreferences[category]}
-                      disabled={save.isPending}
-                      onCheckedChange={(checked) => onToggleApp(category, checked)}
-                    />
-                  </div>
-                  <div className="flex sm:flex-col items-center justify-between sm:justify-center gap-2 sm:gap-1.5 sm:pt-1">
-                    <Label
-                      htmlFor={`notif-email-${category}`}
-                      className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1"
-                    >
-                      <Mail className="w-3 h-3" />
-                      Email
-                    </Label>
-                    <Switch
-                      id={`notif-email-${category}`}
-                      checked={emailEnabled}
-                      disabled={save.isPending}
-                      onCheckedChange={(checked) => onToggleEmail(category, checked)}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            <Tabs value={tabValue} onValueChange={setActiveTab} className="w-full">
+              <TabsList className={cn("w-full h-auto flex flex-wrap justify-start gap-1 bg-muted/50 p-1")}>
+                {categories.map((category) => (
+                  <TabsTrigger key={category} value={category} className="text-xs px-3 py-1.5">
+                    {NOTIFICATION_TAB_LABELS[category]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {categories.map((category) => (
+                <TabsContent key={category} value={category} className="mt-4 focus-visible:outline-none">
+                  <NotificationCategoryPanel
+                    category={category}
+                    resolvedPreferences={resolvedPreferences}
+                    savePending={save.isPending}
+                    onToggleApp={onToggleApp}
+                    onToggleEmail={onToggleEmail}
+                  />
+                </TabsContent>
+              ))}
+            </Tabs>
 
-            <div className="flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2.5 text-xs text-foreground">
+            <div className="flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2.5 text-xs text-foreground mt-4">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <p>
                 System announcements and account-critical messages are always delivered in-app and cannot be turned off.
