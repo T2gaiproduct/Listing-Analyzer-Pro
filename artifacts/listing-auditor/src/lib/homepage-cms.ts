@@ -174,24 +174,24 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
   "tutorials.item1_title": "Build Your Brand",
   "tutorials.item1_duration": "5:32",
   "tutorials.item1_image": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=240&fit=crop&q=80",
-  "tutorials.item1_description": "Set up your brand profile, voice, and assets so every listing and creative stays consistent.",
+  "tutorials.item1_description": "Build a full listing step by step — upload, AI copy, images, A+, preview, and export.",
   "tutorials.item1_category": "getting-started",
-  "tutorials.item1_steps": "5",
-  "tutorials.item1_sop": "Open Build Your Brand from the sidebar and create or select a brand.\nAdd your brand name, logo, and primary colors.\nDefine tone of voice and key differentiators in brand notes.\nUpload reference products or hero images the AI should match.\nSave, then choose this brand when starting audits or graphics projects.",
+  "tutorials.item1_steps": "8",
+  "tutorials.item1_sop": "Sign in and open Build Your Brand from the sidebar.\nChoose existing product, import from link, or create from scratch.\nUpload product photos and enter product name, brand, and category.\nUse the Listing step for AI title, bullets, and description — edit as needed.\nCreate main listing images in the Graphics step.\nAdd A+ content in the workflow when your listing needs it.\nOpen Listing Preview to check how the listing looks.\nExport Excel or CSV when you are ready to use the listing elsewhere.",
   "tutorials.item2_title": "Audit Your Listing",
   "tutorials.item2_duration": "7:15",
   "tutorials.item2_image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=240&fit=crop&q=80",
-  "tutorials.item2_description": "Run a full AI listing audit and act on prioritized fixes for copy, images, and compliance.",
+  "tutorials.item2_description": "Score any listing with AI, see what to fix, and track improvements over time.",
   "tutorials.item2_category": "analytics",
   "tutorials.item2_steps": "6",
-  "tutorials.item2_sop": "Go to Audit Listing and paste an Amazon product URL (or open an existing project).\nConfirm marketplace and language, then start the audit.\nReview the overall score and each category breakdown.\nRead AI recommendations for title, bullets, description, and images.\nAccept or edit suggested copy, then export or push changes as needed.\nRe-run the audit after updates to track score improvements.",
+  "tutorials.item2_sop": "Open Audit Listing from the sidebar.\nStart with import from link or an existing product in your account.\nPick marketplace, paste the product URL, fetch, and continue to run the audit.\nReview your overall score and each category on the results page.\nRead issues and suggestions for title, bullets, images, and more.\nApply fixes or download a report, then run another audit later to see improvement.",
   "tutorials.item3_title": "Create Graphics",
   "tutorials.item3_duration": "6:48",
   "tutorials.item3_image": "https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=400&h=240&fit=crop&q=80",
-  "tutorials.item3_description": "Generate listing images, lifestyle shots, and A+ visuals from your product and brief.",
+  "tutorials.item3_description": "Create AI product images — lifestyle, hero, infographics, or A+ modules.",
   "tutorials.item3_category": "images",
   "tutorials.item3_steps": "6",
-  "tutorials.item3_sop": "Open Create Graphics and start a new project or open one from the dashboard.\nUpload product photos and optional reference images.\nChoose shot types (hero, infographic, lifestyle) and set style notes.\nGenerate images; pick favorites and regenerate weak variants.\nCrop or adjust as needed, then attach images to the listing preview.\nDownload ZIP or sync images to your connected marketplace when ready.",
+  "tutorials.item3_sop": "Open Create Graphics from the sidebar.\nChoose create from scratch or an existing product.\nUpload photos and enter product name, brand, and category.\nPick gallery images or A+ images for this run.\nSelect image types, customize style if needed, and generate.\nReview the gallery, regenerate weak images, and download or save.",
   "tutorials.item4_title": "Optimize Content",
   "tutorials.item4_duration": "8:20",
   "tutorials.item4_image": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=240&fit=crop&q=80",
@@ -305,8 +305,59 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
   "about.milestone4_desc": "Launched enterprise tier with team management, white-label reporting, and API access.",
 };
 
+const TUTORIAL_MODULE_FIELD_SUFFIXES = ["title", "description", "category", "steps", "sop"] as const;
+
+function tutorialModuleKeys(index: number): string[] {
+  return TUTORIAL_MODULE_FIELD_SUFFIXES.map((suffix) => `tutorials.item${index}_${suffix}`);
+}
+
+/** Replace items 1–3 when CMS still has pre-2026 placeholder copy (DB overrides defaults). */
+export function refreshCanonicalTutorialModules(cms: HomepageCmsMap): HomepageCmsMap {
+  const next = { ...cms };
+
+  const refreshItem = (index: number) => {
+    for (const key of tutorialModuleKeys(index)) {
+      const fallback = HOMEPAGE_CMS_DEFAULTS[key];
+      if (fallback !== undefined) next[key] = fallback;
+    }
+  };
+
+  const sop1 = cms["tutorials.item1_sop"] ?? "";
+  const desc1 = cms["tutorials.item1_description"] ?? "";
+  if (
+    sop1.includes("logo, and primary colors")
+    || sop1.includes("create or select a brand")
+    || desc1.includes("paste any Amazon product URL")
+    || desc1.includes("Learn how to paste any Amazon")
+    || desc1.includes("brand profile")
+  ) {
+    refreshItem(1);
+  }
+
+  const desc2 = cms["tutorials.item2_description"] ?? "";
+  const sop2 = cms["tutorials.item2_sop"] ?? "";
+  if (desc2.includes("paste any Amazon product URL") || sop2.startsWith("Go to Audit Listing and paste")) {
+    refreshItem(2);
+  }
+
+  const title3 = (cms["tutorials.item3_title"] ?? "").trim().toLowerCase();
+  const desc3 = cms["tutorials.item3_description"] ?? "";
+  const cat3 = cms["tutorials.item3_category"] ?? "";
+  const sop3 = cms["tutorials.item3_sop"] ?? "";
+  if (
+    title3 === "create graphics"
+    || cat3 === "optimization"
+    || desc3.toLowerCase().includes("rewriting product titles")
+    || sop3.includes("attach images to the listing preview")
+  ) {
+    refreshItem(3);
+  }
+
+  return next;
+}
+
 export function mergeHomepageCms(data: HomepageCmsMap): HomepageCmsMap {
-  return { ...HOMEPAGE_CMS_DEFAULTS, ...data };
+  return refreshCanonicalTutorialModules({ ...HOMEPAGE_CMS_DEFAULTS, ...data });
 }
 
 export function cmsText(cms: HomepageCmsMap, key: string): string {
