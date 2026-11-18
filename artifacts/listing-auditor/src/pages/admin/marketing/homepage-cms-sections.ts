@@ -118,6 +118,33 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       ],
     },
   ],
+  about: [
+    {
+      title: "About page hero (/about)",
+      fields: [
+        { key: "about.hero_heading_line1", label: "Heading line 1" },
+        { key: "about.hero_heading_line2", label: "Heading line 2" },
+        { key: "about.hero_subheading", label: "Subheading", type: "textarea", rows: 3 },
+      ],
+    },
+    {
+      title: "Our Mission",
+      fields: [
+        { key: "about.mission_heading", label: "Section heading" },
+        { key: "about.mission_body_1", label: "Body paragraph 1", type: "textarea", rows: 3 },
+        { key: "about.mission_body_2", label: "Body paragraph 2", type: "textarea", rows: 3 },
+      ],
+    },
+    {
+      title: "Our Values & journey headers",
+      fields: [
+        { key: "about.values_heading", label: "Values heading" },
+        { key: "about.values_subheading", label: "Values subheading", type: "textarea", rows: 2 },
+        { key: "about.journey_heading", label: "Journey heading" },
+        { key: "about.journey_subheading", label: "Journey subheading", type: "textarea", rows: 2 },
+      ],
+    },
+  ],
 };
 
 export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
@@ -129,4 +156,5 @@ export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
   faq: "FAQ",
   cta: "CTA",
   footer: "Footer",
+  about: "About Us",
 };

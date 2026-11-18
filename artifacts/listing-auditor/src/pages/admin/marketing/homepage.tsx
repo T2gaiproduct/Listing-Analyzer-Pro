@@ -15,6 +15,7 @@ import { PortfolioCmsEditor } from "./portfolio-cms-editor";
 import { FeaturesCmsEditor } from "./features-cms-editor";
 import { TutorialsCmsEditor } from "./tutorials-cms-editor";
 import { WorkflowCmsEditor } from "./workflow-cms-editor";
+import { AboutCmsEditor } from "./about-cms-editor";
 import { DEFAULT_HERO_SLIDES, HERO_AUTOPLAY_ENABLED_KEY, HERO_AUTOPLAY_INTERVAL_KEY, HERO_SLIDES_JSON_KEY, serializeHeroSlides } from "@/lib/hero-slides";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -118,11 +119,14 @@ export default function AdminMarketingHomepage() {
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Home className="w-6 h-6 text-orange-500" /> Homepage CMS
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Edit all homepage content — changes go live instantly</p>
+          <p className="text-slate-500 text-sm mt-1">Edit homepage, tutorials page, and About Us copy — changes go live instantly</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => window.open("/", "_blank")}>
-            <Eye className="w-4 h-4 mr-1.5" /> Preview
+            <Eye className="w-4 h-4 mr-1.5" /> Preview home
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open("/about", "_blank")}>
+            <Eye className="w-4 h-4 mr-1.5" /> Preview about
           </Button>
           <Button
             className="bg-orange-500 hover:bg-orange-600"
@@ -168,6 +172,9 @@ export default function AdminMarketingHomepage() {
               )}
               {tab === "workflow" && (
                 <WorkflowCmsEditor data={localData} onChange={handleChange} />
+              )}
+              {tab === "about" && (
+                <AboutCmsEditor data={localData} onChange={handleChange} />
               )}
               {HOMEPAGE_CMS_SECTIONS[tab].map((section) => (
                 <SectionEditor
