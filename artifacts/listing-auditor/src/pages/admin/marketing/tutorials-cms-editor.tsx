@@ -40,6 +40,7 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
     onChange(keys.description, "");
     onChange(keys.category, "");
     onChange(keys.steps, "");
+    onChange(keys.sop, "");
     onChange(keys.linkUrl, "");
   }
 
@@ -56,6 +57,7 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
       onChange(current.description, data[next.description] ?? "");
       onChange(current.category, data[next.category] ?? "");
       onChange(current.steps, data[next.steps] ?? "");
+      onChange(current.sop, data[next.sop] ?? "");
       onChange(current.linkUrl, data[next.linkUrl] ?? "");
     }
 
@@ -164,6 +166,19 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
                     onChange={(e) => onChange(keys.description, e.target.value)}
                     placeholder="Short summary shown on the tutorials page"
                   />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-500">SOP (shown when no video URL)</Label>
+                  <Textarea
+                    className="mt-1 text-sm font-mono"
+                    rows={6}
+                    value={data[keys.sop] ?? ""}
+                    onChange={(e) => onChange(keys.sop, e.target.value)}
+                    placeholder="One step per line. Shown on the tutorials page until a YouTube URL is added."
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Video URL and thumbnail fields stay active — when you add a playable YouTube link, the card switches back to the video layout automatically.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>

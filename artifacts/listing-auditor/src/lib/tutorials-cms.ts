@@ -23,6 +23,7 @@ export interface TutorialCmsItem {
   description: string;
   category: string;
   steps: string;
+  sop: string;
   linkUrl: string;
 }
 
@@ -34,6 +35,7 @@ export interface TutorialPreviewItem {
   description?: string;
   category?: string;
   steps?: string;
+  sop?: string;
   linkUrl?: string;
 }
 
@@ -64,6 +66,7 @@ export function parseTutorialItems(cms: HomepageCmsMap): TutorialCmsItem[] {
       description: cmsText(cms, `tutorials.item${i}_description`),
       category: cmsText(cms, `tutorials.item${i}_category`) || "getting-started",
       steps: cmsText(cms, `tutorials.item${i}_steps`),
+      sop: cmsText(cms, `tutorials.item${i}_sop`),
       linkUrl: (cms[`tutorials.item${i}_link_url`] ?? "").trim(),
     }];
   });
@@ -78,6 +81,7 @@ export function tutorialItemKeys(index: number) {
     description: `tutorials.item${index}_description`,
     category: `tutorials.item${index}_category`,
     steps: `tutorials.item${index}_steps`,
+    sop: `tutorials.item${index}_sop`,
     linkUrl: `tutorials.item${index}_link_url`,
   } as const;
 }
@@ -113,6 +117,7 @@ export function buildTutorialPreviewItems(cms: HomepageCmsMap, basePath: string)
     description: item.description,
     category: item.category,
     steps: item.steps,
+    sop: item.sop,
     linkUrl: item.linkUrl,
   }));
 }
@@ -157,6 +162,7 @@ export function tutorialSlotHasContent(cms: HomepageCmsMap, index: number): bool
     || cms[keys.description]?.trim()
     || cms[keys.category]?.trim()
     || cms[keys.steps]?.trim()
+    || cms[keys.sop]?.trim()
     || cms[keys.linkUrl]?.trim(),
   );
 }

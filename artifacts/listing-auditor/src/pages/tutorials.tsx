@@ -46,7 +46,7 @@ export default function Tutorials() {
 
   const filtered = tutorials.filter((t) => {
     const matchCat = active === "all" || t.category === active;
-    const haystack = `${t.title} ${t.description ?? ""}`.toLowerCase();
+    const haystack = `${t.title} ${t.description ?? ""} ${t.sop ?? ""}`.toLowerCase();
     const matchSearch = haystack.includes(query.toLowerCase());
     return matchCat && matchSearch;
   });
