@@ -259,6 +259,7 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
   "footer.social_linkedin": "https://linkedin.com",
   "footer.social_youtube": "https://youtube.com",
   "footer.social_facebook": "https://facebook.com",
+  "footer.social_instagram": "",
 
   "about.hero_heading_line1": "Built for Amazon sellers,",
   "about.hero_heading_line2": "by Amazon sellers",

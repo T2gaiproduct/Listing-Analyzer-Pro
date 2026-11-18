@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, Facebook, Twitter, Linkedin, Youtube, Mail, MapPin, Phone } from "lucide-react";
+import { Menu, Facebook, Twitter, Linkedin, Youtube, Instagram, Mail, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SiteLogo } from "@/components/site-logo";
@@ -355,6 +355,7 @@ function FooterNewsletter() {
 
 const socialIconMap = {
   facebook: Facebook,
+  instagram: Instagram,
   twitter: Twitter,
   linkedin: Linkedin,
   youtube: Youtube,
@@ -390,10 +391,11 @@ export function PublicFooter() {
 
   const socialLinks = [
     { icon: socialIconMap.facebook, href: cmsText(cms, "footer.social_facebook"), label: "Facebook" },
+    { icon: socialIconMap.instagram, href: cmsText(cms, "footer.social_instagram"), label: "Instagram" },
     { icon: socialIconMap.twitter, href: cmsText(cms, "footer.social_twitter"), label: "Twitter" },
     { icon: socialIconMap.linkedin, href: cmsText(cms, "footer.social_linkedin"), label: "LinkedIn" },
     { icon: socialIconMap.youtube, href: cmsText(cms, "footer.social_youtube"), label: "YouTube" },
-  ].filter((s) => s.href);
+  ].filter((s) => s.href?.trim());
 
   return (
     <footer className="bg-[#0B0E11] text-slate-400">

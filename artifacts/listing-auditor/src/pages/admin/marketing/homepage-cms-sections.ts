@@ -115,6 +115,7 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
         { key: "footer.social_linkedin", label: "LinkedIn URL", type: "url" },
         { key: "footer.social_youtube", label: "YouTube URL", type: "url" },
         { key: "footer.social_facebook", label: "Facebook URL", type: "url" },
+        { key: "footer.social_instagram", label: "Instagram URL", type: "url" },
       ],
     },
   ],
