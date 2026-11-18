@@ -6,7 +6,6 @@ import { NotificationPreferencesCard } from "@/components/notification-preferenc
 import { SettingsAppearanceCard } from "@/components/settings-appearance-card";
 import { SettingsAccountCard } from "@/components/settings-account-card";
 import { SettingsSecurityCard } from "@/components/settings-security-card";
-import { SettingsIntegrationsCard } from "@/components/settings-integrations-card";
 import { SupportTicketForm } from "@/components/support-ticket-form";
 import { SupportTicketInbox } from "@/components/support-ticket-inbox";
 import MarketplacesPage from "@/pages/marketplaces";
@@ -54,7 +53,7 @@ export default function SettingsPage() {
           Settings
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage notifications, appearance, account preferences, security, integrations, marketplaces, and support.
+          Manage notifications, appearance, account preferences, security, marketplaces, and support.
         </p>
       </div>
 
@@ -75,7 +74,6 @@ export default function SettingsPage() {
           <NotificationPreferencesCard />
           <SettingsAppearanceCard />
           <SettingsSecurityCard />
-          <SettingsIntegrationsCard />
         </TabsContent>
         <TabsContent value={SETTINGS_TAB_MARKETPLACES} className="mt-6">
           <MarketplacesPage embedded />
