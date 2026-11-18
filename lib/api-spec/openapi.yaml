@@ -998,8 +998,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ImageRecord"
+        contentMarketplaceId:
+          type: ["integer", "null"]
+        contentVariants:
+          type: array
         currentStep:
           type: integer
+        projectOrigin:
+          type: string
+          description: audit_listing | build_brand_scratch | build_brand_import | graphics_scratch
+        importMarketplace:
+          type: string
+          description: When projectOrigin is build_brand_import — amazon, shopify, woocommerce, ebay, walmart
         createdAt:
           type: string
           format: date-time
