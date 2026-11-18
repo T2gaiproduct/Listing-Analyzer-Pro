@@ -286,12 +286,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [manageAdsNavOpen, setManageAdsNavOpen] = useState(() => isManageAdsPath(location));
-  const [auditListingNavOpen, setAuditListingNavOpen] = useState(() =>
-    isAuditListingSectionPath(location, search),
-  );
-  const [createGraphicsNavOpen, setCreateGraphicsNavOpen] = useState(() =>
-    isCreateGraphicsSectionPath(location, search),
-  );
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
@@ -355,10 +349,6 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isManageAdsPath(location)) setManageAdsNavOpen(true);
   }, [location]);
-
-  useEffect(() => {
-    if (isAuditListingSectionPath(location, search)) setAuditListingNavOpen(true);
-  }, [location, search]);
 
   /* ── Ribbon actions state ── */
   const [dotsOpen, setDotsOpen] = useState(false);
@@ -852,8 +842,6 @@ export function Layout({ children }: { children: ReactNode }) {
                     key={href}
                     location={location}
                     search={search}
-                    expanded={auditListingNavOpen}
-                    onToggle={() => setAuditListingNavOpen((v) => !v)}
                     onNavigate={(h) => handleFeatureNav(h)}
                   />
                 );
@@ -877,8 +865,6 @@ export function Layout({ children }: { children: ReactNode }) {
                     key={href}
                     location={location}
                     search={search}
-                    expanded={createGraphicsNavOpen}
-                    onToggle={() => setCreateGraphicsNavOpen((v) => !v)}
                     onNavigate={(h) => handleFeatureNav(h)}
                   />
                 );
@@ -1070,8 +1056,6 @@ export function Layout({ children }: { children: ReactNode }) {
                       key={href}
                       location={location}
                       search={search}
-                      expanded={auditListingNavOpen}
-                      onToggle={() => setAuditListingNavOpen((v) => !v)}
                       onNavigate={(h) => handleFeatureNav(h)}
                       variant="mobile"
                     />
@@ -1083,8 +1067,6 @@ export function Layout({ children }: { children: ReactNode }) {
                       key={href}
                       location={location}
                       search={search}
-                      expanded={createGraphicsNavOpen}
-                      onToggle={() => setCreateGraphicsNavOpen((v) => !v)}
                       onNavigate={(h) => {
                         handleFeatureNav(h);
                         setMobileNavOpen(false);
