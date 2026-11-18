@@ -18,13 +18,25 @@ import { settingsPanelClassName } from "@/components/settings-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-const NOTIFICATION_TAB_LABELS: Record<NotificationPreferenceCategory, string> = {
+export const NOTIFICATION_TAB_LABELS: Record<NotificationPreferenceCategory, string> = {
   projects: "Projects",
   team: "Team",
   billing: "Billing",
   audits: "Audits",
   admin: "Admin",
 };
+
+function NotificationPreferencesSystemNote() {
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2.5 text-xs text-foreground mt-4">
+      <Info className="w-4 h-4 shrink-0 mt-0.5" />
+      <p>
+        System announcements and account-critical messages are always delivered in-app and cannot be turned off.
+        Email for those messages still follows your SMTP configuration in Admin.
+      </p>
+    </div>
+  );
+}
 
 function NotificationCategoryPanel({
   category,
@@ -148,14 +160,7 @@ function applyNotificationPreferencesPatch(
   });
 }
 
-export function NotificationPreferencesCard({
-  compact = false,
-  showAdminAlerts = false,
-}: {
-  compact?: boolean;
-  /** When true (admin dashboard), include Admin & platform alerts toggle. */
-  showAdminAlerts?: boolean;
-}) {
+function useNotificationPreferencesControls() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -223,6 +228,119 @@ export function NotificationPreferencesCard({
     });
   };
 
+  return {
+    isLoading,
+    error,
+    refetch,
+    resolvedPreferences,
+    prefsUnavailable,
+    savePending: save.isPending,
+    onToggleApp,
+    onToggleEmail,
+  };
+}
+
+function NotificationPreferencesLoadError({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive space-y-2">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium">Could not load notification preferences</p>
+          <p className="text-xs mt-1 opacity-90">
+            {error instanceof Error ? error.message : "Restart the API server after pulling the latest code."}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="text-xs font-medium underline hover:no-underline"
+        onClick={onRetry}
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
+/** One notification category — used on Settings top-level tabs (Projects, Team, …). */
+export function NotificationPreferencesCategorySection({
+  category,
+}: {
+  category: NotificationPreferenceCategory;
+}) {
+  const {
+    isLoading,
+    error,
+    refetch,
+    resolvedPreferences,
+    prefsUnavailable,
+    savePending,
+    onToggleApp,
+    onToggleEmail,
+  } = useNotificationPreferencesControls();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Bell className="w-4 h-4 text-orange-500" />
+          Notifications & email
+        </CardTitle>
+        <CardDescription>
+          Control in-app alerts and email separately for each category. When both switches are on,
+          you receive the notification in the app and by email.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="py-6 flex justify-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500" />
+          </div>
+        ) : prefsUnavailable ? (
+          <NotificationPreferencesLoadError error={error} onRetry={() => void refetch()} />
+        ) : (
+          <>
+            <NotificationCategoryPanel
+              category={category}
+              resolvedPreferences={resolvedPreferences}
+              savePending={savePending}
+              onToggleApp={onToggleApp}
+              onToggleEmail={onToggleEmail}
+            />
+            <NotificationPreferencesSystemNote />
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function NotificationPreferencesCard({
+  compact = false,
+  showAdminAlerts = false,
+}: {
+  compact?: boolean;
+  /** When true (admin dashboard), include Admin & platform alerts toggle. */
+  showAdminAlerts?: boolean;
+}) {
+  const {
+    isLoading,
+    error,
+    refetch,
+    resolvedPreferences,
+    prefsUnavailable,
+    savePending,
+    onToggleApp,
+    onToggleEmail,
+  } = useNotificationPreferencesControls();
+
   const categories = useMemo(
     () => (showAdminAlerts ? [...NOTIFICATION_PREFERENCE_CATEGORIES] : [...CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES]),
     [showAdminAlerts],
@@ -251,24 +369,7 @@ export function NotificationPreferencesCard({
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500" />
           </div>
         ) : prefsUnavailable ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive space-y-2">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium">Could not load notification preferences</p>
-                <p className="text-xs mt-1 opacity-90">
-                  {error instanceof Error ? error.message : "Restart the API server after pulling the latest code."}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="text-xs font-medium underline hover:no-underline"
-              onClick={() => void refetch()}
-            >
-              Try again
-            </button>
-          </div>
+          <NotificationPreferencesLoadError error={error} onRetry={() => void refetch()} />
         ) : (
           <>
             <Tabs value={tabValue} onValueChange={setActiveTab} className="w-full">
@@ -284,7 +385,7 @@ export function NotificationPreferencesCard({
                   <NotificationCategoryPanel
                     category={category}
                     resolvedPreferences={resolvedPreferences}
-                    savePending={save.isPending}
+                    savePending={savePending}
                     onToggleApp={onToggleApp}
                     onToggleEmail={onToggleEmail}
                   />
@@ -292,13 +393,7 @@ export function NotificationPreferencesCard({
               ))}
             </Tabs>
 
-            <div className="flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2.5 text-xs text-foreground mt-4">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <p>
-                System announcements and account-critical messages are always delivered in-app and cannot be turned off.
-                Email for those messages still follows your SMTP configuration in Admin.
-              </p>
-            </div>
+            <NotificationPreferencesSystemNote />
           </>
         )}
       </CardContent>
