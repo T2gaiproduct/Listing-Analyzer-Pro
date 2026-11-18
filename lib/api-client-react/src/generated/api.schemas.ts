@@ -291,6 +291,10 @@ export interface AuditWithResults {
   contentMarketplaceId?: number | null;
   contentVariants?: unknown[];
   currentStep?: number;
+  /** audit_listing | build_brand_scratch | build_brand_import | graphics_scratch */
+  projectOrigin?: string;
+  /** When projectOrigin is build_brand_import — amazon, shopify, woocommerce, ebay, walmart */
+  importMarketplace?: string;
   createdAt: string;
   updatedAt: string;
 }

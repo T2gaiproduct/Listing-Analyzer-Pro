@@ -1,7 +1,13 @@
-import {
-  CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES,
-  type NotificationPreferenceCategory,
-} from "@/lib/notification-preferences";
+import { CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES } from "@/lib/notification-preferences";
+
+type CustomerNotificationPreferenceCategory =
+  (typeof CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES)[number];
+
+function isCustomerNotificationCategory(
+  value: string,
+): value is CustomerNotificationPreferenceCategory {
+  return (CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES as readonly string[]).includes(value);
+}
 
 export const SETTINGS_TAB_MARKETPLACES = "marketplaces";
 export const SETTINGS_MARKETPLACES_HREF = `/settings?tab=${SETTINGS_TAB_MARKETPLACES}`;
@@ -28,19 +34,16 @@ export const SETTINGS_PAGE_TAB_LABELS: Record<SettingsPageTab, string> = {
 
 export function parseSettingsPageTab(raw: string | null | undefined): SettingsPageTab {
   if (raw === SETTINGS_TAB_MARKETPLACES) return SETTINGS_TAB_MARKETPLACES;
-  if (
-    raw
-    && CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES.includes(raw as NotificationPreferenceCategory)
-  ) {
-    return raw as SettingsPageTab;
+  if (raw && isCustomerNotificationCategory(raw)) {
+    return raw;
   }
   return "general";
 }
 
 export function isNotificationSettingsTab(
   tab: SettingsPageTab,
-): tab is (typeof CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES)[number] {
-  return CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES.includes(tab as NotificationPreferenceCategory);
+): tab is CustomerNotificationPreferenceCategory {
+  return isCustomerNotificationCategory(tab);
 }
 
 export function settingsHrefForTab(tab: SettingsPageTab): string {
