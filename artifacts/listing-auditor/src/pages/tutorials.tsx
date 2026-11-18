@@ -1,12 +1,11 @@
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { SeoHead } from "@/components/seo-head";
 import { Link } from "wouter";
-import { Search, BookOpen, Wrench, BarChart3, Image } from "lucide-react";
+import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText } from "@/lib/homepage-cms";
 import {
-  TUTORIAL_CATEGORIES,
   buildTutorialPreviewItems,
   tutorialCategoryLabel,
 } from "@/lib/tutorials-cms";
@@ -14,17 +13,8 @@ import { TutorialCard } from "@/components/tutorial-card";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const CATEGORY_ICONS: Record<string, typeof BookOpen> = {
-  all: BookOpen,
-  "getting-started": Search,
-  optimization: Wrench,
-  analytics: BarChart3,
-  images: Image,
-};
-
 export default function Tutorials() {
   const cms = useHomepageCmsContext();
-  const [active, setActive] = useState("all");
   const [query, setQuery] = useState("");
 
   const tutorials = useMemo(
@@ -35,20 +25,9 @@ export default function Tutorials() {
     [cms],
   );
 
-  const categories = useMemo(() => [
-    { id: "all", label: "All", icon: BookOpen },
-    ...TUTORIAL_CATEGORIES.map((c) => ({
-      id: c.id,
-      label: c.label,
-      icon: CATEGORY_ICONS[c.id] ?? BookOpen,
-    })),
-  ], []);
-
   const filtered = tutorials.filter((t) => {
-    const matchCat = active === "all" || t.category === active;
     const haystack = `${t.title} ${t.description ?? ""} ${t.sop ?? ""}`.toLowerCase();
-    const matchSearch = haystack.includes(query.toLowerCase());
-    return matchCat && matchSearch;
+    return haystack.includes(query.toLowerCase());
   });
 
   return (
@@ -77,27 +56,6 @@ export default function Tutorials() {
                 placeholder={cmsText(cms, "tutorials_page.search_placeholder")}
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
-            </div>
-          </div>
-        </section>
-
-        <section className="py-6 border-b border-slate-200 bg-white sticky top-[72px] z-10">
-          <div className="max-w-6xl mx-auto px-8">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setActive(c.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    active === c.id
-                      ? "bg-orange-100 text-orange-700"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  <c.icon className="w-4 h-4" />
-                  {c.label}
-                </button>
-              ))}
             </div>
           </div>
         </section>
