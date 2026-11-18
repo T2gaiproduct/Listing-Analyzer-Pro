@@ -54,7 +54,7 @@ function NotificationCategoryPanel({
   const meta = NOTIFICATION_PREFERENCE_META[category];
   const emailEnabled = resolvedPreferences.email![category];
   return (
-    <div className={settingsPanelClassName("grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-4 items-start")}>
+    <div className={settingsPanelClassName("grid w-full grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_auto] gap-4 sm:gap-6 items-start")}>
       <div className="min-w-0 space-y-1">
         <p className="text-sm font-semibold text-foreground">{meta.label}</p>
         <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
@@ -287,7 +287,7 @@ export function NotificationPreferencesCategorySection({
   } = useNotificationPreferencesControls();
 
   return (
-    <Card>
+    <Card className="w-full min-w-0">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Bell className="w-4 h-4 text-orange-500" />

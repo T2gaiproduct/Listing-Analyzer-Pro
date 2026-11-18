@@ -41,14 +41,13 @@ export default function SettingsPage() {
     [setLocation],
   );
 
-  const layoutWide = tab === SETTINGS_TAB_MARKETPLACES;
   const notificationTabs = useMemo(
     () => SETTINGS_PAGE_TAB_ORDER.filter(isNotificationSettingsTab),
     [],
   );
 
   return (
-    <div className={cn("space-y-6", layoutWide ? "max-w-6xl" : "max-w-3xl")}>
+    <div className="w-full min-w-0 max-w-none space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Settings className="w-6 h-6 text-orange-500" />
@@ -59,10 +58,10 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={onTabChange}>
-        <TabsList className="h-auto w-full flex flex-wrap justify-start gap-1">
+      <Tabs value={tab} onValueChange={onTabChange} className="w-full min-w-0">
+        <TabsList className="h-auto w-full grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1 p-1">
           {SETTINGS_PAGE_TAB_ORDER.map((tabId) => (
-            <TabsTrigger key={tabId} value={tabId} className="gap-1.5 text-xs sm:text-sm">
+            <TabsTrigger key={tabId} value={tabId} className="gap-1.5 text-xs sm:text-sm w-full min-w-0 px-2">
               {tabId === SETTINGS_TAB_MARKETPLACES ? <Store className="w-3.5 h-3.5 shrink-0" /> : null}
               {SETTINGS_PAGE_TAB_LABELS[tabId]}
             </TabsTrigger>
