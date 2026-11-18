@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ClipboardList, Play } from "lucide-react";
+import { ListChecks, Play } from "lucide-react";
 import { TutorialVideoDialog } from "@/components/tutorial-video-dialog";
 import { TutorialVideoThumbnail } from "@/components/tutorial-video-thumbnail";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
@@ -81,64 +81,83 @@ export function TutorialCard({
 
   if (hasSopContent) {
     const visibleSopLines = isPage ? sopLines : sopLines.slice(0, 4);
-    const sopPanel = (
-      <div
-        className={cn(
-          "bg-gradient-to-br from-orange-50 via-white to-slate-50 border-b border-orange-100/80",
-          isCarousel ? "aspect-video p-4 flex flex-col" : isPage ? "p-5 max-h-[280px] overflow-y-auto" : "h-44 p-3 overflow-y-auto",
-        )}
-      >
-        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-orange-600 mb-2">
-          <ClipboardList className="w-3.5 h-3.5 shrink-0" aria-hidden />
-          Standard operating procedure
-        </p>
-        <ol
-          className={cn(
-            "list-decimal list-inside space-y-1.5 text-slate-700 marker:text-orange-500/80",
-            isPage ? "text-sm leading-relaxed" : "text-xs leading-snug",
-          )}
-        >
-          {visibleSopLines.map((line, i) => (
-            <li key={i}>{line}</li>
-          ))}
-        </ol>
-        {!isPage && sopLines.length > 4 && (
-          <p className="text-[10px] text-slate-400 mt-2">+{sopLines.length - 4} more steps</p>
-        )}
-      </div>
-    );
 
-    const sopCard = (
-      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm h-full flex flex-col">
-        {sopPanel}
-        <div className={cn(isPage ? "p-6 flex-1 flex flex-col" : isCarousel ? "p-5" : "p-4")}>
-          {categoryLabel && (
-            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded w-fit">
-              {categoryLabel}
-            </span>
-          )}
-          <p
+    const stepRows = (
+    <ul
+      className={cn(
+        "space-y-3",
+        !isPage && "max-h-full overflow-hidden",
+      )}
+    >
+      {visibleSopLines.map((line, i) => (
+        <li key={i} className="flex gap-3 items-start">
+          <span
             className={cn(
-              "font-semibold text-slate-800",
-              isCarousel ? "text-lg mt-2" : "text-base",
-              categoryLabel && "mt-2",
+              "flex shrink-0 items-center justify-center rounded-full bg-orange-500 font-semibold text-white",
+              isPage ? "h-7 w-7 text-xs" : "h-6 w-6 text-[10px]",
+            )}
+            aria-hidden
+          >
+            {i + 1}
+          </span>
+          <span
+            className={cn(
+              "text-slate-600 pt-0.5",
+              isPage ? "text-sm leading-relaxed" : "text-xs leading-snug",
             )}
           >
-            {title}
-          </p>
-          {description && isPage && (
-            <p className="text-sm text-slate-500 mt-2 leading-relaxed">{description}</p>
-          )}
-          {stepCountLabel && isPage && (
-            <div className="mt-auto pt-4">
-              <span className="text-xs text-slate-400">{stepCountLabel} steps</span>
-            </div>
-          )}
-        </div>
-      </div>
+            {line}
+          </span>
+        </li>
+      ))}
+    </ul>
     );
 
-    return sopCard;
+    if (isPage) {
+      return (
+      <article className="h-full flex flex-col rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-shadow hover:shadow-md overflow-hidden">
+        <div className="border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white px-6 pt-6 pb-5">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {categoryLabel && (
+              <span className="text-xs font-medium text-orange-700 bg-orange-100/80 px-2.5 py-1 rounded-full">
+                {categoryLabel}
+              </span>
+            )}
+            {stepCountLabel && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+                <ListChecks className="w-3.5 h-3.5 text-orange-500" aria-hidden />
+                {stepCountLabel} steps
+              </span>
+            )}
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h2>
+          {description && (
+            <p className="mt-2 text-sm text-slate-500 leading-relaxed">{description}</p>
+          )}
+        </div>
+        <div className="flex-1 px-6 py-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-4">How to do it</p>
+          {stepRows}
+        </div>
+      </article>
+      );
+    }
+
+    const compactCard = (
+    <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm h-full flex flex-col">
+      <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+        <p className="font-semibold text-slate-900 text-sm line-clamp-2">{title}</p>
+      </div>
+      <div className={cn(isCarousel ? "aspect-video p-4 flex flex-col justify-center" : "p-3 flex-1")}>
+        {stepRows}
+        {!isPage && sopLines.length > 4 && (
+          <p className="text-[10px] text-slate-400 mt-3">+{sopLines.length - 4} more steps</p>
+        )}
+      </div>
+    </div>
+    );
+
+    return compactCard;
   }
 
   const thumbnail = (

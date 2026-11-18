@@ -68,7 +68,7 @@ export default function Tutorials() {
                 <p className="text-slate-500">No tutorials found matching your search.</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
                 {filtered.map((t) => (
                   <TutorialCard
                     key={t.title}
