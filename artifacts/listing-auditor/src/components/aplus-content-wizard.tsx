@@ -372,15 +372,12 @@ export function AplusContentWizard({
       {APLUS_MODULE_CARDS.map((module) => {
         const isSelected = selectedAplusModules.includes(module.id);
         const isGenerated = generatedAplusModuleIds.has(module.id);
-        const showCheck = isSelected || isGenerated;
         const cardClass = createOnly
           ? cn(
             "relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all text-left",
             isSelected
               ? "border-orange-500 bg-orange-50/30"
-              : isGenerated
-                ? "border-emerald-400/80 bg-emerald-50/25"
-                : "border-slate-200 bg-white hover:border-slate-300",
+              : "border-slate-200 bg-white hover:border-slate-300",
             (isGenerating || modulesUnavailable) && "opacity-60 cursor-not-allowed",
           )
           : cn(
@@ -420,7 +417,7 @@ export function AplusContentWizard({
                   <div className="flex items-center justify-between gap-2">
                     <h3 className={cn(
                       "text-sm font-semibold",
-                      isSelected ? "text-orange-900" : isGenerated ? "text-emerald-900" : "text-slate-900",
+                      isSelected ? "text-orange-900" : "text-slate-900",
                     )}
                     >
                       {module.label}
@@ -430,18 +427,16 @@ export function AplusContentWizard({
                         "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
                         isSelected
                           ? "border-orange-500 bg-orange-500"
-                          : isGenerated
-                            ? "border-emerald-600 bg-emerald-600"
-                            : "border-slate-300",
+                          : "border-slate-300",
                       )}
                     >
-                      {showCheck && <Check className="w-3 h-3 text-white" />}
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
                     </div>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5 leading-tight">{module.desc}</p>
                   {isGenerated && !isSelected && (
-                    <p className="text-[10px] font-medium text-emerald-700 mt-1">
-                      Generated — select again to create another
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">
+                      Already generated — select to regenerate
                     </p>
                   )}
                 </div>

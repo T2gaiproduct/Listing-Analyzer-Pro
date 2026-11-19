@@ -1263,7 +1263,6 @@ export function GraphicsWizard({
             {IMAGE_TYPES.map((type) => {
               const isSelected = selectedImageTypes.includes(type.id);
               const isGenerated = generatedImageTypeIds.has(type.id);
-              const showCheck = isSelected || isGenerated;
               return (
                 <div
                   key={type.id}
@@ -1276,33 +1275,29 @@ export function GraphicsWizard({
                   className={`relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all ${
                     isSelected
                       ? "border-orange-500 bg-orange-50/30"
-                      : isGenerated
-                        ? "border-emerald-400/80 bg-emerald-50/25"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                      : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
                   <div className="flex items-start gap-2.5">
                     <span className="text-xl leading-none mt-0.5">{type.icon}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : isGenerated ? "text-emerald-900" : "text-slate-900"}`}>
+                        <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
                           {type.label}
                         </h3>
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                             isSelected
                               ? "border-orange-500 bg-orange-500"
-                              : isGenerated
-                                ? "border-emerald-600 bg-emerald-600"
-                                : "border-slate-300"
+                              : "border-slate-300"
                           }`}
                         >
-                          {showCheck && <Check className="w-3 h-3 text-white" />}
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
                         </div>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
                       {isGenerated && !isSelected && (
-                        <p className="text-[10px] font-medium text-emerald-700 mt-1">Generated — select again to create another</p>
+                        <p className="text-[10px] font-medium text-slate-500 mt-1">Already generated — select to regenerate</p>
                       )}
                     </div>
                   </div>

@@ -12,6 +12,10 @@ import {
 import { formatReferenceResearchForContentPrompt } from "../lib/reference-research-prompt.js";
 import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
+import {
+  findGraphicsRecordForImageType,
+  mergeGraphicsImageRecords,
+} from "../lib/graphics-image-records";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, insufficientCreditsMessage, type TeamAwareContext } from "../lib/credits";
 import { requireImageCreditsForUnits } from "../lib/credit-preflight.js";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
@@ -303,11 +307,16 @@ async function buildNewImageSpecs(
         : `${userExtra} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
     }
     if (!prompt.trim()) continue;
-    const isFeature = (await resolveGraphicsBucketForType(type)) === "feature";
+    const prior = findGraphicsRecordForImageType(existing, type);
+    const isFeature = prior?.type === "feature"
+      ? true
+      : prior?.type === "lifestyle"
+        ? false
+        : (await resolveGraphicsBucketForType(type)) === "feature";
     if (isFeature) {
-      const idx = featureIndex;
+      const idx = prior?.type === "feature" ? prior.index : featureIndex;
       specs.push({
-        id: `feature_${idx}`,
+        id: prior?.id ?? `feature_${idx}`,
         type: "feature",
         index: idx,
         prompt,
@@ -316,11 +325,11 @@ async function buildNewImageSpecs(
         quality: config.quality,
         promptReferenceImageUrls: config.promptReferenceImageUrls,
       });
-      featureIndex++;
+      if (!prior) featureIndex++;
     } else {
-      const idx = lifestyleIndex;
+      const idx = prior?.type === "lifestyle" ? prior.index : lifestyleIndex;
       specs.push({
-        id: `lifestyle_${idx}`,
+        id: prior?.id ?? `lifestyle_${idx}`,
         type: "lifestyle",
         index: idx,
         prompt,
@@ -329,7 +338,7 @@ async function buildNewImageSpecs(
         quality: config.quality,
         promptReferenceImageUrls: config.promptReferenceImageUrls,
       });
-      lifestyleIndex++;
+      if (!prior) lifestyleIndex++;
     }
   }
 
@@ -480,6 +489,7 @@ async function generateNewImageTypes(
   ensureDir(dir);
 
   const existing = existingRecords ?? [];
+  const existingById = new Map(existing.map((r) => [r.id, r]));
   const specs = await buildNewImageSpecs(productName, category, imageTypes, typeConfigs, legacy?.customPrompt, existing, productDescription);
   if (specs.length === 0) {
     const labels = imageTypes.join(", ");
@@ -584,15 +594,18 @@ async function generateNewImageTypes(
         generatedAt: new Date().toISOString(),
       };
 
+      const prior = existingById.get(spec.id);
+      const versions = prior?.versions?.length ? [...prior.versions, version] : [version];
+
       records.push({
         id: spec.id,
         type: spec.type,
         index: spec.index,
         ...(spec.imageType ? { imageType: spec.imageType } : {}),
-        style: "custom",
+        style: prior?.style ?? "custom",
         aspectRatio: arKey,
         currentUrl: imgUrl,
-        versions: [version],
+        versions,
       });
 
       generatedCount++;
@@ -1157,7 +1170,12 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
   let newLifestyleCount = 0;
   let newFeatureCount = 0;
   if (isNewFlow && body.imageTypes) {
-    const counts = await countGraphicsTypesByBucket(body.imageTypes);
+    const typesToCreate = body.imageTypes.filter(
+      (type) => !findGraphicsRecordForImageType(existingRecords, type),
+    );
+    const counts = typesToCreate.length > 0
+      ? await countGraphicsTypesByBucket(typesToCreate)
+      : { lifestyle: 0, feature: 0 };
     newLifestyleCount = counts.lifestyle;
     newFeatureCount = counts.feature;
   } else {
@@ -1224,9 +1242,9 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
         );
       }
 
-      const mergedRecords = [...existingRecords, ...newRecords];
-      const newLifestyleCount = existingRecords.filter(r => r.type === "lifestyle").length + newRecords.filter(r => r.type === "lifestyle").length;
-      const newFeatureCount = existingRecords.filter(r => r.type === "feature").length + newRecords.filter(r => r.type === "feature").length;
+      const mergedRecords = mergeGraphicsImageRecords(existingRecords, newRecords);
+      const newLifestyleCount = mergedRecords.filter(r => r.type === "lifestyle").length;
+      const newFeatureCount = mergedRecords.filter(r => r.type === "feature").length;
       const generatedCount = mergedRecords.length;
 
       await db.update(graphicsProjectsTable)
