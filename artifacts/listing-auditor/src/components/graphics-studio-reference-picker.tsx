@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 import { ReferenceImagePopoutDialog } from "@/components/reference-image-popout-dialog";
+import { preventDialogCloseOnPortaledLayers } from "@/lib/dialog-portal-guard";
 import { ReferenceImageThumbStrip } from "@/components/reference-image-thumb-strip";
 import { PromptBarReferencePreview } from "@/components/prompt-bar-reference-preview";
 import type { GraphicsAspectRatio, GraphicsQuality } from "@/components/graphics-output-options";
@@ -356,7 +357,12 @@ export function GraphicsStudioReferencePicker({
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl w-[min(100vw-1.5rem,48rem)] max-h-[min(92vh,880px)] overflow-y-auto gap-4 p-5 sm:p-6 border-slate-200">
+        <DialogContent
+          className="max-w-3xl w-[min(100vw-1.5rem,48rem)] max-h-[min(92vh,880px)] overflow-y-auto gap-4 p-5 sm:p-6 border-slate-200"
+          onPointerDownOutside={preventDialogCloseOnPortaledLayers}
+          onInteractOutside={preventDialogCloseOnPortaledLayers}
+          onFocusOutside={preventDialogCloseOnPortaledLayers}
+        >
           <DialogHeader>
             <DialogTitle className="text-lg">Choose studio references</DialogTitle>
             <p className="text-sm text-muted-foreground">

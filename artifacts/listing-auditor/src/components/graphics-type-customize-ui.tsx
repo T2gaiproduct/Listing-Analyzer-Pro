@@ -9,6 +9,7 @@ import {
   type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
 import { GraphicsStudioReferencePicker } from "@/components/graphics-studio-reference-picker";
+import { preventDialogCloseOnPortaledLayers } from "@/lib/dialog-portal-guard";
 import { useGraphicsModuleExamples } from "@/lib/graphics-module-examples";
 import type { ImagePromptTemplateCategory } from "@/lib/image-prompt-templates";
 
@@ -73,7 +74,12 @@ export function ImageTypeCustomizeDialog({
   return (
     <Dialog open={open && Boolean(type)} onOpenChange={onOpenChange}>
       {!type ? null : (
-      <DialogContent className="max-w-3xl w-[min(100vw-2rem,48rem)] max-h-[min(92vh,880px)] overflow-y-auto gap-5 p-5 sm:p-6 shadow-none border-slate-200">
+      <DialogContent
+        className="max-w-3xl w-[min(100vw-2rem,48rem)] max-h-[min(92vh,880px)] overflow-y-auto gap-5 p-5 sm:p-6 shadow-none border-slate-200"
+        onPointerDownOutside={preventDialogCloseOnPortaledLayers}
+        onInteractOutside={preventDialogCloseOnPortaledLayers}
+        onFocusOutside={preventDialogCloseOnPortaledLayers}
+      >
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <span className="text-xl leading-none">{type.icon}</span>

@@ -152,7 +152,7 @@ export function ChatGptStyleGenerationInput({
           <div className="mb-0.5 flex max-w-[55%] shrink-0 flex-wrap items-center justify-end gap-0.5 sm:max-w-none sm:flex-nowrap sm:gap-1">
             {!hideAspectRatio && (
               <>
-                <Popover>
+                <Popover modal>
                   <PopoverTrigger asChild>
                     <ToolbarPill aria-label="Aspect ratio">
                       <span className="hidden sm:inline text-slate-400">Ratio</span>
@@ -160,7 +160,7 @@ export function ChatGptStyleGenerationInput({
                       <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
                     </ToolbarPill>
                   </PopoverTrigger>
-                  <PopoverContent align="end" className="w-56 p-2">
+                  <PopoverContent align="end" className="z-[100] w-56 p-2">
                     <p className="px-2 py-1 text-xs font-semibold text-slate-500">Aspect ratio</p>
                     {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
                       <button
@@ -174,14 +174,14 @@ export function ChatGptStyleGenerationInput({
                       >
                         <span>{ratio.symbol}</span>
                         <span className="font-medium">{ratio.label}</span>
-                        <span className="ml-auto text-xs text-slate-400">{ratio.value}</span>
+                        <span className="ml-auto text-xs text-slate-400">{ratio.size}</span>
                       </button>
                     ))}
                   </PopoverContent>
                 </Popover>
 
                 <span
-                  className="hidden sm:inline-flex items-center rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 whitespace-nowrap"
+                  className="inline-flex max-w-[7.5rem] sm:max-w-none items-center rounded-full px-2 py-1.5 text-[11px] sm:text-xs font-medium text-slate-500 whitespace-nowrap"
                   aria-label="Output size"
                 >
                   {selectedRatio.size}
@@ -189,7 +189,7 @@ export function ChatGptStyleGenerationInput({
               </>
             )}
 
-            <Popover>
+            <Popover modal>
               <PopoverTrigger asChild>
                 <ToolbarPill aria-label="Quality">
                   {quality === "hd" ? (
@@ -201,7 +201,7 @@ export function ChatGptStyleGenerationInput({
                   <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
                 </ToolbarPill>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-52 p-2">
+              <PopoverContent align="end" className="z-[100] w-52 p-2">
                 <p className="px-2 py-1 text-xs font-semibold text-slate-500">Quality</p>
                 {GRAPHICS_QUALITY_OPTIONS.map((opt) => (
                   <button
