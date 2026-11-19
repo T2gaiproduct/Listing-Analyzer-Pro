@@ -1,4 +1,4 @@
-import { Check, Expand, X } from "lucide-react";
+import { Check, Expand, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProtectedAppImage } from "@/components/protected-app-image";
 
@@ -57,6 +57,9 @@ export function ReferenceImageThumbStrip({
               : "muted"
             : accent;
 
+        const previewable = Boolean(onPreview);
+        const selectWithPreview = selectable && previewable;
+
         return (
           <div
             key={`${idx}-${img.slice(0, 32)}`}
@@ -64,15 +67,26 @@ export function ReferenceImageThumbStrip({
               "relative shrink-0 overflow-hidden bg-white",
               prominent
                 ? cn(
-                    "h-14 w-14 rounded-lg border-2",
+                    "h-[5.5rem] w-[5.5rem] sm:h-28 sm:w-28 rounded-xl border-2",
                     borderAccent === "orange" ? "border-orange-500" : "border-slate-200",
                     selectable && !isSelected && !selectDisabled && "hover:border-orange-300",
                     selectDisabled && "opacity-45",
+                    previewable && !selectable && "cursor-zoom-in",
                   )
                 : "h-12 w-12 rounded-xl border border-slate-200 bg-slate-50",
             )}
           >
-            {selectable ? (
+            {selectWithPreview ? (
+              <button
+                type="button"
+                onClick={() => onPreview!(img, idx)}
+                className="absolute inset-0 z-0 flex items-center justify-center"
+                title="View full size"
+                aria-label={`View reference ${idx + 1} full size`}
+              >
+                <ReferenceThumbImage src={img} alt={`Reference ${idx + 1}`} />
+              </button>
+            ) : selectable ? (
               <button
                 type="button"
                 disabled={selectDisabled}
@@ -89,10 +103,10 @@ export function ReferenceImageThumbStrip({
               >
                 <ReferenceThumbImage src={img} alt={`Reference ${idx + 1}`} />
               </button>
-            ) : onPreview ? (
+            ) : previewable ? (
               <button
                 type="button"
-                onClick={() => onPreview(img, idx)}
+                onClick={() => onPreview!(img, idx)}
                 className="absolute inset-0 z-0"
                 title="View full size"
               >
@@ -104,13 +118,33 @@ export function ReferenceImageThumbStrip({
               </div>
             )}
 
-            {isSelected ? (
+            {selectWithPreview ? (
+              <button
+                type="button"
+                disabled={selectDisabled && !isSelected}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSelect!(img);
+                }}
+                className={cn(
+                  "absolute top-1 left-1 z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm transition-colors",
+                  isSelected
+                    ? "border-orange-500 bg-orange-500 text-white hover:bg-orange-600"
+                    : "border-slate-300 bg-white/95 text-slate-700 hover:border-orange-400 hover:text-orange-700",
+                  selectDisabled && !isSelected && "opacity-40 cursor-not-allowed",
+                )}
+                title={isSelected ? "Remove from references" : "Add to references"}
+                aria-label={isSelected ? "Deselect reference" : "Select as reference"}
+              >
+                {isSelected ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              </button>
+            ) : isSelected ? (
               <span className="absolute top-0.5 left-0.5 z-[1] rounded-full bg-orange-500 text-white p-0.5 pointer-events-none">
                 <Check className="h-3 w-3" />
               </span>
             ) : null}
 
-            {selectable && isSelected ? (
+            {selectable && isSelected && !selectWithPreview ? (
               <button
                 type="button"
                 onClick={(e) => {
@@ -136,19 +170,10 @@ export function ReferenceImageThumbStrip({
               </button>
             ) : null}
 
-            {(selectable ? onPreview : false) && onPreview ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPreview(img, idx);
-                }}
-                className="absolute bottom-0.5 right-0.5 z-[2] flex h-5 w-5 items-center justify-center rounded-md bg-black/55 text-white hover:bg-black/75"
-                aria-label="View full size"
-                title="View full size"
-              >
-                <Expand className="h-3 w-3" />
-              </button>
+            {prominent && previewable && !selectWithPreview ? (
+              <span className="pointer-events-none absolute bottom-1 right-1 z-[1] rounded-md bg-black/45 p-1 text-white">
+                <Expand className="h-3.5 w-3.5" aria-hidden />
+              </span>
             ) : null}
           </div>
         );

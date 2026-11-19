@@ -177,14 +177,39 @@ function GraphicsStudioReferencePickerBody({
                       disabled && "opacity-50",
                     )}
                   >
+                    {onPreviewUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => onPreviewUrl(img.url)}
+                        className="absolute inset-0 z-0 flex items-center justify-center cursor-zoom-in"
+                        title="View full size"
+                        aria-label={`View studio example ${idx + 1} full size`}
+                      >
+                        <ProtectedAppImage
+                          src={img.url}
+                          alt={`${moduleLabel} studio example ${idx + 1}`}
+                          className="w-full h-full object-contain"
+                        />
+                      </button>
+                    ) : (
+                      <div className="absolute inset-0 z-0 flex items-center justify-center">
+                        <ProtectedAppImage
+                          src={img.url}
+                          alt={`${moduleLabel} studio example ${idx + 1}`}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    )}
                     <button
                       type="button"
                       disabled={disabled}
                       onClick={() => toggleStudioUrl(img.url)}
                       className={cn(
-                        "absolute inset-0 z-[1]",
-                        !disabled && "hover:ring-2 hover:ring-inset hover:ring-orange-200",
-                        disabled && "cursor-not-allowed",
+                        "absolute top-2 left-2 z-[2] flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-sm transition-colors",
+                        selected
+                          ? "border-orange-500 bg-orange-500 text-white hover:bg-orange-600"
+                          : "border-slate-300 bg-white/95 text-slate-700 hover:border-orange-400",
+                        disabled && !selected && "opacity-40 cursor-not-allowed",
                       )}
                       title={
                         selected
@@ -198,36 +223,9 @@ function GraphicsStudioReferencePickerBody({
                           ? `Deselect studio example ${idx + 1}`
                           : `Select studio example ${idx + 1}`
                       }
-                    />
-                    <button
-                      type="button"
-                      className="relative z-0 w-full h-full pointer-events-none"
-                      tabIndex={-1}
-                      aria-hidden
                     >
-                      <ProtectedAppImage
-                        src={img.url}
-                        alt={`${moduleLabel} studio example ${idx + 1}`}
-                        className="w-full h-full object-contain"
-                      />
+                      {selected ? <Check className="w-4 h-4" /> : <span className="text-lg leading-none font-medium">+</span>}
                     </button>
-                    {onPreviewUrl ? (
-                      <button
-                        type="button"
-                        className="absolute bottom-1.5 left-1.5 z-[2] rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-black/75"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPreviewUrl(img.url);
-                        }}
-                      >
-                        View
-                      </button>
-                    ) : null}
-                    {selected ? (
-                      <span className="absolute top-1.5 right-1.5 z-[2] rounded-full bg-orange-500 text-white p-0.5 pointer-events-none">
-                        <Check className="w-3.5 h-3.5" />
-                      </span>
-                    ) : null}
                   </div>
                 );
               })}
@@ -333,8 +331,8 @@ export function GraphicsStudioReferencePicker({
                   ? "Loading examples…"
                   : hasExamples
                     ? selectedStudio.length > 0
-                      ? `${selectedStudio.length} selected · tap thumbs to select/deselect`
-                      : "Tap thumbnails to select references (up to 4 total)"
+                      ? `${selectedStudio.length} selected · tap image to enlarge · + to select`
+                      : "Tap image to enlarge · use + to select (up to 4 total)"
                     : "No studio examples yet"}
               </p>
             </div>
@@ -343,7 +341,7 @@ export function GraphicsStudioReferencePicker({
         </button>
 
         {hasExamples && exampleUrls.length > 0 ? (
-          <div className="px-3 pb-3 pt-1 border-t border-orange-200/60 overflow-x-auto">
+          <div className="px-3 pb-3 pt-1 border-t border-orange-200/60 overflow-x-auto [scrollbar-width:thin]">
             <ReferenceImageThumbStrip
               images={exampleUrls}
               prominent
@@ -351,6 +349,7 @@ export function GraphicsStudioReferencePicker({
               onToggleSelect={toggleStudioUrlFromStrip}
               onPreview={(url) => openPreview(url)}
               selectionCapReached={slotsLeft <= 0}
+              className="flex-nowrap gap-3 min-w-min"
             />
           </div>
         ) : null}
@@ -361,7 +360,7 @@ export function GraphicsStudioReferencePicker({
           <DialogHeader>
             <DialogTitle className="text-lg">Choose studio references</DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Tap a tile to select or deselect. Use View for full size. Up to {MAX_REFERENCE_IMAGES} references
+              Tap an image for full size; use + on a tile to select. Up to {MAX_REFERENCE_IMAGES} references
               total including uploads in the prompt bar.
             </p>
           </DialogHeader>
