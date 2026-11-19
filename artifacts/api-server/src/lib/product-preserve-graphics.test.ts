@@ -6,6 +6,7 @@ import sharp from "sharp";
 import {
   compositeProductOnScene,
   compositeProductPreserveHero,
+  isOpenAiSafetyRejection,
   isProductPreserveGraphicsType,
   resolveProductPreserveLayout,
   scenePromptWithoutProduct,
@@ -25,7 +26,15 @@ async function main() {
   assert.equal(isProductPreserveGraphicsType("lifestyle"), true);
   assert.equal(resolveProductPreserveLayout("hero", "1024x1024"), "studio");
   assert.equal(resolveProductPreserveLayout("hero", "1792x1024"), "banner_west");
-  assert.match(scenePromptWithoutProduct("Lifestyle", "lifestyle_scene"), /Do not draw/);
+  const lifestylePrompt = scenePromptWithoutProduct(
+    "Lifestyle product scene for body cream. Product being used by a target customer.",
+    "lifestyle_scene",
+    "body cream",
+  );
+  assert.match(lifestylePrompt, /Do not draw/);
+  assert.match(lifestylePrompt, /SFW/);
+  assert.ok(!/product being used/i.test(lifestylePrompt));
+  assert.equal(isOpenAiSafetyRejection(new Error("400 safety_violations=[sexual]")), true);
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "hero-preserve-"));
   const src = path.join(tmp, "product.png");

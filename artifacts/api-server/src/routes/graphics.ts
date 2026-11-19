@@ -416,6 +416,7 @@ async function generateGraphicsImages(
           sourceFilePath: sourcePath!,
           size: size as ImageCanvasSize,
           prompt: spec.prompt,
+          productLabel: productName,
           generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
         });
       } else {
@@ -554,6 +555,7 @@ async function generateNewImageTypes(
           sourceFilePath: productPath,
           size: size as ImageCanvasSize,
           prompt,
+          productLabel: productName,
           generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
         });
         fs.writeFileSync(filePath, buffer);
@@ -1400,6 +1402,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
         sourceFilePath: sourcePath!,
         size: size as ImageCanvasSize,
         prompt,
+        productLabel: project.productName,
         generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
       });
     } else if (sourceFileIsValid) {

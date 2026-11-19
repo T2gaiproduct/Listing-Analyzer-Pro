@@ -37,7 +37,7 @@ export const DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS: ImagePromptTemplateSeed[] = [
     sortOrder: 20,
     metadata: { icon: "🌅", graphicsBucket: "lifestyle" },
     promptTemplate:
-      "Lifestyle product scene for {{productDesc}}. Product being used by a target customer in a realistic environment. Emotional buying appeal, product clearly visible, natural lighting, clean composition. No logos, no watermarks. No text, no decorative elements.",
+      "Lifestyle product scene for {{productDesc}}. Fully clothed customer in a realistic home or bathroom environment, modest professional e-commerce pose, natural lighting, clean composition. Family-friendly PG commercial photography, SFW. No logos, no watermarks. No text, no decorative elements.",
   },
   {
     slug: "callouts",

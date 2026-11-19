@@ -137,6 +137,7 @@ async function generateModuleBuffer(
       sourceFilePath: sourcePath!,
       size: APLUS_GENERATION_SIZE,
       prompt,
+      productLabel: data.productName,
       generateScene: (scenePrompt, sz) =>
         generateImageBuffer(scenePrompt, sz, { quality: apiQuality }),
     });

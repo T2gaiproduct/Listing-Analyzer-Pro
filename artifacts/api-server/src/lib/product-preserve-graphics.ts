@@ -28,7 +28,33 @@ export function resolveProductPreserveLayout(
 const SCENE_NO_PRODUCT_BASE =
   "CRITICAL: Do not draw, photograph, or depict any product, bottle, jar, tube, packaging, label, logo, or branded container. ";
 
-export function scenePromptWithoutProduct(basePrompt: string, layout: ProductPreserveLayout): string {
+const LIFESTYLE_SAFETY_SUFFIX =
+  "Family-friendly PG-rated commercial e-commerce photography, SFW. Fully clothed adult only, modest casual attire, neutral professional pose, empty hands. "
+  + "No nudity, no lingerie, no sensual or romantic tone, no bare chest or suggestive body focus. Waist-up or wider framing.";
+
+const FALLBACK_LIFESTYLE_SCENE_PROMPT =
+  "Bright clean modern bathroom or vanity interior, soft natural daylight, neutral beige tiles, folded towel, small plant. "
+  + "Empty countertop with uncluttered space in the lower-right. No people. Professional stock interior, SFW, PG. "
+  + `${SCENE_NO_PRODUCT_BASE}`;
+
+export function isOpenAiSafetyRejection(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /safety system|safety_violations|content.?policy|rejected by the safety/i.test(msg);
+}
+
+function productLabelFromPrompt(basePrompt: string): string {
+  const sceneFor = basePrompt.match(/\bfor\s+(.+?)\./i);
+  if (sceneFor?.[1]?.trim()) return sceneFor[1].trim();
+  const sceneForRest = basePrompt.match(/\bfor\s+(.+?)(?:\.|$)/i);
+  return sceneForRest?.[1]?.trim() || "consumer product";
+}
+
+/** Lifestyle scenes are rewritten for safety — base templates mention "product in use" and trigger OpenAI sexual filters. */
+export function scenePromptWithoutProduct(
+  basePrompt: string,
+  layout: ProductPreserveLayout,
+  productLabel?: string,
+): string {
   if (layout === "studio") return basePrompt;
   if (layout === "banner_west") {
     return `${basePrompt} ${SCENE_NO_PRODUCT_BASE}Leave the left third of the frame visually clear and uncluttered for product placement. No packaging on the left side.`;
@@ -36,7 +62,15 @@ export function scenePromptWithoutProduct(basePrompt: string, layout: ProductPre
   if (layout === "feature_center") {
     return `${basePrompt} ${SCENE_NO_PRODUCT_BASE}Leave a large empty pale neutral area in the center (no product). Callouts, arrows, and background only.`;
   }
-  return `${basePrompt} ${SCENE_NO_PRODUCT_BASE}Person may appear but hands must be empty — not holding any object. No product anywhere in the scene.`;
+  const label = productLabel?.trim() || productLabelFromPrompt(basePrompt);
+  return [
+    `Professional lifestyle background scene for ${label}.`,
+    "Realistic home or bathroom setting, warm natural lighting, clean composition.",
+    "Single adult standing near counter, fully dressed, modest pose, smiling naturally, hands relaxed at sides.",
+    SCENE_NO_PRODUCT_BASE,
+    LIFESTYLE_SAFETY_SUFFIX,
+    "No text, no logos, no watermarks.",
+  ].join(" ");
 }
 
 function parseCanvasSize(size: ImageCanvasSize): { width: number; height: number } {
@@ -137,14 +171,24 @@ export async function generatePreservedProductImage(options: {
   sourceFilePath: string;
   size: ImageCanvasSize;
   prompt: string;
+  productLabel?: string;
   generateScene: (scenePrompt: string, size: ImageCanvasSize) => Promise<Buffer>;
 }): Promise<Buffer> {
   const layout = resolveProductPreserveLayout(options.imageType, options.size);
   if (layout === "studio") {
     return compositeProductPreserveHero(options.sourceFilePath, options.size);
   }
-  const scenePrompt = scenePromptWithoutProduct(options.prompt, layout);
-  const scene = await options.generateScene(scenePrompt, options.size);
+  const scenePrompt = scenePromptWithoutProduct(options.prompt, layout, options.productLabel);
+  let scene: Buffer;
+  try {
+    scene = await options.generateScene(scenePrompt, options.size);
+  } catch (err) {
+    if (layout === "lifestyle_scene" && isOpenAiSafetyRejection(err)) {
+      scene = await options.generateScene(FALLBACK_LIFESTYLE_SCENE_PROMPT, options.size);
+    } else {
+      throw err;
+    }
+  }
   if (!scene?.length) {
     throw new Error("Scene generation returned empty image");
   }
