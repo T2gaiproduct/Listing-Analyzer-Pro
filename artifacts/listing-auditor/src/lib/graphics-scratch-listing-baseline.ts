@@ -5,6 +5,11 @@ import {
 } from "@/components/listing-content-card";
 import { isGraphicsAplusShellAudit } from "@workspace/graphics-aplus-audit";
 import { normalizeBulletPoints } from "@/lib/listing-content-format";
+import type { SellerProductDetail } from "@/lib/reference-research";
+import {
+  resolveAiSnapshot,
+  type ContentVariantWithMeta,
+} from "@/lib/listing-content-field-merge";
 
 function listingViewHasBaseline(view: ListingContentView | null | undefined): boolean {
   if (!view) return false;
@@ -51,6 +56,51 @@ export function isSyntheticScratchListingBullet(text: string): boolean {
   const lower = text.trim().toLowerCase();
   if (!lower) return false;
   return SYNTHETIC_BULLET_MARKERS.some((m) => lower.includes(m));
+}
+
+export type ScratchListingIdentity = {
+  productName: string;
+  brandName?: string | null;
+  category?: string | null;
+};
+
+/** True when listing copy is only upload placeholders — not AI-optimized output. */
+export function isSyntheticScratchGeneratedContent(
+  gc: GeneratedContent | null | undefined,
+  identity: ScratchListingIdentity,
+): boolean {
+  if (!gc) return true;
+  const productName = identity.productName?.trim() ?? "";
+  const brandName = identity.brandName?.trim() ?? "";
+  const category = identity.category?.trim() ?? "";
+  const bullets = normalizeBulletPoints(gc.bulletPoints ?? []);
+  const title = gc.title?.trim() ?? "";
+  const keywords = (gc.keywords ?? []).map((k) => k.trim()).filter(Boolean);
+  const desc = gc.htmlDescription?.trim() ?? "";
+
+  const bulletsAllSynthetic = bullets.length > 0 && bullets.every(isSyntheticScratchListingBullet);
+  const titleSynthetic = title
+    ? isSyntheticScratchListingTitle(title, productName, brandName, category)
+    : true;
+  const mostlyFillerKeywords = keywords.filter((k) => SYNTHETIC_KEYWORD_FILLER.has(k.toLowerCase())).length >= 6;
+
+  if (bulletsAllSynthetic) return true;
+  if (titleSynthetic && bullets.length === 0 && !desc && (keywords.length === 0 || mostlyFillerKeywords)) {
+    return true;
+  }
+  return false;
+}
+
+function uploadListingAttributes(
+  productDetails?: SellerProductDetail[] | null,
+): ListingContentView["attributes"] {
+  const rows = (productDetails ?? [])
+    .map((row) => ({
+      attribute: row.attribute?.trim() ?? "",
+      value: row.value?.trim() ?? "",
+    }))
+    .filter((row) => row.attribute && row.value);
+  return rows.length > 0 ? rows : undefined;
 }
 
 function uploadListingTitle(
@@ -102,7 +152,7 @@ function uploadListingDescription(audit: { productDescription?: string | null })
   return `<p>${escaped.replace(/\n/g, "<br/>")}</p>`;
 }
 
-/** Optimize Listing "Current" for Create Graphics scratch — upload fields only, no auto placeholders. */
+/** Optimize Listing "Current" for scratch flows — upload fields only, no auto placeholders. */
 export function resolveGraphicsScratchUploadListingBaseline(audit: {
   title?: string | null;
   productName?: string | null;
@@ -111,6 +161,7 @@ export function resolveGraphicsScratchUploadListingBaseline(audit: {
   bulletPoints?: string[] | null;
   targetKeywords?: string[] | null;
   productDescription?: string | null;
+  productDetails?: SellerProductDetail[] | null;
 } | null | undefined): ListingContentView | null {
   if (!audit) return null;
   const title = uploadListingTitle(audit);
@@ -118,8 +169,9 @@ export function resolveGraphicsScratchUploadListingBaseline(audit: {
   const keywords = uploadListingKeywords(audit, bulletPoints);
   const htmlDescription = uploadListingDescription(audit);
   const category = audit.category?.trim() || null;
+  const attributes = uploadListingAttributes(audit.productDetails);
 
-  if (!title && bulletPoints.length === 0 && keywords.length === 0 && !htmlDescription) {
+  if (!title && bulletPoints.length === 0 && keywords.length === 0 && !htmlDescription && !attributes?.length) {
     return null;
   }
 
@@ -129,6 +181,7 @@ export function resolveGraphicsScratchUploadListingBaseline(audit: {
     keywords,
     htmlDescription,
     category,
+    attributes,
   };
 }
 
@@ -178,4 +231,21 @@ export function resolveGraphicsScratchExistingForCompare(
     return upload;
   }
   return snap;
+}
+
+/** Saved marketplace copy counts as optimized only when AI output is present (not upload placeholders). */
+export function auditContentVariantHasOptimizedListing(
+  variant: ContentVariantWithMeta | null | undefined,
+  identity: ScratchListingIdentity,
+): boolean {
+  if (!variant) return false;
+  const ai = resolveAiSnapshot(variant);
+  if (isSyntheticScratchGeneratedContent(ai, identity)) return false;
+  return Boolean(
+    ai.title?.trim()
+      || ai.bulletPoints?.some((b) => b.trim())
+      || ai.keywords?.some((k) => k.trim())
+      || ai.htmlDescription?.trim()
+      || (ai.attributes?.length ?? 0) > 0,
+  );
 }

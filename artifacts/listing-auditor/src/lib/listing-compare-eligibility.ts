@@ -8,11 +8,13 @@ import {
   PROJECT_ORIGIN_BUILD_BRAND_SCRATCH,
   PROJECT_ORIGIN_GRAPHICS_SCRATCH,
 } from "@/lib/audit-project-origin";
-import { graphicsScratchUploadListingHasBaseline } from "@/lib/graphics-scratch-listing-baseline";
+import {
+  graphicsScratchUploadListingHasBaseline,
+  isSyntheticScratchListingBullet,
+  resolveGraphicsScratchUploadListingBaseline,
+} from "@/lib/graphics-scratch-listing-baseline";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
-import { normalizeBulletPoints } from "@/lib/listing-content-format";
-
 export function listingContentViewHasBaseline(view: ListingContentView | null | undefined): boolean {
   if (!view) return false;
   return Boolean(
@@ -23,28 +25,28 @@ export function listingContentViewHasBaseline(view: ListingContentView | null | 
   );
 }
 
-/** Baseline "current" listing for Build Your Brand scratch compare (prefers frozen source snapshot). */
+/** Baseline "current" listing for Build Your Brand scratch compare (upload fields, not placeholders). */
 export function resolveScratchBaselineListingContent(input: {
   sourceListingContent?: GeneratedContent | null;
   title?: string | null;
   productName?: string | null;
+  brandName?: string | null;
+  category?: string | null;
   bulletPoints?: string[] | null;
   targetKeywords?: string[] | null;
   productDescription?: string | null;
+  productDetails?: import("@/lib/reference-research").SellerProductDetail[] | null;
 }): ListingContentView | null {
+  const upload = resolveGraphicsScratchUploadListingBaseline(input);
+  if (upload && listingContentViewHasBaseline(upload)) return upload;
+
   const fromSnapshot = generatedContentToListingView(input.sourceListingContent);
-  if (listingContentViewHasBaseline(fromSnapshot)) return fromSnapshot;
+  if (fromSnapshot && listingContentViewHasBaseline(fromSnapshot)) {
+    const bullets = fromSnapshot.bulletPoints ?? [];
+    if (!bullets.some(isSyntheticScratchListingBullet)) return fromSnapshot;
+  }
 
-  const title = String(input.title ?? input.productName ?? "").trim();
-  if (!title) return null;
-
-  const desc = input.productDescription?.trim() ?? "";
-  return {
-    title,
-    bulletPoints: normalizeBulletPoints(input.bulletPoints ?? []),
-    keywords: (input.targetKeywords ?? []).map(String).filter(Boolean),
-    htmlDescription: desc ? `<p>${desc.replace(/\n/g, "<br/>")}</p>` : "",
-  };
+  return upload;
 }
 
 export function shouldShowExistingListingContent(

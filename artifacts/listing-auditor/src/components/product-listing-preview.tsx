@@ -34,6 +34,10 @@ import {
   type ReferenceIntelligenceRow,
   type SellerProductDetail,
 } from "@/lib/reference-research";
+import {
+  isSyntheticScratchGeneratedContent,
+  isSyntheticScratchListingBullet,
+} from "@/lib/graphics-scratch-listing-baseline";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -163,30 +167,59 @@ export function ProductListingPreview({
     }
   }
 
+  const previewIdentity = useMemo(
+    () => ({
+      productName: productName?.trim() || audit?.productName?.trim() || "",
+      brandName: brandName?.trim() || audit?.brandName?.trim() || null,
+      category: category?.trim() || audit?.category?.trim() || null,
+    }),
+    [productName, brandName, category, audit?.productName, audit?.brandName, audit?.category],
+  );
+
+  const scrubOptimizedCopy = useCallback(
+    (gc: GeneratedContent | null | undefined): GeneratedContent | null => {
+      if (!gc) return null;
+      if (generatedOnly && isSyntheticScratchGeneratedContent(gc, previewIdentity)) return null;
+      const bulletPoints = (gc.bulletPoints ?? []).filter((b) => {
+        const t = b.trim();
+        if (!t) return false;
+        return !(generatedOnly && isSyntheticScratchListingBullet(t));
+      });
+      const title = gc.title?.trim() ?? "";
+      if (generatedOnly && !title && bulletPoints.length === 0 && !gc.htmlDescription?.trim()) {
+        return null;
+      }
+      return {
+        title,
+        bulletPoints,
+        keywords: gc.keywords ?? [],
+        htmlDescription: gc.htmlDescription ?? "",
+        attributes: gc.attributes,
+      };
+    },
+    [generatedOnly, previewIdentity],
+  );
+
   const title = useMemo(() => {
-    const fromGenerated = generatedContent?.title?.trim()
-      || audit?.generatedContent?.title?.trim();
-    if (fromGenerated) return fromGenerated;
+    const gc = scrubOptimizedCopy(generatedContent) ?? scrubOptimizedCopy(audit?.generatedContent);
+    if (gc?.title?.trim()) return gc.title.trim();
     if (generatedOnly) return "";
     return audit?.title?.trim() || productName?.trim() || "Product title";
-  }, [generatedContent, audit, productName, generatedOnly]);
+  }, [generatedContent, audit, productName, generatedOnly, scrubOptimizedCopy]);
 
   const bullets = useMemo(() => {
-    const fromGenerated = generatedContent?.bulletPoints?.filter((b) => b.trim()) ?? [];
-    if (fromGenerated.length) return normalizeBulletPoints(fromGenerated);
-    const fromAudit = audit?.generatedContent?.bulletPoints?.filter((b) => b.trim()) ?? [];
-    if (fromAudit.length) return normalizeBulletPoints(fromAudit);
+    const gc = scrubOptimizedCopy(generatedContent) ?? scrubOptimizedCopy(audit?.generatedContent);
+    if (gc?.bulletPoints?.length) return normalizeBulletPoints(gc.bulletPoints);
     if (generatedOnly) return [];
     return normalizeBulletPoints((audit?.bulletPoints ?? []).filter((b) => b?.trim()));
-  }, [generatedContent, audit, generatedOnly]);
+  }, [generatedContent, audit, generatedOnly, scrubOptimizedCopy]);
 
   const htmlDescription = useMemo(() => {
-    const fromProps = generatedContent?.htmlDescription?.trim()
-      || audit?.generatedContent?.htmlDescription?.trim()
-      || "";
+    const gc = scrubOptimizedCopy(generatedContent) ?? scrubOptimizedCopy(audit?.generatedContent);
+    const fromProps = gc?.htmlDescription?.trim() ?? "";
     if (fromProps || !generatedOnly) return fromProps;
     return "";
-  }, [generatedContent, audit, generatedOnly]);
+  }, [generatedContent, audit, generatedOnly, scrubOptimizedCopy]);
 
   const descriptionPreviewHtml = useMemo(
     () => (htmlDescription
