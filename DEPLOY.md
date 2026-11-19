@@ -80,7 +80,7 @@ pnpm run build:deploy
 # pnpm run build
 ```
 
-**If `vite build` exits 137 (Killed)** on a small server, the kernel ran out of memory. Add **4GB swap** (once), then rebuild:
+**If `vite build` exits 137 (Killed)** on a small server, the kernel ran out of memory. Prefer **`pnpm run build:deploy`** or **`bash deploy.sh staging`** (sets low-memory Vite flags). The package `build` script also enables `VITE_BUILD_LOW_MEMORY=1` by default. If it still dies, add **4GB swap** (once), then rebuild:
 
 ```bash
 sudo bash scripts/ensure-swap-for-build.sh

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "PORT=19145 BASE_PATH=/ vite build --config vite.config.ts",
+    "build": "VITE_BUILD_LOW_MEMORY=1 PORT=19145 BASE_PATH=/ NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=1536} vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
