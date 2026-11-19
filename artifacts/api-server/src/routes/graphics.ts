@@ -37,7 +37,7 @@ import {
   resolveGraphicsBucketForType,
 } from "../lib/image-prompt-template-service.js";
 import {
-  compositeProductPreserveHero,
+  generatePreservedProductImage,
   isProductPreserveGraphicsType,
   type ImageCanvasSize,
 } from "../lib/product-preserve-graphics.js";
@@ -410,9 +410,14 @@ async function generateGraphicsImages(
       let buffer: Buffer;
       const sourceFileIsValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
       if (sourceFileIsValid) {
-        const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${spec.prompt}`;
-        console.log(`[generateGraphicsImages] Using reference image for ${spec.id}: ${sourcePath}`);
-        buffer = await generateImageWithReferenceProxy(referencePrompt, sourcePath!, size);
+        console.log(`[generateGraphicsImages] Product-preserve pipeline for ${spec.id}: ${sourcePath}`);
+        buffer = await generatePreservedProductImage({
+          imageType: spec.imageType,
+          sourceFilePath: sourcePath!,
+          size: size as ImageCanvasSize,
+          prompt: spec.prompt,
+          generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
+        });
       } else {
         console.log(`[generateGraphicsImages] No valid source image, generating without reference for ${spec.id}`);
         buffer = await generateImageBuffer(spec.prompt, size);
@@ -535,21 +540,22 @@ async function generateNewImageTypes(
       const referencePaths = await getReferencePaths(spec);
       let buffer: Buffer;
 
-      if (isProductPreserveGraphicsType(spec.imageType)) {
-        const productPath = await resolvePrimaryProductReferencePath(
-          projectId,
-          sourceImagePaths,
-          referencePaths,
-        );
-        if (!productPath) {
-          throw new Error(
-            "Hero Shot needs a product photo from Upload or a selected studio reference (no AI redraw without it).",
-          );
-        }
+      const productPath = await resolvePrimaryProductReferencePath(
+        projectId,
+        sourceImagePaths,
+        referencePaths,
+      );
+      if (productPath && isProductPreserveGraphicsType(spec.imageType)) {
         console.log(
-          `[generateNewImageTypes] Product-preserve composite for ${spec.id} (${spec.imageType}): ${productPath}`,
+          `[generateNewImageTypes] Product-preserve for ${spec.id} (${spec.imageType}): ${productPath}`,
         );
-        buffer = await compositeProductPreserveHero(productPath, size as ImageCanvasSize);
+        buffer = await generatePreservedProductImage({
+          imageType: spec.imageType,
+          sourceFilePath: productPath,
+          size: size as ImageCanvasSize,
+          prompt,
+          generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
+        });
         fs.writeFileSync(filePath, buffer);
       } else if (referencePaths.length > 1) {
         const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
@@ -1388,8 +1394,14 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
     const sourceFileIsValid = sourcePath !== null;
 
     let buffer: Buffer;
-    if (isProductPreserveGraphicsType(existingRecord.imageType) && sourceFileIsValid) {
-      buffer = await compositeProductPreserveHero(sourcePath!, size as ImageCanvasSize);
+    if (sourceFileIsValid && isProductPreserveGraphicsType(existingRecord.imageType)) {
+      buffer = await generatePreservedProductImage({
+        imageType: existingRecord.imageType,
+        sourceFilePath: sourcePath!,
+        size: size as ImageCanvasSize,
+        prompt,
+        generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
+      });
     } else if (sourceFileIsValid) {
       const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
       buffer = await generateImageWithReferenceProxy(referencePrompt, sourcePath!, size);

@@ -3,6 +3,7 @@ import * as path from "path";
 import pLimit from "p-limit";
 import type { EbcContent } from "./ebc-generator";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "./openai-image";
+import { generatePreservedProductImage } from "./product-preserve-graphics.js";
 import {
   auditImageDir,
   ensureAuditImageDir,
@@ -131,12 +132,14 @@ async function generateModuleBuffer(
 
   let raw: Buffer;
   if (sourceValid) {
-    raw = await generateImageWithReferenceProxy(
-      `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
-      sourcePath!,
-      APLUS_GENERATION_SIZE,
-      { quality: apiQuality },
-    );
+    raw = await generatePreservedProductImage({
+      imageType: spec.id,
+      sourceFilePath: sourcePath!,
+      size: APLUS_GENERATION_SIZE,
+      prompt,
+      generateScene: (scenePrompt, sz) =>
+        generateImageBuffer(scenePrompt, sz, { quality: apiQuality }),
+    });
   } else {
     raw = await generateImageBuffer(prompt, APLUS_GENERATION_SIZE, { quality: apiQuality });
   }
