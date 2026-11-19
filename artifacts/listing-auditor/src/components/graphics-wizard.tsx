@@ -951,9 +951,12 @@ export function GraphicsWizard({
                       <div
                         key={type.id}
                         onClick={() => {
-                          if (!moreImageTypes.includes(type.id)) {
-                            setMoreImageTypes((prev) => [...prev, type.id]);
+                          if (moreImageTypes.includes(type.id)) {
+                            setMoreImageTypes((prev) => prev.filter((id) => id !== type.id));
+                            if (moreCustomizeTypeId === type.id) setMoreCustomizeTypeId(null);
+                            return;
                           }
+                          setMoreImageTypes((prev) => [...prev, type.id]);
                           setMoreCustomizeTypeId(type.id);
                         }}
                         className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
@@ -978,6 +981,9 @@ export function GraphicsWizard({
                               </div>
                             </div>
                             <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
+                            {isSelected && (
+                              <p className="text-[10px] font-medium text-slate-500 mt-1">Tap again to remove from selection</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -992,19 +998,6 @@ export function GraphicsWizard({
                     </span>
                     <span className="text-slate-400">~{moreImageTypes.length * 30}s total</span>
                   </div>
-                )}
-
-                {moreImageTypes.length > 0 && (
-                  <SelectedGraphicsTypesSummary
-                    imageTypes={IMAGE_TYPES}
-                    selectedTypeIds={moreImageTypes}
-                    getConfig={getMoreImageTypeConfig}
-                    onEdit={setMoreCustomizeTypeId}
-                    onRemove={(typeId) => {
-                      setMoreImageTypes((prev) => prev.filter((id) => id !== typeId));
-                      if (moreCustomizeTypeId === typeId) setMoreCustomizeTypeId(null);
-                    }}
-                  />
                 )}
 
                 <ImageTypeCustomizeDialog
@@ -1267,9 +1260,12 @@ export function GraphicsWizard({
                 <div
                   key={type.id}
                   onClick={() => {
-                    if (!selectedImageTypes.includes(type.id)) {
-                      setSelectedImageTypes((prev) => [...prev, type.id]);
+                    if (selectedImageTypes.includes(type.id)) {
+                      setSelectedImageTypes((prev) => prev.filter((id) => id !== type.id));
+                      if (customizeTypeId === type.id) setCustomizeTypeId(null);
+                      return;
                     }
+                    setSelectedImageTypes((prev) => [...prev, type.id]);
                     setCustomizeTypeId(type.id);
                   }}
                   className={`relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all ${
@@ -1299,6 +1295,9 @@ export function GraphicsWizard({
                       {isGenerated && !isSelected && (
                         <p className="text-[10px] font-medium text-slate-500 mt-1">Already generated — select to regenerate</p>
                       )}
+                      {isSelected && createOnly && (
+                        <p className="text-[10px] font-medium text-slate-500 mt-1">Tap again to remove from selection</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1315,7 +1314,7 @@ export function GraphicsWizard({
             </div>
           )}
 
-          {selectedImageTypes.length > 0 && (
+          {selectedImageTypes.length > 0 && !createOnly && (
             <SelectedGraphicsTypesSummary
               imageTypes={IMAGE_TYPES}
               selectedTypeIds={selectedImageTypes}

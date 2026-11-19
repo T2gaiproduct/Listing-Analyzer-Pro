@@ -396,9 +396,12 @@ export function AplusContentWizard({
             onClick={() => {
               if (isGenerating || modulesUnavailable) return;
               if (createOnly) {
-                if (!selectedAplusModules.includes(module.id)) {
-                  setSelectedAplusModules((prev) => [...prev, module.id]);
+                if (selectedAplusModules.includes(module.id)) {
+                  setSelectedAplusModules((prev) => prev.filter((id) => id !== module.id));
+                  if (aplusCustomizeModuleId === module.id) setAplusCustomizeModuleId(null);
+                  return;
                 }
+                setSelectedAplusModules((prev) => [...prev, module.id]);
                 setAplusCustomizeModuleId(module.id);
                 return;
               }
@@ -437,6 +440,11 @@ export function AplusContentWizard({
                   {isGenerated && !isSelected && (
                     <p className="text-[10px] font-medium text-slate-500 mt-1">
                       Already generated — select to regenerate
+                    </p>
+                  )}
+                  {isSelected && createOnly && (
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">
+                      Tap again to remove from selection
                     </p>
                   )}
                 </div>
@@ -492,18 +500,20 @@ export function AplusContentWizard({
           </span>
         )}
       </div>
-      <SelectedGraphicsTypesSummary
-        imageTypes={APLUS_MODULE_CARDS}
-        selectedTypeIds={selectedAplusModules}
-        getConfig={getAplusModuleConfig}
-        onEdit={setAplusCustomizeModuleId}
-        onRemove={(moduleId) => {
-          setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
-          if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
-        }}
-        instructionText="Selected modules — tap a row to customize prompt, references, and quality."
-        hideAspectRatio
-      />
+      {!createOnly && (
+        <SelectedGraphicsTypesSummary
+          imageTypes={APLUS_MODULE_CARDS}
+          selectedTypeIds={selectedAplusModules}
+          getConfig={getAplusModuleConfig}
+          onEdit={setAplusCustomizeModuleId}
+          onRemove={(moduleId) => {
+            setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
+            if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
+          }}
+          instructionText="Selected modules — tap a row to customize prompt, references, and quality."
+          hideAspectRatio
+        />
+      )}
     </>
   );
 
