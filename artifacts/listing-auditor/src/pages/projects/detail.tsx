@@ -33,6 +33,7 @@ import {
   GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
   GRAPHICS_PROMPT_MAX_CHARS,
 } from "@/lib/graphics-image-types";
+import { sortGraphicsRecordsNewestFirst } from "@/lib/sort-graphics-records";
 import { useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
@@ -448,7 +449,10 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     },
   });
 
-  const records = project?.imageRecords ?? [];
+  const records = useMemo(
+    () => sortGraphicsRecordsNewestFirst(project?.imageRecords ?? []),
+    [project?.imageRecords],
+  );
   const isGenerating = project?.status === "generating";
   const hasRecords = records.length > 0;
 

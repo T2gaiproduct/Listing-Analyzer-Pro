@@ -16,6 +16,7 @@ import {
   ArrowLeft, Maximize2, AlertTriangle, Package,
 } from "lucide-react";
 import { saveGraphicsRecordsToProductExplorer } from "@/lib/sync-graphics-to-product-explorer";
+import { sortGraphicsRecordsNewestFirst } from "@/lib/sort-graphics-records";
 import {
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
@@ -791,7 +792,10 @@ export function GraphicsWizard({
   };
 
   const displayProject = project ?? existingProject ?? null;
-  const records: ImageRecord[] = displayProject?.imageRecords ?? [];
+  const records: ImageRecord[] = useMemo(
+    () => sortGraphicsRecordsNewestFirst(displayProject?.imageRecords ?? []),
+    [displayProject?.imageRecords],
+  );
   const lifestyleRecords = records.filter((r) => r.type === "lifestyle");
   const featureRecords = records.filter((r) => r.type === "feature" || r.type === "infographic");
 
