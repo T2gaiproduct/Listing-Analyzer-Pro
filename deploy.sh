@@ -129,16 +129,24 @@ echo "==> Checking memory for frontend build (Vite needs ~1.5–2.5GB peak; exit
 TOTAL_MB="$(awk '/MemTotal:/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)"
 SWAP_MB="$(awk '/SwapTotal:/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)"
 echo "    RAM: ~${TOTAL_MB}MB  Swap: ~${SWAP_MB}MB"
-if [[ "$SWAP_MB" -lt 1024 && "$TOTAL_MB" -lt 3500 ]]; then
-  echo "WARN: Low RAM and little/no swap — Vite build may be Killed (137)."
-  echo "      Add swap once: sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile"
+if [[ "$SWAP_MB" -lt 1024 ]]; then
+  echo "==> Swap < 1GB — attempting ensure-swap-for-build (needs root for first-time setup)..."
+  if [[ -x "$APP_DIR/scripts/ensure-swap-for-build.sh" ]]; then
+    bash "$APP_DIR/scripts/ensure-swap-for-build.sh" || true
+    SWAP_MB="$(awk '/SwapTotal:/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)"
+  fi
+  if [[ "$SWAP_MB" -lt 1024 && "$TOTAL_MB" -lt 3500 ]]; then
+    echo "WARN: Low RAM and little/no swap — Vite build may still be Killed (137)."
+    echo "      Add swap once: sudo bash $APP_DIR/scripts/ensure-swap-for-build.sh"
+  fi
 fi
 
 echo
 echo "==> Building application (deploy path — skips full artifact tsc; see package.json build:deploy)..."
 export VITE_BUILD_LOW_MEMORY=1
+export VITE_BUILD_ULTRA_LOW_MEMORY=1
 # Do not request a huge V8 heap on small VPS (worsens OOM). Override in .env if you have RAM.
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
 pnpm --filter @workspace/api-server run build
 echo "==> Building frontend (low-memory Vite flags)..."
 pnpm run build:deploy:frontend

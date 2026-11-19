@@ -95,6 +95,10 @@ const useNativeAuthProvider =
 /** Small VPS / deploy hosts: less Rollup parallelism + skip gzip size report (saves RAM). */
 const lowMemoryBuild =
   process.env.VITE_BUILD_LOW_MEMORY === "1" || process.env.VITE_BUILD_LOW_MEMORY === "true";
+const ultraLowMemoryBuild =
+  lowMemoryBuild &&
+  (process.env.VITE_BUILD_ULTRA_LOW_MEMORY === "1" ||
+    process.env.VITE_BUILD_ULTRA_LOW_MEMORY === "true");
 
 function manualChunkForId(id: string): string | undefined {
   if (
@@ -172,12 +176,14 @@ export default defineConfig({
     ...(lowMemoryBuild
       ? {
           rollupOptions: {
-            maxParallelFileOps: 2,
-            output: {
-              manualChunks(id) {
-                return manualChunkForId(id);
-              },
-            },
+            maxParallelFileOps: 1,
+            output: ultraLowMemoryBuild
+              ? {}
+              : {
+                  manualChunks(id) {
+                    return manualChunkForId(id);
+                  },
+                },
           },
         }
       : {

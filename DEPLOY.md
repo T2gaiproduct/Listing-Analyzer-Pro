@@ -80,14 +80,18 @@ pnpm run build:deploy
 # pnpm run build
 ```
 
-**If `vite build` exits 137 (Killed)** on a small server, the kernel ran out of memory. Prefer **`pnpm run build:deploy`** or **`bash deploy.sh staging`** (sets low-memory Vite flags). The package `build` script also enables `VITE_BUILD_LOW_MEMORY=1` by default. If it still dies, add **4GB swap** (once), then rebuild:
+**If `vite build` exits 137 (Killed)** the **kernel** ran out of RAM (not a TypeScript bug). Do this on the VPS:
 
 ```bash
-sudo bash scripts/ensure-swap-for-build.sh
-# or manually: fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+cd ~/Listing-Analyzer-Pro
+git pull origin staging
+sudo bash scripts/ensure-swap-for-build.sh    # once: adds 4G swap if missing
 set -a && source .env && set +a
-pnpm run build:deploy
+bash deploy.sh staging                        # recommended — builds API + frontend
+# or: pnpm run build:deploy
 ```
+
+The frontend build runs via `scripts/build-listing-auditor.sh` (Rollup `maxParallelFileOps: 1`, **1024MB** Node heap cap, optional single-bundle ultra-low mode). If 137 persists after swap, check `free -h` during build — you need **RAM + swap ≥ ~2.5GB** free for this app’s Vite bundle.
 
 ---
 
