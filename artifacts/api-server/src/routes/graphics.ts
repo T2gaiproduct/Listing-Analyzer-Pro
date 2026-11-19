@@ -36,6 +36,11 @@ import {
   buildGraphicsPromptForType,
   resolveGraphicsBucketForType,
 } from "../lib/image-prompt-template-service.js";
+import {
+  compositeProductPreserveHero,
+  isProductPreserveGraphicsType,
+  type ImageCanvasSize,
+} from "../lib/product-preserve-graphics.js";
 import * as fs from "fs";
 import * as path from "path";
 import pLimit from "p-limit";
@@ -530,7 +535,23 @@ async function generateNewImageTypes(
       const referencePaths = await getReferencePaths(spec);
       let buffer: Buffer;
 
-      if (referencePaths.length > 1) {
+      if (isProductPreserveGraphicsType(spec.imageType)) {
+        const productPath = await resolvePrimaryProductReferencePath(
+          projectId,
+          sourceImagePaths,
+          referencePaths,
+        );
+        if (!productPath) {
+          throw new Error(
+            "Hero Shot needs a product photo from Upload or a selected studio reference (no AI redraw without it).",
+          );
+        }
+        console.log(
+          `[generateNewImageTypes] Product-preserve composite for ${spec.id} (${spec.imageType}): ${productPath}`,
+        );
+        buffer = await compositeProductPreserveHero(productPath, size as ImageCanvasSize);
+        fs.writeFileSync(filePath, buffer);
+      } else if (referencePaths.length > 1) {
         const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
         console.log(`[generateNewImageTypes] Using ${referencePaths.length} reference images for ${spec.id} (${spec.imageType})`);
         buffer = await editImagesProxy(referencePaths, referencePrompt, filePath);
@@ -741,6 +762,19 @@ async function downloadImage(url: string, destPath: string): Promise<string | nu
     console.error(`[downloadImage] Error downloading ${url}:`, err instanceof Error ? err.message : String(err));
     return null;
   }
+}
+
+async function resolvePrimaryProductReferencePath(
+  projectId: number,
+  sourceImagePaths: string[] | null | undefined,
+  promptReferencePaths: string[],
+): Promise<string | null> {
+  const fromProject = await resolveProjectSourcePath(projectId, sourceImagePaths);
+  if (fromProject) return fromProject;
+  for (const p of promptReferencePaths) {
+    if (fs.existsSync(p) && fs.statSync(p).size >= MIN_FILE_SIZE) return p;
+  }
+  return null;
 }
 
 async function resolveProjectSourcePath(
@@ -1354,7 +1388,9 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
     const sourceFileIsValid = sourcePath !== null;
 
     let buffer: Buffer;
-    if (sourceFileIsValid) {
+    if (isProductPreserveGraphicsType(existingRecord.imageType) && sourceFileIsValid) {
+      buffer = await compositeProductPreserveHero(sourcePath!, size as ImageCanvasSize);
+    } else if (sourceFileIsValid) {
       const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
       buffer = await generateImageWithReferenceProxy(referencePrompt, sourcePath!, size);
     } else {

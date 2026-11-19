@@ -24,7 +24,8 @@ export function resolveGraphicsPromptReferenceImageUrls(
   const fromCustomize = normalizeUrls(perTypeReferenceImages);
   if (fromCustomize.length > 0) return fromCustomize;
   const logo = brandLogoUrl?.trim();
-  const pool = logo ? [logo, ...uploadFallbackUrls] : uploadFallbackUrls;
+  // Product uploads first so Hero Shot / primary reference keeps the seller's pack, not the logo mark.
+  const pool = logo ? [...uploadFallbackUrls, logo] : uploadFallbackUrls;
   const fromUpload = normalizeUrls(pool);
   return fromUpload.length > 0 ? fromUpload : undefined;
 }
