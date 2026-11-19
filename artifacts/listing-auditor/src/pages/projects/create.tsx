@@ -713,17 +713,23 @@ export default function CreateProject() {
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    if (!selectedImageTypes.includes(type.id)) {
-                      setSelectedImageTypes((prev) => [...prev, type.id]);
+                    if (selectedImageTypes.includes(type.id)) {
+                      setSelectedImageTypes((prev) => prev.filter((id) => id !== type.id));
+                      if (customizeTypeId === type.id) setCustomizeTypeId(null);
+                      return;
                     }
+                    setSelectedImageTypes((prev) => [...prev, type.id]);
                     setCustomizeTypeId(type.id);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      if (!selectedImageTypes.includes(type.id)) {
-                        setSelectedImageTypes((prev) => [...prev, type.id]);
+                      if (selectedImageTypes.includes(type.id)) {
+                        setSelectedImageTypes((prev) => prev.filter((id) => id !== type.id));
+                        if (customizeTypeId === type.id) setCustomizeTypeId(null);
+                        return;
                       }
+                      setSelectedImageTypes((prev) => [...prev, type.id]);
                       setCustomizeTypeId(type.id);
                     }
                   }}
@@ -749,6 +755,9 @@ export default function CreateProject() {
                         </div>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
+                      {isSelected && (
+                        <p className="text-[10px] font-medium text-slate-500 mt-1">Tap again to remove from selection</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -823,9 +832,12 @@ export default function CreateProject() {
                   key={module.id}
                   type="button"
                   onClick={() => {
-                    if (!selectedAplusModules.includes(module.id)) {
-                      setSelectedAplusModules((prev) => [...prev, module.id]);
+                    if (selectedAplusModules.includes(module.id)) {
+                      setSelectedAplusModules((prev) => prev.filter((id) => id !== module.id));
+                      if (aplusCustomizeModuleId === module.id) setAplusCustomizeModuleId(null);
+                      return;
                     }
+                    setSelectedAplusModules((prev) => [...prev, module.id]);
                     setAplusCustomizeModuleId(module.id);
                   }}
                   className={cn(
@@ -840,6 +852,9 @@ export default function CreateProject() {
                     {module.label}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5 leading-tight">{module.desc}</p>
+                  {isSelected && (
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">Tap again to remove from selection</p>
+                  )}
                   {isSelected && (
                     <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-600 flex items-center justify-center">
                       <Check className="w-3 h-3 text-white" />
