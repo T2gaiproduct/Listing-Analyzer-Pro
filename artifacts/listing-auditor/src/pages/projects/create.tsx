@@ -34,6 +34,7 @@ import {
   graphicsScratchProjectViewPath,
 } from "@/lib/graphics-in-detail-nav";
 import { resolveGraphicsPromptReferenceImageUrls } from "@/lib/graphics-prompt-references";
+import { BrandLogoUpload } from "@/components/brand-logo-upload";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -74,6 +75,7 @@ export default function CreateProject() {
   const [productName, setProductName] = useState("");
   const [category, setCategory] = useState("");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const selectedGraphicsTypes = useMemo(
@@ -129,11 +131,12 @@ export default function CreateProject() {
         promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
           config.referenceImages,
           uploadedImages,
+          brandLogoUrl,
         ),
       };
     }
     return configs;
-  }, [selectedImageTypes, imageTypePromptConfigs, uploadedImages]);
+  }, [selectedImageTypes, imageTypePromptConfigs, uploadedImages, brandLogoUrl]);
 
   const getAplusModuleConfig = useCallback((moduleId: string): ImageTypePromptConfig => ({
     ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -157,12 +160,16 @@ export default function CreateProject() {
       const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
       payload[moduleId] = {
         imageCustomPrompt: config.customPrompt.trim() || undefined,
-        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
+          config.referenceImages,
+          uploadedImages,
+          brandLogoUrl,
+        ),
         quality: config.quality,
       };
     }
     return payload;
-  }, [selectedAplusModules, aplusModulePromptConfigs]);
+  }, [selectedAplusModules, aplusModulePromptConfigs, uploadedImages, brandLogoUrl]);
 
   const graphicsCreditsNeeded = selectedGraphicsTypes.length * imageCreditPerUnit;
   const aplusCreditsNeeded = selectedAplusModules.length * imageCreditPerUnit;
@@ -200,6 +207,18 @@ export default function CreateProject() {
         }
         const audit = await createAuditDraft.mutateAsync({ data: draftBody });
         auditId = audit.id;
+        const logoTrimmed = brandLogoUrl?.trim();
+        if (logoTrimmed) {
+          await fetch(`${basePath}/api/audits/${auditId}/reference-research`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              slots: Array.from({ length: 6 }, () => ({ url: "", notes: "" })),
+              brandLogoUrl: logoTrimmed,
+            }),
+          });
+        }
       }
 
       const createBody = auditId != null ? { ...input.createBody, auditId } : input.createBody;
@@ -609,6 +628,12 @@ export default function CreateProject() {
                 />
               </div>
             </div>
+            <BrandLogoUpload
+              value={brandLogoUrl}
+              disabled={isUploading}
+              onInvalidFile={(description) => toast({ title: "Invalid logo", description, variant: "destructive" })}
+              onChange={setBrandLogoUrl}
+            />
             <AmazonBrowseCategorySelect
               label="Category"
               required

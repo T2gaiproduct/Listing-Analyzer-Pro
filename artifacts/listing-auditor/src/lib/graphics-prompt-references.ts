@@ -14,14 +14,17 @@ function normalizeUrls(urls: string[]): string[] {
 }
 
 /**
- * Per-type Customize references win; otherwise use images from the workflow Upload step.
+ * Per-type Customize references win; otherwise use brand logo (if any) + Upload step product photos.
  */
 export function resolveGraphicsPromptReferenceImageUrls(
   perTypeReferenceImages: string[],
   uploadFallbackUrls: string[],
+  brandLogoUrl?: string | null,
 ): string[] | undefined {
   const fromCustomize = normalizeUrls(perTypeReferenceImages);
   if (fromCustomize.length > 0) return fromCustomize;
-  const fromUpload = normalizeUrls(uploadFallbackUrls);
+  const logo = brandLogoUrl?.trim();
+  const pool = logo ? [logo, ...uploadFallbackUrls] : uploadFallbackUrls;
+  const fromUpload = normalizeUrls(pool);
   return fromUpload.length > 0 ? fromUpload : undefined;
 }

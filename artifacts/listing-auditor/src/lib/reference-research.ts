@@ -31,6 +31,8 @@ export type ReferenceResearchData = {
   intelligence?: ReferenceIntelligenceRow[];
   /** Confirmed specs shown on listing preview (material, dimensions, etc.). */
   productDetails?: SellerProductDetail[];
+  /** Brand mark used as a reference for AI image generation. */
+  brandLogoUrl?: string;
   analyzedAt?: string;
   fetchErrors?: Array<{ index: number; message: string }>;
 };

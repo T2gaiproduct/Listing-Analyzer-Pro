@@ -1699,6 +1699,7 @@ router.post("/audits/:id/reference-research/analyze", requireAuth, resolveTeamAn
       slots,
       intelligence,
       productDetails: audit.referenceResearch?.productDetails,
+      brandLogoUrl: audit.referenceResearch?.brandLogoUrl,
       analyzedAt: new Date().toISOString(),
       fetchErrors: fetchErrors.length > 0 ? fetchErrors : undefined,
     });

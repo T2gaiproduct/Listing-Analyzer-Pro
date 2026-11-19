@@ -42,6 +42,8 @@ export const referenceResearchDataSchema = z.object({
   intelligence: z.array(referenceIntelligenceRowSchema).optional(),
   /** Seller-confirmed specs (material, dimensions, etc.) — shown as-is on listing preview. */
   productDetails: z.array(sellerProductDetailSchema).max(SELLER_PRODUCT_DETAIL_MAX).optional(),
+  /** Brand mark for graphics / A+ generation (data URL or public image URL). */
+  brandLogoUrl: z.string().optional(),
   analyzedAt: z.string().optional(),
   fetchErrors: z
     .array(z.object({ index: z.number().int(), message: z.string() }))
@@ -72,10 +74,13 @@ export function normalizeReferenceResearchData(
       value: row.value?.trim() ?? "",
     }));
 
+  const brandLogoUrl = raw?.brandLogoUrl?.trim() ?? "";
+
   return {
     slots,
     intelligence: raw?.intelligence,
     productDetails: productDetails.length > 0 ? productDetails : undefined,
+    brandLogoUrl: brandLogoUrl.length > 0 ? brandLogoUrl : undefined,
     analyzedAt: raw?.analyzedAt,
     fetchErrors: raw?.fetchErrors,
   };

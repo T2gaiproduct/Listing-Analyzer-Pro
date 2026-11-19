@@ -78,6 +78,7 @@ import { isAuditListingExistingProductWorkflow } from "@/lib/audit-listing-workf
 import { isCreateGraphicsExistingProductWorkflow } from "@/lib/create-graphics-workflow";
 import { ensureGraphicsProjectForAudit } from "@/lib/ensure-graphics-project-for-audit";
 import { resolveGraphicsPromptReferenceImageUrls } from "@/lib/graphics-prompt-references";
+import { BrandLogoUpload } from "@/components/brand-logo-upload";
 import {
   graphicsInDetailViewPath,
 } from "@/lib/graphics-in-detail-nav";
@@ -673,6 +674,7 @@ export default function AuditWorkflow() {
   const [productDescription, setProductDescription] = useState("");
   const [category, setCategory]         = useState("");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading]       = useState(false);
 
   /* ── Listing step state ── */
@@ -815,6 +817,8 @@ export default function AuditWorkflow() {
     setProductDescription((auditData as { productDescription?: string | null }).productDescription?.trim() ?? "");
     setCategory((auditData.category as string) || "");
     setUploadedImages((auditData.imageUrls as string[]) || []);
+    const refResearch = (auditData as { referenceResearch?: ReferenceResearchData | null }).referenceResearch;
+    setBrandLogoUrl(refResearch?.brandLogoUrl?.trim() || null);
     if (auditData.generatedContent) {
       setGeneratedContent(auditData.generatedContent as any);
     }
@@ -1095,8 +1099,42 @@ export default function AuditWorkflow() {
           : {}),
       }),
     });
+    const cached = queryClient.getQueryData(getGetAuditQueryKey(auditId)) as {
+      referenceResearch?: ReferenceResearchData | null;
+    } | undefined;
+    const existingRef = cached?.referenceResearch
+      ?? (auditData as { referenceResearch?: ReferenceResearchData | null } | undefined)?.referenceResearch;
+    const logoTrimmed = brandLogoUrl?.trim() ?? "";
+    const hadLogo = Boolean(existingRef?.brandLogoUrl?.trim());
+    if (logoTrimmed || hadLogo) {
+      const slots =
+        existingRef?.slots
+        ?? Array.from({ length: 6 }, () => ({ url: "", notes: "" }));
+      await fetchJson(`${basePath}/api/audits/${auditId}/reference-research`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slots,
+          intelligence: existingRef?.intelligence,
+          productDetails: existingRef?.productDetails,
+          analyzedAt: existingRef?.analyzedAt,
+          fetchErrors: existingRef?.fetchErrors,
+          brandLogoUrl: logoTrimmed || undefined,
+        } satisfies ReferenceResearchData),
+      });
+    }
     void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
-  }, [projectName, productName, brandName, category, uploadedImages, productDescription, queryClient]);
+  }, [
+    projectName,
+    productName,
+    brandName,
+    category,
+    uploadedImages,
+    productDescription,
+    brandLogoUrl,
+    auditData,
+    queryClient,
+  ]);
 
   const generateListingFromUploadContext = useCallback(async () => {
     const auditId = await ensureAuditDraft();
@@ -1334,12 +1372,13 @@ export default function AuditWorkflow() {
         promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
           config.referenceImages,
           uploadedImages,
+          brandLogoUrl,
         ),
         quality: config.quality,
       };
     }
     return configs;
-  }, [selectedAplusModules, aplusModulePromptConfigs, uploadedImages]);
+  }, [selectedAplusModules, aplusModulePromptConfigs, uploadedImages, brandLogoUrl]);
 
   const aplusGenerateOptions = useMemo(() => ({
     moduleConfigs: aplusModuleConfigsPayload,
@@ -1361,11 +1400,12 @@ export default function AuditWorkflow() {
         promptReferenceImageUrls: resolveGraphicsPromptReferenceImageUrls(
           config.referenceImages,
           uploadedImages,
+          brandLogoUrl,
         ),
       };
     }
     return configs;
-  }, [selectedImageTypes, imageTypePromptConfigs, uploadedImages]);
+  }, [selectedImageTypes, imageTypePromptConfigs, uploadedImages, brandLogoUrl]);
 
   type GraphicsTypeConfigs = Record<string, {
     customPrompt?: string;
@@ -1755,9 +1795,14 @@ export default function AuditWorkflow() {
         return;
       }
       void postAuditDraft(draftBody)
-        .then((audit) => {
+        .then(async (audit) => {
           setIsCreating(false);
           setCurrentAuditId(audit.id);
+          try {
+            await persistUploadTabToAudit(audit.id);
+          } catch {
+            /* logo persistence is best-effort; core draft already saved */
+          }
           toast({ title: "Project created!", description: `Saved as "${audit.projectName || audit.productName}"` });
           setActiveStep(3);
           queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
@@ -2478,6 +2523,15 @@ export default function AuditWorkflow() {
                     />
                   </div>
                 </div>
+                <BrandLogoUpload
+                  value={brandLogoUrl}
+                  disabled={isUploading}
+                  onInvalidFile={(description) => toast({ title: "Invalid logo", description, variant: "destructive" })}
+                  onChange={(next) => {
+                    setBrandLogoUrl(next);
+                    if (currentAuditId) setIsDirty(true);
+                  }}
+                />
                 <div className="space-y-1.5 w-full">
                   <label className="text-xs font-medium text-foreground">Product Description</label>
                   <Textarea
