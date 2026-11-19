@@ -67,7 +67,7 @@ export function ReferenceImageThumbStrip({
               "relative shrink-0 overflow-hidden bg-white",
               prominent
                 ? cn(
-                    "h-32 w-32 sm:h-36 sm:w-36 rounded-xl border-2",
+                    "h-40 w-40 sm:h-48 sm:w-48 rounded-xl border-2",
                     borderAccent === "orange" ? "border-orange-500" : "border-slate-200",
                     selectable && !isSelected && !selectDisabled && "hover:border-orange-300",
                     selectDisabled && "opacity-45",
