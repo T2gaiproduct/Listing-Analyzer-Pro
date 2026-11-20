@@ -5,6 +5,7 @@ import {
   authCredentialsTable,
   authOauthIdentitiesTable,
   authPasswordResetTokensTable,
+  userProfilesTable,
 } from "@workspace/db";
 import { parseEmailForApi } from "@workspace/email-validation";
 import { findAuthCredentialByEmail } from "../lib/native-auth/credential-email.js";
@@ -146,6 +147,23 @@ router.post("/auth/login", async (req, res) => {
 
   if (cred.emailVerified !== 1) {
     await startEmailVerificationFlow(res, { userId: cred.userId, email: cred.email });
+    return;
+  }
+
+  const [profile] = await db
+    .select({
+      banned: userProfilesTable.accountBanned,
+      locked: userProfilesTable.accountLocked,
+    })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, cred.userId))
+    .limit(1);
+  if (profile?.accountBanned) {
+    res.status(403).json({ error: "This account has been banned." });
+    return;
+  }
+  if (profile?.accountLocked) {
+    res.status(403).json({ error: "This account is suspended." });
     return;
   }
 

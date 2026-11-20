@@ -9,7 +9,7 @@ import {
   settingsTable, notificationsTable,
   cmsContent, blogPosts, testimonials, faqs, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
   userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable, workspacesTable,
-  graphicsProjectsTable,
+  graphicsProjectsTable, authCredentialsTable,
 } from "@workspace/db";
 import OpenAI from "openai";
 import { like, or, ilike } from "drizzle-orm";
@@ -86,6 +86,18 @@ import {
 } from "../lib/openai-balance-notify.js";
 import { fetchOpenAiBillingStatus, getCachedOpenAiBillingStatus } from "../lib/openai-billing.js";
 import { appendSupportTicketReply, parseSupportTicketData } from "../lib/support-ticket-data.js";
+import {
+  countNativeCustomers,
+  findUserIdByEmail,
+  getNativeCustomerIdentity,
+  listNativeCustomers,
+  setCustomerBanState,
+  setCustomerLockState,
+  usesNativeCustomerDirectory,
+} from "../lib/admin-customer-directory.js";
+import { deleteCustomerUserFromDatabase } from "../lib/delete-customer-user.js";
+import { hashPassword } from "../lib/native-auth/password.js";
+import { upsertUserProfile } from "../lib/user-profile.js";
 
 const router: IRouter = Router();
 
@@ -339,6 +351,15 @@ router.get("/admin/customers", requireAdmin, async (req, res): Promise<void> => 
   const offset = Number(req.query.offset ?? 0);
   const query = (req.query.query as string | undefined) ?? "";
 
+  if (usesNativeCustomerDirectory()) {
+    const [customers, total] = await Promise.all([
+      listNativeCustomers({ limit, offset, query }),
+      countNativeCustomers(query),
+    ]);
+    res.json({ customers, total });
+    return;
+  }
+
   const searchParam = query ? `&query=${encodeURIComponent(query)}` : "";
   const clerkData = await clerkFetch(`/users?limit=${limit}&offset=${offset}${searchParam}&order_by=-created_at`) as Record<string, any>;
   const users: Array<Record<string, unknown>> = Array.isArray(clerkData) ? clerkData : (clerkData?.data ?? []);
@@ -365,7 +386,6 @@ router.get("/admin/customers", requireAdmin, async (req, res): Promise<void> => 
     profileMap[p.userId] = p.id;
   }
 
-  // Auto-create minimal profile rows for any user that doesn't have one yet
   const missingIds = userIds.filter((uid) => profileMap[uid] === undefined);
   if (missingIds.length) {
     const inserted = await db
@@ -398,10 +418,31 @@ router.get("/admin/customers", requireAdmin, async (req, res): Promise<void> => 
 
 router.get("/admin/customers/:userId", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
-  const clerkUser = await clerkFetch(`/users/${userId}`) as Record<string, any>;
-  if (clerkUser?.errors) {
-    res.status(404).json({ error: "User not found" });
-    return;
+
+  let directoryUser: Awaited<ReturnType<typeof getNativeCustomerIdentity>> = null;
+  if (usesNativeCustomerDirectory()) {
+    directoryUser = await getNativeCustomerIdentity(userId);
+    if (!directoryUser) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+  } else {
+    const clerkUser = await clerkFetch(`/users/${userId}`) as Record<string, any>;
+    if (clerkUser?.errors) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    directoryUser = {
+      id: clerkUser.id as string,
+      firstName: clerkUser.first_name as string,
+      lastName: clerkUser.last_name as string,
+      email: clerkUser.email_addresses?.[0]?.email_address ?? "",
+      imageUrl: clerkUser.image_url ?? null,
+      banned: Boolean(clerkUser.banned),
+      locked: Boolean(clerkUser.locked),
+      createdAt: clerkUser.created_at as number,
+      lastSignInAt: (clerkUser.last_sign_in_at as number | null) ?? null,
+    };
   }
 
   const [userAudits, auditStatsRes, creditsRes, transactions, profileRes, subscriptionRes] = await Promise.all([
@@ -446,16 +487,16 @@ router.get("/admin/customers/:userId", requireAdmin, async (req, res): Promise<v
 
   res.json({
     user: {
-      id: clerkUser.id,
-      firstName: clerkUser.first_name,
-      lastName: clerkUser.last_name,
-      email: clerkUser.email_addresses?.[0]?.email_address ?? "",
-      imageUrl: clerkUser.image_url,
-      banned: clerkUser.banned,
-      locked: clerkUser.locked,
-      createdAt: clerkUser.created_at,
-      lastSignInAt: clerkUser.last_sign_in_at,
-      publicMetadata: clerkUser.public_metadata,
+      id: directoryUser.id,
+      firstName: directoryUser.firstName,
+      lastName: directoryUser.lastName,
+      email: directoryUser.email,
+      imageUrl: directoryUser.imageUrl,
+      banned: directoryUser.banned,
+      locked: directoryUser.locked,
+      createdAt: directoryUser.createdAt,
+      lastSignInAt: directoryUser.lastSignInAt,
+      publicMetadata: {},
     },
     profile: profile ?? null,
     audits: userAudits,
@@ -471,24 +512,44 @@ router.get("/admin/customers/:userId", requireAdmin, async (req, res): Promise<v
 
 router.patch("/admin/customers/:userId/ban", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
+  if (usesNativeCustomerDirectory()) {
+    await setCustomerBanState(userId, true);
+    res.json({ ok: true });
+    return;
+  }
   const result = await clerkFetch(`/users/${userId}/ban`, { method: "POST" });
   res.json(result);
 });
 
 router.patch("/admin/customers/:userId/unban", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
+  if (usesNativeCustomerDirectory()) {
+    await setCustomerBanState(userId, false);
+    res.json({ ok: true });
+    return;
+  }
   const result = await clerkFetch(`/users/${userId}/unban`, { method: "POST" });
   res.json(result);
 });
 
 router.patch("/admin/customers/:userId/lock", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
+  if (usesNativeCustomerDirectory()) {
+    await setCustomerLockState(userId, true);
+    res.json({ ok: true });
+    return;
+  }
   const result = await clerkFetch(`/users/${userId}/lock`, { method: "POST" });
   res.json(result);
 });
 
 router.patch("/admin/customers/:userId/unlock", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
+  if (usesNativeCustomerDirectory()) {
+    await setCustomerLockState(userId, false);
+    res.json({ ok: true });
+    return;
+  }
   const result = await clerkFetch(`/users/${userId}/unlock`, { method: "POST" });
   res.json(result);
 });
@@ -598,8 +659,17 @@ router.post("/admin/settings/test-amazon-sp", requireAdmin, async (req, res): Pr
 
 router.delete("/admin/customers/:userId", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
-  await db.update(auditsTable).set({ isDeleted: 1, deletedAt: new Date() }).where(eq(auditsTable.userId, userId));
-  await clerkFetch(`/users/${userId}`, { method: "DELETE" });
+  if (usesNativeCustomerDirectory()) {
+    await deleteCustomerUserFromDatabase(userId);
+    res.sendStatus(204);
+    return;
+  }
+  await deleteCustomerUserFromDatabase(userId);
+  try {
+    await clerkFetch(`/users/${userId}`, { method: "DELETE" });
+  } catch {
+    /* Clerk may already be gone */
+  }
   res.sendStatus(204);
 });
 
@@ -607,6 +677,26 @@ router.post("/admin/customers/:userId/reset-password", requireAdmin, async (req,
   const userId = String(req.params.userId);
   const { newPassword: provided } = req.body as { newPassword?: string };
   const newPassword = provided && provided.length >= 8 ? provided : generatePassword();
+
+  if (usesNativeCustomerDirectory()) {
+    const [cred] = await db
+      .select({ userId: authCredentialsTable.userId })
+      .from(authCredentialsTable)
+      .where(eq(authCredentialsTable.userId, userId))
+      .limit(1);
+    if (!cred) {
+      res.status(404).json({ error: "No native auth account for this user" });
+      return;
+    }
+    const passwordHash = await hashPassword(newPassword);
+    await db
+      .update(authCredentialsTable)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(authCredentialsTable.userId, userId));
+    res.json({ success: true });
+    return;
+  }
+
   const result = await clerkFetch(`/users/${userId}`, {
     method: "PATCH",
     body: JSON.stringify({ password: newPassword, skip_password_checks: true }),
@@ -620,16 +710,37 @@ router.post("/admin/customers/:userId/reset-password", requireAdmin, async (req,
 
 router.patch("/admin/customers/:userId/profile", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
-  const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize } = req.body as Record<string, string | number>;
+  const body = req.body as Record<string, string | number | boolean | undefined>;
+  const {
+    fullName,
+    companyName,
+    phone,
+    country,
+    gstNumber,
+    websiteUrl,
+    teamSize,
+    onboardingCompleted,
+  } = body;
   const existing = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   let profile;
+  const patch = {
+    fullName: fullName as string | undefined,
+    companyName: companyName as string | undefined,
+    phone: phone as string | undefined,
+    country: country as string | undefined,
+    gstNumber: gstNumber as string | undefined,
+    websiteUrl: websiteUrl as string | undefined,
+    teamSize: teamSize != null ? Number(teamSize) : undefined,
+    onboardingCompleted: typeof onboardingCompleted === "boolean" ? onboardingCompleted : undefined,
+    updatedAt: new Date(),
+  };
   if (existing.length) {
     [profile] = await db.update(userProfilesTable)
-      .set({ fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined, updatedAt: new Date() })
+      .set(patch)
       .where(eq(userProfilesTable.userId, userId)).returning();
   } else {
     [profile] = await db.insert(userProfilesTable)
-      .values({ userId, fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined })
+      .values({ userId, ...patch })
       .returning();
   }
   res.json(profile);
@@ -653,6 +764,7 @@ router.patch("/admin/customers/:userId/package", requireAdmin, async (req, res):
   } else {
     await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle: cycle, status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd });
   }
+  await upsertUserProfile(userId, { onboardingCompleted: true });
   if (addCredits !== false) {
     const grantCredits = await planRowToGrantCredits(plan);
     const [existing] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
@@ -1361,11 +1473,19 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
       return;
     }
     const normalizedEmail = normalizeAdminEmail(emailParsed.email);
-    const result = await clerkFetch(`/users?email_address=${encodeURIComponent(normalizedEmail)}&limit=1`) as Record<string, unknown> | unknown[];
-    const usersList = Array.isArray(result) ? result : ((result as Record<string, unknown>).data as unknown[] ?? []);
-    if (usersList.length) {
-      targetUserId = (usersList[0] as Record<string, unknown>).id as string;
-      await revokeAdminAccessForUser(targetUserId);
+    if (usesNativeCustomerDirectory()) {
+      const existingId = await findUserIdByEmail(normalizedEmail);
+      if (existingId) {
+        targetUserId = existingId;
+        await revokeAdminAccessForUser(targetUserId);
+      }
+    } else {
+      const result = await clerkFetch(`/users?email_address=${encodeURIComponent(normalizedEmail)}&limit=1`) as Record<string, unknown> | unknown[];
+      const usersList = Array.isArray(result) ? result : ((result as Record<string, unknown>).data as unknown[] ?? []);
+      if (usersList.length) {
+        targetUserId = (usersList[0] as Record<string, unknown>).id as string;
+        await revokeAdminAccessForUser(targetUserId);
+      }
     }
 
     const { invite, inviteToken } = await upsertAdminRoleInvite({

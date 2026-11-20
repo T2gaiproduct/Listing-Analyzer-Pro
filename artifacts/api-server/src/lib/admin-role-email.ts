@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { ADMIN_PERMISSION_META } from "@workspace/admin-permissions";
 import { db, adminRolesTable } from "@workspace/db";
+import { lookupUserEmailAndName, usesNativeCustomerDirectory } from "./admin-customer-directory.js";
 import { adminRoleAssignedEmailTemplate, adminRoleInviteEmailTemplate } from "./email-templates.js";
 import { sendEmail } from "./email.js";
 
@@ -86,6 +87,9 @@ export async function sendAdminRoleInviteEmail(opts: {
 }
 
 export async function getClerkUserEmailAndName(userId: string, clerkFetch: (path: string) => Promise<unknown>): Promise<{ email: string; name: string } | null> {
+  if (usesNativeCustomerDirectory()) {
+    return lookupUserEmailAndName(userId);
+  }
   try {
     const cu = await clerkFetch(`/users/${userId}`) as Record<string, unknown>;
     const emails = cu.email_addresses as Array<{ email_address: string }> | undefined;
@@ -94,6 +98,6 @@ export async function getClerkUserEmailAndName(userId: string, clerkFetch: (path
     const fullName = [cu.first_name as string, cu.last_name as string].filter(Boolean).join(" ").trim();
     return { email, name: fullName || email };
   } catch {
-    return null;
+    return lookupUserEmailAndName(userId);
   }
 }

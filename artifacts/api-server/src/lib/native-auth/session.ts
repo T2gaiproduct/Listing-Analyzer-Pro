@@ -1,7 +1,7 @@
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { eq, and, gt } from "drizzle-orm";
-import { db, authSessionsTable, authCredentialsTable } from "@workspace/db";
+import { db, authSessionsTable, authCredentialsTable, userProfilesTable } from "@workspace/db";
 import {
   AUTH_SESSION_COOKIE,
   AUTH_SESSION_DAYS,
@@ -54,6 +54,22 @@ export async function resolveSession(sessionId: string): Promise<NativeAuthConte
     .where(and(eq(authSessionsTable.id, sessionId), gt(authSessionsTable.expiresAt, now)))
     .limit(1);
   if (!row) return null;
+
+  const [profile] = await db
+    .select({
+      banned: userProfilesTable.accountBanned,
+      locked: userProfilesTable.accountLocked,
+      deleted: userProfilesTable.isDeleted,
+    })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, row.userId))
+    .limit(1);
+
+  if (profile?.deleted === 1 || profile?.banned || profile?.locked) {
+    await deleteSession(sessionId);
+    return null;
+  }
+
   return { sessionId: row.sessionId, userId: row.userId, email: row.email };
 }
 

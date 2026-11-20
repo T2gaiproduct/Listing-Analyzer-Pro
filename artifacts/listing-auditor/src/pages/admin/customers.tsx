@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Search, Ban, CheckCircle, Trash2, Eye, EyeOff, Users, PauseCircle, PlayCircle, AlertTriangle, KeyRound, RefreshCw } from "lucide-react";
@@ -105,13 +105,18 @@ function actionConfig(type: ActionType): {
   return configs[type];
 }
 
-function fetchCustomers(q: string): Promise<{ customers: Customer[]; total: number }> {
-  return fetch(`${basePath}/api/admin/customers?limit=50&query=${encodeURIComponent(q)}`, { credentials: "include" }).then((r) => r.json());
+function fetchCustomers(q: string, offset = 0): Promise<{ customers: Customer[]; total: number }> {
+  return fetch(
+    `${basePath}/api/admin/customers?limit=100&offset=${offset}&query=${encodeURIComponent(q)}`,
+    { credentials: "include" },
+  ).then((r) => r.json());
 }
 
 export default function AdminCustomers() {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -125,10 +130,24 @@ export default function AdminCustomers() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin-customers", query],
-    queryFn: () => fetchCustomers(query),
+  useEffect(() => {
+    setOffset(0);
+    setCustomers([]);
+  }, [query]);
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["admin-customers", query, offset],
+    queryFn: () => fetchCustomers(query, offset),
   });
+
+  useEffect(() => {
+    if (!data?.customers) return;
+  if (offset === 0) setCustomers(data.customers);
+    else setCustomers((prev) => [...prev, ...data.customers]);
+  }, [data, offset]);
+
+  const total = data?.total ?? customers.length;
+  const hasMore = customers.length < total;
 
   const banMutation = useMutation({
     mutationFn: ({ userId, ban }: { userId: string; ban: boolean }) =>
@@ -229,7 +248,7 @@ export default function AdminCustomers() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Customers</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {data ? `${data.total} total users` : "Manage all platform users"}
+            {total > 0 ? `${customers.length} shown · ${total} total users` : "Manage all platform users"}
           </p>
         </div>
       </div>
@@ -279,7 +298,7 @@ export default function AdminCustomers() {
                   <td className="px-6 py-4"><div className="h-8 w-32 bg-slate-100 rounded animate-pulse ml-auto" /></td>
                 </tr>
               ))}
-            {!isLoading && (data?.customers ?? []).map((c) => (
+            {!isLoading && customers.map((c) => (
               <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
@@ -340,7 +359,7 @@ export default function AdminCustomers() {
                 </td>
               </tr>
             ))}
-            {!isLoading && !data?.customers?.length && (
+            {!isLoading && customers.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-6 py-16 text-center">
                   <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
@@ -351,6 +370,17 @@ export default function AdminCustomers() {
           </tbody>
         </table>
         </ResponsiveTable>
+        {hasMore && (
+          <div className="p-4 border-t border-slate-100 flex justify-center">
+            <Button
+              variant="outline"
+              disabled={isFetching}
+              onClick={() => setOffset((o) => o + 100)}
+            >
+              {isFetching ? "Loading…" : `Load more (${total - customers.length} remaining)`}
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Double Confirmation Dialog */}

@@ -28,6 +28,12 @@ ALTER TABLE user_profiles
 ALTER TABLE user_profiles
   ADD COLUMN IF NOT EXISTS notification_preferences jsonb;
 
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS account_banned boolean NOT NULL DEFAULT false;
+
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS account_locked boolean NOT NULL DEFAULT false;
+
 -- ─── team_members (custom account roles / PR #200) ─────────────────────────
 ALTER TABLE team_members
   ADD COLUMN IF NOT EXISTS role_id integer;

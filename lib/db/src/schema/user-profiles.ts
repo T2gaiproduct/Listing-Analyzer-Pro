@@ -32,6 +32,8 @@ export const userProfilesTable = pgTable("user_profiles", {
   avatarUrl: text("avatar_url"),
   loginEmail: varchar("login_email", { length: 255 }),
   notificationPreferences: jsonb("notification_preferences").$type<NotificationPreferencesJson>(),
+  accountBanned: boolean("account_banned").notNull().default(false),
+  accountLocked: boolean("account_locked").notNull().default(false),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
