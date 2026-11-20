@@ -30,11 +30,17 @@ fi
 
 if [[ "${SKIP_PUSH:-}" != "1" ]]; then
   echo "==> Drizzle push (align with lib/db/src/schema/)"
-  if DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/db run push; then
+  set +e
+  PUSH_LOG="$(mktemp)"
+  DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/db run push 2>&1 | tee "$PUSH_LOG"
+  PUSH_EXIT=${PIPESTATUS[0]}
+  set -e
+  if [[ "$PUSH_EXIT" -eq 0 ]] && ! grep -qE "Cannot find module|MODULE_NOT_FOUND" "$PUSH_LOG"; then
     echo "    drizzle push OK"
   else
     echo "    WARN: drizzle push failed — additive SQL above should still cover production; check logs"
   fi
+  rm -f "$PUSH_LOG"
 fi
 
 if [[ "${SKIP_DATA:-}" != "1" ]]; then

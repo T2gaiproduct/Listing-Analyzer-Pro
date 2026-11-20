@@ -2,6 +2,12 @@ import { pgTable, text, serial, integer, timestamp, jsonb } from "drizzle-orm/pg
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import type { ReferenceResearchData } from "./reference-research.js";
+import type { GeneratedContent } from "./generated-content";
+export {
+  generatedListingAttributeSchema,
+  generatedContentSchema,
+  type GeneratedContent,
+} from "./generated-content";
 
 export const scoreDetailSchema = z.object({
   score: z.number(),
@@ -25,19 +31,6 @@ export const auditResultSchema = z.object({
   summary: z.string(),
   /** Set from published listing_audit admin skill — controls Audit Results UI. */
   display: auditResultDisplaySchema.optional(),
-});
-
-export const generatedListingAttributeSchema = z.object({
-  attribute: z.string(),
-  value: z.string(),
-});
-
-export const generatedContentSchema = z.object({
-  title: z.string(),
-  bulletPoints: z.array(z.string()),
-  keywords: z.array(z.string()),
-  htmlDescription: z.string(),
-  attributes: z.array(generatedListingAttributeSchema).optional(),
 });
 
 export const generatedImagesSchema = z.object({
@@ -73,7 +66,6 @@ export const imageRecordSchema = z.object({
 export const imageRecordsSchema = z.array(imageRecordSchema);
 
 export type AuditResult = z.infer<typeof auditResultSchema>;
-export type GeneratedContent = z.infer<typeof generatedContentSchema>;
 export type GeneratedImages = z.infer<typeof generatedImagesSchema>;
 export type ImageVersion = z.infer<typeof imageVersionSchema>;
 export type ImageRecord = z.infer<typeof imageRecordSchema>;

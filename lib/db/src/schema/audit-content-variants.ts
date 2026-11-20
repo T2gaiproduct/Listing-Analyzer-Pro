@@ -1,6 +1,6 @@
 import { pgTable, serial, integer, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
-import { generatedContentSchema } from "./audits.js";
+import { generatedContentSchema } from "./generated-content";
 
 export const listingContentFieldKeySchema = z.enum([
   "title",
