@@ -158,11 +158,11 @@ router.post("/auth/login", async (req, res) => {
     .from(userProfilesTable)
     .where(eq(userProfilesTable.userId, cred.userId))
     .limit(1);
-  if (profile?.accountBanned) {
+  if (profile?.banned) {
     res.status(403).json({ error: "This account has been banned." });
     return;
   }
-  if (profile?.accountLocked) {
+  if (profile?.locked) {
     res.status(403).json({ error: "This account is suspended." });
     return;
   }
