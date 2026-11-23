@@ -49,7 +49,7 @@ export function workflowHasGeneratedScratchImages(opts: {
   }).length > 0;
 }
 
-/** Listing Preview + Export steps: AI copy and generated graphics only. */
+/** Optional gate when both AI copy and generated graphics are required (e.g. future flows). */
 export function scratchWorkflowReadyForPreviewExport(
   generatedContent: GeneratedContent | null,
   contentVariants: ContentVariantRow[],

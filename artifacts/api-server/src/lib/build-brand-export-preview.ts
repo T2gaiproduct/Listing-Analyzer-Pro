@@ -8,7 +8,7 @@ import {
   AMAZON_PRODUCT_DESCRIPTION_MAX,
   listingDescriptionVisibleLength,
 } from "./listing-description-sections.js";
-import { collectGeneratedProductImages, htmlForListingExport } from "./listing-export-shared.js";
+import { htmlForListingExport } from "./listing-export-shared.js";
 import { bulletsToHtmlDescription, resolveListingContentForExport } from "./resolve-listing-content.js";
 import { isBuildBrandScratchAudit } from "./scratch-listing-synthetic.js";
 
@@ -235,21 +235,15 @@ export function buildAuditExportPreview(opts: {
   const readinessScore = requiredChecks.filter((r) => r && r.status === "complete").length;
 
   const titleReady = Boolean(rows.find((r) => r.amazonField === "Product title" && r.value.trim()));
-  const mainImageReady = Boolean(
-    rows.find((r) => r.amazonField === "Main image URL" && r.status === "complete"),
-  );
   const scratch = isBuildBrandScratchAudit(opts.audit);
-  const hasGeneratedImages = collectGeneratedProductImages(opts.audit, opts.graphicsImageRecords).length > 0;
 
-  const canDownload = scratch
-    ? titleReady && mainImageReady && hasGeneratedImages
-    : titleReady;
+  const canDownload = titleReady;
 
   const scratchReadinessHint = !titleReady
     ? "Generate optimized listing copy on Optimize Listing — upload placeholders are not exported."
-    : !hasGeneratedImages || !mainImageReady
-      ? "Generate graphics on the Graphics step — only AI-generated images are exported."
-      : "Listing is ready to export.";
+    : readinessScore >= readinessMax
+      ? "Listing is ready to export."
+      : "You can download with AI listing copy; add generated or other images in the flat file when ready.";
 
   return {
     readinessScore,

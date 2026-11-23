@@ -136,10 +136,7 @@ import {
   isSyntheticScratchGeneratedContent,
   resolveGraphicsScratchUploadListingBaseline,
 } from "@/lib/graphics-scratch-listing-baseline";
-import {
-  scratchWorkflowReadyForPreviewExport,
-  workflowHasOptimizedScratchListing,
-} from "@/lib/scratch-workflow-readiness";
+import { workflowHasOptimizedScratchListing } from "@/lib/scratch-workflow-readiness";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -2456,30 +2453,9 @@ export default function AuditWorkflow() {
     ],
   );
 
-  const scratchPreviewExportImages = useMemo(
-    () => ({
-      imageRecords: auditData?.imageRecords ?? null,
-      generatedImages: auditData?.generatedImages,
-      graphicsProjectRecords:
-        (existingGraphicsProject as { imageRecords?: Array<{ type?: string; currentUrl?: string }> } | null | undefined)
-          ?.imageRecords ?? null,
-    }),
-    [auditData?.imageRecords, auditData?.generatedImages, existingGraphicsProject],
-  );
-
   const scratchHasOptimizedListing = useMemo(
     () => workflowHasOptimizedScratchListing(generatedContent, contentVariants, scratchListingIdentity),
     [generatedContent, contentVariants, scratchListingIdentity],
-  );
-
-  const scratchReadyForPreviewExport = useMemo(
-    () => scratchWorkflowReadyForPreviewExport(
-      generatedContent,
-      contentVariants,
-      scratchListingIdentity,
-      scratchPreviewExportImages,
-    ),
-    [generatedContent, contentVariants, scratchListingIdentity, scratchPreviewExportImages],
   );
 
   const stepCompleted = useMemo((): Record<StepId, boolean> => ({
@@ -2493,10 +2469,10 @@ export default function AuditWorkflow() {
       : generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
     5: aplusModules.length > 0 || aplusStatus === "completed",
     6: mergeGraphicsAplusSteps
-      ? scratchReadyForPreviewExport
+      ? scratchHasOptimizedListing
       : workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity),
     7: mergeGraphicsAplusSteps
-      ? scratchReadyForPreviewExport
+      ? scratchHasOptimizedListing
       : workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity),
   }), [
     activeStep,
@@ -2511,7 +2487,6 @@ export default function AuditWorkflow() {
     aplusStatus,
     mergeGraphicsAplusSteps,
     scratchHasOptimizedListing,
-    scratchReadyForPreviewExport,
   ]);
 
   const productExplorerSaveBlocker = useMemo((): string | null => {

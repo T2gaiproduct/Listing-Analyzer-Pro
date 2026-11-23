@@ -30,6 +30,7 @@ function run() {
     scratchWorkflowReadyForPreviewExport(aiListing, [], identity, { imageRecords: [] }),
     false,
   );
+  assert.equal(workflowHasOptimizedScratchListing(aiListing, [], identity), true);
   console.log("scratch-workflow-readiness.test.ts: ok");
 }
 
