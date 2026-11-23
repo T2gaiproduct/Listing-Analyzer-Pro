@@ -21,6 +21,7 @@ import {
 } from "@workspace/workspace-permissions";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -58,6 +59,7 @@ function buildPermissionMatrix(
 
 export default function RolesPage() {
   const { isAccountOwner, isLoading: wsLoading } = useWorkspace();
+  const { workspacesEnabled, isLoading: planLoading } = useWorkspacesPlan();
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -166,12 +168,16 @@ export default function RolesPage() {
     },
   });
 
-  if (wsLoading) {
+  if (wsLoading || planLoading) {
     return <div className="p-6 text-sm text-slate-500">Loading…</div>;
   }
 
   if (!isAccountOwner) {
     return <Redirect to="/dashboard" />;
+  }
+
+  if (!workspacesEnabled) {
+    return <Redirect to="/billing" />;
   }
 
   return (

@@ -63,7 +63,7 @@ export function buildProfileMenuItems(
     items.push({ icon: Users, label: "Team", href: "/team" });
   }
 
-  if (isAccountOwner) {
+  if (isAccountOwner && workspacesEnabled) {
     items.push({ icon: Shield, label: "Roles", href: "/roles" });
   }
 
