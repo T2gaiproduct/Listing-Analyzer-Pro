@@ -485,6 +485,9 @@ export default function AdminRoles() {
                           <div>
                             <p className="font-medium text-slate-800 text-sm">{u.clerkUser?.name ?? "—"}</p>
                             <p className="text-xs text-slate-400">{u.clerkUser?.email ?? u.userId}</p>
+                            {!u.clerkUser?.email && (
+                              <Badge variant="outline" className="text-[10px] mt-1 border-red-200 text-red-600">Account missing — safe to remove</Badge>
+                            )}
                           </div>
                         </div>
                       </TableCell>

@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { getRequestUserId, getRequestSessionEmail as getRequestSessionEmailFromReq } from "./request-auth.js";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, adminRolesTable, adminUsersTable, userProfilesTable, authCredentialsTable } from "@workspace/db";
 import { acceptAdminInviteForUser } from "./admin-invites.js";
 import { syncUserLoginEmail } from "./user-profile.js";
@@ -156,7 +156,7 @@ export async function loadAdminContext(userId: string, email?: string | null): P
     })
     .from(adminUsersTable)
     .innerJoin(adminRolesTable, eq(adminUsersTable.roleId, adminRolesTable.id))
-    .where(eq(adminUsersTable.userId, userId))
+    .where(and(eq(adminUsersTable.userId, userId), eq(adminUsersTable.isDeleted, 0)))
     .limit(1);
 
   if (!assignment) return null;
@@ -177,8 +177,10 @@ export async function isAdminUser(userId: string, email?: string | null): Promis
   const resolvedEmail = await resolveSessionEmail(userId, email ? { email } : null);
   await ensureDevClerkTestAdminAccess(userId, resolvedEmail ?? email);
   await acceptAdminInviteForUser(userId, resolvedEmail);
-  const [row] = await db.select({ id: adminUsersTable.id })
-    .from(adminUsersTable).where(eq(adminUsersTable.userId, userId));
+  const [row] = await db
+    .select({ id: adminUsersTable.id })
+    .from(adminUsersTable)
+    .where(and(eq(adminUsersTable.userId, userId), eq(adminUsersTable.isDeleted, 0)));
   return !!row;
 }
 

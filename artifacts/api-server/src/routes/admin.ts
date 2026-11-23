@@ -1408,7 +1408,10 @@ router.delete("/admin/roles/:id", requireAdmin, async (req, res): Promise<void> 
 
 router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
   try {
-  const users = await db.select().from(adminUsersTable);
+  const users = await db
+    .select()
+    .from(adminUsersTable)
+    .where(eq(adminUsersTable.isDeleted, 0));
 
   // Enrich with role name
   const roles = await db.select().from(adminRolesTable);
@@ -1416,14 +1419,7 @@ router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> =
 
   // Enrich with Clerk user data
   const enriched = await Promise.all(users.map(async (u) => {
-    let clerkUser: { email: string; name: string } | null = null;
-    try {
-      const cu = await clerkFetch(`/users/${u.userId}`) as Record<string, unknown>;
-      const emails = cu.email_addresses as Array<{ email_address: string }> | undefined;
-      const email = emails?.[0]?.email_address ?? "—";
-      const fullName = [cu.first_name as string, cu.last_name as string].filter(Boolean).join(" ") || email;
-      clerkUser = { email, name: fullName };
-    } catch {}
+    const clerkUser = await getClerkUserEmailAndName(u.userId, clerkFetch);
     return { ...u, role: roleMap[u.roleId] ?? null, clerkUser };
   }));
 
@@ -1525,7 +1521,7 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
     .from(adminUsersTable).where(eq(adminUsersTable.userId, targetUserId)).limit(1);
 
   const [u] = await db.insert(adminUsersTable).values({ userId: targetUserId, roleId })
-    .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId } })
+    .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId, isDeleted: 0 } })
     .returning();
 
   const emailResult = await notifyAdminRoleAssignment(req, {

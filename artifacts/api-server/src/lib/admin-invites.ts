@@ -90,7 +90,7 @@ export async function acceptAdminInviteForUser(userId: string, email?: string | 
 
     await db.insert(adminUsersTable)
       .values({ userId, roleId: invite.roleId })
-      .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId: invite.roleId } });
+      .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId: invite.roleId, isDeleted: 0 } });
 
     await db.update(adminInvitesTable)
       .set({ acceptedAt: new Date(), acceptedUserId: userId })
@@ -154,7 +154,7 @@ export async function acceptAdminInviteByToken(
 
   await db.insert(adminUsersTable)
     .values({ userId, roleId: invite.roleId })
-    .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId: invite.roleId } });
+    .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId: invite.roleId, isDeleted: 0 } });
 
   await db.update(adminInvitesTable)
     .set({ acceptedAt: new Date(), acceptedUserId: userId })

@@ -25,6 +25,8 @@ import {
   workspacesTable,
   workspaceMembersTable,
   amazonSellerConnectionsTable,
+  adminUsersTable,
+  adminInvitesTable,
 } from "@workspace/db";
 
 /**
@@ -33,7 +35,24 @@ import {
 export async function deleteCustomerUserFromDatabase(userId: string): Promise<void> {
   const now = new Date();
 
+  const [profile] = await db
+    .select({ loginEmail: userProfilesTable.loginEmail })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, userId))
+    .limit(1);
+  const [cred] = await db
+    .select({ email: authCredentialsTable.email })
+    .from(authCredentialsTable)
+    .where(eq(authCredentialsTable.userId, userId))
+    .limit(1);
+  const loginEmail = (cred?.email ?? profile?.loginEmail ?? "").trim().toLowerCase();
+
   await db.transaction(async (tx) => {
+    await tx.delete(adminUsersTable).where(eq(adminUsersTable.userId, userId));
+    await tx.delete(adminInvitesTable).where(eq(adminInvitesTable.acceptedUserId, userId));
+    if (loginEmail) {
+      await tx.delete(adminInvitesTable).where(eq(adminInvitesTable.email, loginEmail));
+    }
     await tx.delete(authSessionsTable).where(eq(authSessionsTable.userId, userId));
     await tx.delete(authEmailVerificationCodesTable).where(eq(authEmailVerificationCodesTable.userId, userId));
     await tx.delete(authPasswordResetCodesTable).where(eq(authPasswordResetCodesTable.userId, userId));
