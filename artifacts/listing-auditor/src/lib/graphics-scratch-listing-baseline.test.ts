@@ -41,6 +41,13 @@ function run() {
     ),
     false,
   );
+  assert.equal(
+    isSyntheticScratchGeneratedContent(
+      { title: "testing_product", bulletPoints: [], keywords: [], htmlDescription: "" },
+      { productName: "testing_product", brandName: "", category: "" },
+    ),
+    true,
+  );
   assert.equal(isSyntheticScratchListingBullet("Designed for everyday use"), true);
   assert.equal(isSyntheticScratchListingBullet("Organic aloe formula"), false);
   console.log("graphics-scratch-listing-baseline.test.ts: ok");

@@ -8,8 +8,9 @@ import {
   AMAZON_PRODUCT_DESCRIPTION_MAX,
   listingDescriptionVisibleLength,
 } from "./listing-description-sections.js";
-import { htmlForListingExport } from "./listing-export-shared.js";
+import { collectGeneratedProductImages, htmlForListingExport } from "./listing-export-shared.js";
 import { bulletsToHtmlDescription, resolveListingContentForExport } from "./resolve-listing-content.js";
+import { isBuildBrandScratchAudit } from "./scratch-listing-synthetic.js";
 
 export type ExportPreviewRowStatus = "complete" | "missing" | "optional";
 
@@ -233,14 +234,31 @@ export function buildAuditExportPreview(opts: {
   const readinessMax = requiredChecks.length;
   const readinessScore = requiredChecks.filter((r) => r && r.status === "complete").length;
 
-  const canDownload = Boolean(rows.find((r) => r.amazonField === "Product title" && r.value.trim()));
+  const titleReady = Boolean(rows.find((r) => r.amazonField === "Product title" && r.value.trim()));
+  const mainImageReady = Boolean(
+    rows.find((r) => r.amazonField === "Main image URL" && r.status === "complete"),
+  );
+  const scratch = isBuildBrandScratchAudit(opts.audit);
+  const hasGeneratedImages = collectGeneratedProductImages(opts.audit, opts.graphicsImageRecords).length > 0;
+
+  const canDownload = scratch
+    ? titleReady && mainImageReady && hasGeneratedImages
+    : titleReady;
+
+  const scratchReadinessHint = !titleReady
+    ? "Generate optimized listing copy on Optimize Listing — upload placeholders are not exported."
+    : !hasGeneratedImages || !mainImageReady
+      ? "Generate graphics on the Graphics step — only AI-generated images are exported."
+      : "Listing is ready to export.";
 
   return {
     readinessScore,
     readinessMax,
     readinessHint: readinessScore >= readinessMax
       ? "Listing is ready to export."
-      : "Complete required product details, generate content, and add a main image URL.",
+      : scratch
+        ? scratchReadinessHint
+        : "Complete required product details, generate content, and add a main image URL.",
     rows,
     canDownload,
   };

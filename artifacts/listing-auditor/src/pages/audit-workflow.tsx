@@ -136,6 +136,10 @@ import {
   isSyntheticScratchGeneratedContent,
   resolveGraphicsScratchUploadListingBaseline,
 } from "@/lib/graphics-scratch-listing-baseline";
+import {
+  scratchWorkflowReadyForPreviewExport,
+  workflowHasOptimizedScratchListing,
+} from "@/lib/scratch-workflow-readiness";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -2452,16 +2456,48 @@ export default function AuditWorkflow() {
     ],
   );
 
+  const scratchPreviewExportImages = useMemo(
+    () => ({
+      imageRecords: auditData?.imageRecords ?? null,
+      generatedImages: auditData?.generatedImages,
+      graphicsProjectRecords:
+        (existingGraphicsProject as { imageRecords?: Array<{ type?: string; currentUrl?: string }> } | null | undefined)
+          ?.imageRecords ?? null,
+    }),
+    [auditData?.imageRecords, auditData?.generatedImages, existingGraphicsProject],
+  );
+
+  const scratchHasOptimizedListing = useMemo(
+    () => workflowHasOptimizedScratchListing(generatedContent, contentVariants, scratchListingIdentity),
+    [generatedContent, contentVariants, scratchListingIdentity],
+  );
+
+  const scratchReadyForPreviewExport = useMemo(
+    () => scratchWorkflowReadyForPreviewExport(
+      generatedContent,
+      contentVariants,
+      scratchListingIdentity,
+      scratchPreviewExportImages,
+    ),
+    [generatedContent, contentVariants, scratchListingIdentity, scratchPreviewExportImages],
+  );
+
   const stepCompleted = useMemo((): Record<StepId, boolean> => ({
     1: activeStep > 1 || currentAuditId !== null,
     2: uploadedImages.length > 0 || currentAuditId !== null,
-    3: workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity),
+    3: mergeGraphicsAplusSteps
+      ? scratchHasOptimizedListing
+      : workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity),
     4: mergeGraphicsAplusSteps
       ? activeStep >= 6
       : generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
     5: aplusModules.length > 0 || aplusStatus === "completed",
-    6: workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity),
-    7: workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity),
+    6: mergeGraphicsAplusSteps
+      ? scratchReadyForPreviewExport
+      : workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity),
+    7: mergeGraphicsAplusSteps
+      ? scratchReadyForPreviewExport
+      : workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity),
   }), [
     activeStep,
     currentAuditId,
@@ -2474,17 +2510,31 @@ export default function AuditWorkflow() {
     aplusModules,
     aplusStatus,
     mergeGraphicsAplusSteps,
+    scratchHasOptimizedListing,
+    scratchReadyForPreviewExport,
   ]);
 
   const productExplorerSaveBlocker = useMemo((): string | null => {
     if (patchAudit.isPending) return "Saving your project…";
     if (!workflowUploadReady) return "Enter a product name and category on the Upload step first.";
     if (!currentAuditId) return "Saving your project…";
-    if (!workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity)) {
+    const listingReady = mergeGraphicsAplusSteps
+      ? scratchHasOptimizedListing
+      : workflowHasGeneratedListing(generatedContent, contentVariants, scratchListingIdentity);
+    if (!listingReady) {
       return "Go to the Listing step and generate optimized content for at least one marketplace.";
     }
     return null;
-  }, [currentAuditId, generatedContent, contentVariants, scratchListingIdentity, patchAudit.isPending, workflowUploadReady]);
+  }, [
+    currentAuditId,
+    generatedContent,
+    contentVariants,
+    scratchListingIdentity,
+    patchAudit.isPending,
+    workflowUploadReady,
+    mergeGraphicsAplusSteps,
+    scratchHasOptimizedListing,
+  ]);
 
   const canSaveToProductExplorer = productExplorerSaveBlocker === null;
 

@@ -84,7 +84,17 @@ export function isSyntheticScratchGeneratedContent(
     : true;
   const mostlyFillerKeywords = keywords.filter((k) => SYNTHETIC_KEYWORD_FILLER.has(k.toLowerCase())).length >= 6;
 
+  const titleLower = title.toLowerCase();
+  const bareProductTitle = productName && titleLower === productName.toLowerCase();
+  const bareBrandProductTitle = brandName && productName
+    && titleLower === `${brandName} ${productName}`.trim().toLowerCase();
+  const uploadOnlyTitle = (bareProductTitle || bareBrandProductTitle)
+    && bullets.length === 0
+    && !desc
+    && (keywords.length === 0 || mostlyFillerKeywords);
+
   if (bulletsAllSynthetic) return true;
+  if (uploadOnlyTitle) return true;
   if (titleSynthetic && bullets.length === 0 && !desc && (keywords.length === 0 || mostlyFillerKeywords)) {
     return true;
   }

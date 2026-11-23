@@ -1,6 +1,18 @@
 import type { Audit, GeneratedContent } from "@workspace/db";
 import { readGeneratedContent } from "./listing-export-shared.js";
+import {
+  isBuildBrandScratchAudit,
+  isSyntheticScratchGeneratedContent,
+  scratchListingIdentityFromAudit,
+} from "./scratch-listing-synthetic.js";
 import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
+
+const EMPTY_EXPORT_CONTENT: GeneratedContent = {
+  title: "",
+  bulletPoints: [],
+  keywords: [],
+  htmlDescription: "",
+};
 
 function escapeHtml(text: string): string {
   return text
@@ -18,9 +30,14 @@ export function bulletsToHtmlDescription(bullets: string[]): string {
 
 export function resolveListingContentForExport(audit: Audit): GeneratedContent {
   const generated = readGeneratedContent(audit);
+  const scratch = isBuildBrandScratchAudit(audit);
+  const scratchIdentity = scratch ? scratchListingIdentityFromAudit(audit) : null;
 
   // Match Build Your Brand / Product Explorer UI: optimized generatedContent wins over legacy audit columns.
   if (generated?.title?.trim()) {
+    if (scratch && isSyntheticScratchGeneratedContent(generated, scratchIdentity!)) {
+      return { ...EMPTY_EXPORT_CONTENT };
+    }
     const bulletPoints = (generated.bulletPoints ?? []).filter(
       (bullet) => typeof bullet === "string" && bullet.trim(),
     );
@@ -35,6 +52,10 @@ export function resolveListingContentForExport(audit: Audit): GeneratedContent {
       keywords,
       htmlDescription,
     };
+  }
+
+  if (scratch) {
+    return { ...EMPTY_EXPORT_CONTENT };
   }
 
   const title = audit.title?.trim()
