@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Ban, CheckCircle, Trash2, Eye, EyeOff, Users, PauseCircle, PlayCircle, AlertTriangle, KeyRound, RefreshCw } from "lucide-react";
+import { Search, Ban, CheckCircle, Trash2, Eye, EyeOff, Users, PauseCircle, PlayCircle, AlertTriangle, KeyRound, RefreshCw, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -129,10 +130,14 @@ export default function AdminCustomers() {
   const [resetSaving, setResetSaving] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteStep, setBulkDeleteStep] = useState(1);
 
   useEffect(() => {
     setOffset(0);
     setCustomers([]);
+    setSelectedIds(new Set());
   }, [query]);
 
   const { data, isLoading, isFetching } = useQuery({
@@ -164,7 +169,50 @@ export default function AdminCustomers() {
   const deleteMutation = useMutation({
     mutationFn: (userId: string) =>
       fetch(`${basePath}/api/admin/customers/${userId}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-customers"] }); toast({ title: "Customer deleted" }); },
+    onSuccess: (_data, userId) => {
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+      toast({ title: "Customer deleted" });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (userIds: string[]) => {
+      const failures: string[] = [];
+      for (const userId of userIds) {
+        const response = await fetch(`${basePath}/api/admin/customers/${userId}`, { method: "DELETE", credentials: "include" });
+        if (!response.ok) failures.push(userId);
+      }
+      if (failures.length) {
+        throw new Error(`Failed to delete ${failures.length} customer(s).`);
+      }
+      return userIds;
+    },
+    onSuccess: (userIds) => {
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of userIds) next.delete(id);
+        return next;
+      });
+      setBulkDeleteOpen(false);
+      setBulkDeleteStep(1);
+      toast({
+        title: userIds.length === 1 ? "Customer deleted" : `${userIds.length} customers deleted`,
+      });
+    },
+    onError: (error) => {
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      toast({
+        title: "Bulk delete failed",
+        description: error instanceof Error ? error.message : "Some customers could not be deleted.",
+        variant: "destructive",
+      });
+    },
   });
 
   const resetPasswordMutation = useMutation({
@@ -242,6 +290,46 @@ export default function AdminCustomers() {
 
   const cfg = pendingAction ? actionConfig(pendingAction.type) : null;
 
+  const selectedCount = selectedIds.size;
+  const selectedCustomers = customers.filter((c) => selectedIds.has(c.id));
+  const allVisibleSelected = customers.length > 0 && customers.every((c) => selectedIds.has(c.id));
+  const someVisibleSelected = customers.some((c) => selectedIds.has(c.id));
+
+  function toggleCustomerSelection(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible(checked: boolean) {
+    if (checked) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const c of customers) next.add(c.id);
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const c of customers) next.delete(c.id);
+        return next;
+      });
+    }
+  }
+
+  function openBulkDelete() {
+    if (selectedCount === 0) return;
+    setBulkDeleteStep(1);
+    setBulkDeleteOpen(true);
+  }
+
+  function confirmBulkDelete() {
+    bulkDeleteMutation.mutate([...selectedIds]);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -271,12 +359,54 @@ export default function AdminCustomers() {
         </CardContent>
       </Card>
 
+      {selectedCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-200 bg-orange-50/80 px-4 py-2.5">
+          <p className="text-sm font-medium text-orange-950">
+            {selectedCount} customer{selectedCount === 1 ? "" : "s"} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 border-orange-200 bg-white"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear selection
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="h-8"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={openBulkDelete}
+            >
+              {bulkDeleteMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Delete selected
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Card className="border-0 shadow-sm">
-        <ResponsiveTable minWidth="56rem">
+        <ResponsiveTable minWidth="58rem">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
+              <th className="w-10 px-3 py-3">
+                <Checkbox
+                  checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                  onCheckedChange={(v) => toggleSelectAllVisible(v === true)}
+                  aria-label="Select all customers on this page"
+                  disabled={isLoading || customers.length === 0}
+                />
+              </th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Customer ID</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Audits</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Joined</th>
@@ -289,7 +419,8 @@ export default function AdminCustomers() {
             {isLoading &&
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="border-b border-slate-50">
-                  <td className="px-6 py-4"><div className="h-10 w-48 bg-slate-100 rounded animate-pulse" /></td>
+                  <td className="px-3 py-4"><div className="h-4 w-4 bg-slate-100 rounded animate-pulse" /></td>
+                  <td className="px-4 py-4"><div className="h-10 w-48 bg-slate-100 rounded animate-pulse" /></td>
                   <td className="px-4 py-4"><div className="h-4 w-24 bg-slate-100 rounded animate-pulse" /></td>
                   <td className="px-4 py-4"><div className="h-4 w-8 bg-slate-100 rounded animate-pulse" /></td>
                   <td className="px-4 py-4"><div className="h-4 w-20 bg-slate-100 rounded animate-pulse" /></td>
@@ -299,8 +430,18 @@ export default function AdminCustomers() {
                 </tr>
               ))}
             {!isLoading && customers.map((c) => (
-              <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                <td className="px-6 py-4">
+              <tr
+                key={c.id}
+                className={`border-b border-slate-50 hover:bg-slate-50/50 ${selectedIds.has(c.id) ? "bg-orange-50/40" : ""}`}
+              >
+                <td className="px-3 py-4 align-middle">
+                  <Checkbox
+                    checked={selectedIds.has(c.id)}
+                    onCheckedChange={(v) => toggleCustomerSelection(c.id, v === true)}
+                    aria-label={`Select ${customerName(c)}`}
+                  />
+                </td>
+                <td className="px-4 py-4">
                   <div className="flex items-center gap-3">
                     {c.imageUrl ? (
                       <img src={c.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
@@ -361,7 +502,7 @@ export default function AdminCustomers() {
             ))}
             {!isLoading && customers.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-6 py-16 text-center">
+                <td colSpan={8} className="px-6 py-16 text-center">
                   <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-slate-400">No customers found</p>
                 </td>
@@ -382,6 +523,66 @@ export default function AdminCustomers() {
           </div>
         )}
       </Card>
+
+      {/* Bulk delete confirmation */}
+      {bulkDeleteOpen && (
+        <Dialog open onOpenChange={() => { setBulkDeleteOpen(false); setBulkDeleteStep(1); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader className="items-center text-center">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-2 ${bulkDeleteStep === 2 ? "bg-red-50" : "bg-amber-50"}`}>
+                <AlertTriangle className={`w-7 h-7 ${bulkDeleteStep === 2 ? "text-red-500" : "text-amber-500"}`} />
+              </div>
+              <DialogTitle>{bulkDeleteStep === 1 ? "Delete selected customers" : "Final confirmation"}</DialogTitle>
+              <DialogDescription className="text-center pt-1">
+                {bulkDeleteStep === 1 ? (
+                  <>
+                    You are about to permanently delete{" "}
+                    <span className="font-semibold text-slate-700">{selectedCount}</span>{" "}
+                    customer account{selectedCount === 1 ? "" : "s"}, including audits, credits, and billing history.
+                  </>
+                ) : (
+                  <>
+                    This cannot be undone. Delete{" "}
+                    <span className="font-semibold text-red-600">{selectedCount}</span> customer
+                    {selectedCount === 1 ? "" : "s"} now?
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            {bulkDeleteStep === 1 && selectedCustomers.length > 0 && (
+              <ul className="max-h-36 overflow-y-auto rounded-md border border-slate-200 bg-slate-50 text-left text-xs text-slate-600 px-3 py-2 space-y-1">
+                {selectedCustomers.slice(0, 12).map((c) => (
+                  <li key={c.id} className="truncate">{customerName(c)} · {c.email}</li>
+                ))}
+                {selectedCustomers.length > 12 && (
+                  <li className="text-slate-400">+{selectedCustomers.length - 12} more…</li>
+                )}
+              </ul>
+            )}
+            <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+              {bulkDeleteStep === 1 ? (
+                <>
+                  <Button variant="outline" className="flex-1" onClick={() => setBulkDeleteOpen(false)}>Cancel</Button>
+                  <Button className="flex-1 bg-amber-500 hover:bg-amber-600" onClick={() => setBulkDeleteStep(2)}>
+                    Continue
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" className="flex-1" onClick={() => setBulkDeleteStep(1)}>Go back</Button>
+                  <Button
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                    disabled={bulkDeleteMutation.isPending}
+                    onClick={confirmBulkDelete}
+                  >
+                    {bulkDeleteMutation.isPending ? "Deleting…" : "Permanently delete"}
+                  </Button>
+                </>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Double Confirmation Dialog */}
       {pendingAction && cfg && (
