@@ -17,6 +17,8 @@ export interface SiteBranding {
   supportEmail?: string;
   supportPhone?: string;
   companyAddress?: string;
+  /** Max settings updated_at for branding keys — cache-bust uploaded logos in footer/header. */
+  brandingUpdatedAt?: number;
 }
 
 export function getBasePath() {
@@ -41,6 +43,7 @@ export function defaultFaviconUrl() {
   return `${window.location.origin}${basePath}/logo.png`;
 }
 
+/** Absolute URL for a stored branding path (`/api/images/branding/...`) or relative asset. */
 export function resolveBrandingAsset(url: string | null | undefined, fallback: string) {
   const trimmed = url?.trim();
   if (!trimmed) return fallback;
@@ -48,7 +51,16 @@ export function resolveBrandingAsset(url: string | null | undefined, fallback: s
     return trimmed;
   }
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const basePath = getBasePath();
-  if (trimmed.startsWith("/")) return `${origin}${trimmed}`;
-  return `${origin}${basePath}/${trimmed}`;
+  const basePath = getBasePath().replace(/\/$/, "");
+  let path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  if (basePath && !path.startsWith(`${basePath}/`)) {
+    path = `${basePath}${path}`;
+  }
+  return `${origin}${path}`;
+}
+
+export function withBrandingCacheBust(url: string, brandingUpdatedAt?: number): string {
+  if (!brandingUpdatedAt || url.startsWith("data:")) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}v=${brandingUpdatedAt}`;
 }

@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Settings, Save, Upload, Trash2 } from "lucide-react";
 import { defaultFaviconUrl, defaultFooterLogoUrl, defaultLogoUrl, resolveBrandingAsset } from "@/lib/branding";
+import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -81,7 +82,14 @@ function BrandingUploadField({
         <p className="text-xs text-slate-500 mt-0.5">{description}</p>
       </div>
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+        <div
+          className={cn(
+            "w-28 h-16 rounded-xl border flex items-center justify-center overflow-hidden shrink-0 px-2",
+            label === "Footer Logo"
+              ? "border-slate-700 bg-[#0B0E11]"
+              : "border-slate-200 bg-slate-50",
+          )}
+        >
           <img src={previewUrl} alt="" className="max-w-full max-h-full object-contain" />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -162,7 +170,8 @@ export default function AdminSettingsPlatform() {
         <CardHeader>
           <CardTitle>Branding</CardTitle>
           <CardDescription>
-            Header logo is used in the nav, sign-in, app sidebar, PDF exports, and emails. Footer logo is used only on the marketing site footer (dark background). Leave empty to use bundled defaults.
+            Header logo is used in the nav, sign-in, app sidebar, PDF exports, and emails. Footer logo is shown in the public site footer via{" "}
+            <code className="text-xs bg-slate-100 px-1 rounded">PublicFooter</code> (landing, pricing, blog, etc.). Upload a light or full-color variant for the dark footer. Click <strong>Save Settings</strong> after changing images.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

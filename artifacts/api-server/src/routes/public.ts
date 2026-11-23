@@ -213,11 +213,15 @@ router.get("/company", async (_req, res): Promise<void> => {
 
 router.get("/branding", async (_req, res): Promise<void> => {
   const rows = await db
-    .select({ key: settingsTable.key, value: settingsTable.value })
+    .select({ key: settingsTable.key, value: settingsTable.value, updatedAt: settingsTable.updatedAt })
     .from(settingsTable)
     .where(inArray(settingsTable.key, [...PUBLIC_BRANDING_KEYS]));
 
   const map = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+  const brandingUpdatedAt = rows.reduce(
+    (max, row) => Math.max(max, row.updatedAt instanceof Date ? row.updatedAt.getTime() : 0),
+    0,
+  );
 
   let logoUrl = map.site_logo_url?.trim() || null;
   let footerLogoUrl = map.site_footer_logo_url?.trim() || null;
@@ -258,6 +262,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
     supportEmail: map.support_email?.trim() ?? "",
     supportPhone: map.support_phone?.trim() ?? "",
     companyAddress: map.company_address?.trim() ?? "",
+    brandingUpdatedAt: brandingUpdatedAt || undefined,
   });
 });
 

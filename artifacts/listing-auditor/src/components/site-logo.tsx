@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
+import { defaultFooterLogoUrl } from "@/lib/branding";
 
 type SiteLogoVariant = "public" | "app" | "footer";
 
@@ -17,7 +19,14 @@ export function SiteLogo({
   variant = "public",
 }: SiteLogoProps) {
   const { platformName, logoUrl, footerLogoUrl } = useBranding();
-  const src = variant === "footer" ? footerLogoUrl : logoUrl;
+  const [footerFallback, setFooterFallback] = useState(false);
+  const src = variant === "footer"
+    ? (footerFallback ? defaultFooterLogoUrl() : footerLogoUrl)
+    : logoUrl;
+
+  useEffect(() => {
+    setFooterFallback(false);
+  }, [footerLogoUrl]);
 
   const footerClass =
     "h-11 sm:h-12 md:h-14 w-auto max-w-[18rem] sm:max-w-[22rem] md:max-w-[26rem] object-contain object-left shrink-0";
@@ -30,6 +39,9 @@ export function SiteLogo({
         width={variant === "footer" ? 280 : 176}
         height={variant === "footer" ? 56 : 32}
         decoding="async"
+        onError={() => {
+          if (variant === "footer") setFooterFallback(true);
+        }}
         className={cn(
           variant === "footer" ? footerClass : imageClassName,
           variant === "app" && "max-w-[9rem]",

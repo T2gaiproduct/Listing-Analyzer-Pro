@@ -6,6 +6,7 @@ import {
   defaultLogoUrl,
   getBasePath,
   resolveBrandingAsset,
+  withBrandingCacheBust,
   type SiteBranding,
 } from "@/lib/branding";
 
@@ -17,13 +18,19 @@ export function useBranding() {
   });
 
   const platformName = data?.platformName?.trim() || DEFAULT_PLATFORM_NAME;
-  const logoUrl = resolveBrandingAsset(data?.logoUrl, defaultLogoUrl());
-  const footerLogoResolved = data?.footerLogoUrl?.trim()
+  const brandingUpdatedAt = data?.brandingUpdatedAt;
+  const logoRaw = resolveBrandingAsset(data?.logoUrl, defaultLogoUrl());
+  const logoUrl = withBrandingCacheBust(logoRaw, brandingUpdatedAt);
+  const footerLogoResolvedRaw = data?.footerLogoUrl?.trim()
     ? resolveBrandingAsset(data.footerLogoUrl, defaultFooterLogoUrl())
     : data?.logoUrl?.trim()
-      ? logoUrl
+      ? logoRaw
       : resolveBrandingAsset(null, defaultFooterLogoUrl());
-  const faviconUrl = resolveBrandingAsset(data?.faviconUrl, defaultFaviconUrl());
+  const footerLogoUrl = withBrandingCacheBust(footerLogoResolvedRaw, brandingUpdatedAt);
+  const faviconUrl = withBrandingCacheBust(
+    resolveBrandingAsset(data?.faviconUrl, defaultFaviconUrl()),
+    brandingUpdatedAt,
+  );
   const hasCustomLogo = Boolean(data?.logoUrl?.trim());
   const hasCustomFooterLogo = Boolean(data?.footerLogoUrl?.trim());
   const hasCustomFavicon = Boolean(data?.faviconUrl?.trim());
@@ -31,7 +38,7 @@ export function useBranding() {
   return {
     platformName,
     logoUrl,
-    footerLogoUrl: footerLogoResolved,
+    footerLogoUrl,
     faviconUrl,
     hasCustomLogo,
     hasCustomFooterLogo,
