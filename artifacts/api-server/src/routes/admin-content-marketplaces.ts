@@ -12,7 +12,7 @@ import {
   serializeContentMarketplaceAdmin,
 } from "../lib/content-marketplace-service.js";
 import {
-  deleteSkillForContentMarketplace,
+  permanentlyDeleteContentMarketplace,
   marketplaceContentSkillSlug,
   syncContentMarketplaceToSkill,
 } from "../lib/content-marketplace-skill-sync.js";
@@ -227,8 +227,7 @@ router.delete(
       return;
     }
 
-    await deleteSkillForContentMarketplace(id);
-    await db.delete(contentMarketplacesTable).where(eq(contentMarketplacesTable.id, id));
+    await permanentlyDeleteContentMarketplace(existing);
     res.json({ ok: true });
   },
 );

@@ -1,11 +1,12 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import {
   aiSkillsTable,
   contentMarketplacesTable,
   db,
   type ContentMarketplace,
 } from "@workspace/db";
-import { getContentMarketplaceById } from "./content-marketplace-service.js";
+import { dismissContentMarketplaceSlug } from "./content-marketplace-dismissed.js";
+import { getContentMarketplaceById, getContentMarketplaceBySlug } from "./content-marketplace-service.js";
 
 export const MARKETPLACE_SKILL_SLUG_PREFIX = "marketplace-content-";
 
@@ -146,7 +147,42 @@ export async function syncAllContentMarketplacesToSkills(): Promise<number> {
 }
 
 export async function deleteSkillForContentMarketplace(marketplaceId: number): Promise<void> {
+  const mp = await getContentMarketplaceById(marketplaceId);
+  const skillSlug = mp ? marketplaceContentSkillSlug(mp.slug) : null;
+  if (skillSlug) {
+    await db
+      .delete(aiSkillsTable)
+      .where(
+        or(
+          eq(aiSkillsTable.contentMarketplaceId, marketplaceId),
+          eq(aiSkillsTable.slug, skillSlug),
+        ),
+      );
+    return;
+  }
   await db.delete(aiSkillsTable).where(eq(aiSkillsTable.contentMarketplaceId, marketplaceId));
+}
+
+export async function resolveContentMarketplaceForAiSkill(
+  skill: typeof aiSkillsTable.$inferSelect,
+): Promise<ContentMarketplace | undefined> {
+  if (skill.contentMarketplaceId != null) {
+    return getContentMarketplaceById(skill.contentMarketplaceId);
+  }
+  if (isMarketplaceContentSkillSlug(skill.slug)) {
+    const mpSlug = skill.slug.slice(MARKETPLACE_SKILL_SLUG_PREFIX.length);
+    return getContentMarketplaceBySlug(mpSlug);
+  }
+  const mpSlug = skill.marketplaceSlug?.trim();
+  if (mpSlug) return getContentMarketplaceBySlug(mpSlug);
+  return undefined;
+}
+
+/** Remove marketplace row, linked skill rows, and block bundled seed re-creation. */
+export async function permanentlyDeleteContentMarketplace(marketplace: ContentMarketplace): Promise<void> {
+  await dismissContentMarketplaceSlug(marketplace.slug);
+  await deleteSkillForContentMarketplace(marketplace.id);
+  await db.delete(contentMarketplacesTable).where(eq(contentMarketplacesTable.id, marketplace.id));
 }
 
 /**

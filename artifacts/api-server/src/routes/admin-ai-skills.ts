@@ -2,7 +2,6 @@ import { Router, type IRouter } from "express";
 import { asc, eq } from "drizzle-orm";
 import {
   aiSkillsTable,
-  contentMarketplacesTable,
   db,
   imagePromptTemplatesTable,
   type AiSkillStatus,
@@ -16,11 +15,11 @@ import {
 } from "../lib/admin-skill-test.js";
 import {
   applySkillTextToContentMarketplace,
-  deleteSkillForContentMarketplace,
   isMarketplaceContentSkillSlug,
+  permanentlyDeleteContentMarketplace,
+  resolveContentMarketplaceForAiSkill,
   syncAllContentMarketplacesToSkills,
 } from "../lib/content-marketplace-skill-sync.js";
-import { getContentMarketplaceById } from "../lib/content-marketplace-service.js";
 import {
   applySkillTextToImagePromptTemplate,
   deleteSkillForImagePromptTemplate,
@@ -365,8 +364,12 @@ router.delete(
     }
 
     try {
-      if (existing.contentMarketplaceId != null) {
-        const mp = await getContentMarketplaceById(existing.contentMarketplaceId);
+      const marketplaceSkill =
+        existing.contentMarketplaceId != null ||
+        isMarketplaceContentSkillSlug(existing.slug) ||
+        Boolean(existing.marketplaceSlug?.trim());
+      if (marketplaceSkill) {
+        const mp = await resolveContentMarketplaceForAiSkill(existing);
         if (mp?.isDefault === 1) {
           res.status(400).json({
             error: "Cannot delete the default marketplace skill. Set another marketplace as default first.",
@@ -374,8 +377,7 @@ router.delete(
           return;
         }
         if (mp) {
-          await deleteSkillForContentMarketplace(mp.id);
-          await db.delete(contentMarketplacesTable).where(eq(contentMarketplacesTable.id, mp.id));
+          await permanentlyDeleteContentMarketplace(mp);
         } else {
           await db.delete(aiSkillsTable).where(eq(aiSkillsTable.id, existing.id));
         }

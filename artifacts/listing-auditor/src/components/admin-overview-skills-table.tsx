@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { AiSkillRecord } from "@/lib/admin-ai-skills-api";
-import { deleteAdminContentMarketplace } from "@/lib/content-marketplaces";
+import { deleteAdminAiSkill } from "@/lib/admin-ai-skills-api";
 import { deleteAdminImagePromptTemplate } from "@/lib/image-prompt-templates";
 import { skillTypeLabel } from "@/lib/admin-overview-skill-links";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,10 +33,10 @@ export function AdminOverviewSkillsTable({ skills }: { skills: AiSkillRecord[] }
   const sorted = [...skills].sort((a, b) => a.name.localeCompare(b.name));
 
   async function removeSkill(skill: AiSkillRecord) {
-    if (skill.contentMarketplaceId != null) {
+    if (skill.skillKind === "marketplace_content") {
       if (!window.confirm(`Delete marketplace skill “${skill.name}”?`)) return;
       try {
-        await deleteAdminContentMarketplace(skill.contentMarketplaceId);
+        await deleteAdminAiSkill(skill.slug);
         await queryClient.invalidateQueries({ queryKey: ["admin", "ai-skills"] });
         toast({ title: "Deleted" });
       } catch (e) {
@@ -57,7 +57,9 @@ export function AdminOverviewSkillsTable({ skills }: { skills: AiSkillRecord[] }
   }
 
   const canDelete = (skill: AiSkillRecord) =>
-    skill.contentMarketplaceId != null || skill.imagePromptTemplateId != null;
+    skill.skillKind === "marketplace_content" ||
+    skill.contentMarketplaceId != null ||
+    skill.imagePromptTemplateId != null;
 
   const connectHref = (skill: AiSkillRecord) => {
     if (skill.status === "draft") return `/admin/settings/ai/skills/${skill.slug}`;
