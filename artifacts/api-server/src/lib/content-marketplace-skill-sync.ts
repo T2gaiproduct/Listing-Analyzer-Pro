@@ -59,6 +59,21 @@ export async function findSkillByContentMarketplaceId(marketplaceId: number) {
   return row ?? null;
 }
 
+/** Linked skill row for a content marketplace (FK or marketplace-content-* slug). */
+export async function findSkillForContentMarketplace(
+  marketplace: Pick<ContentMarketplace, "id" | "slug">,
+) {
+  const byFk = await findSkillByContentMarketplaceId(marketplace.id);
+  if (byFk) return byFk;
+  const skillSlug = marketplaceContentSkillSlug(marketplace.slug);
+  const [bySlug] = await db
+    .select()
+    .from(aiSkillsTable)
+    .where(eq(aiSkillsTable.slug, skillSlug))
+    .limit(1);
+  return bySlug ?? null;
+}
+
 export type SyncContentMarketplaceToSkillOptions = {
   /** Rebuild instructions from marketplace row (Content Marketplaces admin saves). Default: do not clobber skill editor text. */
   refreshInstructions?: boolean;
@@ -220,16 +235,47 @@ export async function applySkillTextToContentMarketplace(
 export async function resolvePublishedMarketplaceSkillInstructions(
   marketplace: ContentMarketplace,
 ): Promise<string | null> {
-  const skill = await findSkillByContentMarketplaceId(marketplace.id);
+  const skill = await findSkillForContentMarketplace(marketplace);
   if (!skill || skill.status !== "published") return null;
   const body = extractGenerationInstructionsFromSkillText(skill.instructionsText);
   return body.length >= 20 ? body : null;
 }
 
+/** Optional per-category product_content skill for this sales channel (not the channel skill row). */
+export async function resolveCategoryMarketplaceContentAddon(
+  marketplace: ContentMarketplace,
+  productCategory: string | null | undefined,
+): Promise<string> {
+  const category = productCategory?.trim();
+  if (!category) return "";
+  const mpSlug = marketplace.slug.trim().toLowerCase();
+  const [skill] = await db
+    .select()
+    .from(aiSkillsTable)
+    .where(
+      and(
+        eq(aiSkillsTable.category, category),
+        eq(aiSkillsTable.skillType, "product_content"),
+        eq(aiSkillsTable.status, "published"),
+        eq(aiSkillsTable.marketplaceSlug, mpSlug),
+      ),
+    )
+    .limit(1);
+  if (!skill || skill.contentMarketplaceId != null) return "";
+  const addon = extractGenerationInstructionsFromSkillText(skill.instructionsText).trim();
+  return addon.length >= 20 ? addon : "";
+}
+
 export async function resolveContentMarketplaceAiInstructions(
   marketplace: ContentMarketplace,
+  productCategory?: string | null,
 ): Promise<string> {
   const fromSkill = await resolvePublishedMarketplaceSkillInstructions(marketplace);
-  if (fromSkill) return fromSkill;
-  return marketplace.aiInstructions;
+  const base =
+  fromSkill?.trim()
+    || marketplace.aiInstructions?.trim()
+    || "Follow standard e-commerce listing best practices for this channel.";
+  const categoryAddon = await resolveCategoryMarketplaceContentAddon(marketplace, productCategory);
+  if (!categoryAddon) return base;
+  return `${base}\n\n--- CATEGORY-SPECIFIC LISTING SKILL (${category}) ---\n${categoryAddon}`;
 }

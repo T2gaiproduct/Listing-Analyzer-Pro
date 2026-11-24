@@ -112,7 +112,10 @@ export async function generateListingContent(data: {
     contentMarketplaceSlug: data.contentMarketplaceSlug,
   });
 
-  const marketplaceInstructions = await resolveContentMarketplaceAiInstructions(marketplace);
+  const marketplaceInstructions = await resolveContentMarketplaceAiInstructions(
+    marketplace,
+    data.category,
+  );
   const rulesBlock = formatContentMarketplaceRulesForPrompt(marketplace.rules);
   const productBlock = buildProductContextBlock({ ...data, marketplaceName: marketplace.name });
 
