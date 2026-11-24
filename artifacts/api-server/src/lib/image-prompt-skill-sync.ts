@@ -280,6 +280,128 @@ async function resolveCategorySkillAddon(
   return addon.length >= 10 ? `\n\n${addon}` : "";
 }
 
+type AiSkillRow = typeof aiSkillsTable.$inferSelect;
+
+function normalizeTemplateSlugPart(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-");
+}
+
+/** Map standalone skills (e.g. "Heroshot") onto built-in module slugs when intended. */
+export function resolveImageTemplateSlugFromSkill(skill: Pick<AiSkillRow, "id" | "slug" | "name">): string {
+  const skillSlug = skill.slug.trim();
+  const prefix = skillSlug.match(/^image-prompt-(?:graphics|aplus)-(.+)$/);
+  if (prefix?.[1]) return normalizeTemplateSlugPart(prefix[1]);
+
+  const blob = `${skill.name} ${skillSlug}`.toLowerCase();
+  if (/\bhero\s*shot\b|\bheroshot\b|(^|\s)hero(\s|$)/.test(blob)) return "hero";
+
+  const derived = normalizeTemplateSlugPart(skillSlug) || normalizeTemplateSlugPart(skill.name);
+  if (derived) return derived.slice(0, 48);
+  return `skill-${skill.id}`;
+}
+
+/**
+ * Standalone Product images / A+ skills (no template link) are not shown in the graphics wizard.
+ * On publish, attach them to the matching image_prompt_templates row (creates one if needed).
+ */
+export async function ensureImagePromptTemplateLinkedForSkill(skill: AiSkillRow): Promise<AiSkillRow> {
+  if (skill.skillType !== "product_images" && skill.skillType !== "aplus_content") return skill;
+  if (skill.imagePromptTemplateId != null) return skill;
+
+  const templateCategory = imagePromptCategoryForSkillType(skill.skillType);
+  const templateSlug = resolveImageTemplateSlugFromSkill(skill);
+  const parsed = parseImagePromptSkillBody(skill.instructionsText);
+  let promptTemplate = parsed.promptTemplate.trim();
+  if (promptTemplate.length < 10) {
+    promptTemplate = extractGenerationInstructionsFromSkillText(skill.instructionsText).trim();
+  }
+  const minLen = templateCategory === "aplus" ? 20 : 10;
+  if (promptTemplate.length < minLen) {
+    throw new Error(
+      `Product ${templateCategory === "graphics" ? "graphics" : "A+"} skills need at least ${minLen} characters of image prompt text before publish.`,
+    );
+  }
+
+  const enabled = skill.status === "published" ? 1 : 0;
+  const now = new Date();
+  const displayName = skill.name.replace(/\s*·\s*Image prompt\s*$/i, "").trim() || skill.name;
+
+  let template = await getImagePromptTemplateBySlug(templateCategory, templateSlug);
+  if (template) {
+    await db
+      .update(imagePromptTemplatesTable)
+      .set({
+        promptTemplate,
+        headlineTemplate: templateCategory === "aplus" ? parsed.headlineTemplate : null,
+        bodyTemplate: templateCategory === "aplus" ? parsed.bodyTemplate : null,
+        enabled,
+        updatedAt: now,
+        ...(template.isSystem === 0 ? { name: displayName } : {}),
+      })
+      .where(eq(imagePromptTemplatesTable.id, template.id));
+    template = (await getImagePromptTemplateById(template.id))!;
+  } else {
+    const [inserted] = await db
+      .insert(imagePromptTemplatesTable)
+      .values({
+        slug: templateSlug,
+        category: templateCategory,
+        name: displayName,
+        description: null,
+        enabled,
+        isSystem: 0,
+        sortOrder: 500,
+        promptTemplate,
+        headlineTemplate: templateCategory === "aplus" ? parsed.headlineTemplate : null,
+        bodyTemplate: templateCategory === "aplus" ? parsed.bodyTemplate : null,
+        metadata: { icon: "✨", graphicsBucket: "lifestyle" },
+        updatedAt: now,
+      })
+      .returning();
+    template = inserted!;
+  }
+
+  const canonicalSkillSlug = imagePromptSkillSlug(template.category, template.slug);
+  const linkedSkill = await findSkillByImagePromptTemplateId(template.id);
+  if (linkedSkill && linkedSkill.id !== skill.id) {
+    await db
+      .update(aiSkillsTable)
+      .set({
+        instructionsText: skill.instructionsText,
+        status: skill.status,
+        updatedAt: now,
+      })
+      .where(eq(aiSkillsTable.id, linkedSkill.id));
+  }
+
+  const [slugOwner] = await db
+    .select({ id: aiSkillsTable.id })
+    .from(aiSkillsTable)
+    .where(eq(aiSkillsTable.slug, canonicalSkillSlug))
+    .limit(1);
+  const nextSlug =
+    !slugOwner || slugOwner.id === skill.id ? canonicalSkillSlug : skill.slug;
+
+  const [updated] = await db
+    .update(aiSkillsTable)
+    .set({
+      imagePromptTemplateId: template.id,
+      slug: nextSlug,
+      skillType: skillTypeForTemplate(template.category),
+      updatedAt: now,
+    })
+    .where(eq(aiSkillsTable.id, skill.id))
+    .returning();
+
+  await syncImagePromptTemplateToSkill(template, { refreshInstructions: false });
+  return updated ?? skill;
+}
+
 /** Optional published per-category product_images skill (custom skills, not templates). */
 export async function resolveCategoryImageSkillAddon(productCategory: string): Promise<string> {
   return resolveCategorySkillAddon(productCategory, "product_images");

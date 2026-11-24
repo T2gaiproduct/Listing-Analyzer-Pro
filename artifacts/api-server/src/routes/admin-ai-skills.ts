@@ -26,6 +26,7 @@ import {
   disableSystemImagePromptTemplate,
   imagePromptSkillSlug,
   isImagePromptSkillSlug,
+  ensureImagePromptTemplateLinkedForSkill,
   resolveImagePromptTemplateIdForSkillType,
   skillTypeForTemplate,
   syncAllImagePromptTemplatesToSkills,
@@ -247,7 +248,22 @@ router.post(
           updatedAt: now,
         })
         .returning();
-      res.status(201).json({ skill: serializeSkill(inserted!) });
+      let created = inserted!;
+      if (created.skillType === "product_images" || created.skillType === "aplus_content") {
+        if (created.imagePromptTemplateId == null) {
+          created = await ensureImagePromptTemplateLinkedForSkill(created);
+        }
+        if (created.imagePromptTemplateId != null) {
+          await applySkillTextToImagePromptTemplate(
+            created.imagePromptTemplateId,
+            created.instructionsText,
+            created.status as "draft" | "published",
+          );
+          const tpl = await getImagePromptTemplateById(created.imagePromptTemplateId);
+          if (tpl) await syncImagePromptTemplateToSkill(tpl);
+        }
+      }
+      res.status(201).json({ skill: serializeSkill(created) });
     } catch (err) {
       req.log?.error?.({ err }, "admin-ai-skills create failed");
       res.status(400).json({ error: formatAiSkillSaveError(err) });
@@ -295,6 +311,12 @@ router.patch(
         );
       }
       let skillRow = row;
+      if (
+        (skillRow.skillType === "product_images" || skillRow.skillType === "aplus_content")
+        && skillRow.imagePromptTemplateId == null
+      ) {
+        skillRow = await ensureImagePromptTemplateLinkedForSkill(skillRow);
+      }
       if (skillRow.imagePromptTemplateId != null) {
         const targetTemplateId = await resolveImagePromptTemplateIdForSkillType(
           skillRow.imagePromptTemplateId,

@@ -488,11 +488,14 @@ export default function AdminAiSkillEditorPage() {
         setInstructionsDirty(false);
         setUploadName(null);
         invalidateSkills();
+        await queryClient.invalidateQueries({ queryKey: ["image-prompt-templates"] });
         toast({
           title: nextStatus === "published" ? "Skill published" : "Draft saved",
           description: isMarketplaceSkill
             ? `${skill.name} is stored. Live listing generation uses this skill when status is Published.`
-            : `${skill.name} is stored on the server.`,
+            : skill.skillKind === "image_prompt" || skill.imagePromptTemplateId
+              ? `${skill.name} is live in the ${skillType === "aplus_content" ? "A+" : "Product graphics"} module picker when Published.`
+              : `${skill.name} is stored on the server.`,
         });
       } else {
         const { skill } = await createAdminAiSkill(payload);
@@ -774,6 +777,19 @@ export default function AdminAiSkillEditorPage() {
               <CardTitle className="text-base">Where this skill applies</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {(skillType === "product_images" || skillType === "aplus_content")
+                && !isImagePromptSkill
+                && !skillLoading && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-950">
+                  <p className="font-semibold">Custom image skill</p>
+                  <p className="mt-1">
+                    The Product graphics picker only lists linked image modules.{" "}
+                    <strong>Publish</strong> stores your prompt on the matching module (e.g. Hero Shot → slug{" "}
+                    <span className="font-mono">hero</span>) so it appears under{" "}
+                    {skillType === "product_images" ? "Product graphics" : "A+ Content"}.
+                  </p>
+                </div>
+              )}
               <div className="rounded-lg border border-orange-200/70 bg-orange-50/25 px-3 py-3 space-y-2">
                 <Label htmlFor="admin-skill-name" className="text-xs font-semibold text-orange-950">
                   Skill name
