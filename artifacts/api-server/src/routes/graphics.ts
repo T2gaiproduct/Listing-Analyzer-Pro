@@ -46,6 +46,11 @@ import {
   shouldCompositeUploadOnlyForGraphicsType,
 } from "../lib/graphics-reference-prompt.js";
 import {
+  isOpenAiInvalidImageDataError,
+  prepareImageForOpenAiEdit,
+} from "../lib/reference-image-normalize.js";
+import { graphicsProjectSourceDir } from "../lib/graphics-source-images.js";
+import {
   generatePreservedProductImage,
   type ImageCanvasSize,
 } from "../lib/product-preserve-graphics.js";
@@ -303,7 +308,31 @@ async function generateGraphicsImageBuffer(params: {
       imageType,
       REFERENCE_IMAGE_INSTRUCTION,
     );
-    return generateImageWithReferenceProxy(refPrompt, productPath, size);
+    let normalizedRef = productPath;
+    try {
+      normalizedRef = await prepareImageForOpenAiEdit(productPath);
+    } catch (prepErr) {
+      console.warn("[generateGraphicsImageBuffer] Could not normalize reference:", prepErr);
+    }
+    try {
+      return await generateImageWithReferenceProxy(refPrompt, normalizedRef, size);
+    } catch (err) {
+      if (isOpenAiInvalidImageDataError(err)) {
+        console.warn(
+          `[generateGraphicsImageBuffer] Reference edit failed for ${imageType}, using preserve composite:`,
+          err instanceof Error ? err.message : err,
+        );
+        return generatePreservedProductImage({
+          imageType,
+          sourceFilePath: productPath,
+          size,
+          prompt,
+          productLabel,
+          generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
+        });
+      }
+      throw err;
+    }
   }
 
   if (referencePaths.length > 1) {
@@ -420,6 +449,7 @@ async function generateGraphicsImages(
   customLifestylePrompt?: string,
   customFeaturePrompt?: string,
   productDescription?: string | null,
+  auditId?: number | null,
 ): Promise<GraphicsImageRecord[]> {
   const dir = ensureGraphicsImageDir(projectId);
   ensureDir(dir);
@@ -449,22 +479,11 @@ async function generateGraphicsImages(
 
   let generatedCount = startIndex ?? 0;
 
-  // Resolve source image path: download remote URLs to local file
-  let sourcePath: string | null = null;
-  const rawPath = sourceImagePaths?.[0] ?? null;
-  if (rawPath) {
-    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
-      const destPath = path.join(dir, "source_remote.jpg");
-      const downloaded = await downloadImage(rawPath, destPath);
-      if (downloaded) {
-        sourcePath = downloaded;
-        console.log(`[generateGraphicsImages] Downloaded source image from ${rawPath} to ${downloaded}`);
-      } else {
-        console.log(`[generateGraphicsImages] Failed to download source image from ${rawPath}`);
-      }
-    } else if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
-      sourcePath = rawPath;
-    }
+  const sourcePath = await resolveProjectSourcePath(projectId, sourceImagePaths, auditId);
+  if (sourcePath) {
+    console.log(`[generateGraphicsImages] Using source reference: ${sourcePath}`);
+  } else {
+    console.log("[generateGraphicsImages] No valid source product image path");
   }
 
   async function generateOne(spec: GraphicsSpec): Promise<void> {
@@ -541,6 +560,7 @@ async function generateNewImageTypes(
   typeConfigs?: Record<string, ImageTypeGenerationConfig>,
   legacy?: ImageTypeGenerationConfig,
   productDescription?: string | null,
+  auditId?: number | null,
 ): Promise<GraphicsImageRecord[]> {
   const dir = ensureGraphicsImageDir(projectId);
   ensureDir(dir);
@@ -612,6 +632,7 @@ async function generateNewImageTypes(
         projectId,
         sourceImagePaths,
         referencePaths,
+        auditId,
       );
       if (productPath) {
         console.log(
@@ -838,8 +859,9 @@ async function resolvePrimaryProductReferencePath(
   projectId: number,
   sourceImagePaths: string[] | null | undefined,
   promptReferencePaths: string[],
+  auditId?: number | null,
 ): Promise<string | null> {
-  const fromProject = await resolveProjectSourcePath(projectId, sourceImagePaths);
+  const fromProject = await resolveProjectSourcePath(projectId, sourceImagePaths, auditId);
   if (fromProject) return fromProject;
   for (const p of promptReferencePaths) {
     if (fs.existsSync(p) && fs.statSync(p).size >= MIN_FILE_SIZE) return p;
@@ -850,6 +872,7 @@ async function resolvePrimaryProductReferencePath(
 async function resolveProjectSourcePath(
   projectId: number,
   sourceImagePaths?: string[] | null,
+  auditId?: number | null,
 ): Promise<string | null> {
   const dir = ensureGraphicsImageDir(projectId);
   const rawPath = sourceImagePaths?.[0] ?? null;
@@ -858,6 +881,29 @@ async function resolveProjectSourcePath(
   if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
     const destPath = path.join(dir, "source_remote.jpg");
     return downloadImage(rawPath, destPath);
+  }
+
+  if (rawPath.includes("/api/images/")) {
+    const match = rawPath.match(/\/api\/images\/(\d+)\/([^/?#]+)/);
+    const resolvedAuditId = auditId ?? (match ? parseInt(match[1], 10) : NaN);
+    if (!Number.isNaN(resolvedAuditId)) {
+      const resolved = resolveAuditImagePath(resolvedAuditId, rawPath);
+      if (resolved && fs.existsSync(resolved) && fs.statSync(resolved).size >= MIN_FILE_SIZE) {
+        return resolved;
+      }
+    }
+  }
+
+  const sourceDir = graphicsProjectSourceDir(projectId);
+  const basename = path.basename(rawPath.split("?")[0] ?? rawPath);
+  for (const candidate of [
+    path.join(sourceDir, basename),
+    path.join(sourceDir, "source_0.jpg"),
+    path.join(sourceDir, "source_0.png"),
+  ]) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).size >= MIN_FILE_SIZE) {
+      return candidate;
+    }
   }
 
   if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
@@ -872,7 +918,7 @@ async function resolveRegenerateReferencePath(
   sourceImageUrls: string[] | null | undefined,
   existingRecord: GraphicsImageRecord,
 ): Promise<string | null> {
-  const fromProject = await resolveProjectSourcePath(projectId, sourceImageUrls);
+  const fromProject = await resolveProjectSourcePath(projectId, sourceImageUrls, undefined);
   if (fromProject) return fromProject;
 
   const url = existingRecord.currentUrl;
@@ -1272,6 +1318,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
           body.typeConfigs,
           legacyConfig,
           productDescription,
+          project.auditId,
         );
       } else {
         const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
@@ -1289,6 +1336,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
           body.customLifestylePrompt,
           body.customFeaturePrompt,
           productDescription,
+          project.auditId,
         );
       }
 
