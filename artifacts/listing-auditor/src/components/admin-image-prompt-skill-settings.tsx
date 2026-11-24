@@ -11,6 +11,16 @@ type Props = {
 
 export function AdminImagePromptSkillSettings({ value, onChange }: Props) {
   const help = value.category === "aplus" ? APLUS_PLACEHOLDER_HELP : GRAPHICS_PLACEHOLDER_HELP;
+  const appearsIn =
+    value.category === "graphics"
+      ? "Product graphics → Select Graphics (main product image types: Hero Shot, Lifestyle, …)"
+      : "A+ Content → module picker (Hero Banner, Feature Highlights, …)";
+  const siblingHint =
+    value.slug === "hero"
+      ? value.category === "graphics"
+        ? "There is a separate A+ skill “Hero Banner” (template_category: aplus). Editing this skill controls the white-background Hero Shot in Product graphics only."
+        : "There is a separate Product graphics skill “Hero Shot” (template_category: graphics). This A+ skill does not appear under Product graphics."
+      : null;
 
   return (
     <div className="space-y-4 rounded-lg border border-violet-200 bg-violet-50/40 p-4 shadow-sm">
@@ -20,6 +30,15 @@ export function AdminImagePromptSkillSettings({ value, onChange }: Props) {
           Global prompt for this type (all product categories). Category-specific reference uploads live under{" "}
           <strong>Studio references</strong> on the Skills page—not here.
         </p>
+        <p className="text-xs font-medium text-violet-950 mt-2 rounded-md border border-violet-300/80 bg-white/80 px-2.5 py-2">
+          <span className="font-semibold">Where sellers see this:</span> {appearsIn}. Status must be{" "}
+          <span className="font-semibold">Published (Live)</span> or the module is hidden.
+        </p>
+        {siblingHint ? (
+          <p className="text-[11px] text-amber-950 mt-2 rounded-md border border-amber-200 bg-amber-50/90 px-2.5 py-2">
+            {siblingHint}
+          </p>
+        ) : null}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

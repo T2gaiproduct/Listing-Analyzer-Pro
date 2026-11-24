@@ -45,6 +45,8 @@ type AdminSkillScopeFieldsProps = {
   marketplaces: ContentMarketplaceAdmin[];
   isMarketplaceSkill: boolean;
   isImagePromptSkill?: boolean;
+  /** graphics vs aplus — where the module appears in the product wizard */
+  imagePromptTemplateCategory?: "graphics" | "aplus" | null;
   imageSkillEditorMode?: boolean;
   skillTypeOptions?: AdminSkillType[];
   contentMarketplaceId?: number | null;
@@ -65,6 +67,7 @@ export function AdminSkillScopeFields({
   marketplaces,
   isMarketplaceSkill,
   isImagePromptSkill = false,
+  imagePromptTemplateCategory = null,
   imageSkillEditorMode = false,
   skillTypeOptions = [],
   contentMarketplaceId,
@@ -323,6 +326,13 @@ export function AdminSkillScopeFields({
               {typeMeta?.label ?? "Product content"}
               <span className="text-xs text-muted-foreground font-normal block mt-0.5">
                 Linked sales channel — type cannot be changed here.
+              </span>
+            </p>
+          ) : isImagePromptSkill && imagePromptTemplateCategory ? (
+            <p className="text-sm font-medium mt-1.5 rounded-md border border-violet-200 bg-violet-50/50 px-3 py-2">
+              {imagePromptTemplateCategory === "graphics" ? "Product images" : "A+ content"}
+              <span className="text-xs text-muted-foreground font-normal block mt-0.5">
+                Fixed by this image module ({imagePromptTemplateCategory === "graphics" ? "Product graphics tab" : "A+ Content tab"}).
               </span>
             </p>
           ) : (

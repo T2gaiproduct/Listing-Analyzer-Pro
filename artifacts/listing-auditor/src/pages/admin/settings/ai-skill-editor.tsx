@@ -292,7 +292,10 @@ export default function AdminAiSkillEditorPage() {
       return;
     }
     const tpl = imageTemplatesData?.templates.find((t) => t.id === tplId);
-    if (tpl) setImagePromptMeta({ ...tpl });
+    if (tpl) {
+      setImagePromptMeta({ ...tpl });
+      setSkillType(tpl.category === "aplus" ? "aplus_content" : "product_images");
+    }
   }, [skillData?.skill?.imagePromptTemplateId, imageTemplatesData?.templates]);
 
   const buildPayload = useCallback(
@@ -433,7 +436,15 @@ export default function AdminAiSkillEditorPage() {
 
       const catalogName = resolvePayloadSkillName();
       instructionsForSave = setSkillInstructionsNameLine(instructionsForSave, catalogName);
-      const payload = { ...buildPayload(nextStatus), instructionsText: instructionsForSave };
+      const linkedImageSkillType =
+        isImagePromptSkill && imagePromptMeta
+          ? (imagePromptMeta.category === "aplus" ? "aplus_content" : "product_images")
+          : skillType;
+      const payload = {
+        ...buildPayload(nextStatus),
+        skillType: linkedImageSkillType,
+        instructionsText: instructionsForSave,
+      };
       if (persistedKey) {
         const { skill } = await updateAdminAiSkill(persistedKey, payload);
         setStatus(skill.status);
@@ -770,6 +781,7 @@ export default function AdminAiSkillEditorPage() {
                 marketplaces={marketplaces}
                 isMarketplaceSkill={isMarketplaceSkill}
                 isImagePromptSkill={isImagePromptSkill}
+                imagePromptTemplateCategory={imagePromptMeta?.category ?? null}
                 imageSkillEditorMode={isImageSkillEditor}
                 skillTypeOptions={skillTypeRegistry}
                 contentMarketplaceId={skillData?.skill?.contentMarketplaceId}
