@@ -72,29 +72,69 @@ export type ParsedImagePromptSkillBody = {
   bodyTemplate: string | null;
 };
 
+const PROMPT_TEMPLATE_KEY = "prompt_template:";
+const HEADLINE_TEMPLATE_KEY = "headline_template:";
+const BODY_TEMPLATE_KEY = "body_template:";
+
+/** Multiline-safe: entire body or all lines after `prompt_template:` until the next template key. */
 export function parseImagePromptSkillBody(instructionsText: string): ParsedImagePromptSkillBody {
-  const body = extractGenerationInstructionsFromSkillText(instructionsText);
+  const body = extractGenerationInstructionsFromSkillText(instructionsText).trim();
+  if (!body) {
+    return { promptTemplate: "", headlineTemplate: null, bodyTemplate: null };
+  }
+
+  if (!body.includes(PROMPT_TEMPLATE_KEY)) {
+    return { promptTemplate: body, headlineTemplate: null, bodyTemplate: null };
+  }
+
+  type SectionKey = typeof PROMPT_TEMPLATE_KEY | typeof HEADLINE_TEMPLATE_KEY | typeof BODY_TEMPLATE_KEY;
+  const sections: { key: SectionKey; start: number; valueStart: number }[] = [];
+  for (const key of [PROMPT_TEMPLATE_KEY, HEADLINE_TEMPLATE_KEY, BODY_TEMPLATE_KEY] as const) {
+    const start = body.indexOf(key);
+    if (start >= 0) sections.push({ key, start, valueStart: start + key.length });
+  }
+  sections.sort((a, b) => a.start - b.start);
+
+  const sliceValue = (valueStart: number, nextSectionStart: number | undefined) =>
+    body.slice(valueStart, nextSectionStart ?? body.length).trim();
+
   let promptTemplate = "";
   let headlineTemplate: string | null = null;
   let bodyTemplate: string | null = null;
 
-  for (const rawLine of body.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    if (line.startsWith("prompt_template:")) {
-      promptTemplate = line.slice("prompt_template:".length).trim();
-    } else if (line.startsWith("headline_template:")) {
-      headlineTemplate = line.slice("headline_template:".length).trim() || null;
-    } else if (line.startsWith("body_template:")) {
-      bodyTemplate = line.slice("body_template:".length).trim() || null;
-    }
-  }
-
-  if (!promptTemplate && body && !body.includes("prompt_template:")) {
-    promptTemplate = body.trim();
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i]!;
+    const nextStart = sections[i + 1]?.start;
+    const value = sliceValue(section.valueStart, nextStart);
+    if (section.key === PROMPT_TEMPLATE_KEY) promptTemplate = value;
+    else if (section.key === HEADLINE_TEMPLATE_KEY) headlineTemplate = value || null;
+    else if (section.key === BODY_TEMPLATE_KEY) bodyTemplate = value || null;
   }
 
   return { promptTemplate, headlineTemplate, bodyTemplate };
+}
+
+/** Admin-uploaded skill files (multi-section markdown) should not get generic suffixes appended. */
+export function isSubstantialAdminImagePrompt(prompt: string): boolean {
+  const t = prompt.trim();
+  return (
+    t.length > 140
+    || t.includes("\n")
+    || /##\s+/.test(t)
+    || /^[\s-]*\d+\./m.test(t)
+  );
+}
+
+/** Prefer the fullest published prompt: skill file text vs synced template row. */
+export function resolveImagePromptTemplateText(
+  skillInstructionsText: string,
+  templatePrompt: string,
+): string {
+  const fromSkill = parseImagePromptSkillBody(skillInstructionsText).promptTemplate.trim();
+  const fromRow = templatePrompt.trim();
+  if (fromSkill.length === 0) return fromRow;
+  if (fromRow.length === 0) return fromSkill;
+  return fromSkill.length >= fromRow.length ? fromSkill : fromRow;
 }
 
 export async function findSkillByImagePromptTemplateId(templateId: number) {
@@ -254,8 +294,14 @@ export async function resolvePublishedImagePromptFields(
   const skill = await findSkillByImagePromptTemplateId(tpl.id);
   if (!skill || skill.status !== "published") return null;
   const parsed = parseImagePromptSkillBody(skill.instructionsText);
-  if (parsed.promptTemplate.length < (tpl.category === "aplus" ? 20 : 10)) return null;
-  return parsed;
+  const promptTemplate = resolveImagePromptTemplateText(skill.instructionsText, tpl.promptTemplate);
+  const minLen = tpl.category === "aplus" ? 20 : 10;
+  if (promptTemplate.length < minLen) return null;
+  return {
+    promptTemplate,
+    headlineTemplate: parsed.headlineTemplate ?? tpl.headlineTemplate,
+    bodyTemplate: parsed.bodyTemplate ?? tpl.bodyTemplate,
+  };
 }
 
 async function resolveCategorySkillAddon(

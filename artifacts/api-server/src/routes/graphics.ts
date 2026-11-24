@@ -40,6 +40,7 @@ import {
   buildGraphicsPromptForType,
   resolveGraphicsBucketForType,
 } from "../lib/image-prompt-template-service.js";
+import { isSubstantialAdminImagePrompt } from "../lib/image-prompt-skill-sync.js";
 import {
   generatePreservedProductImage,
   isProductPreserveGraphicsType,
@@ -272,6 +273,13 @@ async function loadAuditProductDescription(auditId: number | null | undefined): 
   return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
+function withDefaultGraphicsPhotoSuffix(prompt: string): string {
+  const t = prompt.trim();
+  if (!t) return "";
+  if (isSubstantialAdminImagePrompt(t)) return t;
+  return `${t} Professional commercial product photography. High-resolution.`;
+}
+
 async function buildNewImageSpecs(
   productName: string,
   category: string | null,
@@ -297,14 +305,12 @@ async function buildNewImageSpecs(
     const userExtra = config.customPrompt?.trim();
     const typePrompt = await buildGraphicsPromptForType(type, productDesc, category);
     if (typePrompt === null && !userExtra) continue;
-    const basePrompt = typePrompt?.trim()
-      ? `${typePrompt.trim()} Professional commercial product photography. High-resolution.`
-      : "";
+    const basePrompt = typePrompt?.trim() ? withDefaultGraphicsPhotoSuffix(typePrompt) : "";
     let prompt = basePrompt;
     if (userExtra) {
       prompt = basePrompt
         ? `${basePrompt} Additional creative direction: ${userExtra}`
-        : `${userExtra} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
+        : withDefaultGraphicsPhotoSuffix(`${userExtra} Product: ${productDesc}.`);
     }
     if (!prompt.trim()) continue;
     const prior = findGraphicsRecordForImageType(existing, type);
@@ -887,7 +893,8 @@ async function buildRegeneratePrompt(
     ? await buildGraphicsPromptForType("callouts", productDesc, category)
     : await buildGraphicsPromptForType("lifestyle", productDesc, category)) ?? "";
 
-  return `${base} Professional commercial product photography. High-resolution. ${styleSuffix}`;
+  const core = withDefaultGraphicsPhotoSuffix(base);
+  return `${core} ${styleSuffix}`.trim();
 }
 
 // ─── Create project ───────────────────────────────────────────────────────────

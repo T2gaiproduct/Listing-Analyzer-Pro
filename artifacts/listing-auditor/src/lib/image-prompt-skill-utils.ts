@@ -40,6 +40,10 @@ export function resolveImagePromptTemplateForSkillType(
   return catalog.find((t) => t.category === want && t.slug === current.slug) ?? null;
 }
 
+const PROMPT_TEMPLATE_KEY = "prompt_template:";
+const HEADLINE_TEMPLATE_KEY = "headline_template:";
+const BODY_TEMPLATE_KEY = "body_template:";
+
 export function parseImagePromptFieldsFromInstructions(instructionsText: string): {
   promptTemplate: string;
   headlineTemplate: string;
@@ -47,22 +51,35 @@ export function parseImagePromptFieldsFromInstructions(instructionsText: string)
 } {
   const marker = "\n---\n";
   const idx = instructionsText.indexOf(marker);
-  const body = idx >= 0 ? instructionsText.slice(idx + marker.length) : instructionsText;
+  const body = (idx >= 0 ? instructionsText.slice(idx + marker.length) : instructionsText).trim();
+  if (!body) {
+    return { promptTemplate: "", headlineTemplate: "", bodyTemplate: "" };
+  }
+
+  if (!body.includes(PROMPT_TEMPLATE_KEY)) {
+    return { promptTemplate: body, headlineTemplate: "", bodyTemplate: "" };
+  }
+
+  type SectionKey = typeof PROMPT_TEMPLATE_KEY | typeof HEADLINE_TEMPLATE_KEY | typeof BODY_TEMPLATE_KEY;
+  const sections: { key: SectionKey; start: number; valueStart: number }[] = [];
+  for (const key of [PROMPT_TEMPLATE_KEY, HEADLINE_TEMPLATE_KEY, BODY_TEMPLATE_KEY] as const) {
+    const start = body.indexOf(key);
+    if (start >= 0) sections.push({ key, start, valueStart: start + key.length });
+  }
+  sections.sort((a, b) => a.start - b.start);
+
   let promptTemplate = "";
   let headlineTemplate = "";
   let bodyTemplate = "";
-  for (const rawLine of body.split("\n")) {
-    const line = rawLine.trim();
-    if (line.startsWith("prompt_template:")) {
-      promptTemplate = line.slice("prompt_template:".length).trim();
-    } else if (line.startsWith("headline_template:")) {
-      headlineTemplate = line.slice("headline_template:".length).trim();
-    } else if (line.startsWith("body_template:")) {
-      bodyTemplate = line.slice("body_template:".length).trim();
-    }
+
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i]!;
+    const nextStart = sections[i + 1]?.start;
+    const value = body.slice(section.valueStart, nextStart ?? body.length).trim();
+    if (section.key === PROMPT_TEMPLATE_KEY) promptTemplate = value;
+    else if (section.key === HEADLINE_TEMPLATE_KEY) headlineTemplate = value;
+    else if (section.key === BODY_TEMPLATE_KEY) bodyTemplate = value;
   }
-  if (!promptTemplate && body.trim() && !body.includes("prompt_template:")) {
-    promptTemplate = body.trim();
-  }
+
   return { promptTemplate, headlineTemplate, bodyTemplate };
 }

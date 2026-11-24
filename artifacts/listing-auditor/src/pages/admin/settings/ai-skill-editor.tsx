@@ -464,10 +464,10 @@ export default function AdminAiSkillEditorPage() {
         };
         await saveAdminImagePromptTemplate(mergedTpl);
         setImagePromptMeta(mergedTpl);
-        instructionsForSave = instructionsText.includes("prompt_template:")
-          ? instructionsText
-          : buildImagePromptInstructionsFromTemplate(mergedTpl);
-        setInstructionsText(instructionsForSave);
+        instructionsForSave =
+          instructionsText.trim().length > 0
+            ? instructionsText
+            : buildImagePromptInstructionsFromTemplate(mergedTpl);
       }
 
       if (isMarketplaceSkill && marketplaceMeta) {
