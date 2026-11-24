@@ -129,9 +129,21 @@ export type ListingAuditSkillTestPayload = {
   };
 };
 
+export type MarketplaceContentSkillTestPayload = {
+  mode: "marketplace_content";
+  generated: {
+    title: string;
+    bulletPoints: string[];
+    keywords?: string[];
+    htmlDescription: string;
+  };
+  marketplace: { id: number; slug: string; name: string };
+};
+
 export type AdminSkillTestResponse =
   | { mode: "product_content"; output: SkillTestOutput }
-  | ListingAuditSkillTestPayload;
+  | ListingAuditSkillTestPayload
+  | MarketplaceContentSkillTestPayload;
 
 export async function runAdminAiSkillTest(params: {
   idOrSlug?: string;
@@ -140,6 +152,8 @@ export async function runAdminAiSkillTest(params: {
   aiModel: string;
   skillType: string;
   category?: string;
+  contentMarketplaceId?: number;
+  contentMarketplaceSlug?: string;
 }): Promise<AdminSkillTestResponse> {
   const url = params.idOrSlug
     ? `${basePath}/api/admin/ai-skills/${encodeURIComponent(params.idOrSlug)}/test`
@@ -153,6 +167,12 @@ export async function runAdminAiSkillTest(params: {
       aiModel: params.aiModel,
       skillType: params.skillType,
       category: params.category ?? "",
+      ...(params.contentMarketplaceId != null
+        ? { contentMarketplaceId: params.contentMarketplaceId }
+        : {}),
+      ...(params.contentMarketplaceSlug?.trim()
+        ? { contentMarketplaceSlug: params.contentMarketplaceSlug.trim() }
+        : {}),
     }),
   });
 }

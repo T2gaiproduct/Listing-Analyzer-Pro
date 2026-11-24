@@ -1,7 +1,9 @@
 /** Server-side skill test preview (mirrors listing-auditor admin-skill-editor). */
 
-import type { AuditResult } from "@workspace/db";
+import type { AuditResult, GeneratedContent } from "@workspace/db";
 import { analyzeListingWithAI } from "./analyzer.js";
+import { extractGenerationInstructionsFromSkillText } from "./content-marketplace-skill-sync.js";
+import { generateListingContent } from "./content-generator.js";
 import { parseListingAuditSkillInstructions } from "./listing-audit-skill.js";
 
 export type SkillTestOutput = {
@@ -173,6 +175,56 @@ export function listAdminSkillSampleProducts() {
 
 export function getAdminSkillSampleProduct(id?: string): AdminSkillSampleProduct {
   return SAMPLE_PRODUCTS.find((p) => p.id === id) ?? SAMPLE_PRODUCTS[0]!;
+}
+
+export type MarketplaceContentSkillTestOutput = {
+  mode: "marketplace_content";
+  generated: GeneratedContent;
+  marketplace: { id: number; slug: string; name: string };
+};
+
+/** Real AI listing generation using the same prompt path as Optimize Listing (with optional unsaved instructions). */
+export async function runAdminMarketplaceContentSkillTest(params: {
+  instructionsText: string;
+  sampleProductId?: string;
+  contentMarketplaceId?: number;
+  contentMarketplaceSlug?: string;
+  category?: string;
+}): Promise<MarketplaceContentSkillTestOutput> {
+  const product = getAdminSkillSampleProduct(params.sampleProductId);
+  const instructionsOverride = extractGenerationInstructionsFromSkillText(params.instructionsText);
+  if (instructionsOverride.length < 20) {
+    throw new Error(
+      "Skill instructions are too short. Add marketplace rules (title, bullets, description) after a --- line, or paste the full skill body.",
+    );
+  }
+  const generated = await generateListingContent(
+    {
+      productName: product.title.split(/\s+/).slice(0, 4).join(" ").trim() || "Sample product",
+      brandName: product.title.split(/\s+/)[0] ?? "Sample Brand",
+      category: params.category?.trim() || product.category,
+      productDescription: product.description,
+      imageUrls: product.imageUrls,
+      currentTitle: product.title,
+      currentBullets: product.bullets,
+      currentKeywords: product.targetKeywords,
+      contentMarketplaceId: params.contentMarketplaceId,
+      contentMarketplaceSlug: params.contentMarketplaceSlug,
+    },
+    { marketplaceInstructionsOverride: instructionsOverride },
+  );
+
+  const { resolveContentMarketplaceForGeneration } = await import("./content-marketplace-service.js");
+  const marketplace = await resolveContentMarketplaceForGeneration({
+    contentMarketplaceId: params.contentMarketplaceId,
+    contentMarketplaceSlug: params.contentMarketplaceSlug,
+  });
+
+  return {
+    mode: "marketplace_content",
+    generated,
+    marketplace: { id: marketplace.id, slug: marketplace.slug, name: marketplace.name },
+  };
 }
 
 export async function runAdminListingAuditSkillTest(params: {

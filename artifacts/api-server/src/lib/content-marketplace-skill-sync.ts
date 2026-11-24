@@ -232,13 +232,17 @@ export async function applySkillTextToContentMarketplace(
     .where(eq(contentMarketplacesTable.id, marketplaceId));
 }
 
+function marketplaceSkillInstructionBody(instructionsText: string): string | null {
+  const body = extractGenerationInstructionsFromSkillText(instructionsText).trim();
+  return body.length >= 20 ? body : null;
+}
+
 export async function resolvePublishedMarketplaceSkillInstructions(
   marketplace: ContentMarketplace,
 ): Promise<string | null> {
   const skill = await findSkillForContentMarketplace(marketplace);
   if (!skill || skill.status !== "published") return null;
-  const body = extractGenerationInstructionsFromSkillText(skill.instructionsText);
-  return body.length >= 20 ? body : null;
+  return marketplaceSkillInstructionBody(skill.instructionsText);
 }
 
 /** Optional per-category product_content skill for this sales channel (not the channel skill row). */
@@ -272,7 +276,7 @@ export async function resolveContentMarketplaceAiInstructions(
 ): Promise<string> {
   const fromSkill = await resolvePublishedMarketplaceSkillInstructions(marketplace);
   const base =
-  fromSkill?.trim()
+    fromSkill?.trim()
     || marketplace.aiInstructions?.trim()
     || "Follow standard e-commerce listing best practices for this channel.";
   const categoryAddon = await resolveCategoryMarketplaceContentAddon(marketplace, productCategory);

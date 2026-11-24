@@ -91,6 +91,11 @@ Target Keywords: ${data.currentKeywords.join(", ")}
 ${data.auditSummary ? `Audit Summary: ${data.auditSummary}` : ""}`;
 }
 
+export type GenerateListingContentOptions = {
+  /** Admin skill test: use textarea instructions instead of DB-resolved marketplace skill. */
+  marketplaceInstructionsOverride?: string | null;
+};
+
 export async function generateListingContent(data: {
   productName: string;
   asin?: string | null;
@@ -106,16 +111,17 @@ export async function generateListingContent(data: {
   uploadReferenceContext?: string;
   contentMarketplaceId?: number | null;
   contentMarketplaceSlug?: string | null;
-}): Promise<GeneratedContent> {
+}, options: GenerateListingContentOptions = {}): Promise<GeneratedContent> {
   const marketplace = await resolveContentMarketplaceForGeneration({
     contentMarketplaceId: data.contentMarketplaceId,
     contentMarketplaceSlug: data.contentMarketplaceSlug,
   });
 
-  const marketplaceInstructions = await resolveContentMarketplaceAiInstructions(
-    marketplace,
-    data.category,
-  );
+  const override = options.marketplaceInstructionsOverride?.trim();
+  const marketplaceInstructions =
+    override && override.length >= 20
+      ? override
+      : await resolveContentMarketplaceAiInstructions(marketplace, data.category);
   const rulesBlock = formatContentMarketplaceRulesForPrompt(marketplace.rules);
   const productBlock = buildProductContextBlock({ ...data, marketplaceName: marketplace.name });
 

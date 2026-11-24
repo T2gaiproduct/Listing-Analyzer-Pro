@@ -74,6 +74,7 @@ import {
   useAdminAiSkillSampleProducts,
   useInvalidateAdminAiSkills,
   type ListingAuditSkillTestPayload,
+  type MarketplaceContentSkillTestPayload,
   type SkillTestOutput,
 } from "@/lib/admin-ai-skills-api";
 import { AdminAuditSkillTestPreview } from "@/components/admin-audit-skill-test-preview";
@@ -105,6 +106,8 @@ export default function AdminAiSkillEditorPage() {
   const [aiModel, setAiModel] = useState<string>("");
   const [sampleProductId, setSampleProductId] = useState<string>(SAMPLE_PRODUCTS[0].id);
   const [testOutput, setTestOutput] = useState<SkillTestOutput | null>(null);
+  const [marketplaceTestPayload, setMarketplaceTestPayload] =
+    useState<MarketplaceContentSkillTestPayload | null>(null);
   const [auditTestPayload, setAuditTestPayload] = useState<ListingAuditSkillTestPayload | null>(null);
   const [testRunning, setTestRunning] = useState(false);
   const [uploadName, setUploadName] = useState<string | null>(null);
@@ -350,6 +353,7 @@ export default function AdminAiSkillEditorPage() {
     (next: SkillType) => {
       setSkillType(next);
       setTestOutput(null);
+      setMarketplaceTestPayload(null);
       setAuditTestPayload(null);
       const nextMode = skillTypeEditorMode(skillTypeRegistry, next);
       if (
@@ -365,6 +369,10 @@ export default function AdminAiSkillEditorPage() {
   const runTest = useCallback(async () => {
     setTestRunning(true);
     try {
+      const mpId =
+        marketplaceMeta?.id ?? skillData?.skill?.contentMarketplaceId ?? undefined;
+      const mpSlug =
+        marketplaceMeta?.slug ?? skillData?.skill?.marketplaceSlug ?? undefined;
       const response = await runAdminAiSkillTest({
         idOrSlug: persistedKey ?? undefined,
         instructionsText,
@@ -372,12 +380,20 @@ export default function AdminAiSkillEditorPage() {
         aiModel,
         skillType,
         category: category.trim() || previewCategory,
+        ...(isMarketplaceSkill && mpId != null ? { contentMarketplaceId: mpId } : {}),
+        ...(isMarketplaceSkill && mpSlug ? { contentMarketplaceSlug: mpSlug } : {}),
       });
       if (response.mode === "listing_audit") {
         setAuditTestPayload(response);
         setTestOutput(null);
+        setMarketplaceTestPayload(null);
+      } else if (response.mode === "marketplace_content") {
+        setMarketplaceTestPayload(response);
+        setTestOutput(null);
+        setAuditTestPayload(null);
       } else {
         setTestOutput(response.output);
+        setMarketplaceTestPayload(null);
         setAuditTestPayload(null);
       }
     } catch (e) {
@@ -389,7 +405,21 @@ export default function AdminAiSkillEditorPage() {
     } finally {
       setTestRunning(false);
     }
-  }, [aiModel, category, instructionsText, persistedKey, previewCategory, sampleProductId, skillType, toast]);
+  }, [
+    aiModel,
+    category,
+    instructionsText,
+    isMarketplaceSkill,
+    marketplaceMeta?.id,
+    marketplaceMeta?.slug,
+    persistedKey,
+    previewCategory,
+    sampleProductId,
+    skillData?.skill?.contentMarketplaceId,
+    skillData?.skill?.marketplaceSlug,
+    skillType,
+    toast,
+  ]);
 
   const persistSkill = async (nextStatus: "draft" | "published") => {
     setSaving(true);
@@ -938,10 +968,62 @@ export default function AdminAiSkillEditorPage() {
               </Select>
             </div>
 
-            {!testOutput && (
+            {testRunning && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {isMarketplaceSkill
+                  ? "Running AI listing generation with this marketplace skill…"
+                  : "Running test…"}
+              </div>
+            )}
+
+            {!testRunning && !testOutput && !marketplaceTestPayload && (
               <p className="text-sm text-muted-foreground py-12 text-center">
                 Run a test to preview title, bullets, and description using this skill.
               </p>
+            )}
+
+            {marketplaceTestPayload && (
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <Badge variant="secondary" className="text-xs">
+                  {marketplaceTestPayload.marketplace.name} · same prompt as Optimize Listing
+                </Badge>
+                <section>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+                    Title
+                  </p>
+                  <p className="text-sm font-medium leading-snug border rounded-lg bg-white px-3 py-2.5">
+                    {marketplaceTestPayload.generated.title}
+                  </p>
+                </section>
+                <section>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
+                    {marketplaceTestPayload.generated.bulletPoints.length} bullet points
+                  </p>
+                  <ul className="space-y-2 text-sm border rounded-lg bg-white px-3 py-2.5 list-disc pl-5">
+                    {marketplaceTestPayload.generated.bulletPoints.map((b) => (
+                      <li key={b.slice(0, 24)}>{b}</li>
+                    ))}
+                  </ul>
+                </section>
+                <section>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+                    Description (HTML)
+                  </p>
+                  <div
+                    className="text-sm leading-relaxed border rounded-lg bg-white px-3 py-2.5 prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{
+                      __html: marketplaceTestPayload.generated.htmlDescription,
+                    }}
+                  />
+                </section>
+                {marketplaceTestPayload.generated.keywords &&
+                  marketplaceTestPayload.generated.keywords.length > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Keywords: {marketplaceTestPayload.generated.keywords.join(", ")}
+                    </p>
+                  )}
+              </div>
             )}
 
             {testOutput && (

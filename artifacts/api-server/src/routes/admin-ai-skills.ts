@@ -11,6 +11,7 @@ import { requireAdmin, requireAdminPermission } from "../lib/admin-auth.js";
 import {
   listAdminSkillSampleProducts,
   runAdminListingAuditSkillTest,
+  runAdminMarketplaceContentSkillTest,
   runAdminSkillTest,
 } from "../lib/admin-skill-test.js";
 import {
@@ -361,6 +362,8 @@ async function handleAdminSkillTest(req: import("express").Request, res: import(
     aiModel?: string;
     skillType?: string;
     category?: string;
+    contentMarketplaceId?: number;
+    contentMarketplaceSlug?: string;
   };
   const instructionsText = typeof body.instructionsText === "string" ? body.instructionsText : "";
   if (!instructionsText.trim()) {
@@ -372,6 +375,37 @@ async function handleAdminSkillTest(req: import("express").Request, res: import(
   const aiModel = typeof body.aiModel === "string" ? body.aiModel : undefined;
   const skillType = typeof body.skillType === "string" ? body.skillType.trim() : "";
   const category = typeof body.category === "string" ? body.category : "";
+
+  const mpId =
+    typeof body.contentMarketplaceId === "number" && Number.isFinite(body.contentMarketplaceId)
+      ? body.contentMarketplaceId
+      : undefined;
+  const mpSlug =
+    typeof body.contentMarketplaceSlug === "string" ? body.contentMarketplaceSlug.trim() : "";
+  const isMarketplaceContentTest = mpId != null || mpSlug.length > 0;
+
+  if (isMarketplaceContentTest) {
+    try {
+      const result = await runAdminMarketplaceContentSkillTest({
+        instructionsText,
+        sampleProductId,
+        contentMarketplaceId: mpId,
+        contentMarketplaceSlug: mpSlug || undefined,
+        category,
+      });
+      res.json(result);
+      return;
+    } catch (err) {
+      req.log?.error?.({ err }, "admin marketplace content skill test failed");
+      res.status(400).json({
+        error:
+          err instanceof Error && err.message.length < 280
+            ? err.message
+            : "Marketplace content test failed. Check AI Settings, then try again.",
+      });
+      return;
+    }
+  }
 
   if (skillType === "listing_audit") {
     try {
