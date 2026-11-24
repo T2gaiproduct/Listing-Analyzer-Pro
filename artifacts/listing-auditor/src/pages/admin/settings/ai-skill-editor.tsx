@@ -793,7 +793,7 @@ export default function AdminAiSkillEditorPage() {
                   {skillEditorMode === "audit" || skillType === "listing_audit"
                     ? "Keys: title_weight, bullet_weight, image_weight, keyword_weight, show_title/show_bullets/show_images/show_keywords (yes/no), score_offset, score_floor, score_ceiling. Rubric text under # Generation instructions. Run audit test to preview seller results."
                     : isImageSkillEditor
-                      ? "One rule per line as key: value. Try changing aspect, images_per_run, or reference_lock and watch the test output."
+                      ? "Upload .md replaces the box below. Use --- then your full prompt, or prompt_template: on one line with the rest of the file under it. Publish syncs to Social/hero modules."
                       : skillEditorMode === "generic"
                         ? "One rule per line as key: value. This type is admin-configured; wire a product handler before it affects live Video/Ads flows."
                         : "Publish saves your file to the DB — listing generation uses only this skill text (not bundled Amazon seed). Add title_max: 75 above --- when you can."}
