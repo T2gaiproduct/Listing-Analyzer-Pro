@@ -35,12 +35,18 @@ export function buildMarketplaceSkillInstructionsText(mp: ContentMarketplace): s
   return `${headerLines.join("\n")}\n---\n${body}`;
 }
 
+function normalizeSkillInstructionText(instructionsText: string): string {
+  return instructionsText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
 /** Instructions injected into listing-generation prompts (published skill or marketplace row). */
 export function extractGenerationInstructionsFromSkillText(instructionsText: string): string {
+  const normalized = normalizeSkillInstructionText(instructionsText).trim();
   const marker = "\n---\n";
-  const idx = instructionsText.indexOf(marker);
-  if (idx >= 0) return instructionsText.slice(idx + marker.length).trim();
-  return instructionsText.trim();
+  const idx = normalized.indexOf(marker);
+  if (idx >= 0) return normalized.slice(idx + marker.length).trim();
+  if (normalized.startsWith("---\n")) return normalized.slice(4).trim();
+  return normalized;
 }
 
 export async function findSkillByContentMarketplaceId(marketplaceId: number) {

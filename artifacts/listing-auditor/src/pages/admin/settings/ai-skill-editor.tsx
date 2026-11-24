@@ -104,6 +104,8 @@ export default function AdminAiSkillEditorPage() {
   const [persistedKey, setPersistedKey] = useState<string | null>(isNew ? null : routeSkillId);
   const [saving, setSaving] = useState(false);
   const [hydratedFromServer, setHydratedFromServer] = useState(false);
+  const instructionsTouchedRef = useRef(false);
+  const [instructionsDirty, setInstructionsDirty] = useState(false);
   const [marketplaceMeta, setMarketplaceMeta] = useState<ContentMarketplaceAdmin | null>(null);
   const [imagePromptMeta, setImagePromptMeta] = useState<ImagePromptTemplateAdmin | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -140,7 +142,9 @@ export default function AdminAiSkillEditorPage() {
   useEffect(() => {
     const skill = skillData?.skill;
     if (!skill || hydratedFromServer) return;
-    setInstructionsText(skill.instructionsText || DEFAULT_SKILL_INSTRUCTIONS_TEXT);
+    if (!instructionsTouchedRef.current) {
+      setInstructionsText(skill.instructionsText || DEFAULT_SKILL_INSTRUCTIONS_TEXT);
+    }
     setSkillType(skill.skillType);
     const hydratedCategory = skill.category?.trim() ?? "";
     setCategory(
@@ -257,11 +261,19 @@ export default function AdminAiSkillEditorPage() {
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result ?? "");
+      instructionsTouchedRef.current = true;
+      setInstructionsDirty(true);
       setInstructionsText(text);
       setUploadName(file.name);
+      toast({
+        title: "Skill file loaded",
+        description: isMarketplaceSkill
+          ? "Text below was replaced. Publish skill (or Save draft) so Optimize Listing generation uses this file on each marketplace."
+          : "Text below was replaced. Publish skill (or Save draft) to store it on the server.",
+      });
     };
     reader.readAsText(file);
-  }, []);
+  }, [isMarketplaceSkill, toast]);
 
   const handleSkillTypeChange = useCallback(
     (next: SkillType) => {
@@ -353,15 +365,25 @@ export default function AdminAiSkillEditorPage() {
         const { skill } = await updateAdminAiSkill(persistedKey, payload);
         setStatus(skill.status);
         setPersistedKey(skill.slug);
+        setInstructionsText(skill.instructionsText);
+        instructionsTouchedRef.current = false;
+        setInstructionsDirty(false);
+        setUploadName(null);
         invalidateSkills();
         toast({
           title: nextStatus === "published" ? "Skill published" : "Draft saved",
-          description: `${skill.name} is stored on the server.`,
+          description: isMarketplaceSkill
+            ? `${skill.name} is stored. Live listing generation uses this skill when status is Published.`
+            : `${skill.name} is stored on the server.`,
         });
       } else {
         const { skill } = await createAdminAiSkill(payload);
         setStatus(skill.status);
         setPersistedKey(skill.slug);
+        setInstructionsText(skill.instructionsText);
+        instructionsTouchedRef.current = false;
+        setInstructionsDirty(false);
+        setUploadName(null);
         invalidateSkills();
         navigate(`/admin/settings/ai/skills/${skill.slug}`);
         toast({
@@ -569,10 +591,20 @@ export default function AdminAiSkillEditorPage() {
                 <Label className="text-xs text-muted-foreground">Skill instructions (editable)</Label>
                 <Textarea
                   value={instructionsText}
-                  onChange={(e) => setInstructionsText(e.target.value)}
+                  onChange={(e) => {
+                    instructionsTouchedRef.current = true;
+                    setInstructionsDirty(true);
+                    setInstructionsText(e.target.value);
+                  }}
                   className="mt-1.5 font-mono text-xs min-h-[220px] bg-slate-50"
                   spellCheck={false}
                 />
+                {instructionsDirty && uploadName && (
+                  <p className="text-[11px] text-amber-800 mt-2 rounded-md border border-amber-200 bg-amber-50/90 px-2.5 py-1.5">
+                    Unsaved changes from <span className="font-mono">{uploadName}</span>. Publish skill or Save draft
+                    before generating marketplace content in Build Your Brand.
+                  </p>
+                )}
                 {isAuditSkillEditor
                   && /title_max\s*:/i.test(instructionsText)
                   && !/title_weight\s*:/i.test(instructionsText) && (
