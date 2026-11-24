@@ -50,7 +50,11 @@ import {
   isOpenAiInvalidImageDataError,
   prepareImageForOpenAiEdit,
 } from "../lib/reference-image-normalize.js";
-import { graphicsProjectSourceDir } from "../lib/graphics-source-images.js";
+import {
+  ensureGraphicsProjectSourcesFromAudit,
+  graphicsProjectSourceDir,
+  resolvePrimaryGraphicsProductReference,
+} from "../lib/graphics-source-images.js";
 import {
   generatePreservedProductImage,
   type ImageCanvasSize,
@@ -354,7 +358,9 @@ async function generateGraphicsImageBuffer(params: {
     return generateImageWithReferenceProxy(refPrompt, referencePaths[0]!, size, imageOpts);
   }
 
-  return generateImageBuffer(prompt, size, imageOpts);
+  throw new Error(
+    "No product reference image found. Upload product photos on this project (or import listing images), then regenerate.",
+  );
 }
 
 function withDefaultGraphicsPhotoSuffix(prompt: string): string {
@@ -637,6 +643,10 @@ async function generateNewImageTypes(
         console.log(
           `[generateNewImageTypes] Upload reference for ${spec.id} (${spec.imageType}): ${productPath}`,
         );
+      } else {
+        console.warn(
+          `[generateNewImageTypes] No product reference for ${spec.id} (${spec.imageType}) — generation will fail`,
+        );
       }
       const refPathsForApi = productPath ? [] : referencePaths;
       buffer = await generateGraphicsImageBuffer({
@@ -861,7 +871,12 @@ async function resolvePrimaryProductReferencePath(
   promptReferencePaths: string[],
   auditId?: number | null,
 ): Promise<string | null> {
-  const fromProject = await resolveProjectSourcePath(projectId, sourceImagePaths, auditId);
+  const hydrated = await ensureGraphicsProjectSourcesFromAudit(projectId, auditId, sourceImagePaths);
+  const urls = hydrated ?? sourceImagePaths ?? [];
+  const fromProject = await resolvePrimaryGraphicsProductReference(projectId, urls, {
+    auditId,
+    extraPaths: promptReferencePaths,
+  });
   if (fromProject) return fromProject;
   for (const p of promptReferencePaths) {
     if (fs.existsSync(p) && fs.statSync(p).size >= MIN_FILE_SIZE) return p;
@@ -874,43 +889,7 @@ async function resolveProjectSourcePath(
   sourceImagePaths?: string[] | null,
   auditId?: number | null,
 ): Promise<string | null> {
-  const dir = ensureGraphicsImageDir(projectId);
-  const rawPath = sourceImagePaths?.[0] ?? null;
-  if (!rawPath) return null;
-
-  if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
-    const destPath = path.join(dir, "source_remote.jpg");
-    return downloadImage(rawPath, destPath);
-  }
-
-  if (rawPath.includes("/api/images/")) {
-    const match = rawPath.match(/\/api\/images\/(\d+)\/([^/?#]+)/);
-    const resolvedAuditId = auditId ?? (match ? parseInt(match[1], 10) : NaN);
-    if (!Number.isNaN(resolvedAuditId)) {
-      const resolved = resolveAuditImagePath(resolvedAuditId, rawPath);
-      if (resolved && fs.existsSync(resolved) && fs.statSync(resolved).size >= MIN_FILE_SIZE) {
-        return resolved;
-      }
-    }
-  }
-
-  const sourceDir = graphicsProjectSourceDir(projectId);
-  const basename = path.basename(rawPath.split("?")[0] ?? rawPath);
-  for (const candidate of [
-    path.join(sourceDir, basename),
-    path.join(sourceDir, "source_0.jpg"),
-    path.join(sourceDir, "source_0.png"),
-  ]) {
-    if (fs.existsSync(candidate) && fs.statSync(candidate).size >= MIN_FILE_SIZE) {
-      return candidate;
-    }
-  }
-
-  if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
-    return rawPath;
-  }
-
-  return null;
+  return resolvePrimaryProductReferencePath(projectId, sourceImagePaths ?? [], [], auditId);
 }
 
 async function resolveRegenerateReferencePath(
@@ -1305,6 +1284,18 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
       const existingRecords = existingRecordsAtStart;
       const existingCount = existingCountAtStart;
       const productDescription = await loadAuditProductDescription(project.auditId);
+      const syncedSources = await ensureGraphicsProjectSourcesFromAudit(
+        id,
+        project.auditId,
+        project.sourceImageUrls,
+      );
+      const sourceUrlsForGeneration = syncedSources ?? project.sourceImageUrls;
+      if (syncedSources?.length && syncedSources !== project.sourceImageUrls) {
+        await db
+          .update(graphicsProjectsTable)
+          .set({ sourceImageUrls: syncedSources, updatedAt: new Date() })
+          .where(eq(graphicsProjectsTable.id, id));
+      }
       let newRecords: GraphicsImageRecord[];
       if (isNewFlow && body.imageTypes) {
         newRecords = await generateNewImageTypes(
@@ -1312,7 +1303,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
           project.productName,
           project.category,
           body.imageTypes,
-          project.sourceImageUrls,
+          sourceUrlsForGeneration,
           existingRecords,
           existingCount,
           body.typeConfigs,
@@ -1329,7 +1320,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
           project.category,
           lifestyleCount,
           featureCount,
-          project.sourceImageUrls,
+          sourceUrlsForGeneration,
           legacyConfig.aspectRatio ?? "1:1",
           existingRecords,
           existingCount,
@@ -1508,7 +1499,19 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
     const dir = ensureGraphicsImageDir(id);
     const prompt = await buildRegeneratePrompt(existingRecord, project.productName, project.category, regenStyle);
     const size = ASPECT_SIZES[regenAspectRatio as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
-    const sourcePath = await resolveRegenerateReferencePath(id, project.sourceImageUrls, existingRecord);
+    const filename = versionedFilename(existingRecord.type, existingRecord.index);
+    const filePath = path.join(dir, filename);
+    const syncedSources = await ensureGraphicsProjectSourcesFromAudit(
+      id,
+      project.auditId,
+      project.sourceImageUrls,
+    );
+    const sourcePath = await resolvePrimaryProductReferencePath(
+      id,
+      syncedSources ?? project.sourceImageUrls,
+      [],
+      project.auditId,
+    );
     const sourceFileIsValid = sourcePath !== null;
 
     const buffer = await generateGraphicsImageBuffer({
@@ -1521,9 +1524,6 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
       productLabel: project.productName,
     });
     if (!buffer || buffer.length === 0) throw new Error("No image data returned");
-
-    const filename = versionedFilename(existingRecord.type, existingRecord.index);
-    const filePath = path.join(dir, filename);
     const imgUrl = urlPath(id, filename);
     fs.writeFileSync(filePath, buffer);
 

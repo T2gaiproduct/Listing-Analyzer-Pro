@@ -1,6 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveAuditImagePath, graphicsImageDir, GRAPHICS_IMAGES_DIR } from "./image-storage.js";
+import {
+  resolveAuditImagePath,
+  resolveGraphicsImagePath,
+  graphicsImageDir,
+  GRAPHICS_IMAGES_DIR,
+} from "./image-storage.js";
+import { eq } from "drizzle-orm";
+import { auditsTable, db } from "@workspace/db";
 
 const MIN_FILE_SIZE = 1024;
 
@@ -32,14 +39,151 @@ async function downloadImage(url: string, destPath: string): Promise<string | nu
   }
 }
 
+function parseGraphicsImageApiPath(raw: string): { projectId: number; filename: string } | null {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/\/api\/images\/graphics\/(\d+)\/([^/?#]+)/i);
+  if (!match) return null;
+  const projectId = parseInt(match[1], 10);
+  const filename = path.basename(decodeURIComponent(match[2] ?? ""));
+  if (Number.isNaN(projectId) || !filename) return null;
+  return { projectId, filename };
+}
+
 function parseAuditImageApiPath(raw: string): { auditId: number; filename: string } | null {
   const trimmed = raw.trim();
+  if (trimmed.includes("/api/images/graphics/")) return null;
   const match = trimmed.match(/\/api\/images\/(\d+)\/([^/?#]+)/);
   if (!match) return null;
   const auditId = parseInt(match[1], 10);
   const filename = path.basename(match[2]);
   if (Number.isNaN(auditId) || !filename) return null;
   return { auditId, filename };
+}
+
+function isValidImageFile(filePath: string): boolean {
+  return fs.existsSync(filePath) && fs.statSync(filePath).size >= MIN_FILE_SIZE;
+}
+
+function firstValidSourceInDir(sourceDir: string): string | null {
+  if (!fs.existsSync(sourceDir)) return null;
+  const names = fs.readdirSync(sourceDir).filter((n) => /^source_\d+\./i.test(n)).sort();
+  for (const name of names) {
+    const full = path.join(sourceDir, name);
+    if (isValidImageFile(full)) return full;
+  }
+  for (const name of fs.readdirSync(sourceDir).sort()) {
+    const full = path.join(sourceDir, name);
+    if (isValidImageFile(full)) return full;
+  }
+  return null;
+}
+
+/** Resolve one stored URL/path to a local product file for graphics generation. */
+export function resolveGraphicsProjectSourceFile(
+  projectId: number,
+  rawPath: string,
+  auditId?: number | null,
+): string | null {
+  const raw = rawPath?.trim();
+  if (!raw) return null;
+
+  if (raw.startsWith("data:image/")) {
+    const projectDir = path.join(GRAPHICS_IMAGES_DIR, String(projectId), "source");
+    const ext = raw.startsWith("data:image/png") ? "png" : "jpg";
+    return saveBase64Image(raw, projectDir, `_resolve_tmp.${ext}`);
+  }
+
+  const graphicsApi = parseGraphicsImageApiPath(raw);
+  if (graphicsApi) {
+    const fromGraphics = resolveGraphicsImagePath(graphicsApi.projectId, raw);
+    if (fromGraphics && isValidImageFile(fromGraphics)) return fromGraphics;
+  }
+
+  const auditApi = parseAuditImageApiPath(raw);
+  if (auditApi) {
+    const resolvedAuditId = auditId ?? auditApi.auditId;
+    const fromAudit = resolveAuditImagePath(resolvedAuditId, raw);
+    if (fromAudit && isValidImageFile(fromAudit)) return fromAudit;
+  }
+
+  const sourceDir = graphicsProjectSourceDir(projectId);
+  const basename = path.basename(decodeURIComponent((raw.split("?")[0] ?? raw)));
+  for (const candidate of [
+    path.join(sourceDir, basename),
+    path.join(sourceDir, "source_0.jpg"),
+    path.join(sourceDir, "source_0.png"),
+    raw,
+  ]) {
+    if (isValidImageFile(candidate)) return candidate;
+  }
+
+  return null;
+}
+
+/** First resolvable product file from project sources, disk, or linked audit URLs. */
+export async function resolvePrimaryGraphicsProductReference(
+  projectId: number,
+  sourceImagePaths: string[] | null | undefined,
+  options?: { auditId?: number | null; extraPaths?: string[] },
+): Promise<string | null> {
+  const auditId = options?.auditId ?? null;
+  const tryList = [
+    ...(sourceImagePaths ?? []),
+    ...(options?.extraPaths ?? []),
+  ].filter(Boolean);
+
+  for (const raw of tryList) {
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      const projectDir = path.join(GRAPHICS_IMAGES_DIR, String(projectId), "source");
+      ensureDir(projectDir);
+      const dest = path.join(projectDir, `remote_${tryList.indexOf(raw)}.jpg`);
+      const downloaded = await downloadImage(raw, dest);
+      if (downloaded) return downloaded;
+      continue;
+    }
+    const resolved = resolveGraphicsProjectSourceFile(projectId, raw, auditId);
+    if (resolved) return resolved;
+  }
+
+  const fromDisk = firstValidSourceInDir(graphicsProjectSourceDir(projectId));
+  if (fromDisk) return fromDisk;
+
+  if (auditId) {
+    const [audit] = await db
+      .select({ imageUrls: auditsTable.imageUrls })
+      .from(auditsTable)
+      .where(eq(auditsTable.id, auditId))
+      .limit(1);
+    for (const url of audit?.imageUrls ?? []) {
+      if (!url?.trim()) continue;
+      const resolved = resolveGraphicsProjectSourceFile(projectId, url, auditId);
+      if (resolved) return resolved;
+    }
+  }
+
+  return null;
+}
+
+/** Copy audit listing images into the project source folder when uploads were never persisted. */
+export async function ensureGraphicsProjectSourcesFromAudit(
+  projectId: number,
+  auditId: number | null | undefined,
+  currentSourceUrls: string[] | null | undefined,
+): Promise<string[] | null> {
+  const existing = await resolvePrimaryGraphicsProductReference(projectId, currentSourceUrls, { auditId });
+  if (existing) return currentSourceUrls ?? null;
+  if (!auditId) return currentSourceUrls ?? null;
+
+  const [audit] = await db
+    .select({ imageUrls: auditsTable.imageUrls })
+    .from(auditsTable)
+    .where(eq(auditsTable.id, auditId))
+    .limit(1);
+  const urls = (audit?.imageUrls ?? []).filter((u) => u?.trim());
+  if (urls.length === 0) return currentSourceUrls ?? null;
+
+  const saved = await persistGraphicsProjectSourceImages(projectId, urls, { auditId });
+  return saved.length > 0 ? saved : currentSourceUrls ?? null;
 }
 
 function copyFileIfValid(src: string, dest: string): string | null {
@@ -73,6 +217,17 @@ export async function persistGraphicsProjectSourceImages(
       const ext = raw.startsWith("data:image/png") ? "png" : "jpg";
       const saved = saveBase64Image(raw, projectDir, `source_${idx}.${ext}`);
       if (saved) savedPaths.push(saved);
+      continue;
+    }
+
+    const graphicsApi = parseGraphicsImageApiPath(raw);
+    if (graphicsApi) {
+      const resolved = resolveGraphicsImagePath(graphicsApi.projectId, raw);
+      if (resolved) {
+        const ext = path.extname(resolved) || ".jpg";
+        const copied = copyFileIfValid(resolved, path.join(projectDir, `source_${idx}${ext}`));
+        if (copied) savedPaths.push(copied);
+      }
       continue;
     }
 
