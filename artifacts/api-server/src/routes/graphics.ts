@@ -42,8 +42,11 @@ import {
 } from "../lib/image-prompt-template-service.js";
 import { isSubstantialAdminImagePrompt } from "../lib/image-prompt-skill-sync.js";
 import {
+  buildGraphicsReferenceGenerationPrompt,
+  shouldCompositeUploadOnlyForGraphicsType,
+} from "../lib/graphics-reference-prompt.js";
+import {
   generatePreservedProductImage,
-  isProductPreserveGraphicsType,
   type ImageCanvasSize,
 } from "../lib/product-preserve-graphics.js";
 import * as fs from "fs";
@@ -273,6 +276,56 @@ async function loadAuditProductDescription(auditId: number | null | undefined): 
   return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
+async function generateGraphicsImageBuffer(params: {
+  productPath: string | null;
+  referencePaths: string[];
+  imageType?: string;
+  prompt: string;
+  size: ImageCanvasSize;
+  filePath: string;
+  productLabel?: string;
+}): Promise<Buffer> {
+  const { productPath, referencePaths, imageType, prompt, size, filePath, productLabel } = params;
+
+  if (productPath) {
+    if (shouldCompositeUploadOnlyForGraphicsType(imageType)) {
+      return generatePreservedProductImage({
+        imageType,
+        sourceFilePath: productPath,
+        size,
+        prompt,
+        productLabel,
+        generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
+      });
+    }
+    const refPrompt = buildGraphicsReferenceGenerationPrompt(
+      prompt,
+      imageType,
+      REFERENCE_IMAGE_INSTRUCTION,
+    );
+    return generateImageWithReferenceProxy(refPrompt, productPath, size);
+  }
+
+  if (referencePaths.length > 1) {
+    const refPrompt = buildGraphicsReferenceGenerationPrompt(
+      prompt,
+      imageType,
+      REFERENCE_IMAGE_INSTRUCTION,
+    );
+    return editImagesProxy(referencePaths, refPrompt, filePath);
+  }
+  if (referencePaths.length === 1) {
+    const refPrompt = buildGraphicsReferenceGenerationPrompt(
+      prompt,
+      imageType,
+      REFERENCE_IMAGE_INSTRUCTION,
+    );
+    return generateImageWithReferenceProxy(refPrompt, referencePaths[0]!, size);
+  }
+
+  return generateImageBuffer(prompt, size);
+}
+
 function withDefaultGraphicsPhotoSuffix(prompt: string): string {
   const t = prompt.trim();
   if (!t) return "";
@@ -425,19 +478,17 @@ async function generateGraphicsImages(
       let buffer: Buffer;
       const sourceFileIsValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
       if (sourceFileIsValid) {
-        console.log(`[generateGraphicsImages] Product-preserve pipeline for ${spec.id}: ${sourcePath}`);
-        buffer = await generatePreservedProductImage({
-          imageType: spec.imageType,
-          sourceFilePath: sourcePath!,
-          size: size as ImageCanvasSize,
-          prompt: spec.prompt,
-          productLabel: productName,
-          generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
-        });
-      } else {
-        console.log(`[generateGraphicsImages] No valid source image, generating without reference for ${spec.id}`);
-        buffer = await generateImageBuffer(spec.prompt, size);
+        console.log(`[generateGraphicsImages] Upload reference for ${spec.id}: ${sourcePath}`);
       }
+      buffer = await generateGraphicsImageBuffer({
+        productPath: sourceFileIsValid ? sourcePath : null,
+        referencePaths: [],
+        imageType: spec.imageType,
+        prompt: spec.prompt,
+        size: size as ImageCanvasSize,
+        filePath,
+        productLabel: productName,
+      });
       if (!buffer || buffer.length === 0) throw new Error("No image data returned");
       fs.writeFileSync(filePath, buffer);
 
@@ -562,31 +613,23 @@ async function generateNewImageTypes(
         sourceImagePaths,
         referencePaths,
       );
-      if (productPath && isProductPreserveGraphicsType(spec.imageType)) {
+      if (productPath) {
         console.log(
-          `[generateNewImageTypes] Product-preserve for ${spec.id} (${spec.imageType}): ${productPath}`,
+          `[generateNewImageTypes] Upload reference for ${spec.id} (${spec.imageType}): ${productPath}`,
         );
-        buffer = await generatePreservedProductImage({
-          imageType: spec.imageType,
-          sourceFilePath: productPath,
-          size: size as ImageCanvasSize,
-          prompt,
-          productLabel: productName,
-          generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
-        });
-        fs.writeFileSync(filePath, buffer);
-      } else if (referencePaths.length > 1) {
-        const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
-        console.log(`[generateNewImageTypes] Using ${referencePaths.length} reference images for ${spec.id} (${spec.imageType})`);
-        buffer = await editImagesProxy(referencePaths, referencePrompt, filePath);
-      } else if (referencePaths.length === 1) {
-        const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
-        console.log(`[generateNewImageTypes] Using reference image for ${spec.id} (${spec.imageType}): ${referencePaths[0]}`);
-        buffer = await generateImageWithReferenceProxy(referencePrompt, referencePaths[0]!, size);
-        fs.writeFileSync(filePath, buffer);
-      } else {
-        console.log(`[generateNewImageTypes] No valid source image, generating without reference for ${spec.id} (${spec.imageType})`);
-        buffer = await generateImageBuffer(prompt, size);
+      }
+      const refPathsForApi = productPath ? [] : referencePaths;
+      buffer = await generateGraphicsImageBuffer({
+        productPath,
+        referencePaths: refPathsForApi,
+        imageType: spec.imageType,
+        prompt,
+        size: size as ImageCanvasSize,
+        filePath,
+        productLabel: productName,
+      });
+      const wroteViaMultiEdit = !productPath && refPathsForApi.length > 1;
+      if (!wroteViaMultiEdit) {
         fs.writeFileSync(filePath, buffer);
       }
 
@@ -1420,22 +1463,15 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
     const sourcePath = await resolveRegenerateReferencePath(id, project.sourceImageUrls, existingRecord);
     const sourceFileIsValid = sourcePath !== null;
 
-    let buffer: Buffer;
-    if (sourceFileIsValid && isProductPreserveGraphicsType(existingRecord.imageType)) {
-      buffer = await generatePreservedProductImage({
-        imageType: existingRecord.imageType,
-        sourceFilePath: sourcePath!,
-        size: size as ImageCanvasSize,
-        prompt,
-        productLabel: project.productName,
-        generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
-      });
-    } else if (sourceFileIsValid) {
-      const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
-      buffer = await generateImageWithReferenceProxy(referencePrompt, sourcePath!, size);
-    } else {
-      buffer = await generateImageBuffer(prompt, size);
-    }
+    const buffer = await generateGraphicsImageBuffer({
+      productPath: sourceFileIsValid ? sourcePath : null,
+      referencePaths: [],
+      imageType: existingRecord.imageType,
+      prompt,
+      size: size as ImageCanvasSize,
+      filePath,
+      productLabel: project.productName,
+    });
     if (!buffer || buffer.length === 0) throw new Error("No image data returned");
 
     const filename = versionedFilename(existingRecord.type, existingRecord.index);
