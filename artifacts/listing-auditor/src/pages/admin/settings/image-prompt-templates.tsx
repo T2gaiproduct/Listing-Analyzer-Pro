@@ -109,10 +109,10 @@ export default function AdminSettingsImagePromptTemplates() {
       toast({ title: "Name required", description: "Enter a display name for this template.", variant: "destructive" });
       return;
     }
-    if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    if (!slug || !/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/.test(slug)) {
       toast({
         title: "Invalid slug",
-        description: "Use lowercase letters, numbers, and hyphens (e.g. my-gallery-shot).",
+        description: "Use lowercase letters, numbers, hyphens, or underscores (e.g. brand_story).",
         variant: "destructive",
       });
       return;

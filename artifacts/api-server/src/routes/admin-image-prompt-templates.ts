@@ -21,10 +21,13 @@ import {
 
 const router: IRouter = Router();
 
+/** Lowercase slug id: hyphens (new templates) and underscores (legacy/system seeds) allowed. */
+const IMAGE_PROMPT_SLUG_RE = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
+
 function parseSlug(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const slug = raw.trim().toLowerCase();
-  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+  if (!slug || !IMAGE_PROMPT_SLUG_RE.test(slug)) return null;
   return slug;
 }
 
@@ -35,7 +38,7 @@ function deriveSlugFromName(name: string): string | null {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-+/g, "-");
-  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+  if (!slug || !IMAGE_PROMPT_SLUG_RE.test(slug)) return null;
   return slug;
 }
 
@@ -209,15 +212,18 @@ router.patch(
     }
     const data = parsed.data;
 
+    const slugForUpdate = existing.isSystem === 1 ? existing.slug : data.slug;
     if (existing.isSystem === 1 && data.slug !== existing.slug) {
-      res.status(400).json({ error: "System template slug cannot be changed" });
-      return;
+      req.log?.warn?.(
+        { templateId: id, requestedSlug: data.slug, keptSlug: existing.slug },
+        "ignored system image prompt slug change",
+      );
     }
 
     const [updated] = await db
       .update(imagePromptTemplatesTable)
       .set({
-        slug: data.slug,
+        slug: slugForUpdate,
         category: data.category,
         name: data.name,
         description: data.description,
