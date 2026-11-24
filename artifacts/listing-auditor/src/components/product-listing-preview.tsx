@@ -522,13 +522,20 @@ export function ProductListingPreview({
       >
         <div
           className={cn(
-            "grid grid-cols-1 gap-4 items-start px-4 pt-4 pb-2 lg:gap-6 lg:px-5 lg:pt-5 lg:pb-3",
+            "grid grid-cols-1 gap-4 items-start px-4 pt-4 pb-2 lg:gap-6 lg:px-5 lg:pt-5",
+            htmlDescription ? "lg:pb-0" : "lg:pb-3",
             "lg:grid-cols-[auto_minmax(0,min(36rem,42vw))_minmax(0,1fr)]",
             "xl:grid-cols-[auto_minmax(0,min(40rem,38vw))_minmax(0,1fr)]",
+            htmlDescription
+              && "lg:[grid-template-areas:'thumbs_image_copy'_'description_description_description']",
           )}
         >
           {/* Side thumbnails — scroll only (matches Overview) */}
-          <div className="flex flex-col items-center order-2 lg:order-1 shrink-0 w-full lg:w-auto">
+          <div className={cn(
+            "flex flex-col items-center order-2 lg:order-1 shrink-0 w-full lg:w-auto",
+            htmlDescription && "lg:[grid-area:thumbs]",
+          )}
+          >
             <div
               className={cn(
                 "flex lg:flex-col gap-2 w-full overflow-x-auto pb-1 lg:pb-0",
@@ -572,7 +579,11 @@ export function ProductListingPreview({
           </div>
 
           {/* Main image */}
-          <div className="order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] lg:justify-self-stretch rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden">
+          <div className={cn(
+            "order-1 lg:order-2 relative aspect-square max-h-[min(420px,70vw)] w-full max-w-md mx-auto lg:mx-0 lg:max-w-full lg:max-h-[min(560px,48vh)] xl:max-h-[min(640px,52vh)] lg:justify-self-stretch rounded-lg border border-slate-100 bg-white flex items-center justify-center overflow-hidden",
+            htmlDescription && "lg:[grid-area:image]",
+          )}
+          >
             {selected ? (
               <>
                 <button
@@ -599,7 +610,11 @@ export function ProductListingPreview({
           </div>
 
           {/* Product details */}
-          <div className="order-3 space-y-3 min-w-0 w-full max-w-none">
+          <div className={cn(
+            "order-3 space-y-3 min-w-0 w-full max-w-none",
+            htmlDescription && "lg:[grid-area:copy]",
+          )}
+          >
             <h4 className="text-base sm:text-lg font-semibold text-slate-900 leading-snug">{title}</h4>
 
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
@@ -628,17 +643,22 @@ export function ProductListingPreview({
               </div>
             )}
           </div>
-        </div>
 
-        {htmlDescription && (
-          <div className="border-t border-slate-100 px-4 py-3 lg:px-5">
-            <p className="text-[11px] font-semibold text-slate-900 mb-1.5">Product description</p>
+          {htmlDescription ? (
             <div
-              className="amazon-listing-description prose prose-sm max-w-none text-slate-700 text-[11px]"
-              dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
-            />
-          </div>
-        )}
+              className={cn(
+                "order-4 w-full min-w-0 border-t border-slate-100 px-0 py-3 -mx-0",
+                "lg:[grid-area:description] lg:col-span-3 lg:w-full lg:max-w-none",
+              )}
+            >
+              <p className="text-[11px] font-semibold text-slate-900 mb-1.5">Product description</p>
+              <div
+                className="amazon-listing-description prose prose-sm max-w-none w-full text-slate-700 text-[11px]"
+                dangerouslySetInnerHTML={{ __html: descriptionPreviewHtml }}
+              />
+            </div>
+          ) : null}
+        </div>
 
         {hasSpecificationRows && (
           <section
