@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,14 +43,6 @@ export const IMAGE_GENERATION_TIPS = [
   },
 ] as const;
 
-function formatEta(seconds: number): string {
-  if (seconds <= 0) return "Almost done";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
-
 export type ImageGenerationProgressPanelProps = {
   title?: string;
   subtitle?: string;
@@ -66,9 +58,9 @@ export function ImageGenerationProgressPanel({
   title = "Generating your images",
   subtitle,
   progressPercent,
-  generatedCount,
-  totalImages,
-  etaSeconds = 0,
+  generatedCount: _generatedCount,
+  totalImages: _totalImages,
+  etaSeconds: _etaSeconds = 0,
   embedded = false,
   className,
 }: ImageGenerationProgressPanelProps) {
@@ -77,15 +69,7 @@ export function ImageGenerationProgressPanel({
   const [statusVisible, setStatusVisible] = useState(true);
   const [tipVisible, setTipVisible] = useState(true);
 
-  const progressLabel = useMemo(() => {
-    if (subtitle) return subtitle;
-    if (totalImages != null && totalImages > 0 && generatedCount != null) {
-      const etaPart = etaSeconds > 0 ? ` • ~${formatEta(etaSeconds)} left` : " • Almost done";
-      return `${generatedCount} of ${totalImages} images${etaPart}`;
-    }
-    if (etaSeconds > 0) return `About ${formatEta(etaSeconds)} remaining`;
-    return "Hang tight — quality takes a moment";
-  }, [subtitle, generatedCount, totalImages, etaSeconds]);
+  const progressLabel = subtitle ?? "Hang tight — quality takes a moment";
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -147,19 +131,16 @@ export function ImageGenerationProgressPanel({
               style={{ width: `${Math.min(clampedProgress, 95)}%` }}
             />
           </div>
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>{Math.round(clampedProgress)}% complete</span>
-            <div className="flex items-center gap-1">
-              {STATUS_MESSAGES.map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "rounded-full transition-all duration-300",
-                    i === statusIdx ? "w-3 h-1.5 bg-orange-500" : "w-1.5 h-1.5 bg-slate-200",
-                  )}
-                />
-              ))}
-            </div>
+          <div className="flex items-center justify-center gap-1.5">
+            {STATUS_MESSAGES.map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "rounded-full transition-all duration-300",
+                  i === statusIdx ? "w-3 h-1.5 bg-orange-500" : "w-1.5 h-1.5 bg-slate-200",
+                )}
+              />
+            ))}
           </div>
         </div>
 
