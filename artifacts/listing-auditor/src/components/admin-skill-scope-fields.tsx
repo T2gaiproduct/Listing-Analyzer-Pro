@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/select";
 import type { ContentMarketplaceAdmin } from "@/lib/content-marketplaces";
 import { configuredProductCategoryNames, useAdminProductCategories } from "@/lib/graphics-module-examples";
+import {
+  adminSkillCategoryPickerOptions,
+  useAllBrowseCategoryPaths,
+} from "@/lib/admin-ai-skills-overview";
 import type { SkillType } from "@/lib/admin-skill-editor";
 import {
   findAdminSkillType,
@@ -81,17 +85,22 @@ export function AdminSkillScopeFields({
 
   const { data: catData } = useAdminProductCategories();
   const categories = catData?.categories ?? [];
+  const browseCategoryPaths = useAllBrowseCategoryPaths();
+  const useOverviewCategoryList =
+    imageSkillEditorMode || skillType === "listing_audit" || skillType === "product_content";
   const categorySelectOptions = useMemo(() => {
-    const fromCatalog = categories.map((c) => c.name).filter(Boolean);
+    if (useOverviewCategoryList) {
+      return adminSkillCategoryPickerOptions(browseCategoryPaths, category);
+    }
     const configured = configuredProductCategoryNames(categories);
-    const names = [...new Set([...fromCatalog, ...configured])].sort((a, b) => a.localeCompare(b));
+    const names = [...configured];
     const current = category.trim();
     if (current && !names.includes(current)) {
       names.push(current);
       names.sort((a, b) => a.localeCompare(b));
     }
     return names;
-  }, [categories, category]);
+  }, [browseCategoryPaths, categories, category, useOverviewCategoryList]);
 
   const selectedMarketplace = marketplaces.find((m) => m.slug === marketplace);
   const derivedChannelSlug = channelSlug.trim() || slugFromMarketplaceName(channelName);

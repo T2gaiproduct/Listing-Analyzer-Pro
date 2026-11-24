@@ -157,6 +157,19 @@ export function useAllBrowseCategoryPaths(): string[] {
   }, []);
 }
 
+/** Same category universe as AI Overview coverage (PFA browse paths + Default), plus the current selection. */
+export function adminSkillCategoryPickerOptions(
+  browsePaths: string[],
+  currentCategory?: string,
+): string[] {
+  const merged = new Set(browsePaths);
+  const current = currentCategory?.trim();
+  if (current) merged.add(current);
+  const withoutDefault = [...merged].filter((n) => n !== DEFAULT_GRAPHICS_PRODUCT_CATEGORY);
+  withoutDefault.sort((a, b) => a.localeCompare(b));
+  return [DEFAULT_GRAPHICS_PRODUCT_CATEGORY, ...withoutDefault];
+}
+
 export type AdminAiSkillsOverviewOptions = {
   searchQuery?: string;
   page?: number;

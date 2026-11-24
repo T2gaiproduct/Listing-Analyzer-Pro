@@ -80,6 +80,13 @@ import {
   useAdminSkillChatModels,
 } from "@/lib/admin-skill-chat-models";
 
+function isImagePromptSkillRecord(skill: {
+  skillKind?: string;
+  imagePromptTemplateId?: number | null;
+}) {
+  return skill.skillKind === "image_prompt" || (skill.imagePromptTemplateId != null && skill.imagePromptTemplateId > 0);
+}
+
 export default function AdminAiSkillEditorPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -104,6 +111,8 @@ export default function AdminAiSkillEditorPage() {
   const [saving, setSaving] = useState(false);
   const [hydratedFromServer, setHydratedFromServer] = useState(false);
   const instructionsTouchedRef = useRef(false);
+  const skillNameTouchedRef = useRef(false);
+  const [skillCatalogName, setSkillCatalogName] = useState("");
   const [instructionsDirty, setInstructionsDirty] = useState(false);
   const [marketplaceMeta, setMarketplaceMeta] = useState<ContentMarketplaceAdmin | null>(null);
   const [imagePromptMeta, setImagePromptMeta] = useState<ImagePromptTemplateAdmin | null>(null);
@@ -156,6 +165,18 @@ export default function AdminAiSkillEditorPage() {
     setAiModel(normalizeLegacySkillAiModel(skill.aiModel, optionValues));
     setStatus(skill.status);
     setPersistedKey(skill.slug);
+    if (!skillNameTouchedRef.current) {
+      const fromInstructions = parseSkillInstructions(skill.instructionsText || "").name.trim();
+      const recordName = skill.name?.trim() ?? "";
+      const displayName = isImagePromptSkillRecord(skill)
+        ? stripImagePromptSkillSuffix(recordName || fromInstructions)
+        : recordName || fromInstructions;
+      if (displayName && displayName !== "New skill") {
+        setSkillCatalogName(displayName);
+      } else {
+        setSkillCatalogName("");
+      }
+    }
     setHydratedFromServer(true);
   }, [skillData?.skill, hydratedFromServer, chatModelsData?.options]);
 
@@ -188,16 +209,41 @@ export default function AdminAiSkillEditorPage() {
   const isAuditSkillEditor =
     !isMarketplaceSkill && !isImageSkillEditor && (skillEditorMode === "audit" || skillType === "listing_audit");
   const skillRecord = skillData?.skill;
+  const resolvePayloadSkillName = useCallback(() => {
+    const fromField = skillCatalogName.trim();
+    if (fromField) {
+      return isImagePromptSkill ? imagePromptSkillCatalogTitle(fromField) : fromField;
+    }
+    const parsedName = parsed.name.trim();
+    if (parsedName && parsedName !== "New skill") {
+      return isImagePromptSkill ? imagePromptSkillCatalogTitle(stripImagePromptSkillSuffix(parsedName)) : parsedName;
+    }
+    const recordName = skillRecord?.name?.trim() ?? "";
+    if (recordName && recordName !== "New skill") return recordName;
+    return "New skill";
+  }, [isImagePromptSkill, parsed.name, skillCatalogName, skillRecord?.name]);
+
   const skillNameFieldValue = useMemo(() => {
+    if (skillCatalogName.trim()) {
+      return isImagePromptSkill ? stripImagePromptSkillSuffix(skillCatalogName) : skillCatalogName;
+    }
     const raw = parsed.name.trim();
-    if (isImagePromptSkill) return stripImagePromptSkillSuffix(raw);
+    if (isImagePromptSkill) {
+      const fromRecord = stripImagePromptSkillSuffix(skillRecord?.name?.trim() ?? "");
+      if (fromRecord && fromRecord !== "New skill") return fromRecord;
+      return stripImagePromptSkillSuffix(raw === "New skill" ? "" : raw);
+    }
+    const fromRecord = skillRecord?.name?.trim() ?? "";
+    if (fromRecord && fromRecord !== "New skill") return fromRecord;
     if (isNew && raw === "New skill") return "";
-    return raw;
-  }, [parsed.name, isImagePromptSkill, isNew]);
+    return raw === "New skill" ? "" : raw;
+  }, [isImagePromptSkill, isNew, parsed.name, skillCatalogName, skillRecord?.name]);
 
   const applySkillName = useCallback(
     (nextRaw: string) => {
+      skillNameTouchedRef.current = true;
       const trimmed = nextRaw.trim();
+      setSkillCatalogName(trimmed);
       const instructionsName = isImagePromptSkill
         ? imagePromptSkillCatalogTitle(trimmed || "New skill")
         : trimmed || "New skill";
@@ -251,7 +297,7 @@ export default function AdminAiSkillEditorPage() {
 
   const buildPayload = useCallback(
     (nextStatus: "draft" | "published") => ({
-      name: parsed.name,
+      name: resolvePayloadSkillName(),
       instructionsText,
       skillType,
       category,
@@ -259,15 +305,33 @@ export default function AdminAiSkillEditorPage() {
       aiModel,
       status: nextStatus,
     }),
-    [aiModel, category, instructionsText, marketplace, parsed.name, skillType],
+    [aiModel, category, instructionsText, marketplace, resolvePayloadSkillName, skillType],
   );
 
   const handleFile = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const text = String(reader.result ?? "");
+      let text = String(reader.result ?? "");
       instructionsTouchedRef.current = true;
       setInstructionsDirty(true);
+      const fileBase = file.name.replace(/\.(md|txt|json)$/i, "").trim();
+      if (fileBase && !/^name\s*:/im.test(text)) {
+        text = setSkillInstructionsNameLine(text, fileBase);
+        skillNameTouchedRef.current = true;
+        setSkillCatalogName(fileBase);
+      } else {
+        const uploadedName = parseSkillInstructions(text).name.trim();
+        if (uploadedName && uploadedName !== "New skill") {
+          skillNameTouchedRef.current = true;
+          setSkillCatalogName(
+            isImagePromptSkill ? stripImagePromptSkillSuffix(uploadedName) : uploadedName,
+          );
+        } else if (fileBase) {
+          skillNameTouchedRef.current = true;
+          setSkillCatalogName(fileBase);
+          text = setSkillInstructionsNameLine(text, fileBase);
+        }
+      }
       setInstructionsText(text);
       setUploadName(file.name);
       toast({
@@ -278,7 +342,7 @@ export default function AdminAiSkillEditorPage() {
       });
     };
     reader.readAsText(file);
-  }, [isMarketplaceSkill, toast]);
+  }, [isImagePromptSkill, isMarketplaceSkill, toast]);
 
   const handleSkillTypeChange = useCallback(
     (next: SkillType) => {
@@ -332,7 +396,9 @@ export default function AdminAiSkillEditorPage() {
       if (isImagePromptSkill && imagePromptMeta) {
         const parsedPrompt = parseImagePromptFieldsFromInstructions(instructionsText);
         const moduleName =
-          stripImagePromptSkillSuffix(parsed.name) || imagePromptMeta.name;
+          stripImagePromptSkillSuffix(skillCatalogName)
+          || stripImagePromptSkillSuffix(parsed.name)
+          || imagePromptMeta.name;
         const mergedTpl = {
           ...imagePromptMeta,
           name: moduleName,
@@ -365,6 +431,8 @@ export default function AdminAiSkillEditorPage() {
         );
       }
 
+      const catalogName = resolvePayloadSkillName();
+      instructionsForSave = setSkillInstructionsNameLine(instructionsForSave, catalogName);
       const payload = { ...buildPayload(nextStatus), instructionsText: instructionsForSave };
       if (persistedKey) {
         const { skill } = await updateAdminAiSkill(persistedKey, payload);
@@ -372,6 +440,12 @@ export default function AdminAiSkillEditorPage() {
         setPersistedKey(skill.slug);
         setInstructionsText(skill.instructionsText);
         instructionsTouchedRef.current = false;
+        skillNameTouchedRef.current = false;
+        setSkillCatalogName(
+          isImagePromptSkill
+            ? stripImagePromptSkillSuffix(skill.name)
+            : skill.name?.trim() ?? "",
+        );
         setInstructionsDirty(false);
         setUploadName(null);
         invalidateSkills();
@@ -387,6 +461,12 @@ export default function AdminAiSkillEditorPage() {
         setPersistedKey(skill.slug);
         setInstructionsText(skill.instructionsText);
         instructionsTouchedRef.current = false;
+        skillNameTouchedRef.current = false;
+        setSkillCatalogName(
+          isImagePromptSkill
+            ? stripImagePromptSkillSuffix(skill.name)
+            : skill.name?.trim() ?? "",
+        );
         setInstructionsDirty(false);
         setUploadName(null);
         invalidateSkills();
