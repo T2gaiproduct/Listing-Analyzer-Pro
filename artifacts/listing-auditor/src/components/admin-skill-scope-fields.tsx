@@ -328,13 +328,19 @@ export function AdminSkillScopeFields({
                 Linked sales channel — type cannot be changed here.
               </span>
             </p>
-          ) : isImagePromptSkill && imagePromptTemplateCategory ? (
-            <p className="text-sm font-medium mt-1.5 rounded-md border border-violet-200 bg-violet-50/50 px-3 py-2">
-              {imagePromptTemplateCategory === "graphics" ? "Product images" : "A+ content"}
-              <span className="text-xs text-muted-foreground font-normal block mt-0.5">
-                Fixed by this image module ({imagePromptTemplateCategory === "graphics" ? "Product graphics tab" : "A+ Content tab"}).
-              </span>
-            </p>
+          ) : isImagePromptSkill ? (
+            <Select
+              value={skillType === "aplus_content" ? "aplus_content" : "product_images"}
+              onValueChange={(v) => onSkillTypeChange(v as SkillType)}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="product_images">Product images</SelectItem>
+                <SelectItem value="aplus_content">A+ content</SelectItem>
+              </SelectContent>
+            </Select>
           ) : (
             <Select
               value={skillType}
@@ -353,6 +359,18 @@ export function AdminSkillScopeFields({
             </Select>
           )}
         </div>
+        {isImagePromptSkill ? (
+          <p className="text-[10px] text-muted-foreground sm:col-span-2 -mt-2">
+            Product images → <strong>Product graphics</strong> picker. A+ content → <strong>A+ Content</strong> tab.
+            {imagePromptTemplateCategory
+            && imagePromptTemplateCategory !== (skillType === "aplus_content" ? "aplus" : "graphics") ? (
+              <span className="block text-amber-900 mt-1">
+                Publish applies this prompt to the{" "}
+                {skillType === "aplus_content" ? "A+ Content" : "Product graphics"} module with the same slug.
+              </span>
+            ) : null}
+          </p>
+        ) : null}
         {!imageSkillEditorMode && (
           <div>
             <Label className="text-xs text-muted-foreground">AI model</Label>

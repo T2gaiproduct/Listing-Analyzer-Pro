@@ -25,6 +25,21 @@ export function buildImagePromptInstructionsFromTemplate(tpl: ImagePromptTemplat
   return `${header.join("\n")}\n---\n${bodyParts.join("\n")}`;
 }
 
+export function imagePromptCategoryForSkillType(skillType: string): "graphics" | "aplus" {
+  return skillType === "aplus_content" ? "aplus" : "graphics";
+}
+
+/** When skill type is Product images, saves must hit the graphics template row (e.g. hero), not the A+ peer. */
+export function resolveImagePromptTemplateForSkillType(
+  current: ImagePromptTemplateAdmin,
+  skillType: string,
+  catalog: ImagePromptTemplateAdmin[],
+): ImagePromptTemplateAdmin | null {
+  const want = imagePromptCategoryForSkillType(skillType);
+  if (current.category === want) return current;
+  return catalog.find((t) => t.category === want && t.slug === current.slug) ?? null;
+}
+
 export function parseImagePromptFieldsFromInstructions(instructionsText: string): {
   promptTemplate: string;
   headlineTemplate: string;

@@ -31,7 +31,9 @@ import { AdminImagePromptSkillSettings } from "@/components/admin-image-prompt-s
 import { extractSkillInstructionBody } from "@/lib/marketplace-skill-utils";
 import {
   buildImagePromptInstructionsFromTemplate,
+  imagePromptCategoryForSkillType,
   parseImagePromptFieldsFromInstructions,
+  resolveImagePromptTemplateForSkillType,
 } from "@/lib/image-prompt-skill-utils";
 import { AdminImageSkillEditorPreview } from "@/components/admin-image-skill-editor-preview";
 import {
@@ -292,10 +294,7 @@ export default function AdminAiSkillEditorPage() {
       return;
     }
     const tpl = imageTemplatesData?.templates.find((t) => t.id === tplId);
-    if (tpl) {
-      setImagePromptMeta({ ...tpl });
-      setSkillType(tpl.category === "aplus" ? "aplus_content" : "product_images");
-    }
+    if (tpl) setImagePromptMeta({ ...tpl });
   }, [skillData?.skill?.imagePromptTemplateId, imageTemplatesData?.templates]);
 
   const buildPayload = useCallback(
@@ -402,12 +401,35 @@ export default function AdminAiSkillEditorPage() {
           stripImagePromptSkillSuffix(skillCatalogName)
           || stripImagePromptSkillSuffix(parsed.name)
           || imagePromptMeta.name;
+        const catalog = imageTemplatesData?.templates ?? [];
+        const linkedImageSkillType =
+          imagePromptMeta.category === "aplus" ? "aplus_content" : "product_images";
+        const skillTypeForSave =
+          skillType === "aplus_content" || skillType === "product_images" ? skillType : linkedImageSkillType;
+        const targetMeta = resolveImagePromptTemplateForSkillType(
+          imagePromptMeta,
+          skillTypeForSave,
+          catalog,
+        );
+        if (!targetMeta) {
+          const want = imagePromptCategoryForSkillType(skillTypeForSave);
+          throw new Error(
+            `No ${want} template exists for slug “${imagePromptMeta.slug}”. `
+            + `Product images skills must save to the graphics template row.`,
+          );
+        }
         const mergedTpl = {
-          ...imagePromptMeta,
+          ...targetMeta,
           name: moduleName,
-          promptTemplate: parsedPrompt.promptTemplate || imagePromptMeta.promptTemplate,
-          headlineTemplate: parsedPrompt.headlineTemplate || imagePromptMeta.headlineTemplate,
-          bodyTemplate: parsedPrompt.bodyTemplate || imagePromptMeta.bodyTemplate,
+          promptTemplate: parsedPrompt.promptTemplate || targetMeta.promptTemplate,
+          headlineTemplate:
+            targetMeta.category === "aplus"
+              ? parsedPrompt.headlineTemplate || targetMeta.headlineTemplate
+              : null,
+          bodyTemplate:
+            targetMeta.category === "aplus"
+              ? parsedPrompt.bodyTemplate || targetMeta.bodyTemplate
+              : null,
           enabled: nextStatus === "published",
         };
         await saveAdminImagePromptTemplate(mergedTpl);
@@ -440,15 +462,21 @@ export default function AdminAiSkillEditorPage() {
         isImagePromptSkill && imagePromptMeta
           ? (imagePromptMeta.category === "aplus" ? "aplus_content" : "product_images")
           : skillType;
+      const payloadSkillType =
+        skillType === "aplus_content" || skillType === "product_images" ? skillType : linkedImageSkillType;
       const payload = {
         ...buildPayload(nextStatus),
-        skillType: linkedImageSkillType,
+        skillType: payloadSkillType,
         instructionsText: instructionsForSave,
       };
       if (persistedKey) {
+        const priorSlug = persistedKey;
         const { skill } = await updateAdminAiSkill(persistedKey, payload);
         setStatus(skill.status);
         setPersistedKey(skill.slug);
+        if (skill.slug !== priorSlug) {
+          navigate(`/admin/settings/ai/skills/${skill.slug}`, { replace: true });
+        }
         setInstructionsText(skill.instructionsText);
         instructionsTouchedRef.current = false;
         skillNameTouchedRef.current = false;

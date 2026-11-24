@@ -24,8 +24,12 @@ import {
   applySkillTextToImagePromptTemplate,
   deleteSkillForImagePromptTemplate,
   disableSystemImagePromptTemplate,
+  imagePromptSkillSlug,
   isImagePromptSkillSlug,
+  resolveImagePromptTemplateIdForSkillType,
+  skillTypeForTemplate,
   syncAllImagePromptTemplatesToSkills,
+  syncImagePromptTemplateToSkill,
 } from "../lib/image-prompt-skill-sync.js";
 import { getImagePromptTemplateById } from "../lib/image-prompt-template-service.js";
 
@@ -290,14 +294,37 @@ router.patch(
           row.status as "draft" | "published",
         );
       }
-      if (row.imagePromptTemplateId != null) {
-        await applySkillTextToImagePromptTemplate(
-          row.imagePromptTemplateId,
-          row.instructionsText,
-          row.status as "draft" | "published",
+      let skillRow = row;
+      if (skillRow.imagePromptTemplateId != null) {
+        const targetTemplateId = await resolveImagePromptTemplateIdForSkillType(
+          skillRow.imagePromptTemplateId,
+          skillRow.skillType,
         );
+        if (targetTemplateId !== skillRow.imagePromptTemplateId) {
+          const targetTpl = await getImagePromptTemplateById(targetTemplateId);
+          if (targetTpl) {
+            const [relocated] = await db
+              .update(aiSkillsTable)
+              .set({
+                imagePromptTemplateId: targetTemplateId,
+                slug: imagePromptSkillSlug(targetTpl.category, targetTpl.slug),
+                skillType: skillTypeForTemplate(targetTpl.category),
+                updatedAt: new Date(),
+              })
+              .where(eq(aiSkillsTable.id, skillRow.id))
+              .returning();
+            skillRow = relocated ?? skillRow;
+          }
+        }
+        await applySkillTextToImagePromptTemplate(
+          skillRow.imagePromptTemplateId!,
+          skillRow.instructionsText,
+          skillRow.status as "draft" | "published",
+        );
+        const savedTpl = await getImagePromptTemplateById(skillRow.imagePromptTemplateId!);
+        if (savedTpl) await syncImagePromptTemplateToSkill(savedTpl);
       }
-      res.json({ skill: serializeSkill(row) });
+      res.json({ skill: serializeSkill(skillRow) });
     } catch (err) {
       req.log?.error?.({ err }, "admin-ai-skills update failed");
       res.status(400).json({ error: formatAiSkillSaveError(err) });

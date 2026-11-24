@@ -7,7 +7,10 @@ import {
   type ImagePromptTemplateCategory,
 } from "@workspace/db";
 import { extractGenerationInstructionsFromSkillText } from "./content-marketplace-skill-sync.js";
-import { getImagePromptTemplateById } from "./image-prompt-template-service.js";
+import {
+  getImagePromptTemplateById,
+  getImagePromptTemplateBySlug,
+} from "./image-prompt-template-service.js";
 
 export const IMAGE_PROMPT_SKILL_SLUG_PREFIX = "image-prompt-";
 
@@ -22,8 +25,27 @@ export function isImagePromptSkillSlug(slug: string): boolean {
   return slug.startsWith(IMAGE_PROMPT_SKILL_SLUG_PREFIX);
 }
 
-function skillTypeForTemplate(category: ImagePromptTemplateCategory): "product_images" | "aplus_content" {
+export function skillTypeForTemplate(category: ImagePromptTemplateCategory): "product_images" | "aplus_content" {
   return category === "aplus" ? "aplus_content" : "product_images";
+}
+
+export function imagePromptCategoryForSkillType(
+  skillType: string,
+): ImagePromptTemplateCategory {
+  return skillType === "aplus_content" ? "aplus" : "graphics";
+}
+
+/** Same slug exists in both graphics and aplus (e.g. hero) — pick row that matches skill type. */
+export async function resolveImagePromptTemplateIdForSkillType(
+  templateId: number,
+  skillType: string,
+): Promise<number> {
+  const tpl = await getImagePromptTemplateById(templateId);
+  if (!tpl) return templateId;
+  const want = imagePromptCategoryForSkillType(skillType);
+  if (tpl.category === want) return templateId;
+  const peer = await getImagePromptTemplateBySlug(want, tpl.slug);
+  return peer?.id ?? templateId;
 }
 
 /** YAML header + body (main prompt; optional headline/body lines for A+). */
