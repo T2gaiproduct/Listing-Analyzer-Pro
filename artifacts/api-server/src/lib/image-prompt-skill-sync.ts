@@ -84,7 +84,25 @@ export async function findSkillByImagePromptTemplateId(templateId: number) {
   return row ?? null;
 }
 
+export async function disableSystemImagePromptTemplate(templateId: number): Promise<void> {
+  await db
+    .update(imagePromptTemplatesTable)
+    .set({ enabled: 0, updatedAt: new Date() })
+    .where(
+      and(
+        eq(imagePromptTemplatesTable.id, templateId),
+        eq(imagePromptTemplatesTable.isSystem, 1),
+      ),
+    );
+  await deleteSkillForImagePromptTemplate(templateId);
+}
+
 export async function syncImagePromptTemplateToSkill(tpl: ImagePromptTemplate): Promise<void> {
+  if (tpl.isSystem === 1 && tpl.enabled !== 1) {
+    await deleteSkillForImagePromptTemplate(tpl.id);
+    return;
+  }
+
   const slug = imagePromptSkillSlug(tpl.category, tpl.slug);
   const instructionsText = buildImagePromptSkillInstructionsText(tpl);
   const status = tpl.enabled === 1 ? "published" : "draft";

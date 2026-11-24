@@ -15,6 +15,7 @@ import {
 } from "../lib/image-prompt-template-service.js";
 import {
   deleteSkillForImagePromptTemplate,
+  disableSystemImagePromptTemplate,
   syncImagePromptTemplateToSkill,
 } from "../lib/image-prompt-skill-sync.js";
 
@@ -254,7 +255,8 @@ router.delete(
     }
 
     if (existing.isSystem === 1) {
-      res.status(400).json({ error: "System templates cannot be deleted. Disable them instead." });
+      await disableSystemImagePromptTemplate(id);
+      res.json({ ok: true, disabled: true });
       return;
     }
 

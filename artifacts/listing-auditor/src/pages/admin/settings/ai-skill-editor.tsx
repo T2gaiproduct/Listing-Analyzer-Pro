@@ -50,7 +50,6 @@ import {
   useAdminProductCategories,
 } from "@/lib/graphics-module-examples";
 import {
-  deleteAdminImagePromptTemplate,
   saveAdminImagePromptTemplate,
   useAdminImagePromptTemplates,
   type ImagePromptTemplateAdmin,
@@ -406,15 +405,26 @@ export default function AdminAiSkillEditorPage() {
   const publishSkill = () => void persistSkill("published");
 
   const deleteImagePromptSkill = async () => {
-    const tplId = skillData?.skill?.imagePromptTemplateId;
-    if (!tplId) return;
-    if (!window.confirm("Delete this image prompt skill?")) return;
+    const key = persistedKey ?? skillData?.skill?.slug;
+    if (!key) return;
+    const isSystem = Boolean(imagePromptMeta?.isSystem);
+    if (
+      !window.confirm(
+        isSystem
+          ? "Remove this built-in image prompt from the skills list? The template will be disabled (you can re-enable it under Image prompt templates)."
+          : "Delete this image prompt skill?",
+      )
+    ) {
+      return;
+    }
     setSaving(true);
     try {
-      await deleteAdminImagePromptTemplate(tplId);
+      await deleteAdminAiSkill(key);
       invalidateSkills();
       navigate(ADMIN_AI_SKILLS_HREF);
-      toast({ title: "Image prompt skill deleted" });
+      toast({
+        title: isSystem ? "Built-in image prompt disabled" : "Image prompt skill deleted",
+      });
     } catch (e) {
       toast({
         title: "Delete failed",
@@ -496,7 +506,7 @@ export default function AdminAiSkillEditorPage() {
             </Badge>
           </div>
           <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ml-auto justify-end">
-            {isImagePromptSkill && imagePromptMeta && !imagePromptMeta.isSystem && (
+            {isImagePromptSkill && imagePromptMeta && (
               <Button
                 type="button"
                 variant="outline"

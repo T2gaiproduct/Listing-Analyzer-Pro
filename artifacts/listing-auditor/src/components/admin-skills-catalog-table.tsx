@@ -99,7 +99,13 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
     try {
       await deleteAdminAiSkill(deleteTarget.slug);
       invalidateSkills();
-      toast({ title: "Skill deleted", description: deleteTarget.name });
+      toast({
+        title: deleteTarget.skillKind === "image_prompt" ? "Skill removed" : "Skill deleted",
+        description:
+          deleteTarget.skillKind === "image_prompt"
+            ? `${deleteTarget.name} was removed from the catalog.`
+            : deleteTarget.name,
+      });
       setDeleteTarget(null);
     } catch (e) {
       toast({
@@ -213,8 +219,8 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
         </table>
       </div>
       <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-slate-100 bg-slate-50/40">
-        Click a row to open the skill editor. Publish to mark it Live. Delete removes the skill; marketplace and image
-        entries also remove their linked marketplace or template (system image presets cannot be deleted).
+        Click a row to open the skill editor. Publish to mark it Live. Delete removes custom skills; marketplace skills
+        remove their marketplace. Built-in image prompts are disabled and hidden from this list until re-enabled.
       </p>
 
       <AdminSkillRenameDialog
@@ -232,7 +238,7 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
               {deleteTarget?.skillKind === "marketplace_content"
                 ? `This removes “${deleteTarget?.name}” and its marketplace content profile. Audits will no longer use it.`
                 : deleteTarget?.skillKind === "image_prompt"
-                  ? `This removes “${deleteTarget?.name}” and its image prompt template.`
+                  ? `This removes “${deleteTarget?.name}” from the skills catalog. Built-in image templates are disabled (not permanently deleted) so you can turn them back on under Image prompt templates.`
                   : `“${deleteTarget?.name}” will be permanently removed from the skills catalog.`}
             </AlertDialogDescription>
           </AlertDialogHeader>

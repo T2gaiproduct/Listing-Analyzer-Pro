@@ -24,6 +24,7 @@ import { getContentMarketplaceById } from "../lib/content-marketplace-service.js
 import {
   applySkillTextToImagePromptTemplate,
   deleteSkillForImagePromptTemplate,
+  disableSystemImagePromptTemplate,
   isImagePromptSkillSlug,
   syncAllImagePromptTemplatesToSkills,
 } from "../lib/image-prompt-skill-sync.js";
@@ -385,8 +386,10 @@ router.delete(
       if (existing.imagePromptTemplateId != null) {
         const tpl = await getImagePromptTemplateById(existing.imagePromptTemplateId);
         if (tpl?.isSystem === 1) {
-          res.status(400).json({
-            error: "System image prompt skills cannot be deleted. Disable the template instead.",
+          await disableSystemImagePromptTemplate(tpl.id);
+          res.json({
+            ok: true,
+            deleted: "image_prompt_disabled",
           });
           return;
         }
