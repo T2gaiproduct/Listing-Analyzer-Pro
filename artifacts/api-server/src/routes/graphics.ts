@@ -1263,7 +1263,9 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
     (initialExtras?.length ?? 0) > 0 || project.auditId != null;
   let sourceUrlsForGeneration = project.sourceImageUrls;
   if (shouldSyncSources) {
-    const synced = await syncGraphicsProjectOverviewSources(id, project.auditId, initialExtras);
+    const synced = await syncGraphicsProjectOverviewSources(id, project.auditId, initialExtras, {
+      refreshImportSource: true,
+    });
     if (!synced.productPath) {
       res.status(400).json({
         error:
@@ -1316,6 +1318,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
         id,
         project.auditId,
         sourceUrlsForGeneration,
+        { refreshImportSource: true },
       );
       if (refreshed.urls.length > 0) {
         sourceUrlsForGeneration = refreshed.urls;
@@ -1533,6 +1536,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
       id,
       project.auditId,
       bodySourceUrls ?? project.sourceImageUrls,
+      { refreshImportSource: true },
     );
     if (!sourcePath) {
       res.status(400).json({

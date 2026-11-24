@@ -6,6 +6,10 @@ import {
   persistProductReferenceImagesToDir,
   resolvePrimaryGraphicsProductReference,
 } from "./graphics-source-images.js";
+import {
+  materializeAndPersistAuditListingImages,
+  refreshAuditListingImagesFromImportSource,
+} from "./audit-listing-images.js";
 import { auditImageDir } from "./image-storage.js";
 import path from "node:path";
 
@@ -82,7 +86,23 @@ export async function syncGraphicsProjectOverviewSources(
   projectId: number,
   auditId: number | null | undefined,
   extras?: string[] | null,
+  options?: { refreshImportSource?: boolean },
 ): Promise<{ urls: string[]; productPath: string | null }> {
+  if (auditId && options?.refreshImportSource) {
+    await refreshAuditListingImagesFromImportSource(auditId).catch(() => undefined);
+  }
+  if (auditId) {
+    const [auditRow] = await db
+      .select({ imageUrls: auditsTable.imageUrls })
+      .from(auditsTable)
+      .where(eq(auditsTable.id, auditId))
+      .limit(1);
+    const remote = (auditRow?.imageUrls as string[] | null) ?? [];
+    if (remote.length > 0) {
+      await materializeAndPersistAuditListingImages(auditId, remote);
+    }
+  }
+
   const overview = await collectAuditOverviewImageUrls(
     auditId ?? 0,
     extras,
@@ -151,4 +171,42 @@ export async function resolvePrimaryAuditProductReference(
     extraPaths: options?.extraPaths,
     extraSourceDirs: [refDir],
   });
+}
+
+/** Import refresh + local files + graphics project sources — for preflight before Create Graphics. */
+export async function prepareAuditProductReferences(
+  auditId: number,
+  graphicsProjectId?: number | null,
+): Promise<{
+  imageUrls: string[];
+  productPath: string | null;
+  graphicsSourceUrls: string[];
+}> {
+  await refreshAuditListingImagesFromImportSource(auditId).catch(() => undefined);
+  const [audit] = await db
+    .select({ imageUrls: auditsTable.imageUrls })
+    .from(auditsTable)
+    .where(eq(auditsTable.id, auditId))
+    .limit(1);
+  const imageUrls = await materializeAndPersistAuditListingImages(
+    auditId,
+    (audit?.imageUrls as string[] | null) ?? [],
+  );
+
+  const projectId = graphicsProjectId ?? (await findGraphicsProjectIdForAudit(auditId));
+  if (projectId != null && projectId > 0) {
+    const synced = await syncGraphicsProjectOverviewSources(projectId, auditId, imageUrls, {
+      refreshImportSource: false,
+    });
+    return {
+      imageUrls,
+      productPath: synced.productPath,
+      graphicsSourceUrls: synced.urls,
+    };
+  }
+
+  const productPath = await resolvePrimaryAuditProductReference(auditId, imageUrls, {
+    graphicsProjectId: projectId,
+  });
+  return { imageUrls, productPath, graphicsSourceUrls: imageUrls };
 }

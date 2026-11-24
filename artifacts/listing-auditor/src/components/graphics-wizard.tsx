@@ -8,7 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
-import { getGetRecentsQueryKey, type ImageRecord as ApiImageRecord } from "@workspace/api-client-react";
+import {
+  getGetAuditQueryKey,
+  getGetRecentsQueryKey,
+  type ImageRecord as ApiImageRecord,
+} from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
 import {
   Upload, ArrowRight, Check, ImageIcon, Loader2, Trash2,
@@ -227,6 +231,32 @@ export function GraphicsWizard({
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!auditId || auditId <= 0) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        await fetch(`${basePath}/api/audits/${auditId}/prepare-product-references`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(projectId ? { graphicsProjectId: projectId } : {}),
+        });
+        if (!cancelled) {
+          void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+          void queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
+        }
+      } catch {
+        // Non-blocking — generate will retry sync.
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [auditId, projectId, queryClient]);
+
   const [progress, setProgress] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());

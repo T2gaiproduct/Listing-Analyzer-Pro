@@ -64,7 +64,11 @@ import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-pr
 import { listProductMarketplacesSafe } from "../lib/product-marketplaces.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import { ensureImagePromptTemplatesReady } from "../lib/ensure-image-prompt-templates.js";
-import { collectAuditOverviewImageUrls } from "../lib/product-overview-reference.js";
+import {
+  collectAuditOverviewImageUrls,
+  prepareAuditProductReferences,
+} from "../lib/product-overview-reference.js";
+import { materializeAndPersistAuditListingImages } from "../lib/audit-listing-images.js";
 import { isEnabledAplusModuleSlug } from "../lib/image-prompt-template-service.js";
 import {
   buildDefaultAplusPrompt,
@@ -352,10 +356,16 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
   }
 
   try {
+    const materializedImages = await materializeAndPersistAuditListingImages(audit.id, imageUrls);
+    const urlsForAnalysis = materializedImages.length > 0 ? materializedImages : imageUrls;
+    if (materializedImages.length > 0) {
+      audit = { ...audit, imageUrls: materializedImages };
+    }
+
     const result = await analyzeListingWithAI({
       title,
       bulletPoints,
-      imageUrls,
+      imageUrls: urlsForAnalysis,
       targetKeywords,
       category: category ?? undefined,
     });
@@ -531,6 +541,10 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
         sourceUrl: sourceListingUrl || null,
         marketplaceNotes,
       });
+    }
+
+    if ((imageUrls?.length ?? 0) > 0) {
+      await materializeAndPersistAuditListingImages(audit.id, imageUrls);
     }
 
     if (originFields.projectOrigin === PROJECT_ORIGIN_GRAPHICS_SCRATCH) {
@@ -1054,7 +1068,10 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
       typeof body.productDescription === "string" ? body.productDescription.trim() : "";
     updates.productDescription = trimmed || null;
   }
-  if (body.imageUrls !== undefined) updates.imageUrls = body.imageUrls;
+  if (body.imageUrls !== undefined) {
+    const materialized = await materializeAndPersistAuditListingImages(id, body.imageUrls);
+    updates.imageUrls = materialized.length > 0 ? materialized : body.imageUrls;
+  }
   if (body.generatedContent !== undefined) {
     updates.generatedContent = body.generatedContent;
     if (!existing.sourceListingContent) {
@@ -1174,6 +1191,48 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
     res.status(500).json({ error: message });
   }
 });
+
+router.post(
+  "/audits/:id/prepare-product-references",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["audits", "build_brand", "graphics"], "edit"),
+  async (req, res): Promise<void> => {
+    const id = parseInt(String(req.params.id ?? ""), 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const audit = await loadScopedAudit(req, id, "write");
+    if (!audit) {
+      res.status(404).json({ error: "Audit not found" });
+      return;
+    }
+
+    const body = req.body as { graphicsProjectId?: number };
+    const graphicsProjectId =
+      typeof body.graphicsProjectId === "number" && body.graphicsProjectId > 0
+        ? body.graphicsProjectId
+        : undefined;
+
+    try {
+      const result = await prepareAuditProductReferences(id, graphicsProjectId);
+      if (!result.productPath) {
+        res.status(400).json({
+          error:
+            "Could not prepare product reference images. Confirm Overview shows listing photos, then try again.",
+          imageUrls: result.imageUrls,
+        });
+        return;
+      }
+      res.json(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to prepare product references";
+      res.status(500).json({ error: message });
+    }
+  },
+);
 
 router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand", "graphics"], "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);

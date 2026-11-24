@@ -244,5 +244,18 @@ export async function applyListingFieldsToAudit(
     })
     .where(eq(auditsTable.id, auditId))
     .returning();
-  return updated ?? null;
+  if (!updated) return null;
+  if (fields.imageUrls?.length) {
+    const { materializeAndPersistAuditListingImages } = await import("./audit-listing-images.js");
+    const materialized = await materializeAndPersistAuditListingImages(auditId, fields.imageUrls);
+    if (materialized.length > 0) {
+      const [withImages] = await db
+        .select()
+        .from(auditsTable)
+        .where(eq(auditsTable.id, auditId))
+        .limit(1);
+      return withImages ?? updated;
+    }
+  }
+  return updated;
 }
