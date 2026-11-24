@@ -1090,6 +1090,18 @@ export default function AuditWorkflow() {
       uploadedImages,
       safeProductDescription,
     );
+    const persistedOverviewUrls: string[] = [];
+    const pushOverviewUrl = (raw?: string | null) => {
+      const trimmed = raw?.trim();
+      if (trimmed && !persistedOverviewUrls.includes(trimmed)) persistedOverviewUrls.push(trimmed);
+    };
+    for (const url of (auditData as { imageUrls?: string[] } | undefined)?.imageUrls ?? []) {
+      pushOverviewUrl(url);
+    }
+    for (const rec of auditData?.imageRecords ?? []) {
+      pushOverviewUrl((rec as { currentUrl?: string }).currentUrl);
+    }
+    for (const url of uploadedImages) pushOverviewUrl(url);
     await fetchJson(`${basePath}/api/audits/${auditId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1099,7 +1111,7 @@ export default function AuditWorkflow() {
         brandName: safeBrandName || undefined,
         productDescription: safeProductDescription || undefined,
         category: category || undefined,
-        imageUrls: uploadedImages,
+        ...(persistedOverviewUrls.length > 0 ? { imageUrls: persistedOverviewUrls } : {}),
         ...(draftBody
           ? {
               title: draftBody.title,
@@ -1579,20 +1591,26 @@ export default function AuditWorkflow() {
     imageTypes,
     typeConfigs,
     existingProjectId,
+    sourceImageUrls,
   }: {
     auditId: number;
     createBody: object;
     imageTypes: string[];
     typeConfigs: GraphicsTypeConfigs;
     existingProjectId?: number | null;
+    sourceImageUrls?: string[];
   }) => {
     await persistUploadTabToAudit(auditId);
 
-    const runGenerate = async (projectId: number) => {
+    const runGenerate = async (projectId: number, sourceImageUrls?: string[]) => {
       await fetchJson(`${basePath}/api/graphics/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageTypes, typeConfigs }),
+        body: JSON.stringify({
+          imageTypes,
+          typeConfigs,
+          ...(sourceImageUrls?.length ? { sourceImageUrls } : {}),
+        }),
       });
       return projectId;
     };
@@ -1620,7 +1638,7 @@ export default function AuditWorkflow() {
     if (projectId != null) {
       await syncGraphicsProjectSources(projectId);
       try {
-        await runGenerate(projectId);
+        await runGenerate(projectId, sourceImageUrls);
       } catch (err) {
         const notFound = err instanceof ApiFetchError && err.status === 404;
         if (!notFound) throw err;
@@ -1637,7 +1655,7 @@ export default function AuditWorkflow() {
       });
       projectId = project.id;
       try {
-        await runGenerate(projectId);
+        await runGenerate(projectId, sourceImageUrls);
       } catch (genErr) {
         await fetch(`${basePath}/api/graphics/projects/${projectId}`, {
           method: "DELETE",
@@ -2044,12 +2062,15 @@ export default function AuditWorkflow() {
               name: projectName.trim() || productName || "Product",
               productName: productName || "Product",
               category,
-              sourceImageUrls: uploadedImages,
+              sourceImageUrls:
+                scratchWorkflowImageUrls.length > 0 ? scratchWorkflowImageUrls : uploadedImages,
               imageTypes: selectedImageTypes,
               auditId,
             },
             imageTypes: selectedImageTypes,
             typeConfigs: graphicsTypeConfigsPayload,
+            sourceImageUrls:
+              scratchWorkflowImageUrls.length > 0 ? scratchWorkflowImageUrls : uploadedImages,
           });
         } catch (err) {
           setGraphicsStatus("failed");
@@ -2064,7 +2085,7 @@ export default function AuditWorkflow() {
       });
 
     }
-  }, [activeStep, mergeGraphicsAplusSteps, graphicsStepPanel, handleWorkflowOptimizeContent, contentMarketplaceId, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast, isTeamMember, memberCredits?.imageCredits, accountImageCredits, aplusImageCostPerModule, generateListingFromUploadContext, persistWorkflowStep, queryClient]);
+  }, [activeStep, mergeGraphicsAplusSteps, graphicsStepPanel, handleWorkflowOptimizeContent, contentMarketplaceId, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast, isTeamMember, memberCredits?.imageCredits, accountImageCredits, aplusImageCostPerModule, generateListingFromUploadContext, persistWorkflowStep, queryClient, scratchWorkflowImageUrls]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!productName.trim()) {

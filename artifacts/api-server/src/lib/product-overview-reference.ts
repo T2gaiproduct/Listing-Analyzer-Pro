@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { auditsTable, db, graphicsProjectsTable, type ImageRecords } from "@workspace/db";
 import {
   ensureGraphicsProjectSourcesFromAudit,
+  persistGraphicsProjectSourceImages,
   persistProductReferenceImagesToDir,
   resolvePrimaryGraphicsProductReference,
 } from "./graphics-source-images.js";
@@ -71,6 +72,45 @@ export async function findGraphicsProjectIdForAudit(auditId: number): Promise<nu
 
 export function auditProductReferenceDir(auditId: number): string {
   return path.join(auditImageDir(auditId), "product_ref");
+}
+
+/**
+ * Re-read listing overview from DB, persist to the graphics project source folder,
+ * and resolve a local product file. Call before and during generation so new uploads apply.
+ */
+export async function syncGraphicsProjectOverviewSources(
+  projectId: number,
+  auditId: number | null | undefined,
+  extras?: string[] | null,
+): Promise<{ urls: string[]; productPath: string | null }> {
+  const overview = await collectAuditOverviewImageUrls(
+    auditId ?? 0,
+    extras,
+    projectId > 0 ? projectId : null,
+  );
+  if (overview.length === 0) {
+    return { urls: [], productPath: null };
+  }
+
+  let urls = overview;
+  if (projectId > 0) {
+    const saved = await persistGraphicsProjectSourceImages(projectId, overview, { auditId });
+    if (saved.length > 0) {
+      urls = saved;
+      await db
+        .update(graphicsProjectsTable)
+        .set({ sourceImageUrls: saved, updatedAt: new Date() })
+        .where(eq(graphicsProjectsTable.id, projectId));
+    }
+  }
+
+  const hydrated = projectId > 0 && auditId
+    ? await ensureGraphicsProjectSourcesFromAudit(projectId, auditId, urls)
+    : urls;
+  const list = hydrated?.length ? hydrated : urls;
+
+  const productPath = await resolvePrimaryGraphicsProductReference(projectId, list, { auditId });
+  return { urls: list, productPath };
 }
 
 /**

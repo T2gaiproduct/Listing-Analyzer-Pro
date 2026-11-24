@@ -239,6 +239,19 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     () => readAplusFromAudit(linkedAudit?.generatedImages),
     [linkedAudit?.generatedImages],
   );
+  const overviewSourceUrls = useMemo(() => {
+    const urls: string[] = [];
+    const add = (raw?: string | null) => {
+      const trimmed = raw?.trim();
+      if (trimmed && !urls.includes(trimmed)) urls.push(trimmed);
+    };
+    for (const url of project?.sourceImageUrls ?? []) add(url);
+    for (const url of linkedAudit?.imageUrls ?? []) add(url);
+    for (const rec of linkedAudit?.imageRecords ?? []) {
+      add((rec as { currentUrl?: string }).currentUrl);
+    }
+    return urls;
+  }, [project?.sourceImageUrls, linkedAudit?.imageUrls, linkedAudit?.imageRecords]);
   const [aplusModules, setAplusModules] = useState<AplusModuleItem[]>([]);
 
   useEffect(() => {
@@ -280,7 +293,10 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(payload ?? {}),
+        body: JSON.stringify({
+          ...(payload ?? {}),
+          ...(overviewSourceUrls.length > 0 ? { sourceImageUrls: overviewSourceUrls } : {}),
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -294,7 +310,10 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       // Start polling for status update
       const interval = setInterval(() => {
         qc.invalidateQueries({ queryKey: ["graphics-project", id] });
-      }, 3000);
+        if (linkedAuditId) {
+          void qc.invalidateQueries({ queryKey: getGetAuditQueryKey(linkedAuditId) });
+        }
+      }, 2000);
       setTimeout(() => clearInterval(interval), 120000);
     },
     onError: (err) => {

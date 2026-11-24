@@ -374,17 +374,16 @@ export async function generateAplusModuleImages(data: {
     ],
     graphicsProjectId,
   );
-  const sharedSourcePath = await resolvePrimaryAuditProductReference(
+  const initialSourcePath = await resolvePrimaryAuditProductReference(
     data.auditId,
     overviewUrls,
     { graphicsProjectId },
   );
-  if (!sharedSourcePath) {
+  if (!initialSourcePath) {
     throw new Error(
       "No product reference image found from listing overview. Import or upload product images before generating A+.",
     );
   }
-  const perModuleSourceCache = new Map<string, string | null>();
 
   const limit = pLimit(MAX_CONCURRENT_APLUS_IMAGES);
   const progressLock = pLimit(1);
@@ -394,20 +393,23 @@ export async function generateAplusModuleImages(data: {
   async function resolveModuleSourcePath(moduleConfig?: {
     promptReferenceImageUrls?: string[];
   }): Promise<string | null> {
-    const extraRefs = moduleConfig?.promptReferenceImageUrls;
-    if (!extraRefs?.length) {
-      return sharedSourcePath;
-    }
-
-    const cacheKey = extraRefs.join("|");
-    if (perModuleSourceCache.has(cacheKey)) {
-      return perModuleSourceCache.get(cacheKey) ?? null;
-    }
-
-    const resolved = await resolvePrimaryAuditProductReference(data.auditId, extraRefs, {
+    const liveOverview = await collectAuditOverviewImageUrls(
+      data.auditId,
+      [
+        ...data.imageUrls,
+        ...(moduleConfig?.promptReferenceImageUrls ?? []),
+        ...(data.promptReferenceImageUrls ?? []),
+      ],
+      graphicsProjectId,
+    );
+    const resolved = await resolvePrimaryAuditProductReference(data.auditId, liveOverview, {
       graphicsProjectId,
     });
-    perModuleSourceCache.set(cacheKey, resolved);
+    if (!resolved) {
+      throw new Error(
+        "No product reference image from listing overview. Add Overview images, then regenerate A+.",
+      );
+    }
     return resolved;
   }
 

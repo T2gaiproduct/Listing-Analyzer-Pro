@@ -172,12 +172,18 @@ export async function resolvePrimaryGraphicsProductReference(
 
   if (auditId) {
     const [audit] = await db
-      .select({ imageUrls: auditsTable.imageUrls })
+      .select({
+        imageUrls: auditsTable.imageUrls,
+        imageRecords: auditsTable.imageRecords,
+      })
       .from(auditsTable)
       .where(eq(auditsTable.id, auditId))
       .limit(1);
-    for (const url of audit?.imageUrls ?? []) {
-      if (!url?.trim()) continue;
+    const auditCandidates = [
+      ...(audit?.imageUrls ?? []),
+      ...((audit?.imageRecords ?? []) as { currentUrl?: string }[]).map((r) => r.currentUrl),
+    ].filter((u): u is string => Boolean(u?.trim()));
+    for (const url of auditCandidates) {
       const resolved = resolveGraphicsProjectSourceFile(
         projectId,
         url,
@@ -199,18 +205,14 @@ export async function ensureGraphicsProjectSourcesFromAudit(
 ): Promise<string[] | null> {
   const existing = await resolvePrimaryGraphicsProductReference(projectId, currentSourceUrls, { auditId });
   if (existing) return currentSourceUrls ?? null;
-  if (!auditId) return currentSourceUrls ?? null;
+  if (!auditId || projectId <= 0) return currentSourceUrls ?? null;
 
-  const [audit] = await db
-    .select({ imageUrls: auditsTable.imageUrls })
-    .from(auditsTable)
-    .where(eq(auditsTable.id, auditId))
-    .limit(1);
-  const urls = (audit?.imageUrls ?? []).filter((u) => u?.trim());
-  if (urls.length === 0) return currentSourceUrls ?? null;
+  const { collectAuditOverviewImageUrls } = await import("./product-overview-reference.js");
+  const overview = await collectAuditOverviewImageUrls(auditId, currentSourceUrls, projectId);
+  if (overview.length === 0) return currentSourceUrls ?? null;
 
-  const saved = await persistGraphicsProjectSourceImages(projectId, urls, { auditId });
-  return saved.length > 0 ? saved : currentSourceUrls ?? null;
+  const saved = await persistGraphicsProjectSourceImages(projectId, overview, { auditId });
+  return saved.length > 0 ? saved : overview;
 }
 
 function copyFileIfValid(src: string, dest: string): string | null {
