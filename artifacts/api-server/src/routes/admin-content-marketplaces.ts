@@ -140,7 +140,7 @@ router.post(
       })
       .returning();
 
-    await syncContentMarketplaceToSkill(created!);
+    await syncContentMarketplaceToSkill(created!, { refreshInstructions: true });
     res
       .status(201)
       .json({
@@ -197,7 +197,7 @@ router.patch(
       .returning();
 
     const row = updated ?? (await getContentMarketplaceById(id));
-    if (row) await syncContentMarketplaceToSkill(row);
+    if (row) await syncContentMarketplaceToSkill(row, { refreshInstructions: true });
     res.json({
       ...serializeContentMarketplaceAdmin(row!),
       skillSlug: marketplaceContentSkillSlug(row!.slug),

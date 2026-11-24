@@ -58,25 +58,41 @@ export async function findSkillByContentMarketplaceId(marketplaceId: number) {
   return row ?? null;
 }
 
-export async function syncContentMarketplaceToSkill(mp: ContentMarketplace): Promise<void> {
+export type SyncContentMarketplaceToSkillOptions = {
+  /** Rebuild instructions from marketplace row (Content Marketplaces admin saves). Default: do not clobber skill editor text. */
+  refreshInstructions?: boolean;
+};
+
+export async function syncContentMarketplaceToSkill(
+  mp: ContentMarketplace,
+  options: SyncContentMarketplaceToSkillOptions = {},
+): Promise<void> {
+  const refreshInstructions = options.refreshInstructions === true;
   const slug = marketplaceContentSkillSlug(mp.slug);
-  const instructionsText = buildMarketplaceSkillInstructionsText(mp);
+  const builtInstructions = buildMarketplaceSkillInstructionsText(mp);
   const status = mp.enabled === 1 ? "published" : "draft";
   const now = new Date();
 
+  const linkPatch = {
+    slug,
+    name: `${mp.name} · Marketplace content`,
+    status,
+    skillType: "product_content" as const,
+    category: "",
+    marketplaceSlug: mp.slug,
+  };
+
   const existing = await findSkillByContentMarketplaceId(mp.id);
   if (existing) {
+    const shouldRefreshInstructions =
+      refreshInstructions || !existing.instructionsText?.trim();
     await db
       .update(aiSkillsTable)
       .set({
-        slug,
-        name: `${mp.name} · Marketplace content`,
-        status,
-        skillType: "product_content",
-        category: "",
-        marketplaceSlug: mp.slug,
-        instructionsText,
-        updatedAt: now,
+        ...linkPatch,
+        ...(shouldRefreshInstructions
+          ? { instructionsText: builtInstructions, updatedAt: now }
+          : {}),
       })
       .where(eq(aiSkillsTable.id, existing.id));
     return;
@@ -89,16 +105,16 @@ export async function syncContentMarketplaceToSkill(mp: ContentMarketplace): Pro
     .limit(1);
 
   if (bySlug) {
+    const shouldRefreshInstructions =
+      refreshInstructions || !bySlug.instructionsText?.trim();
     await db
       .update(aiSkillsTable)
       .set({
         contentMarketplaceId: mp.id,
-        name: `${mp.name} · Marketplace content`,
-        status,
-        skillType: "product_content",
-        marketplaceSlug: mp.slug,
-        instructionsText,
-        updatedAt: now,
+        ...linkPatch,
+        ...(shouldRefreshInstructions
+          ? { instructionsText: builtInstructions, updatedAt: now }
+          : {}),
       })
       .where(eq(aiSkillsTable.id, bySlug.id));
     return;
@@ -112,7 +128,7 @@ export async function syncContentMarketplaceToSkill(mp: ContentMarketplace): Pro
     category: "",
     marketplaceSlug: mp.slug,
     aiModel: "",
-    instructionsText,
+    instructionsText: builtInstructions,
     contentMarketplaceId: mp.id,
     updatedAt: now,
   });
@@ -145,12 +161,20 @@ export async function applySkillTextToContentMarketplace(
   if (!mp) return;
 
   const aiInstructions = extractGenerationInstructionsFromSkillText(instructionsText);
-  if (aiInstructions.length < 20) return;
+  const trimmedSkill = normalizeSkillInstructionText(instructionsText).trim();
+  if (trimmedSkill.length > 0 && aiInstructions.length === 0) {
+    throw new Error(
+      "Could not parse skill body. Put a line with --- between the YAML header and the markdown instructions.",
+    );
+  }
+
+  const bodyForMarketplace =
+    aiInstructions.length > 0 ? aiInstructions : trimmedSkill;
 
   await db
     .update(contentMarketplacesTable)
     .set({
-      aiInstructions,
+      aiInstructions: bodyForMarketplace,
       enabled: status === "published" ? 1 : 0,
       updatedAt: new Date(),
     })

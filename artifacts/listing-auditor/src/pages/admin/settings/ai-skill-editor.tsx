@@ -160,6 +160,12 @@ export default function AdminAiSkillEditorPage() {
   }, [skillData?.skill, hydratedFromServer, chatModelsData?.options]);
 
   useEffect(() => {
+    const skill = skillData?.skill;
+    if (!skill || instructionsTouchedRef.current) return;
+    setInstructionsText(skill.instructionsText || DEFAULT_SKILL_INSTRUCTIONS_TEXT);
+  }, [skillData?.skill?.instructionsText, skillData?.skill?.updatedAt]);
+
+  useEffect(() => {
     const mpId = skillData?.skill?.contentMarketplaceId;
     if (mpId == null) {
       setMarketplaceMeta(null);
