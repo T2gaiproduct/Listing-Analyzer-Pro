@@ -64,6 +64,7 @@ import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-pr
 import { listProductMarketplacesSafe } from "../lib/product-marketplaces.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import { ensureImagePromptTemplatesReady } from "../lib/ensure-image-prompt-templates.js";
+import { collectAuditOverviewImageUrls } from "../lib/product-overview-reference.js";
 import { isEnabledAplusModuleSlug } from "../lib/image-prompt-template-service.js";
 import {
   buildDefaultAplusPrompt,
@@ -1186,11 +1187,13 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
     promptReferenceImageUrls,
     quality,
     moduleConfigs,
+    imageUrls: bodyOverviewImageUrls,
   } = req.body as {
     prompt?: string;
     moduleIds?: string[];
     imageCustomPrompt?: string;
     promptReferenceImageUrls?: string[];
+    imageUrls?: string[];
     quality?: "standard" | "hd";
     moduleConfigs?: Record<string, {
       imageCustomPrompt?: string;
@@ -1285,12 +1288,16 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
       }
 
       const newlyGenerated: AplusGenerationResult["modules"] = [];
+      const overviewImageUrls = await collectAuditOverviewImageUrls(
+        id,
+        bodyOverviewImageUrls,
+      );
       await generateAplusModuleImages({
         auditId: id,
         productName: audit.productName,
         category: audit.category,
         content,
-        imageUrls: audit.imageUrls as string[],
+        imageUrls: overviewImageUrls,
         moduleIds,
         imageCustomPrompt: imageCustomPrompt?.trim() || undefined,
         promptReferenceImageUrls,
@@ -1953,14 +1960,22 @@ router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAn
     return;
   }
 
+  const bodyImageUrls = Array.isArray(req.body?.imageUrls)
+    ? (req.body.imageUrls as unknown[]).filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+    : undefined;
+
   try {
+    const overviewImageUrls = await collectAuditOverviewImageUrls(
+      id,
+      bodyImageUrls,
+    );
     const updated = await regenerateAplusModule({
       auditId: id,
       moduleId,
       productName: audit.productName,
       category: audit.category,
       content,
-      imageUrls: audit.imageUrls as string[],
+      imageUrls: overviewImageUrls,
       existing,
     });
 

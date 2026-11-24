@@ -83,6 +83,7 @@ export function resolveGraphicsProjectSourceFile(
   projectId: number,
   rawPath: string,
   auditId?: number | null,
+  extraSourceDirs?: string[],
 ): string | null {
   const raw = rawPath?.trim();
   if (!raw) return null;
@@ -106,16 +107,22 @@ export function resolveGraphicsProjectSourceFile(
     if (fromAudit && isValidImageFile(fromAudit)) return fromAudit;
   }
 
-  const sourceDir = graphicsProjectSourceDir(projectId);
   const basename = path.basename(decodeURIComponent((raw.split("?")[0] ?? raw)));
-  for (const candidate of [
-    path.join(sourceDir, basename),
-    path.join(sourceDir, "source_0.jpg"),
-    path.join(sourceDir, "source_0.png"),
-    raw,
-  ]) {
-    if (isValidImageFile(candidate)) return candidate;
+  const sourceDirs: string[] = [];
+  if (projectId > 0) sourceDirs.push(graphicsProjectSourceDir(projectId));
+  if (extraSourceDirs?.length) sourceDirs.push(...extraSourceDirs);
+
+  for (const sourceDir of sourceDirs) {
+    for (const candidate of [
+      path.join(sourceDir, basename),
+      path.join(sourceDir, "source_0.jpg"),
+      path.join(sourceDir, "source_0.png"),
+    ]) {
+      if (isValidImageFile(candidate)) return candidate;
+    }
   }
+
+  if (isValidImageFile(raw)) return raw;
 
   return null;
 }
@@ -124,7 +131,7 @@ export function resolveGraphicsProjectSourceFile(
 export async function resolvePrimaryGraphicsProductReference(
   projectId: number,
   sourceImagePaths: string[] | null | undefined,
-  options?: { auditId?: number | null; extraPaths?: string[] },
+  options?: { auditId?: number | null; extraPaths?: string[]; extraSourceDirs?: string[] },
 ): Promise<string | null> {
   const auditId = options?.auditId ?? null;
   const tryList = [
@@ -134,19 +141,34 @@ export async function resolvePrimaryGraphicsProductReference(
 
   for (const raw of tryList) {
     if (raw.startsWith("http://") || raw.startsWith("https://")) {
-      const projectDir = path.join(GRAPHICS_IMAGES_DIR, String(projectId), "source");
-      ensureDir(projectDir);
-      const dest = path.join(projectDir, `remote_${tryList.indexOf(raw)}.jpg`);
+      const downloadDir =
+        projectId > 0
+          ? path.join(GRAPHICS_IMAGES_DIR, String(projectId), "source")
+          : options?.extraSourceDirs?.[0]
+            ?? path.join(GRAPHICS_IMAGES_DIR, "_remote");
+      ensureDir(downloadDir);
+      const dest = path.join(downloadDir, `remote_${tryList.indexOf(raw)}.jpg`);
       const downloaded = await downloadImage(raw, dest);
       if (downloaded) return downloaded;
       continue;
     }
-    const resolved = resolveGraphicsProjectSourceFile(projectId, raw, auditId);
+    const resolved = resolveGraphicsProjectSourceFile(
+      projectId,
+      raw,
+      auditId,
+      options?.extraSourceDirs,
+    );
     if (resolved) return resolved;
   }
 
-  const fromDisk = firstValidSourceInDir(graphicsProjectSourceDir(projectId));
-  if (fromDisk) return fromDisk;
+  if (projectId > 0) {
+    const fromDisk = firstValidSourceInDir(graphicsProjectSourceDir(projectId));
+    if (fromDisk) return fromDisk;
+  }
+  for (const dir of options?.extraSourceDirs ?? []) {
+    const fromExtra = firstValidSourceInDir(dir);
+    if (fromExtra) return fromExtra;
+  }
 
   if (auditId) {
     const [audit] = await db
@@ -156,7 +178,12 @@ export async function resolvePrimaryGraphicsProductReference(
       .limit(1);
     for (const url of audit?.imageUrls ?? []) {
       if (!url?.trim()) continue;
-      const resolved = resolveGraphicsProjectSourceFile(projectId, url, auditId);
+      const resolved = resolveGraphicsProjectSourceFile(
+        projectId,
+        url,
+        auditId,
+        options?.extraSourceDirs,
+      );
       if (resolved) return resolved;
     }
   }
@@ -197,13 +224,12 @@ function copyFileIfValid(src: string, dest: string): string | null {
  * Persist upload-tab / audit reference images into a graphics project's source folder.
  * Returns filesystem paths stored on the graphics project row.
  */
-export async function persistGraphicsProjectSourceImages(
-  projectId: number,
+export async function persistProductReferenceImagesToDir(
   images: string[],
+  destinationDir: string,
   options?: { auditId?: number | null },
 ): Promise<string[]> {
-  const projectDir = path.join(GRAPHICS_IMAGES_DIR, String(projectId), "source");
-  ensureDir(projectDir);
+  ensureDir(destinationDir);
   const savedPaths: string[] = [];
   const limited = images.filter(Boolean).slice(0, 10);
 
@@ -215,7 +241,7 @@ export async function persistGraphicsProjectSourceImages(
 
     if (raw.startsWith("data:image/")) {
       const ext = raw.startsWith("data:image/png") ? "png" : "jpg";
-      const saved = saveBase64Image(raw, projectDir, `source_${idx}.${ext}`);
+      const saved = saveBase64Image(raw, destinationDir, `source_${idx}.${ext}`);
       if (saved) savedPaths.push(saved);
       continue;
     }
@@ -225,7 +251,7 @@ export async function persistGraphicsProjectSourceImages(
       const resolved = resolveGraphicsImagePath(graphicsApi.projectId, raw);
       if (resolved) {
         const ext = path.extname(resolved) || ".jpg";
-        const copied = copyFileIfValid(resolved, path.join(projectDir, `source_${idx}${ext}`));
+        const copied = copyFileIfValid(resolved, path.join(destinationDir, `source_${idx}${ext}`));
         if (copied) savedPaths.push(copied);
       }
       continue;
@@ -237,14 +263,14 @@ export async function persistGraphicsProjectSourceImages(
       const resolved = resolveAuditImagePath(auditId, raw);
       if (resolved) {
         const ext = path.extname(resolved) || ".jpg";
-        const copied = copyFileIfValid(resolved, path.join(projectDir, `source_${idx}${ext}`));
+        const copied = copyFileIfValid(resolved, path.join(destinationDir, `source_${idx}${ext}`));
         if (copied) savedPaths.push(copied);
       }
       continue;
     }
 
     if (raw.startsWith("http://") || raw.startsWith("https://")) {
-      const downloaded = await downloadImage(raw, path.join(projectDir, destName));
+      const downloaded = await downloadImage(raw, path.join(destinationDir, destName));
       if (downloaded) savedPaths.push(downloaded);
       continue;
     }
@@ -255,6 +281,15 @@ export async function persistGraphicsProjectSourceImages(
   }
 
   return savedPaths;
+}
+
+export async function persistGraphicsProjectSourceImages(
+  projectId: number,
+  images: string[],
+  options?: { auditId?: number | null },
+): Promise<string[]> {
+  const projectDir = path.join(GRAPHICS_IMAGES_DIR, String(projectId), "source");
+  return persistProductReferenceImagesToDir(images, projectDir, options);
 }
 
 export function graphicsProjectSourceDir(projectId: number): string {

@@ -5,7 +5,6 @@ import type { EbcContent } from "./ebc-generator";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "./openai-image";
 import { generatePreservedProductImage } from "./product-preserve-graphics.js";
 import {
-  auditImageDir,
   ensureAuditImageDir,
   saveReferenceImageUrls,
   imageUrlPath,
@@ -20,7 +19,20 @@ import {
   getRuntimeAplusModuleSpecs,
   type RuntimeAplusModuleSpec,
 } from "./image-prompt-template-service.js";
-import { resolveWrappersForTemplateSlug } from "./image-prompt-runtime.js";
+import {
+  buildReferenceGenerationPrompt,
+  buildReferenceRetryPrompt,
+  resolveWrappersForTemplateSlug,
+} from "./image-prompt-runtime.js";
+import {
+  isOpenAiInvalidImageDataError,
+  prepareImageForOpenAiEdit,
+} from "./reference-image-normalize.js";
+import {
+  collectAuditOverviewImageUrls,
+  findGraphicsProjectIdForAudit,
+  resolvePrimaryAuditProductReference,
+} from "./product-overview-reference.js";
 
 const MIN_FILE_SIZE = 1024;
 const MAX_CONCURRENT_APLUS_IMAGES = 4;
@@ -123,28 +135,61 @@ async function generateModuleBuffer(
   },
 ): Promise<Buffer> {
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-  const sourcePath = data.sourcePath ?? await resolveSourceImage(data.auditId, data.imageUrls);
-  const sourceValid = isValidSourcePath(sourcePath);
+  const sourcePath = data.sourcePath;
+  if (!sourcePath || !isValidSourcePath(sourcePath)) {
+    throw new Error(
+      "No product reference image found from listing overview. Import or upload product images before generating A+.",
+    );
+  }
   const basePrompt = data.prompt ?? spec.buildPrompt(productDesc, data.content);
   const prompt = `${basePrompt} ${APLUS_SAFE_MARGIN_PROMPT}`;
   const apiQuality = aplusApiImageQuality();
+  const imageOpts = { quality: apiQuality as const };
 
   const wrappers = await resolveWrappersForTemplateSlug("aplus", spec.id);
-  let raw: Buffer;
-  if (sourceValid) {
-    raw = await generatePreservedProductImage({
+  const refPrompt = buildReferenceGenerationPrompt(prompt, wrappers);
+  let normalizedRef = sourcePath;
+  try {
+    normalizedRef = await prepareImageForOpenAiEdit(sourcePath);
+  } catch {
+    /* use original file */
+  }
+
+  const compositeFallback = () =>
+    generatePreservedProductImage({
       imageType: spec.id,
-      sourceFilePath: sourcePath!,
+      sourceFilePath: sourcePath,
       size: APLUS_GENERATION_SIZE,
       prompt,
       productLabel: data.productName,
       compositeSceneSuffix: wrappers.compositeSceneSuffix,
       compositeFallbackScene: wrappers.compositeFallbackScene,
-      generateScene: (scenePrompt, sz) =>
-        generateImageBuffer(scenePrompt, sz, { quality: apiQuality }),
+      generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz, imageOpts),
     });
-  } else {
-    raw = await generateImageBuffer(prompt, APLUS_GENERATION_SIZE, { quality: apiQuality });
+
+  let raw: Buffer;
+  try {
+    raw = await generateImageWithReferenceProxy(
+      refPrompt,
+      normalizedRef,
+      APLUS_GENERATION_SIZE,
+      imageOpts,
+    );
+  } catch (err) {
+    if (!isOpenAiInvalidImageDataError(err)) {
+      raw = await compositeFallback();
+    } else {
+      try {
+        raw = await generateImageWithReferenceProxy(
+          buildReferenceRetryPrompt(wrappers),
+          normalizedRef,
+          APLUS_GENERATION_SIZE,
+          imageOpts,
+        );
+      } catch {
+        raw = await compositeFallback();
+      }
+    }
   }
   return resizeAplusModuleBuffer(raw);
 }
@@ -182,8 +227,24 @@ export async function regenerateAplusModule(data: {
   if (!spec) throw new Error("Invalid A+ module");
 
   const dir = ensureAuditImageDir(data.auditId);
+  const graphicsProjectId = await findGraphicsProjectIdForAudit(data.auditId);
+  const overview = await collectAuditOverviewImageUrls(
+    data.auditId,
+    data.imageUrls,
+    graphicsProjectId,
+  );
+  const sourcePath = await resolvePrimaryAuditProductReference(
+    data.auditId,
+    overview,
+    { graphicsProjectId },
+  );
+  if (!sourcePath) {
+    throw new Error(
+      "No product reference image found from listing overview. Import or upload product images before regenerating A+.",
+    );
+  }
 
-  const buffer = await generateModuleBuffer(spec, data);
+  const buffer = await generateModuleBuffer(spec, { ...data, sourcePath });
   if (!buffer?.length) throw new Error("No image data returned");
 
   const filename = `aplus_${spec.id}_${Date.now()}.png`;
@@ -253,75 +314,6 @@ function urlPath(auditId: number, filename: string): string {
   return imageUrlPath(auditId, filename);
 }
 
-function saveBase64Image(base64Data: string, dir: string, filename: string): string | null {
-  const base64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
-  const buffer = Buffer.from(base64, "base64");
-  if (buffer.length < MIN_FILE_SIZE) return null;
-  const filePath = path.join(dir, filename);
-  fs.writeFileSync(filePath, buffer);
-  return filePath;
-}
-
-async function downloadImage(url: string, destPath: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) return null;
-    const buffer = Buffer.from(await res.arrayBuffer());
-    if (buffer.length < MIN_FILE_SIZE) return null;
-    fs.writeFileSync(destPath, buffer);
-    return destPath;
-  } catch {
-    return null;
-  }
-}
-
-async function resolveSourceImage(auditId: number, imageUrls: string[]): Promise<string | null> {
-  const dir = auditImageDir(auditId);
-  ensureAuditImageDir(auditId);
-
-  for (let i = 0; i < imageUrls.length; i++) {
-    const raw = imageUrls[i];
-    if (!raw) continue;
-
-    if (raw.startsWith("data:image/")) {
-      const ext = raw.startsWith("data:image/png") ? "png" : "jpg";
-      const saved = saveBase64Image(raw, dir, `aplus_source_${i}.${ext}`);
-      if (saved) return saved;
-      continue;
-    }
-
-    if (raw.startsWith("http://") || raw.startsWith("https://")) {
-      const dest = path.join(dir, `aplus_source_remote_${i}.jpg`);
-      const downloaded = await downloadImage(raw, dest);
-      if (downloaded) return downloaded;
-      continue;
-    }
-
-    if (raw.includes("/api/images/graphics-examples/")) {
-      const { resolveGraphicsExampleImagePath } = await import("./graphics-example-image-storage.js");
-      const fromExample = resolveGraphicsExampleImagePath(raw);
-      if (fromExample) return fromExample;
-      continue;
-    }
-
-    const auditApiMatch = raw.match(/\/api\/images\/(\d+)\/([^/?#]+)/);
-    if (auditApiMatch) {
-      const auditIdFromUrl = parseInt(auditApiMatch[1], 10);
-      const resolved = resolveAuditImagePath(auditIdFromUrl, raw);
-      if (resolved && fs.existsSync(resolved) && fs.statSync(resolved).size >= MIN_FILE_SIZE) {
-        return resolved;
-      }
-      continue;
-    }
-
-    if (fs.existsSync(raw) && fs.statSync(raw).size >= MIN_FILE_SIZE) {
-      return raw;
-    }
-  }
-
-  return null;
-}
-
 export function buildDefaultAplusPrompt(data: {
   productName: string;
   brandName?: string | null;
@@ -373,9 +365,25 @@ export async function generateAplusModuleImages(data: {
   const specs = await getRuntimeAplusModuleSpecs(data.moduleIds, data.category);
   const total = specs.length;
   const globalImageDirection = data.imageCustomPrompt?.trim();
-  const globalRefUrls = [...(data.promptReferenceImageUrls ?? [])];
-  const sharedSourcePath = await resolveSourceImage(data.auditId, globalRefUrls);
-  const sharedSourceValid = isValidSourcePath(sharedSourcePath);
+  const graphicsProjectId = await findGraphicsProjectIdForAudit(data.auditId);
+  const overviewUrls = await collectAuditOverviewImageUrls(
+    data.auditId,
+    [
+      ...data.imageUrls,
+      ...(data.promptReferenceImageUrls ?? []),
+    ],
+    graphicsProjectId,
+  );
+  const sharedSourcePath = await resolvePrimaryAuditProductReference(
+    data.auditId,
+    overviewUrls,
+    { graphicsProjectId },
+  );
+  if (!sharedSourcePath) {
+    throw new Error(
+      "No product reference image found from listing overview. Import or upload product images before generating A+.",
+    );
+  }
   const perModuleSourceCache = new Map<string, string | null>();
 
   const limit = pLimit(MAX_CONCURRENT_APLUS_IMAGES);
@@ -388,7 +396,7 @@ export async function generateAplusModuleImages(data: {
   }): Promise<string | null> {
     const extraRefs = moduleConfig?.promptReferenceImageUrls;
     if (!extraRefs?.length) {
-      return sharedSourceValid ? sharedSourcePath : null;
+      return sharedSourcePath;
     }
 
     const cacheKey = extraRefs.join("|");
@@ -396,16 +404,17 @@ export async function generateAplusModuleImages(data: {
       return perModuleSourceCache.get(cacheKey) ?? null;
     }
 
-    const resolved = await resolveSourceImage(data.auditId, [...extraRefs]);
+    const resolved = await resolvePrimaryAuditProductReference(data.auditId, extraRefs, {
+      graphicsProjectId,
+    });
     perModuleSourceCache.set(cacheKey, resolved);
-    return isValidSourcePath(resolved) ? resolved : null;
+    return resolved;
   }
 
   const modules = await Promise.all(
     specs.map((spec) => limit(async (): Promise<AplusModule | null> => {
       const moduleConfig = data.moduleConfigs?.[spec.id];
       const sourcePath = await resolveModuleSourcePath(moduleConfig);
-      const sourceValid = sourcePath !== null;
 
       const filename = `aplus_${spec.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
       const filePath = path.join(dir, filename);
@@ -425,7 +434,7 @@ export async function generateAplusModuleImages(data: {
           category: data.category,
           content: data.content,
           imageUrls: data.imageUrls,
-          sourcePath: sourceValid ? sourcePath : null,
+          sourcePath,
           prompt,
           quality: moduleQuality,
         });

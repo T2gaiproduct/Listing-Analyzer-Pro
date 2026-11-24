@@ -443,6 +443,7 @@ export function GraphicsWizard({
           body: JSON.stringify({
             imageTypes,
             typeConfigs,
+            sourceImageUrls: sourceImages.length > 0 ? sourceImages : undefined,
           }),
         });
         if (!res.ok) {
@@ -552,7 +553,10 @@ export function GraphicsWizard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          sourceImageUrls: sourceImages.length > 0 ? sourceImages : undefined,
+        }),
       });
       if (!res.ok) {
         throw new Error(await readApiErrorMessage(res, "Graphics generation failed"));

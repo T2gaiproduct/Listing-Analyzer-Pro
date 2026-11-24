@@ -184,7 +184,13 @@ export function GraphicsCreateStepContent({
       </div>
     ) : (
       <div className="min-w-0 pt-1">
-        <AplusContentWizard embedded createOnly auditId={auditId} productName={productName} />
+        <AplusContentWizard
+          embedded
+          createOnly
+          auditId={auditId}
+          productName={productName}
+          overviewImageUrls={imageUrls}
+        />
       </div>
     )}
   </div>

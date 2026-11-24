@@ -92,17 +92,34 @@ export function readAplusFromAudit(generatedImages: unknown): {
   return { status: "idle", modules: [], progress: { done: 0, total: 4 } };
 }
 
+function collectOverviewImageUrlsFromAudit(audit: {
+  imageUrls?: string[] | null;
+  imageRecords?: Array<{ currentUrl?: string }> | null;
+} | undefined): string[] {
+  const urls: string[] = [];
+  const add = (url: string | undefined | null) => {
+    const trimmed = url?.trim();
+    if (trimmed && !urls.includes(trimmed)) urls.push(trimmed);
+  };
+  for (const rec of audit?.imageRecords ?? []) add(rec.currentUrl);
+  for (const url of audit?.imageUrls ?? []) add(url);
+  return urls;
+}
+
 export function AplusContentWizard({
   auditId,
   productName,
   embedded = false,
   createOnly = false,
+  overviewImageUrls,
 }: {
   auditId: number;
   productName: string;
   embedded?: boolean;
   /** Product Explorer split view: create/optimize on the right; gallery on the left. */
   createOnly?: boolean;
+  /** Product Overview gallery — used as product reference during A+ image generation. */
+  overviewImageUrls?: string[] | null;
 }) {
   const { modules: APLUS_MODULE_CARDS, isLoading: aplusModulesLoading, modulesUnavailable } = useAplusModuleCards();
   const allAplusModuleIds = useMemo(() => APLUS_MODULE_CARDS.map((m) => m.id), [APLUS_MODULE_CARDS]);
@@ -183,6 +200,16 @@ export function AplusContentWizard({
     return payload;
   }, [selectedAplusModules, aplusModulePromptConfigs]);
 
+  const referenceImageUrls = useMemo(() => {
+    const merged = [...(overviewImageUrls ?? []), ...collectOverviewImageUrlsFromAudit(auditData)];
+    const out: string[] = [];
+    for (const url of merged) {
+      const t = url?.trim();
+      if (t && !out.includes(t)) out.push(t);
+    }
+    return out;
+  }, [auditData, overviewImageUrls]);
+
   const generateAplus = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
@@ -192,6 +219,7 @@ export function AplusContentWizard({
         body: JSON.stringify({
           moduleIds: selectedAplusModules,
           moduleConfigs: aplusModuleConfigsPayload,
+          imageUrls: referenceImageUrls.length > 0 ? referenceImageUrls : undefined,
         }),
       });
       if (!res.ok) {

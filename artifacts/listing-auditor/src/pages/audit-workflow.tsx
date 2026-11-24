@@ -938,6 +938,7 @@ export default function AuditWorkflow() {
       auditId,
       moduleIds,
       moduleConfigs,
+      imageUrls,
     }: {
       auditId: number;
       moduleIds: string[];
@@ -946,6 +947,7 @@ export default function AuditWorkflow() {
         promptReferenceImageUrls?: string[];
         quality?: GraphicsQuality;
       }>;
+      imageUrls?: string[];
     }) => {
       const res = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
         method: "POST",
@@ -954,6 +956,7 @@ export default function AuditWorkflow() {
         body: JSON.stringify({
           moduleIds,
           moduleConfigs,
+          imageUrls: imageUrls?.length ? imageUrls : undefined,
         }),
       });
       if (!res.ok) {
@@ -2107,10 +2110,11 @@ export default function AuditWorkflow() {
       generateAplus.mutate({
         auditId,
         moduleIds: selectedAplusModules,
+        imageUrls: scratchWorkflowImageUrls.length > 0 ? scratchWorkflowImageUrls : uploadedImages,
         ...aplusGenerateOptions,
       });
     })();
-  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, accountImageCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit, mergeGraphicsAplusSteps]);
+  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, accountImageCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit, mergeGraphicsAplusSteps, scratchWorkflowImageUrls, uploadedImages]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {

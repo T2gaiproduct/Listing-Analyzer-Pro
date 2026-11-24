@@ -53,8 +53,10 @@ import {
 import {
   ensureGraphicsProjectSourcesFromAudit,
   graphicsProjectSourceDir,
+  persistGraphicsProjectSourceImages,
   resolvePrimaryGraphicsProductReference,
 } from "../lib/graphics-source-images.js";
+import { collectAuditOverviewImageUrls } from "../lib/product-overview-reference.js";
 import {
   generatePreservedProductImage,
   type ImageCanvasSize,
@@ -1203,6 +1205,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
     aspectRatio?: string;
     quality?: "standard" | "hd";
     imageTypes?: string[];
+    sourceImageUrls?: string[];
     customPrompt?: string;
     promptReferenceImageUrls?: string[];
     typeConfigs?: Record<string, ImageTypeGenerationConfig>;
@@ -1268,6 +1271,26 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
     .where(eq(graphicsProjectsTable.id, id));
 
   res.status(202).json({ message: "Generation started", status: "generating" });
+
+  if (body.sourceImageUrls?.length || project.auditId) {
+    const overviewSources = await collectAuditOverviewImageUrls(
+      project.auditId ?? 0,
+      body.sourceImageUrls ?? project.sourceImageUrls,
+      id,
+    );
+    const saved = await persistGraphicsProjectSourceImages(id, overviewSources, {
+      auditId: project.auditId,
+    });
+    if (saved.length > 0) {
+      await db
+        .update(graphicsProjectsTable)
+        .set({ sourceImageUrls: saved, updatedAt: new Date() })
+        .where(eq(graphicsProjectsTable.id, id));
+      project.sourceImageUrls = saved;
+    } else if (overviewSources.length > 0) {
+      project.sourceImageUrls = overviewSources;
+    }
+  }
 
   // Run generation in background
   (async () => {
