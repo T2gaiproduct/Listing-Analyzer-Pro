@@ -11,17 +11,15 @@ import {
   resolveContentMarketplaceForGeneration,
 } from "./content-marketplace-service.js";
 import {
-  findSkillForContentMarketplace,
-  resolveContentMarketplaceAiInstructions,
+  extractGenerationInstructionsFromSkillText,
+  resolveMarketplaceListingInstructions,
 } from "./content-marketplace-skill-sync.js";
 import {
   clampBulletsToMaxChars,
   clampTitleToMaxChars,
   formatHardCharacterLimitsForPrompt,
-  inferTitleMaxCharsFromProse,
   mergeListingContentRules,
-  parseSkillHeaderContentLimits,
-  extractSkillYamlHeader,
+  resolveLimitsFromSkillInstructionsText,
 } from "./content-skill-limits.js";
 
 /** Remove "Why You'll Love It" (and common variants) from generated HTML descriptions. */
@@ -104,8 +102,10 @@ ${data.auditSummary ? `Audit Summary: ${data.auditSummary}` : ""}`;
 }
 
 export type GenerateListingContentOptions = {
-  /** Admin skill test: use textarea instructions instead of DB-resolved marketplace skill. */
+  /** Admin skill test: skill markdown body (or full file; see marketplaceSkillFullText). */
   marketplaceInstructionsOverride?: string | null;
+  /** Full uploaded skill file (YAML header + --- + body) for limits when testing unsaved editor text. */
+  marketplaceSkillFullText?: string | null;
 };
 
 export async function generateListingContent(data: {
@@ -130,30 +130,32 @@ export async function generateListingContent(data: {
   });
 
   const override = options.marketplaceInstructionsOverride?.trim();
-  const marketplaceInstructions =
-    override && override.length >= 20
-      ? override
-      : await resolveContentMarketplaceAiInstructions(marketplace, data.category);
+  const overrideFull =
+    options.marketplaceSkillFullText?.trim()
+    || (override && override.length >= 20 ? override : "");
 
-  const skillRow = await findSkillForContentMarketplace(marketplace);
-  const skillFullText =
-    override && override.length >= 20
-      ? override
-      : skillRow?.status === "published"
-        ? skillRow.instructionsText
-        : null;
+  let instructionPack: Awaited<ReturnType<typeof resolveMarketplaceListingInstructions>>;
+  if (overrideFull.length >= 20) {
+    instructionPack = {
+      body:
+        extractGenerationInstructionsFromSkillText(overrideFull).trim()
+        || override
+        || overrideFull,
+      fullSkillText: overrideFull,
+      fromAdminSkillFile: true,
+    };
+  } else {
+    instructionPack = await resolveMarketplaceListingInstructions(marketplace, data.category);
+  }
 
-  const headerLimits = skillFullText
-    ? parseSkillHeaderContentLimits(extractSkillYamlHeader(skillFullText))
-    : {};
-  const proseTitleMax = inferTitleMaxCharsFromProse(marketplaceInstructions);
-  const effectiveRules = mergeListingContentRules(
-    marketplace.rules,
-    headerLimits,
-    proseTitleMax != null ? { titleMaxChars: proseTitleMax } : null,
-  );
+  const marketplaceInstructions = instructionPack.body;
+  const useSkillFileOnly = instructionPack.fromAdminSkillFile;
 
-  const rulesBlock = formatContentMarketplaceRulesForPrompt(effectiveRules);
+  const effectiveRules = useSkillFileOnly && instructionPack.fullSkillText
+    ? mergeListingContentRules({}, resolveLimitsFromSkillInstructionsText(instructionPack.fullSkillText))
+    : mergeListingContentRules(marketplace.rules);
+
+  const rulesBlock = useSkillFileOnly ? "" : formatContentMarketplaceRulesForPrompt(effectiveRules);
   const hardLimitsBlock = formatHardCharacterLimitsForPrompt(effectiveRules);
   const productBlock = buildProductContextBlock({ ...data, marketplaceName: marketplace.name });
 

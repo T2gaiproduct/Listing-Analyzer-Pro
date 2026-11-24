@@ -227,11 +227,8 @@ export async function applySkillTextToContentMarketplace(
   const bodyForMarketplace =
     aiInstructions.length > 0 ? aiInstructions : trimmedSkill;
 
-  const limitPatch = resolveLimitsFromSkillInstructionsText(instructionsText);
-  const mergedRules: ContentMarketplaceRules | undefined = mergeListingContentRules(
-    mp.rules,
-    limitPatch,
-  ) ?? mp.rules ?? undefined;
+  const mergedRules: ContentMarketplaceRules | undefined =
+    mergeListingContentRules({}, resolveLimitsFromSkillInstructionsText(instructionsText)) ?? undefined;
   if (
     mergedRules?.titleMinChars != null
     && mergedRules.titleMaxChars != null
@@ -289,16 +286,69 @@ export async function resolveCategoryMarketplaceContentAddon(
   return addon.length >= 20 ? addon : "";
 }
 
+export type MarketplaceListingInstructionSource = {
+  /** Markdown body injected into the listing prompt. */
+  body: string;
+  /** Full skill file from `ai_skills.instructions_text` (header + body) when available. */
+  fullSkillText: string | null;
+  /** When true, do not inject legacy `content_marketplaces.rules` or seed instructions. */
+  fromAdminSkillFile: boolean;
+};
+
+/**
+ * Listing copy uses only the marketplace skill file stored in the DB
+ * (published `ai_skills` row and/or `content_marketplaces.ai_instructions` synced on skill save).
+ */
+export async function resolveMarketplaceListingInstructions(
+  marketplace: ContentMarketplace,
+  productCategory?: string | null,
+): Promise<MarketplaceListingInstructionSource> {
+  const skill = await findSkillForContentMarketplace(marketplace);
+  const fullSkillText = skill?.instructionsText?.trim() ?? null;
+  let body = "";
+
+  if (skill?.status === "published" && fullSkillText) {
+    body =
+      marketplaceSkillInstructionBody(fullSkillText)
+      ?? extractGenerationInstructionsFromSkillText(fullSkillText);
+    if (body.length < 20) {
+      const synced = marketplace.aiInstructions?.trim() ?? "";
+      if (synced.length >= 20) body = synced;
+    }
+  }
+
+  const fromAdminSkillFile = skill?.status === "published";
+
+  if (body.length < 20 && !fromAdminSkillFile) {
+    const synced = marketplace.aiInstructions?.trim() ?? "";
+    if (synced.length >= 20) body = synced;
+  }
+
+  if (body.length < 20) {
+    return {
+      body: "Follow standard e-commerce listing best practices for this channel.",
+      fullSkillText: null,
+      fromAdminSkillFile: false,
+    };
+  }
+
+  const category = productCategory?.trim();
+  const categoryAddon = await resolveCategoryMarketplaceContentAddon(marketplace, category);
+  if (categoryAddon && category) {
+    body = `${body}\n\n--- CATEGORY-SPECIFIC LISTING SKILL (${category}) ---\n${categoryAddon}`;
+  }
+
+  return {
+    body,
+    fullSkillText: fullSkillText ?? (fromAdminSkillFile ? body : null),
+    fromAdminSkillFile,
+  };
+}
+
 export async function resolveContentMarketplaceAiInstructions(
   marketplace: ContentMarketplace,
   productCategory?: string | null,
 ): Promise<string> {
-  const fromSkill = await resolvePublishedMarketplaceSkillInstructions(marketplace);
-  const base =
-    fromSkill?.trim()
-    || marketplace.aiInstructions?.trim()
-    || "Follow standard e-commerce listing best practices for this channel.";
-  const categoryAddon = await resolveCategoryMarketplaceContentAddon(marketplace, productCategory);
-  if (!categoryAddon) return base;
-  return `${base}\n\n--- CATEGORY-SPECIFIC LISTING SKILL (${category}) ---\n${categoryAddon}`;
+  const resolved = await resolveMarketplaceListingInstructions(marketplace, productCategory);
+  return resolved.body;
 }

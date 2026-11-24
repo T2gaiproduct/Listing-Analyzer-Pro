@@ -796,7 +796,7 @@ export default function AdminAiSkillEditorPage() {
                       ? "One rule per line as key: value. Try changing aspect, images_per_run, or reference_lock and watch the test output."
                       : skillEditorMode === "generic"
                         ? "One rule per line as key: value. This type is admin-configured; wire a product handler before it affects live Video/Ads flows."
-                        : "Use title_max: 75 (and bullets: 5) above a --- line, or write “75 characters including spaces” in the body — limits override old 200-char Amazon DB rules on publish."}
+                        : "Publish saves your file to the DB — listing generation uses only this skill text (not bundled Amazon seed). Add title_max: 75 above --- when you can."}
                 </p>
               </div>
             </CardContent>

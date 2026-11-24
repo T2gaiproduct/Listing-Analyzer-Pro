@@ -192,7 +192,8 @@ export async function runAdminMarketplaceContentSkillTest(params: {
   category?: string;
 }): Promise<MarketplaceContentSkillTestOutput> {
   const product = getAdminSkillSampleProduct(params.sampleProductId);
-  const instructionsOverride = extractGenerationInstructionsFromSkillText(params.instructionsText);
+  const fullSkillText = params.instructionsText.trim();
+  const instructionsOverride = extractGenerationInstructionsFromSkillText(fullSkillText);
   if (instructionsOverride.length < 20) {
     throw new Error(
       "Skill instructions are too short. Add marketplace rules (title, bullets, description) after a --- line, or paste the full skill body.",
@@ -211,7 +212,10 @@ export async function runAdminMarketplaceContentSkillTest(params: {
       contentMarketplaceId: params.contentMarketplaceId,
       contentMarketplaceSlug: params.contentMarketplaceSlug,
     },
-    { marketplaceInstructionsOverride: instructionsOverride },
+    {
+      marketplaceInstructionsOverride: instructionsOverride,
+      marketplaceSkillFullText: fullSkillText,
+    },
   );
 
   const { resolveContentMarketplaceForGeneration } = await import("./content-marketplace-service.js");
