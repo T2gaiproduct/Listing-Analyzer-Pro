@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import sharp from "sharp";
+import { isSubstantialAdminImagePrompt } from "./image-prompt-skill-sync.js";
 
 export type ImageCanvasSize = "1024x1024" | "1792x1024" | "1024x1792";
 
@@ -149,7 +150,7 @@ export async function compositeProductOnScene(
       .toBuffer();
   }
 
-  const maxSide = Math.round(Math.min(width, height) * 0.34);
+  const maxSide = Math.round(Math.min(width, height) * 0.42);
   const productPng = await prepareProductPng(sourceFilePath, maxSide);
   const insetLeft = Math.round(width * 0.06);
   const insetTop = Math.round(height * 0.06);
@@ -178,7 +179,9 @@ export async function generatePreservedProductImage(options: {
   if (layout === "studio") {
     return compositeProductPreserveHero(options.sourceFilePath, options.size);
   }
-  const scenePrompt = scenePromptWithoutProduct(options.prompt, layout, options.productLabel);
+  const scenePrompt = isSubstantialAdminImagePrompt(options.prompt)
+    ? `${options.prompt} ${SCENE_NO_PRODUCT_BASE} Leave clear space to place the exact uploaded product photo; bright professional Amazon listing lighting.`
+    : scenePromptWithoutProduct(options.prompt, layout, options.productLabel);
   let scene: Buffer;
   try {
     scene = await options.generateScene(scenePrompt, options.size);

@@ -43,6 +43,7 @@ import {
 import { isSubstantialAdminImagePrompt } from "../lib/image-prompt-skill-sync.js";
 import {
   buildGraphicsReferenceGenerationPrompt,
+  buildGraphicsReferenceRetryPrompt,
   shouldCompositeUploadOnlyForGraphicsType,
 } from "../lib/graphics-reference-prompt.js";
 import {
@@ -289,8 +290,10 @@ async function generateGraphicsImageBuffer(params: {
   size: ImageCanvasSize;
   filePath: string;
   productLabel?: string;
+  quality?: "standard" | "hd";
 }): Promise<Buffer> {
-  const { productPath, referencePaths, imageType, prompt, size, filePath, productLabel } = params;
+  const { productPath, referencePaths, imageType, prompt, size, filePath, productLabel, quality } = params;
+  const imageOpts = quality === "hd" ? { quality: "high" as const } : undefined;
 
   if (productPath) {
     if (shouldCompositeUploadOnlyForGraphicsType(imageType)) {
@@ -300,7 +303,7 @@ async function generateGraphicsImageBuffer(params: {
         size,
         prompt,
         productLabel,
-        generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
+        generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz, imageOpts),
       });
     }
     const refPrompt = buildGraphicsReferenceGenerationPrompt(
@@ -315,12 +318,20 @@ async function generateGraphicsImageBuffer(params: {
       console.warn("[generateGraphicsImageBuffer] Could not normalize reference:", prepErr);
     }
     try {
-      return await generateImageWithReferenceProxy(refPrompt, normalizedRef, size);
+      return await generateImageWithReferenceProxy(refPrompt, normalizedRef, size, imageOpts);
     } catch (err) {
-      if (isOpenAiInvalidImageDataError(err)) {
+      if (!isOpenAiInvalidImageDataError(err)) throw err;
+      console.warn(
+        `[generateGraphicsImageBuffer] Reference edit failed for ${imageType}, retrying shorter prompt:`,
+        err instanceof Error ? err.message : err,
+      );
+      try {
+        const retryPrompt = buildGraphicsReferenceRetryPrompt(imageType);
+        return await generateImageWithReferenceProxy(retryPrompt, normalizedRef, size, imageOpts);
+      } catch (retryErr) {
+        if (!isOpenAiInvalidImageDataError(retryErr)) throw retryErr;
         console.warn(
-          `[generateGraphicsImageBuffer] Reference edit failed for ${imageType}, using preserve composite:`,
-          err instanceof Error ? err.message : err,
+          `[generateGraphicsImageBuffer] Reference retry failed for ${imageType}, using preserve composite`,
         );
         return generatePreservedProductImage({
           imageType,
@@ -328,10 +339,9 @@ async function generateGraphicsImageBuffer(params: {
           size,
           prompt,
           productLabel,
-          generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz),
+          generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz, imageOpts),
         });
       }
-      throw err;
     }
   }
 
@@ -349,10 +359,10 @@ async function generateGraphicsImageBuffer(params: {
       imageType,
       REFERENCE_IMAGE_INSTRUCTION,
     );
-    return generateImageWithReferenceProxy(refPrompt, referencePaths[0]!, size);
+    return generateImageWithReferenceProxy(refPrompt, referencePaths[0]!, size, imageOpts);
   }
 
-  return generateImageBuffer(prompt, size);
+  return generateImageBuffer(prompt, size, imageOpts);
 }
 
 function withDefaultGraphicsPhotoSuffix(prompt: string): string {
@@ -648,6 +658,7 @@ async function generateNewImageTypes(
         size: size as ImageCanvasSize,
         filePath,
         productLabel: productName,
+        quality: (spec.quality === "hd" ? "hd" : "standard") as "standard" | "hd",
       });
       const wroteViaMultiEdit = !productPath && refPathsForApi.length > 1;
       if (!wroteViaMultiEdit) {

@@ -38,6 +38,10 @@ export const GRAPHICS_REFERENCE_PRODUCT_RULES =
   "Use the attached reference image as the ONLY authority for this product's shape, label text, colors, cap, and packaging. "
   + "Do not invent or swap in a different bottle, jar, brand, or SKU. Match perspective and lighting so the product belongs in the scene.";
 
+const PRODUCT_MUST_APPEAR =
+  "The attached photograph is the real product listing image. The final image MUST show that exact product prominently "
+  + "(at least 30% of the frame) with sharp label detail, bright professional e-commerce lighting, and no substitute bottles or jars.";
+
 export function buildGraphicsReferenceGenerationPrompt(
   modulePrompt: string,
   imageType: string | undefined,
@@ -45,5 +49,19 @@ export function buildGraphicsReferenceGenerationPrompt(
 ): string {
   const base = modulePrompt.trim();
   const hint = moduleReferenceHint(imageType);
-  return `${referenceInstruction} ${GRAPHICS_REFERENCE_PRODUCT_RULES} ${hint} ${base}`.trim();
+  return [
+    referenceInstruction,
+    GRAPHICS_REFERENCE_PRODUCT_RULES,
+    PRODUCT_MUST_APPEAR,
+    hint,
+    base,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
+export function buildGraphicsReferenceRetryPrompt(imageType: string | undefined): string {
+  const hint = moduleReferenceHint(imageType);
+  return `${GRAPHICS_REFERENCE_PRODUCT_RULES} ${PRODUCT_MUST_APPEAR} ${hint} `.trim();
 }
