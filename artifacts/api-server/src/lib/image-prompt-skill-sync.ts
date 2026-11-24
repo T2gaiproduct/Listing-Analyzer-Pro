@@ -97,31 +97,47 @@ export async function disableSystemImagePromptTemplate(templateId: number): Prom
   await deleteSkillForImagePromptTemplate(templateId);
 }
 
-export async function syncImagePromptTemplateToSkill(tpl: ImagePromptTemplate): Promise<void> {
+export type SyncImagePromptTemplateToSkillOptions = {
+  /** Rebuild instructions from template row (Image prompt templates admin). Default: do not clobber skill editor text. */
+  refreshInstructions?: boolean;
+};
+
+export async function syncImagePromptTemplateToSkill(
+  tpl: ImagePromptTemplate,
+  options: SyncImagePromptTemplateToSkillOptions = {},
+): Promise<void> {
   if (tpl.isSystem === 1 && tpl.enabled !== 1) {
     await deleteSkillForImagePromptTemplate(tpl.id);
     return;
   }
 
+  const refreshInstructions = options.refreshInstructions === true;
   const slug = imagePromptSkillSlug(tpl.category, tpl.slug);
-  const instructionsText = buildImagePromptSkillInstructionsText(tpl);
+  const builtInstructions = buildImagePromptSkillInstructionsText(tpl);
   const status = tpl.enabled === 1 ? "published" : "draft";
   const skillType = skillTypeForTemplate(tpl.category);
   const now = new Date();
 
+  const linkPatch = {
+    slug,
+    name: `${tpl.name} · Image prompt`,
+    status,
+    skillType,
+    category: "",
+    marketplaceSlug: "amazon",
+  };
+
   const existing = await findSkillByImagePromptTemplateId(tpl.id);
   if (existing) {
+    const shouldRefreshInstructions =
+      refreshInstructions || !existing.instructionsText?.trim();
     await db
       .update(aiSkillsTable)
       .set({
-        slug,
-        name: `${tpl.name} · Image prompt`,
-        status,
-        skillType,
-        category: "",
-        marketplaceSlug: "amazon",
-        instructionsText,
-        updatedAt: now,
+        ...linkPatch,
+        ...(shouldRefreshInstructions
+          ? { instructionsText: builtInstructions, updatedAt: now }
+          : {}),
       })
       .where(eq(aiSkillsTable.id, existing.id));
     return;
@@ -134,15 +150,16 @@ export async function syncImagePromptTemplateToSkill(tpl: ImagePromptTemplate): 
     .limit(1);
 
   if (bySlug) {
+    const shouldRefreshInstructions =
+      refreshInstructions || !bySlug.instructionsText?.trim();
     await db
       .update(aiSkillsTable)
       .set({
         imagePromptTemplateId: tpl.id,
-        name: `${tpl.name} · Image prompt`,
-        status,
-        skillType,
-        instructionsText,
-        updatedAt: now,
+        ...linkPatch,
+        ...(shouldRefreshInstructions
+          ? { instructionsText: builtInstructions, updatedAt: now }
+          : {}),
       })
       .where(eq(aiSkillsTable.id, bySlug.id));
     return;
@@ -156,7 +173,7 @@ export async function syncImagePromptTemplateToSkill(tpl: ImagePromptTemplate): 
     category: "",
     marketplaceSlug: "amazon",
     aiModel: "",
-    instructionsText,
+    instructionsText: builtInstructions,
     imagePromptTemplateId: tpl.id,
     updatedAt: now,
   });
@@ -190,7 +207,12 @@ export async function applySkillTextToImagePromptTemplate(
   if (!tpl) return;
 
   const parsed = parseImagePromptSkillBody(instructionsText);
-  if (parsed.promptTemplate.length < (tpl.category === "aplus" ? 20 : 10)) return;
+  const minLen = tpl.category === "aplus" ? 20 : 10;
+  if (parsed.promptTemplate.length < minLen) {
+    throw new Error(
+      "Could not parse image prompt for save. Put prompt_template: … after ---, or paste the full prompt body below the header.",
+    );
+  }
 
   await db
     .update(imagePromptTemplatesTable)
@@ -214,8 +236,10 @@ export async function resolvePublishedImagePromptFields(
   return parsed;
 }
 
-/** Optional published per-category product_images skill (custom skills, not templates). */
-export async function resolveCategoryImageSkillAddon(productCategory: string): Promise<string> {
+async function resolveCategorySkillAddon(
+  productCategory: string,
+  skillType: "product_images" | "aplus_content",
+): Promise<string> {
   const category = productCategory.trim();
   if (!category) return "";
   const [skill] = await db
@@ -224,7 +248,7 @@ export async function resolveCategoryImageSkillAddon(productCategory: string): P
     .where(
       and(
         eq(aiSkillsTable.category, category),
-        eq(aiSkillsTable.skillType, "product_images"),
+        eq(aiSkillsTable.skillType, skillType),
         eq(aiSkillsTable.status, "published"),
       ),
     )
@@ -232,5 +256,15 @@ export async function resolveCategoryImageSkillAddon(productCategory: string): P
   if (!skill || skill.imagePromptTemplateId != null) return "";
   const addon = extractGenerationInstructionsFromSkillText(skill.instructionsText).trim();
   return addon.length >= 10 ? `\n\n${addon}` : "";
+}
+
+/** Optional published per-category product_images skill (custom skills, not templates). */
+export async function resolveCategoryImageSkillAddon(productCategory: string): Promise<string> {
+  return resolveCategorySkillAddon(productCategory, "product_images");
+}
+
+/** Optional published per-category aplus_content skill (custom skills, not templates). */
+export async function resolveCategoryAplusSkillAddon(productCategory: string): Promise<string> {
+  return resolveCategorySkillAddon(productCategory, "aplus_content");
 }
 

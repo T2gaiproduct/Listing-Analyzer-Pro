@@ -158,7 +158,7 @@ router.post(
         })
         .returning();
 
-      await syncImagePromptTemplateToSkill(inserted!);
+      await syncImagePromptTemplateToSkill(inserted!, { refreshInstructions: true });
       res.status(201).json({ template: serializeImagePromptTemplateAdmin(inserted) });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -232,7 +232,7 @@ router.patch(
       .where(eq(imagePromptTemplatesTable.id, id))
       .returning();
 
-    await syncImagePromptTemplateToSkill(updated!);
+    await syncImagePromptTemplateToSkill(updated!, { refreshInstructions: true });
     res.json({ template: serializeImagePromptTemplateAdmin(updated) });
   },
 );

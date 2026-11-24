@@ -368,7 +368,7 @@ export async function generateAplusModuleImages(data: {
 }): Promise<AplusModule[]> {
   const dir = ensureAuditImageDir(data.auditId);
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-  const specs = await getRuntimeAplusModuleSpecs(data.moduleIds);
+  const specs = await getRuntimeAplusModuleSpecs(data.moduleIds, data.category);
   const total = specs.length;
   const globalImageDirection = data.imageCustomPrompt?.trim();
   const globalRefUrls = [...(data.promptReferenceImageUrls ?? [])];

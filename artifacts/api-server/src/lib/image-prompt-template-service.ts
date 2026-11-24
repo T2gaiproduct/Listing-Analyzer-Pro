@@ -10,6 +10,7 @@ import { db } from "@workspace/db";
 import type { EbcContent } from "./ebc-generator.js";
 import { APLUS_EDGE_TO_EDGE_PROMPT } from "./aplus-image-size.js";
 import {
+  resolveCategoryAplusSkillAddon,
   resolveCategoryImageSkillAddon,
   resolvePublishedImagePromptFields,
 } from "./image-prompt-skill-sync.js";
@@ -233,7 +234,10 @@ export type RuntimeAplusModuleSpec = {
   body: (content: EbcContent) => string;
 };
 
-export async function getRuntimeAplusModuleSpec(slug: string): Promise<RuntimeAplusModuleSpec | undefined> {
+export async function getRuntimeAplusModuleSpec(
+  slug: string,
+  productCategory?: string | null,
+): Promise<RuntimeAplusModuleSpec | undefined> {
   const row = await getImagePromptTemplateBySlug("aplus", slug);
   if (!row || row.enabled !== 1) return undefined;
 
@@ -241,6 +245,9 @@ export async function getRuntimeAplusModuleSpec(slug: string): Promise<RuntimeAp
   const promptTemplate = fromSkill?.promptTemplate?.trim() || row.promptTemplate;
   const headlineTemplate = fromSkill?.headlineTemplate ?? row.headlineTemplate;
   const bodyTemplate = fromSkill?.bodyTemplate ?? row.bodyTemplate;
+  const categoryAddon = productCategory
+    ? await resolveCategoryAplusSkillAddon(productCategory)
+    : "";
 
   return {
     id: row.slug,
@@ -252,7 +259,8 @@ export async function getRuntimeAplusModuleSpec(slug: string): Promise<RuntimeAp
         productDesc,
         aplusEdgeToEdge: APLUS_EDGE_TO_EDGE_PROMPT,
       };
-      return renderPromptTemplate(promptTemplate, vars);
+      const base = renderPromptTemplate(promptTemplate, vars);
+      return categoryAddon ? `${base}${categoryAddon}` : base;
     },
     headline: (content) => {
       const template = headlineTemplate?.trim() || "{{heroHeadline}}";
@@ -266,10 +274,13 @@ export async function getRuntimeAplusModuleSpec(slug: string): Promise<RuntimeAp
   };
 }
 
-export async function getRuntimeAplusModuleSpecs(moduleIds: string[]): Promise<RuntimeAplusModuleSpec[]> {
+export async function getRuntimeAplusModuleSpecs(
+  moduleIds: string[],
+  productCategory?: string | null,
+): Promise<RuntimeAplusModuleSpec[]> {
   const specs: RuntimeAplusModuleSpec[] = [];
   for (const id of moduleIds) {
-    const spec = await getRuntimeAplusModuleSpec(id);
+    const spec = await getRuntimeAplusModuleSpec(id, productCategory);
     if (spec) specs.push(spec);
   }
   return specs;
