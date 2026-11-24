@@ -413,10 +413,11 @@ router.delete(
     }
 
     try {
+      const isImagePromptSkill =
+        existing.imagePromptTemplateId != null || isImagePromptSkillSlug(existing.slug);
       const marketplaceSkill =
-        existing.contentMarketplaceId != null ||
-        isMarketplaceContentSkillSlug(existing.slug) ||
-        Boolean(existing.marketplaceSlug?.trim());
+        !isImagePromptSkill
+        && (existing.contentMarketplaceId != null || isMarketplaceContentSkillSlug(existing.slug));
       if (marketplaceSkill) {
         const mp = await resolveContentMarketplaceForAiSkill(existing);
         if (mp?.isDefault === 1) {
