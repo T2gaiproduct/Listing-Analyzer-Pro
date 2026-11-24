@@ -39,10 +39,8 @@ export const DEFAULT_CONTENT_MARKETPLACE_SEEDS: ContentMarketplaceSeed[] = [
     sortOrder: 10,
     aiInstructions: AMAZON_LISTING_AI_INSTRUCTIONS,
     rules: {
-      titleMinChars: 150,
-      titleMaxChars: 200,
+      titleMaxChars: 75,
       bulletCount: 5,
-      bulletMinChars: 180,
       bulletMaxChars: 250,
       keywordCount: 10,
       descriptionMinWords: 400,

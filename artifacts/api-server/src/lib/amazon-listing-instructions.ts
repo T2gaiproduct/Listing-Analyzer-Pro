@@ -4,7 +4,7 @@ Generate a high-converting, SEO-optimized, Amazon-compliant product title follow
 
 OUTPUT REQUIREMENTS:
 - Generate exactly 1 optimized Amazon title.
-- Keep the title between 150–200 characters (including spaces).
+- Keep the title at most 75 characters (including spaces) for standard categories (effective Amazon policy).
 - Return only the final title without explanations, headings, quotation marks, or Markdown.
 
 TITLE STRUCTURE (follow this order whenever applicable):

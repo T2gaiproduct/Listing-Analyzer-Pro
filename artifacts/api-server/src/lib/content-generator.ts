@@ -10,7 +10,19 @@ import {
   formatContentMarketplaceRulesForPrompt,
   resolveContentMarketplaceForGeneration,
 } from "./content-marketplace-service.js";
-import { resolveContentMarketplaceAiInstructions } from "./content-marketplace-skill-sync.js";
+import {
+  findSkillForContentMarketplace,
+  resolveContentMarketplaceAiInstructions,
+} from "./content-marketplace-skill-sync.js";
+import {
+  clampBulletsToMaxChars,
+  clampTitleToMaxChars,
+  formatHardCharacterLimitsForPrompt,
+  inferTitleMaxCharsFromProse,
+  mergeListingContentRules,
+  parseSkillHeaderContentLimits,
+  extractSkillYamlHeader,
+} from "./content-skill-limits.js";
 
 /** Remove "Why You'll Love It" (and common variants) from generated HTML descriptions. */
 export function stripWhyYoullLoveItSection(html: string): string {
@@ -122,19 +134,44 @@ export async function generateListingContent(data: {
     override && override.length >= 20
       ? override
       : await resolveContentMarketplaceAiInstructions(marketplace, data.category);
-  const rulesBlock = formatContentMarketplaceRulesForPrompt(marketplace.rules);
+
+  const skillRow = await findSkillForContentMarketplace(marketplace);
+  const skillFullText =
+    override && override.length >= 20
+      ? override
+      : skillRow?.status === "published"
+        ? skillRow.instructionsText
+        : null;
+
+  const headerLimits = skillFullText
+    ? parseSkillHeaderContentLimits(extractSkillYamlHeader(skillFullText))
+    : {};
+  const proseTitleMax = inferTitleMaxCharsFromProse(marketplaceInstructions);
+  const effectiveRules = mergeListingContentRules(
+    marketplace.rules,
+    headerLimits,
+    proseTitleMax != null ? { titleMaxChars: proseTitleMax } : null,
+  );
+
+  const rulesBlock = formatContentMarketplaceRulesForPrompt(effectiveRules);
+  const hardLimitsBlock = formatHardCharacterLimitsForPrompt(effectiveRules);
   const productBlock = buildProductContextBlock({ ...data, marketplaceName: marketplace.name });
+
+  const titleMaxNote =
+    effectiveRules?.titleMaxChars != null
+      ? `\nThe JSON "title" string must be ≤ ${effectiveRules.titleMaxChars} characters (spaces count).`
+      : "";
 
   const prompt = `You are an expert ${marketplace.name} listing copywriter and SEO specialist. Create optimized, compliant listing content for the following product on ${marketplace.name}. You MUST follow every rule below exactly.
 
 --- MARKETPLACE-SPECIFIC INSTRUCTIONS (admin skill) ---
 ${marketplaceInstructions}
 
-${rulesBlock}
+${hardLimitsBlock}${rulesBlock}
 --- PRODUCT CONTEXT ---
 ${productBlock}
 
-Generate optimized listing content for ${marketplace.name}. ${LISTING_JSON_OUTPUT_SPEC}`;
+Generate optimized listing content for ${marketplace.name}. ${LISTING_JSON_OUTPUT_SPEC}${titleMaxNote}`;
 
   const { content } = await generateChatCompletion(
     [{ role: "user", content: prompt }],
@@ -150,9 +187,13 @@ Generate optimized listing content for ${marketplace.name}. ${LISTING_JSON_OUTPU
       normalizeListingHtmlDescription(rawDescription),
     );
     const attributes = normalizeGeneratedAttributes(parsed.attributes);
+    const titleMax = effectiveRules?.titleMaxChars;
+    const bulletMax = effectiveRules?.bulletMaxChars;
+    const rawTitle = String(parsed.title ?? data.currentTitle);
+    const rawBullets = normalizeBulletPoints(parsed.bulletPoints ?? data.currentBullets);
     return {
-      title: parsed.title ?? data.currentTitle,
-      bulletPoints: normalizeBulletPoints(parsed.bulletPoints ?? data.currentBullets),
+      title: clampTitleToMaxChars(rawTitle, titleMax),
+      bulletPoints: clampBulletsToMaxChars(rawBullets, bulletMax),
       keywords: parsed.keywords ?? data.currentKeywords,
       htmlDescription: sanitizeHtmlDescription(normalizedDescription),
       ...(attributes.length > 0 ? { attributes } : {}),

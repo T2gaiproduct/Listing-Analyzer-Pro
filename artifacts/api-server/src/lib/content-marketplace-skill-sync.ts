@@ -5,8 +5,13 @@ import {
   db,
   type ContentMarketplace,
 } from "@workspace/db";
+import type { ContentMarketplaceRules } from "@workspace/db";
 import { dismissContentMarketplaceSlug } from "./content-marketplace-dismissed.js";
 import { getContentMarketplaceById, getContentMarketplaceBySlug } from "./content-marketplace-service.js";
+import {
+  mergeListingContentRules,
+  resolveLimitsFromSkillInstructionsText,
+} from "./content-skill-limits.js";
 
 export const MARKETPLACE_SKILL_SLUG_PREFIX = "marketplace-content-";
 
@@ -222,10 +227,24 @@ export async function applySkillTextToContentMarketplace(
   const bodyForMarketplace =
     aiInstructions.length > 0 ? aiInstructions : trimmedSkill;
 
+  const limitPatch = resolveLimitsFromSkillInstructionsText(instructionsText);
+  const mergedRules: ContentMarketplaceRules | undefined = mergeListingContentRules(
+    mp.rules,
+    limitPatch,
+  ) ?? mp.rules ?? undefined;
+  if (
+    mergedRules?.titleMinChars != null
+    && mergedRules.titleMaxChars != null
+    && mergedRules.titleMinChars > mergedRules.titleMaxChars
+  ) {
+    delete mergedRules.titleMinChars;
+  }
+
   await db
     .update(contentMarketplacesTable)
     .set({
       aiInstructions: bodyForMarketplace,
+      rules: mergedRules,
       enabled: status === "published" ? 1 : 0,
       updatedAt: new Date(),
     })
