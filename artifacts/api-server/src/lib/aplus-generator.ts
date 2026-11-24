@@ -20,11 +20,10 @@ import {
   getRuntimeAplusModuleSpecs,
   type RuntimeAplusModuleSpec,
 } from "./image-prompt-template-service.js";
+import { resolveWrappersForTemplateSlug } from "./image-prompt-runtime.js";
 
 const MIN_FILE_SIZE = 1024;
 const MAX_CONCURRENT_APLUS_IMAGES = 4;
-const REFERENCE_IMAGE_INSTRUCTION =
-  "This image is a visual reference of the exact product you MUST feature. The product's appearance, shape, colors, branding, and design must be faithfully reproduced — not changed or substituted.";
 
 const QUALITY_PROMPT_SUFFIX: Record<string, string> = {
   standard: "",
@@ -130,6 +129,7 @@ async function generateModuleBuffer(
   const prompt = `${basePrompt} ${APLUS_SAFE_MARGIN_PROMPT}`;
   const apiQuality = aplusApiImageQuality();
 
+  const wrappers = await resolveWrappersForTemplateSlug("aplus", spec.id);
   let raw: Buffer;
   if (sourceValid) {
     raw = await generatePreservedProductImage({
@@ -138,6 +138,8 @@ async function generateModuleBuffer(
       size: APLUS_GENERATION_SIZE,
       prompt,
       productLabel: data.productName,
+      compositeSceneSuffix: wrappers.compositeSceneSuffix,
+      compositeFallbackScene: wrappers.compositeFallbackScene,
       generateScene: (scenePrompt, sz) =>
         generateImageBuffer(scenePrompt, sz, { quality: apiQuality }),
     });

@@ -91,6 +91,91 @@ export function AdminImagePromptSkillSettings({ value, onChange }: Props) {
         />
         <p className="text-[11px] text-muted-foreground mt-1">{help}</p>
       </div>
+      <div className="space-y-3 border-t border-violet-200/80 pt-3">
+        <p className="text-xs font-medium text-violet-950">
+          Reference &amp; fallback prompts (per module — used at generation time, not hardcoded in the API)
+        </p>
+        <div>
+          <Label className="text-xs">Reference instruction</Label>
+          <Textarea
+            value={value.metadata.referenceInstruction ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                metadata: { ...value.metadata, referenceInstruction: e.target.value },
+              })
+            }
+            className="mt-1 min-h-[72px] font-mono text-xs"
+            spellCheck={false}
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Prepended when the seller&apos;s upload is sent as the visual reference image.
+          </p>
+        </div>
+        <div>
+          <Label className="text-xs">Reference rules</Label>
+          <Textarea
+            value={value.metadata.referenceRules ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                metadata: { ...value.metadata, referenceRules: e.target.value },
+              })
+            }
+            className="mt-1 min-h-[72px] font-mono text-xs"
+            spellCheck={false}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Reference retry (optional)</Label>
+          <Textarea
+            value={value.metadata.referenceRetry ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                metadata: { ...value.metadata, referenceRetry: e.target.value },
+              })
+            }
+            className="mt-1 min-h-[60px] font-mono text-xs"
+            spellCheck={false}
+          />
+        </div>
+        {value.category === "graphics" && (
+          <>
+            <div>
+              <Label className="text-xs">Composite scene suffix</Label>
+              <Textarea
+                value={value.metadata.compositeSceneSuffix ?? ""}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    metadata: { ...value.metadata, compositeSceneSuffix: e.target.value },
+                  })
+                }
+                className="mt-1 min-h-[60px] font-mono text-xs"
+                spellCheck={false}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Used only when falling back to scene + pasted product (not reference edit).
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Composite fallback scene (optional)</Label>
+              <Textarea
+                value={value.metadata.compositeFallbackScene ?? ""}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    metadata: { ...value.metadata, compositeFallbackScene: e.target.value },
+                  })
+                }
+                className="mt-1 min-h-[60px] font-mono text-xs"
+                spellCheck={false}
+              />
+            </div>
+          </>
+        )}
+      </div>
       {value.category === "aplus" && (
         <>
           <div>

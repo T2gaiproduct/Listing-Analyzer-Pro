@@ -10,7 +10,9 @@ import { extractGenerationInstructionsFromSkillText } from "./content-marketplac
 import {
   getImagePromptTemplateById,
   getImagePromptTemplateBySlug,
+  parseImagePromptMetadata,
 } from "./image-prompt-template-service.js";
+import type { ImagePromptTemplateMetadata } from "@workspace/db";
 
 export const IMAGE_PROMPT_SKILL_SLUG_PREFIX = "image-prompt-";
 
@@ -63,6 +65,17 @@ export function buildImagePromptSkillInstructionsText(tpl: ImagePromptTemplate):
   if (tpl.bodyTemplate?.trim()) {
     bodyParts.push(`body_template: ${tpl.bodyTemplate.trim()}`);
   }
+  const meta = parseImagePromptMetadata(tpl.metadata);
+  const wrapperLines: [string, string | undefined][] = [
+    ["reference_instruction", meta.referenceInstruction],
+    ["reference_rules", meta.referenceRules],
+    ["reference_retry", meta.referenceRetry],
+    ["composite_scene_suffix", meta.compositeSceneSuffix],
+    ["composite_fallback_scene", meta.compositeFallbackScene],
+  ];
+  for (const [key, value] of wrapperLines) {
+    if (value?.trim()) bodyParts.push(`${key}: ${value.trim()}`);
+  }
   return `${headerLines.join("\n")}\n---\n${bodyParts.join("\n")}`;
 }
 
@@ -70,26 +83,78 @@ export type ParsedImagePromptSkillBody = {
   promptTemplate: string;
   headlineTemplate: string | null;
   bodyTemplate: string | null;
+  referenceInstruction: string | null;
+  referenceRules: string | null;
+  referenceRetry: string | null;
+  compositeSceneSuffix: string | null;
+  compositeFallbackScene: string | null;
 };
 
 const PROMPT_TEMPLATE_KEY = "prompt_template:";
 const HEADLINE_TEMPLATE_KEY = "headline_template:";
 const BODY_TEMPLATE_KEY = "body_template:";
+const REFERENCE_INSTRUCTION_KEY = "reference_instruction:";
+const REFERENCE_RULES_KEY = "reference_rules:";
+const REFERENCE_RETRY_KEY = "reference_retry:";
+const COMPOSITE_SCENE_SUFFIX_KEY = "composite_scene_suffix:";
+const COMPOSITE_FALLBACK_SCENE_KEY = "composite_fallback_scene:";
+
+const IMAGE_PROMPT_SECTION_KEYS = [
+  PROMPT_TEMPLATE_KEY,
+  HEADLINE_TEMPLATE_KEY,
+  BODY_TEMPLATE_KEY,
+  REFERENCE_INSTRUCTION_KEY,
+  REFERENCE_RULES_KEY,
+  REFERENCE_RETRY_KEY,
+  COMPOSITE_SCENE_SUFFIX_KEY,
+  COMPOSITE_FALLBACK_SCENE_KEY,
+] as const;
+
+function emptyParsedImagePromptSkillBody(): ParsedImagePromptSkillBody {
+  return {
+    promptTemplate: "",
+    headlineTemplate: null,
+    bodyTemplate: null,
+    referenceInstruction: null,
+    referenceRules: null,
+    referenceRetry: null,
+    compositeSceneSuffix: null,
+    compositeFallbackScene: null,
+  };
+}
+
+function mergeWrapperMetadataFromSkill(
+  existing: ImagePromptTemplateMetadata | null | undefined,
+  parsed: ParsedImagePromptSkillBody,
+): ImagePromptTemplateMetadata {
+  const base = parseImagePromptMetadata(existing);
+  const next = { ...base };
+  const assign = (key: keyof ImagePromptTemplateMetadata, value: string | null) => {
+    const t = value?.trim();
+    if (t) next[key] = t;
+  };
+  assign("referenceInstruction", parsed.referenceInstruction);
+  assign("referenceRules", parsed.referenceRules);
+  assign("referenceRetry", parsed.referenceRetry);
+  assign("compositeSceneSuffix", parsed.compositeSceneSuffix);
+  assign("compositeFallbackScene", parsed.compositeFallbackScene);
+  return next;
+}
 
 /** Multiline-safe: entire body or all lines after `prompt_template:` until the next template key. */
 export function parseImagePromptSkillBody(instructionsText: string): ParsedImagePromptSkillBody {
   const body = extractGenerationInstructionsFromSkillText(instructionsText).trim();
   if (!body) {
-    return { promptTemplate: "", headlineTemplate: null, bodyTemplate: null };
+    return emptyParsedImagePromptSkillBody();
   }
 
   if (!body.includes(PROMPT_TEMPLATE_KEY)) {
-    return { promptTemplate: body, headlineTemplate: null, bodyTemplate: null };
+    return { ...emptyParsedImagePromptSkillBody(), promptTemplate: body };
   }
 
-  type SectionKey = typeof PROMPT_TEMPLATE_KEY | typeof HEADLINE_TEMPLATE_KEY | typeof BODY_TEMPLATE_KEY;
+  type SectionKey = (typeof IMAGE_PROMPT_SECTION_KEYS)[number];
   const sections: { key: SectionKey; start: number; valueStart: number }[] = [];
-  for (const key of [PROMPT_TEMPLATE_KEY, HEADLINE_TEMPLATE_KEY, BODY_TEMPLATE_KEY] as const) {
+  for (const key of IMAGE_PROMPT_SECTION_KEYS) {
     const start = body.indexOf(key);
     if (start >= 0) sections.push({ key, start, valueStart: start + key.length });
   }
@@ -98,20 +163,23 @@ export function parseImagePromptSkillBody(instructionsText: string): ParsedImage
   const sliceValue = (valueStart: number, nextSectionStart: number | undefined) =>
     body.slice(valueStart, nextSectionStart ?? body.length).trim();
 
-  let promptTemplate = "";
-  let headlineTemplate: string | null = null;
-  let bodyTemplate: string | null = null;
+  const out = emptyParsedImagePromptSkillBody();
 
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i]!;
     const nextStart = sections[i + 1]?.start;
     const value = sliceValue(section.valueStart, nextStart);
-    if (section.key === PROMPT_TEMPLATE_KEY) promptTemplate = value;
-    else if (section.key === HEADLINE_TEMPLATE_KEY) headlineTemplate = value || null;
-    else if (section.key === BODY_TEMPLATE_KEY) bodyTemplate = value || null;
+    if (section.key === PROMPT_TEMPLATE_KEY) out.promptTemplate = value;
+    else if (section.key === HEADLINE_TEMPLATE_KEY) out.headlineTemplate = value || null;
+    else if (section.key === BODY_TEMPLATE_KEY) out.bodyTemplate = value || null;
+    else if (section.key === REFERENCE_INSTRUCTION_KEY) out.referenceInstruction = value || null;
+    else if (section.key === REFERENCE_RULES_KEY) out.referenceRules = value || null;
+    else if (section.key === REFERENCE_RETRY_KEY) out.referenceRetry = value || null;
+    else if (section.key === COMPOSITE_SCENE_SUFFIX_KEY) out.compositeSceneSuffix = value || null;
+    else if (section.key === COMPOSITE_FALLBACK_SCENE_KEY) out.compositeFallbackScene = value || null;
   }
 
-  return { promptTemplate, headlineTemplate, bodyTemplate };
+  return out;
 }
 
 /** Admin-uploaded skill files (multi-section markdown) should not get generic suffixes appended. */
@@ -282,6 +350,7 @@ export async function applySkillTextToImagePromptTemplate(
       promptTemplate: parsed.promptTemplate,
       headlineTemplate: parsed.headlineTemplate,
       bodyTemplate: parsed.bodyTemplate,
+      metadata: mergeWrapperMetadataFromSkill(tpl.metadata, parsed),
       enabled: status === "published" ? 1 : 0,
       updatedAt: new Date(),
     })
@@ -301,6 +370,11 @@ export async function resolvePublishedImagePromptFields(
     promptTemplate,
     headlineTemplate: parsed.headlineTemplate ?? tpl.headlineTemplate,
     bodyTemplate: parsed.bodyTemplate ?? tpl.bodyTemplate,
+    referenceInstruction: parsed.referenceInstruction,
+    referenceRules: parsed.referenceRules,
+    referenceRetry: parsed.referenceRetry,
+    compositeSceneSuffix: parsed.compositeSceneSuffix,
+    compositeFallbackScene: parsed.compositeFallbackScene,
   };
 }
 

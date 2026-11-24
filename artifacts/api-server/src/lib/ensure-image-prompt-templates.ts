@@ -1,6 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db, imagePromptTemplatesTable } from "@workspace/db";
 import { DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS } from "./image-prompt-template-defaults.js";
+import {
+  defaultAplusReferenceMetadata,
+  defaultGraphicsReferenceMetadataForSlug,
+} from "./image-prompt-reference-seeds.js";
+import { parseImagePromptMetadata } from "./image-prompt-template-service.js";
+import type { ImagePromptTemplateMetadata } from "@workspace/db";
 
 let migrated = false;
 let constraintMigrated = false;
@@ -64,6 +70,14 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
   await ensureImagePromptTemplatesSchemaMigrated();
   await ensureImagePromptTemplatesSlugCategoryUnique();
 
+  const wrapperDefaultsForSeed = (
+    category: (typeof DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS)[number]["category"],
+    slug: string,
+  ): Partial<ImagePromptTemplateMetadata> =>
+    category === "aplus"
+      ? defaultAplusReferenceMetadata()
+      : defaultGraphicsReferenceMetadataForSlug(slug);
+
   for (const seed of DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS) {
     const existing = await db
       .select({ id: imagePromptTemplatesTable.id })
@@ -89,8 +103,25 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
       promptTemplate: seed.promptTemplate,
       headlineTemplate: seed.headlineTemplate ?? null,
       bodyTemplate: seed.bodyTemplate ?? null,
-      metadata: seed.metadata ?? null,
+      metadata: {
+        ...(seed.metadata ?? {}),
+        ...wrapperDefaultsForSeed(seed.category, seed.slug),
+      },
     });
+  }
+
+  const existingRows = await db.select().from(imagePromptTemplatesTable);
+  for (const row of existingRows) {
+    const meta = parseImagePromptMetadata(row.metadata);
+    if (meta.referenceInstruction?.trim()) continue;
+    const defaults = wrapperDefaultsForSeed(row.category, row.slug);
+    await db
+      .update(imagePromptTemplatesTable)
+      .set({
+        metadata: { ...meta, ...defaults },
+        updatedAt: new Date(),
+      })
+      .where(eq(imagePromptTemplatesTable.id, row.id));
   }
 
   const customSeed = DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS.find(

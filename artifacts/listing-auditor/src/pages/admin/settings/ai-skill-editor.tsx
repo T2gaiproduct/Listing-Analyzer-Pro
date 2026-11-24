@@ -448,6 +448,19 @@ export default function AdminAiSkillEditorPage() {
             + `Product images skills must save to the graphics template row.`,
           );
         }
+        const mergedMetadata = {
+          ...targetMeta.metadata,
+          ...imagePromptMeta.metadata,
+        };
+        const assignMeta = (key: keyof typeof mergedMetadata, parsedVal: string) => {
+          if (parsedVal.trim()) mergedMetadata[key] = parsedVal.trim();
+        };
+        assignMeta("referenceInstruction", parsedPrompt.referenceInstruction);
+        assignMeta("referenceRules", parsedPrompt.referenceRules);
+        assignMeta("referenceRetry", parsedPrompt.referenceRetry);
+        assignMeta("compositeSceneSuffix", parsedPrompt.compositeSceneSuffix);
+        assignMeta("compositeFallbackScene", parsedPrompt.compositeFallbackScene);
+
         const mergedTpl = {
           ...targetMeta,
           name: moduleName,
@@ -460,6 +473,7 @@ export default function AdminAiSkillEditorPage() {
             targetMeta.category === "aplus"
               ? parsedPrompt.bodyTemplate || targetMeta.bodyTemplate
               : null,
+          metadata: mergedMetadata,
           enabled: nextStatus === "published",
         };
         await saveAdminImagePromptTemplate(mergedTpl);

@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import sharp from "sharp";
-import { isSubstantialAdminImagePrompt } from "./image-prompt-skill-sync.js";
 
 export type ImageCanvasSize = "1024x1024" | "1792x1024" | "1024x1792";
 
@@ -26,52 +25,9 @@ export function resolveProductPreserveLayout(
   return "lifestyle_scene";
 }
 
-const SCENE_NO_PRODUCT_BASE =
-  "CRITICAL: Do not draw, photograph, or depict any product, bottle, jar, tube, packaging, label, logo, or branded container. ";
-
-const LIFESTYLE_SAFETY_SUFFIX =
-  "Family-friendly PG-rated commercial e-commerce photography, SFW. Fully clothed adult only, modest casual attire, neutral professional pose, empty hands. "
-  + "No nudity, no lingerie, no sensual or romantic tone, no bare chest or suggestive body focus. Waist-up or wider framing.";
-
-const FALLBACK_LIFESTYLE_SCENE_PROMPT =
-  "Bright clean modern bathroom or vanity interior, soft natural daylight, neutral beige tiles, folded towel, small plant. "
-  + "Empty countertop with uncluttered space in the lower-right. No people. Professional stock interior, SFW, PG. "
-  + `${SCENE_NO_PRODUCT_BASE}`;
-
 export function isOpenAiSafetyRejection(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return /safety system|safety_violations|content.?policy|rejected by the safety/i.test(msg);
-}
-
-function productLabelFromPrompt(basePrompt: string): string {
-  const sceneFor = basePrompt.match(/\bfor\s+(.+?)\./i);
-  if (sceneFor?.[1]?.trim()) return sceneFor[1].trim();
-  const sceneForRest = basePrompt.match(/\bfor\s+(.+?)(?:\.|$)/i);
-  return sceneForRest?.[1]?.trim() || "consumer product";
-}
-
-/** Lifestyle scenes are rewritten for safety — base templates mention "product in use" and trigger OpenAI sexual filters. */
-export function scenePromptWithoutProduct(
-  basePrompt: string,
-  layout: ProductPreserveLayout,
-  productLabel?: string,
-): string {
-  if (layout === "studio") return basePrompt;
-  if (layout === "banner_west") {
-    return `${basePrompt} ${SCENE_NO_PRODUCT_BASE}Leave the left third of the frame visually clear and uncluttered for product placement. No packaging on the left side.`;
-  }
-  if (layout === "feature_center") {
-    return `${basePrompt} ${SCENE_NO_PRODUCT_BASE}Leave a large empty pale neutral area in the center (no product). Callouts, arrows, and background only.`;
-  }
-  const label = productLabel?.trim() || productLabelFromPrompt(basePrompt);
-  return [
-    `Professional lifestyle background scene for ${label}.`,
-    "Realistic home or bathroom setting, warm natural lighting, clean composition.",
-    "Single adult standing near counter, fully dressed, modest pose, smiling naturally, hands relaxed at sides.",
-    SCENE_NO_PRODUCT_BASE,
-    LIFESTYLE_SAFETY_SUFFIX,
-    "No text, no logos, no watermarks.",
-  ].join(" ");
 }
 
 function parseCanvasSize(size: ImageCanvasSize): { width: number; height: number } {
@@ -173,21 +129,26 @@ export async function generatePreservedProductImage(options: {
   size: ImageCanvasSize;
   prompt: string;
   productLabel?: string;
+  compositeSceneSuffix?: string;
+  compositeFallbackScene?: string;
   generateScene: (scenePrompt: string, size: ImageCanvasSize) => Promise<Buffer>;
 }): Promise<Buffer> {
   const layout = resolveProductPreserveLayout(options.imageType, options.size);
   if (layout === "studio") {
     return compositeProductPreserveHero(options.sourceFilePath, options.size);
   }
-  const scenePrompt = isSubstantialAdminImagePrompt(options.prompt)
-    ? `${options.prompt} ${SCENE_NO_PRODUCT_BASE} Leave clear space to place the exact uploaded product photo; bright professional Amazon listing lighting.`
-    : scenePromptWithoutProduct(options.prompt, layout, options.productLabel);
+  const suffix = options.compositeSceneSuffix?.trim();
+  const scenePrompt = suffix ? `${options.prompt} ${suffix}`.trim() : options.prompt.trim();
+  if (!scenePrompt) {
+    throw new Error("Composite scene prompt is empty — configure prompt_template and composite_scene_suffix in admin.");
+  }
   let scene: Buffer;
   try {
     scene = await options.generateScene(scenePrompt, options.size);
   } catch (err) {
-    if (layout === "lifestyle_scene" && isOpenAiSafetyRejection(err)) {
-      scene = await options.generateScene(FALLBACK_LIFESTYLE_SCENE_PROMPT, options.size);
+    const fallback = options.compositeFallbackScene?.trim();
+    if (fallback && (layout === "lifestyle_scene" || isOpenAiSafetyRejection(err))) {
+      scene = await options.generateScene(fallback, options.size);
     } else {
       throw err;
     }

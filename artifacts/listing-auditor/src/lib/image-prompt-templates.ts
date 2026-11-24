@@ -21,6 +21,11 @@ export type ImagePromptTemplateMetadata = {
   icon?: string;
   graphicsBucket?: "feature" | "lifestyle";
   isUserCustomType?: boolean;
+  referenceInstruction?: string;
+  referenceRules?: string;
+  referenceRetry?: string;
+  compositeSceneSuffix?: string;
+  compositeFallbackScene?: string;
 };
 
 export type ImagePromptTemplateAdmin = {

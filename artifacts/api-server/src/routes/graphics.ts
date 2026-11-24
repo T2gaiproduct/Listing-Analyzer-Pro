@@ -40,12 +40,12 @@ import {
   buildGraphicsPromptForType,
   resolveGraphicsBucketForType,
 } from "../lib/image-prompt-template-service.js";
-import { isSubstantialAdminImagePrompt } from "../lib/image-prompt-skill-sync.js";
 import {
   buildGraphicsReferenceGenerationPrompt,
   buildGraphicsReferenceRetryPrompt,
   shouldCompositeUploadOnlyForGraphicsType,
 } from "../lib/graphics-reference-prompt.js";
+import { resolveWrappersForTemplateSlug } from "../lib/image-prompt-runtime.js";
 import {
   isOpenAiInvalidImageDataError,
   prepareImageForOpenAiEdit,
@@ -157,8 +157,6 @@ const DESIGN_STYLE_PROMPTS: Record<string, string> = {
   minimalist: "Minimalist Scandinavian-inspired product photography, generous white space, clean simple composition, barely-there drop shadow, elegant restraint.",
   custom: "",
 };
-
-const REFERENCE_IMAGE_INSTRUCTION = "This image is a visual reference of the exact product you MUST feature. The product's appearance, shape, colors, branding, and design must be faithfully reproduced — not changed or substituted. Use this reference image as the visual basis for the product in the scene.";
 
 const ASPECT_SIZES: Record<string, "1024x1024" | "1792x1024" | "1024x1792"> = {
   "1:1": "1024x1024",
@@ -295,6 +293,8 @@ async function generateGraphicsImageBuffer(params: {
   const { productPath, referencePaths, imageType, prompt, size, filePath, productLabel, quality } = params;
   const imageOpts = quality === "hd" ? { quality: "high" as const } : undefined;
 
+  const wrappers = await resolveWrappersForTemplateSlug("graphics", imageType);
+
   if (productPath) {
     if (shouldCompositeUploadOnlyForGraphicsType(imageType)) {
       return generatePreservedProductImage({
@@ -303,14 +303,12 @@ async function generateGraphicsImageBuffer(params: {
         size,
         prompt,
         productLabel,
+        compositeSceneSuffix: wrappers.compositeSceneSuffix,
+        compositeFallbackScene: wrappers.compositeFallbackScene,
         generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz, imageOpts),
       });
     }
-    const refPrompt = buildGraphicsReferenceGenerationPrompt(
-      prompt,
-      imageType,
-      REFERENCE_IMAGE_INSTRUCTION,
-    );
+    const refPrompt = buildGraphicsReferenceGenerationPrompt(prompt, wrappers);
     let normalizedRef = productPath;
     try {
       normalizedRef = await prepareImageForOpenAiEdit(productPath);
@@ -326,7 +324,7 @@ async function generateGraphicsImageBuffer(params: {
         err instanceof Error ? err.message : err,
       );
       try {
-        const retryPrompt = buildGraphicsReferenceRetryPrompt(imageType);
+        const retryPrompt = buildGraphicsReferenceRetryPrompt(wrappers);
         return await generateImageWithReferenceProxy(retryPrompt, normalizedRef, size, imageOpts);
       } catch (retryErr) {
         if (!isOpenAiInvalidImageDataError(retryErr)) throw retryErr;
@@ -339,6 +337,8 @@ async function generateGraphicsImageBuffer(params: {
           size,
           prompt,
           productLabel,
+          compositeSceneSuffix: wrappers.compositeSceneSuffix,
+          compositeFallbackScene: wrappers.compositeFallbackScene,
           generateScene: (scenePrompt, sz) => generateImageBuffer(scenePrompt, sz, imageOpts),
         });
       }
@@ -346,19 +346,11 @@ async function generateGraphicsImageBuffer(params: {
   }
 
   if (referencePaths.length > 1) {
-    const refPrompt = buildGraphicsReferenceGenerationPrompt(
-      prompt,
-      imageType,
-      REFERENCE_IMAGE_INSTRUCTION,
-    );
+    const refPrompt = buildGraphicsReferenceGenerationPrompt(prompt, wrappers);
     return editImagesProxy(referencePaths, refPrompt, filePath);
   }
   if (referencePaths.length === 1) {
-    const refPrompt = buildGraphicsReferenceGenerationPrompt(
-      prompt,
-      imageType,
-      REFERENCE_IMAGE_INSTRUCTION,
-    );
+    const refPrompt = buildGraphicsReferenceGenerationPrompt(prompt, wrappers);
     return generateImageWithReferenceProxy(refPrompt, referencePaths[0]!, size, imageOpts);
   }
 
@@ -366,10 +358,7 @@ async function generateGraphicsImageBuffer(params: {
 }
 
 function withDefaultGraphicsPhotoSuffix(prompt: string): string {
-  const t = prompt.trim();
-  if (!t) return "";
-  if (isSubstantialAdminImagePrompt(t)) return t;
-  return `${t} Professional commercial product photography. High-resolution.`;
+  return prompt.trim();
 }
 
 async function buildNewImageSpecs(

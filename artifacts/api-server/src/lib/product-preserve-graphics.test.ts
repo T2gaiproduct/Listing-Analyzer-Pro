@@ -9,7 +9,6 @@ import {
   isOpenAiSafetyRejection,
   isProductPreserveGraphicsType,
   resolveProductPreserveLayout,
-  scenePromptWithoutProduct,
 } from "./product-preserve-graphics.js";
 
 async function writeFixturePng(filePath: string, color: { r: number; g: number; b: number }): Promise<void> {
@@ -26,14 +25,6 @@ async function main() {
   assert.equal(isProductPreserveGraphicsType("lifestyle"), true);
   assert.equal(resolveProductPreserveLayout("hero", "1024x1024"), "studio");
   assert.equal(resolveProductPreserveLayout("hero", "1792x1024"), "banner_west");
-  const lifestylePrompt = scenePromptWithoutProduct(
-    "Lifestyle product scene for body cream. Product being used by a target customer.",
-    "lifestyle_scene",
-    "body cream",
-  );
-  assert.match(lifestylePrompt, /Do not draw/);
-  assert.match(lifestylePrompt, /SFW/);
-  assert.ok(!/product being used/i.test(lifestylePrompt));
   assert.equal(isOpenAiSafetyRejection(new Error("400 safety_violations=[sexual]")), true);
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "hero-preserve-"));

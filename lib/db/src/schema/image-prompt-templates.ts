@@ -11,6 +11,16 @@ export const imagePromptTemplateMetadataSchema = z.object({
   graphicsBucket: z.enum(["feature", "lifestyle"]).optional(),
   /** User-provided prompt only (graphics "custom" type) */
   isUserCustomType: z.boolean().optional(),
+  /** Prepended when using an uploaded product as OpenAI reference (Product graphics / A+). */
+  referenceInstruction: z.string().optional(),
+  /** Extra rules prepended with the main prompt_template during reference-based generation. */
+  referenceRules: z.string().optional(),
+  /** Shorter prompt if the provider rejects the full reference prompt (optional). */
+  referenceRetry: z.string().optional(),
+  /** Appended during composite fallback when the scene is generated without the product layer. */
+  compositeSceneSuffix: z.string().optional(),
+  /** Scene-only prompt when composite generation hits safety filters (optional). */
+  compositeFallbackScene: z.string().optional(),
 });
 
 export type ImagePromptTemplateMetadata = z.infer<typeof imagePromptTemplateMetadataSchema>;
