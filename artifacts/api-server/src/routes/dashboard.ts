@@ -42,6 +42,7 @@ import {
 import {
   sumAllocatedCreditsForOwner,
   sumCreditsUsedInPeriod,
+  sumCreditsUsedForAccountOwner,
   sumCreditsUsedForWorkspace,
   sumCreditsUsedInWorkspaceForUser,
 } from "../lib/team-stats";
@@ -573,8 +574,9 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     creditsUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
     creditsUsedThisWeek = await sumCreditsUsedForWorkspace(workspaceId, weekStart, now);
   } else if (!isMemberCreditView && wsCtx.isAccountOwner && creditScope === "account") {
-    creditsUsedInPeriod = await sumCreditsUsedInPeriod(ownerId, periodStart, periodEnd);
-    creditsUsedThisWeek = await sumCreditsUsedInPeriod(ownerId, weekStart, now);
+    // Account overview: all workspaces + owner personal spend (same scope as Billing account usage), this period.
+    creditsUsedInPeriod = await sumCreditsUsedForAccountOwner(ownerId, periodStart, periodEnd);
+    creditsUsedThisWeek = await sumCreditsUsedForAccountOwner(ownerId, weekStart, now);
   }
 
   let teamCreditsUsedInPeriod = 0;

@@ -811,8 +811,8 @@ export default function Dashboard() {
                     : "This billing period"
                   : showWorkspaceCountMetric
                     ? creditsAllowance > 0
-                      ? `of ${creditsAllowance.toLocaleString()} on your plan this period`
-                      : "This billing period"
+                      ? `of ${creditsAllowance.toLocaleString()} on your plan · all workspaces this period`
+                      : "All workspaces · this billing period"
                     : "From AI tasks completed"
           }
           icon={(showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode || showWorkspaceCountMetric) ? Zap : Clock}
