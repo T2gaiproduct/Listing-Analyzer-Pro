@@ -46,7 +46,6 @@ import { displayWorkspaceRoleLabel } from "../lib/role-display.js";
 import {
   getWorkspaceCredits,
   setWorkspaceCreditPool,
-  setWorkspaceMemberCredits,
   patchWorkspaceMemberCredits,
   sumAllocatedMemberCreditsForWorkspace,
   getWorkspaceMemberCredits,
