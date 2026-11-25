@@ -452,7 +452,15 @@ export default function AdminAiSkillEditorPage() {
           ...targetMeta.metadata,
           ...imagePromptMeta.metadata,
         };
-        const assignMeta = (key: keyof typeof mergedMetadata, parsedVal: string) => {
+        const assignMeta = (
+          key:
+            | "referenceInstruction"
+            | "referenceRules"
+            | "referenceRetry"
+            | "compositeSceneSuffix"
+            | "compositeFallbackScene",
+          parsedVal: string,
+        ) => {
           if (parsedVal.trim()) mergedMetadata[key] = parsedVal.trim();
         };
         assignMeta("referenceInstruction", parsedPrompt.referenceInstruction);

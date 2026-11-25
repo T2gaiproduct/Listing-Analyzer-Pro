@@ -91,7 +91,7 @@ export async function syncContentMarketplaceToSkill(
   const refreshInstructions = options.refreshInstructions === true;
   const slug = marketplaceContentSkillSlug(mp.slug);
   const builtInstructions = buildMarketplaceSkillInstructionsText(mp);
-  const status = mp.enabled === 1 ? "published" : "draft";
+  const status: "published" | "draft" = mp.enabled === 1 ? "published" : "draft";
   const now = new Date();
 
   const linkPatch = {

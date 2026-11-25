@@ -18,7 +18,7 @@ function run() {
       keywords: [],
       htmlDescription: "",
     },
-  } as Audit;
+  } as unknown as Audit;
 
   const content = resolveListingContentForExport(audit);
   assert.equal(content.title, "");
