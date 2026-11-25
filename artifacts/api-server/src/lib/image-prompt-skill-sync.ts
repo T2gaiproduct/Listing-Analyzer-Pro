@@ -129,15 +129,23 @@ function mergeWrapperMetadataFromSkill(
 ): ImagePromptTemplateMetadata {
   const base = parseImagePromptMetadata(existing);
   const next = { ...base };
-  const assign = (key: keyof ImagePromptTemplateMetadata, value: string | null) => {
+  const assignString = (
+    key:
+      | "referenceInstruction"
+      | "referenceRules"
+      | "referenceRetry"
+      | "compositeSceneSuffix"
+      | "compositeFallbackScene",
+    value: string | null,
+  ) => {
     const t = value?.trim();
     if (t) next[key] = t;
   };
-  assign("referenceInstruction", parsed.referenceInstruction);
-  assign("referenceRules", parsed.referenceRules);
-  assign("referenceRetry", parsed.referenceRetry);
-  assign("compositeSceneSuffix", parsed.compositeSceneSuffix);
-  assign("compositeFallbackScene", parsed.compositeFallbackScene);
+  assignString("referenceInstruction", parsed.referenceInstruction);
+  assignString("referenceRules", parsed.referenceRules);
+  assignString("referenceRetry", parsed.referenceRetry);
+  assignString("compositeSceneSuffix", parsed.compositeSceneSuffix);
+  assignString("compositeFallbackScene", parsed.compositeFallbackScene);
   return next;
 }
 
@@ -244,7 +252,7 @@ export async function syncImagePromptTemplateToSkill(
   const refreshInstructions = options.refreshInstructions === true;
   const slug = imagePromptSkillSlug(tpl.category, tpl.slug);
   const builtInstructions = buildImagePromptSkillInstructionsText(tpl);
-  const status = tpl.enabled === 1 ? "published" : "draft";
+  const status: "published" | "draft" = tpl.enabled === 1 ? "published" : "draft";
   const skillType = skillTypeForTemplate(tpl.category);
   const now = new Date();
 

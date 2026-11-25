@@ -144,7 +144,7 @@ async function generateModuleBuffer(
   const basePrompt = data.prompt ?? spec.buildPrompt(productDesc, data.content);
   const prompt = `${basePrompt} ${APLUS_SAFE_MARGIN_PROMPT}`;
   const apiQuality = aplusApiImageQuality();
-  const imageOpts = { quality: apiQuality as const };
+  const imageOpts: { quality: "high" } = { quality: apiQuality };
 
   const wrappers = await resolveWrappersForTemplateSlug("aplus", spec.id);
   const refPrompt = buildReferenceGenerationPrompt(prompt, wrappers);
