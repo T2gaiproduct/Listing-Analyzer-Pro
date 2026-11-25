@@ -66,7 +66,36 @@ interface Subscription {
 
 interface Credits { aiCredits: number; imageCredits: number; auditCredits: number; }
 interface Plan { id: number; name: string; priceMonthly: number; priceYearly: number; aiCredits: number; imageCredits: number; auditCredits: number; creditAllocations?: Record<string, number> | null; isHighlighted: boolean; tag: string | null; features?: string[]; }
-interface Payment { id: number; amount: number; status: string; gateway: string; createdAt: string; planId: number | null; invoiceId?: number | null; couponCode?: string | null; discountAmount?: number | null; }
+interface Payment {
+  id: number;
+  amount: number;
+  status: string;
+  gateway: string;
+  createdAt: string;
+  planId: number | null;
+  invoiceId?: number | null;
+  couponCode?: string | null;
+  discountAmount?: number | null;
+  metadata?: {
+    type?: string;
+    planName?: string;
+    billingReason?: string;
+    source?: string;
+  } | null;
+}
+
+function paymentHistoryLabel(p: Payment): string {
+  const metaType = p.metadata?.type;
+  if (metaType === "subscription_renewal" || p.gateway === "subscription") {
+    const planName = p.metadata?.planName;
+    return planName ? `Plan renewal — ${planName}` : "Plan renewal";
+  }
+  if (metaType === "subscription_initial") {
+    const planName = p.metadata?.planName;
+    return planName ? `Subscription — ${planName}` : "Subscription";
+  }
+  return `TXN-${String(p.id).padStart(6, "0")}`;
+}
 interface Invoice { id: number; amount: number; status: string; currency: string; items: Array<{ description: string; amount: number; quantity: number }>; paidAt: string | null; createdAt: string; }
 
 interface PaymentConfig {
@@ -1283,7 +1312,11 @@ export default function Billing() {
                 <tbody className="divide-y divide-slate-100">
                   {payments.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-5 py-4 font-mono text-slate-700 text-xs">TXN-{String(p.id).padStart(6, "0")}</td>
+                      <td className="px-5 py-4 text-slate-700 text-xs">
+                        <span className={p.gateway === "subscription" || p.metadata?.type?.startsWith("subscription") ? "font-medium" : "font-mono"}>
+                          {paymentHistoryLabel(p)}
+                        </span>
+                      </td>
                       <td className="px-5 py-4"><GatewayBadge gateway={p.gateway} /></td>
                       <td className="px-5 py-4 font-semibold text-slate-900">${p.amount.toFixed(2)}</td>
                       <td className="px-5 py-4">

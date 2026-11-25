@@ -906,14 +906,16 @@ router.patch("/subscription/auto-renew", requireAuth, async (req, res): Promise<
 
 router.get("/billing-history", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  // Roll due auto-renewals first so renewal rows appear in history on this tab too.
+  await ensureSubscriptionCredits(userId);
   const payments = await db.select().from(paymentsTable)
     .where(eq(paymentsTable.userId, userId))
     .orderBy(desc(paymentsTable.createdAt))
-    .limit(20);
+    .limit(50);
   const invoices = await db.select().from(invoicesTable)
     .where(eq(invoicesTable.userId, userId))
     .orderBy(desc(invoicesTable.createdAt))
-    .limit(20);
+    .limit(50);
   res.json({
     payments: await Promise.all(payments.map((p) => enrichPaymentCouponAsync(p))),
     invoices,
