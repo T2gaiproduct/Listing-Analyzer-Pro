@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +7,13 @@ import {
   Info, CheckCircle2, ArrowUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import {
@@ -25,12 +32,38 @@ interface Credits {
 interface Subscription {
   planId: number;
   planName: string | null;
+  billingCycle?: string | null;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   planAiCredits: number;
   planImageCredits: number;
   planAuditCredits: number;
   creditAllocations?: Record<string, number> | null;
+}
+
+type UsagePeriodFilter = "current" | "previous" | "all";
+
+function shiftBillingCycle(date: Date, billingCycle: string, direction: 1 | -1): Date {
+  const next = new Date(date.getTime());
+  if (billingCycle === "yearly") next.setFullYear(next.getFullYear() + direction);
+  else next.setMonth(next.getMonth() + direction);
+  return next;
+}
+
+function formatPeriodRange(start: Date, end: Date): string {
+  return `${format(start, "MMM d, yyyy")} – ${format(end, "MMM d, yyyy")}`;
+}
+
+function formatRenewalInIndia(date: Date): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
 }
 
 interface Plan {
@@ -385,24 +418,73 @@ export function BillingOverview({
 
   const planTotalCredits = planCredits.totalCredits;
   const currentBalance = sumCredits(credits);
+  const billingCycle = sub.billingCycle === "yearly" ? "yearly" : "monthly";
 
-  const periodStart = sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
-  const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : endOfMonth(new Date());
+  const [usagePeriodFilter, setUsagePeriodFilter] = useState<UsagePeriodFilter>("current");
+
+  const currentPeriodStart = sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
+  const currentPeriodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : endOfMonth(new Date());
+
+  const previousPeriodEnd = new Date(currentPeriodStart);
+  const previousPeriodStart = shiftBillingCycle(previousPeriodEnd, billingCycle, -1);
+
+  const { periodStart, periodEnd, usageScopeLabel } = useMemo(() => {
+    if (usagePeriodFilter === "all") {
+      return {
+        periodStart: new Date(0),
+        periodEnd: new Date(8640000000000000),
+        usageScopeLabel: accountOverviewUsage
+          ? "All workspaces · all-time usage"
+          : billingWorkspaceName
+            ? `${billingWorkspaceName} · all-time usage`
+            : "All-time usage",
+      };
+    }
+    if (usagePeriodFilter === "previous") {
+      return {
+        periodStart: previousPeriodStart,
+        periodEnd: previousPeriodEnd,
+        usageScopeLabel: accountOverviewUsage
+          ? `All workspaces · previous period (${formatPeriodRange(previousPeriodStart, previousPeriodEnd)})`
+          : billingWorkspaceName
+            ? `${billingWorkspaceName} · previous period (${formatPeriodRange(previousPeriodStart, previousPeriodEnd)})`
+            : `Previous period (${formatPeriodRange(previousPeriodStart, previousPeriodEnd)})`,
+      };
+    }
+    return {
+      periodStart: currentPeriodStart,
+      periodEnd: currentPeriodEnd,
+      usageScopeLabel: accountOverviewUsage
+        ? `All workspaces · this billing period (${formatPeriodRange(currentPeriodStart, currentPeriodEnd)})`
+        : billingWorkspaceName
+          ? `${billingWorkspaceName} · this billing period (${formatPeriodRange(currentPeriodStart, currentPeriodEnd)})`
+          : `This billing period (${formatPeriodRange(currentPeriodStart, currentPeriodEnd)})`,
+    };
+  }, [
+    usagePeriodFilter,
+    accountOverviewUsage,
+    billingWorkspaceName,
+    currentPeriodStart,
+    currentPeriodEnd,
+    previousPeriodStart,
+    previousPeriodEnd,
+  ]);
 
   const transactions = creditUsage?.transactions ?? [];
 
   const workspaceTeamUsedInPeriod = useMemo(() => {
     if (accountOverviewUsage || billingWorkspaceId == null) return null;
+    if (usagePeriodFilter !== "current") return null;
     const ownerUsed = teamData?.ownerUsedInScopedWorkspace ?? 0;
     const memberUsed = (teamData?.workspaceMemberStats ?? []).reduce(
       (sum, row) => sum + (row.creditsUsed ?? 0),
       0,
     );
     return ownerUsed + memberUsed;
-  }, [accountOverviewUsage, billingWorkspaceId, teamData]);
+  }, [accountOverviewUsage, billingWorkspaceId, teamData, usagePeriodFilter]);
 
   const usedInPeriod = useMemo(() => {
-    if (typeof creditUsage?.totalSpent === "number") {
+    if (usagePeriodFilter === "all" && typeof creditUsage?.totalSpent === "number") {
       return creditUsage.totalSpent;
     }
     const fromTransactions = totalSpentInRange(transactions, periodStart, periodEnd);
@@ -410,9 +492,16 @@ export function BillingOverview({
       return Math.max(workspaceTeamUsedInPeriod, fromTransactions);
     }
     return fromTransactions;
-  }, [creditUsage?.totalSpent, transactions, periodStart, periodEnd, workspaceTeamUsedInPeriod]);
+  }, [
+    usagePeriodFilter,
+    creditUsage?.totalSpent,
+    transactions,
+    periodStart,
+    periodEnd,
+    workspaceTeamUsedInPeriod,
+  ]);
 
-  const totalCreditsPool = Math.max(planTotalCredits, currentBalance + usedInPeriod);
+  const totalCreditsPool = Math.max(planTotalCredits, usagePeriodFilter === "all" ? currentBalance + usedInPeriod : planTotalCredits);
 
   const totalUsage = planUsageMetrics(usedInPeriod, totalCreditsPool);
 
@@ -420,7 +509,7 @@ export function BillingOverview({
     creditRules.find((r) => r.featureType === featureType)?.creditsRequired ?? fallback;
 
   const serviceUsage = useMemo(() => {
-    const spentByFeature = creditUsage?.spentByFeatureType;
+    const spentByFeature = usagePeriodFilter === "all" ? creditUsage?.spentByFeatureType : undefined;
     const rows: {
       id: string;
       label: string;
@@ -476,7 +565,15 @@ export function BillingOverview({
       }
     }
     return rows;
-  }, [creditUsage?.spentByFeatureType, transactions, periodStart, periodEnd, creditRules, totalCreditsPool]);
+  }, [
+    usagePeriodFilter,
+    creditUsage?.spentByFeatureType,
+    transactions,
+    periodStart,
+    periodEnd,
+    creditRules,
+    totalCreditsPool,
+  ]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
 
@@ -566,14 +663,32 @@ export function BillingOverview({
       <div className="bg-white border border-slate-200 rounded-2xl p-6">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-slate-900">Total credit usage</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {accountOverviewUsage
-                ? "All workspaces · all-time usage"
-                : billingWorkspaceName
-                  ? `${billingWorkspaceName} · all-time usage`
-                  : "all-time usage"}
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Total credit usage</h2>
+                <p className="text-sm text-slate-500 mt-0.5">{usageScopeLabel}</p>
+              </div>
+              <div className="w-full sm:w-56 flex-shrink-0">
+                <label className="text-xs text-slate-500 mb-1 block">Period</label>
+                <Select
+                  value={usagePeriodFilter}
+                  onValueChange={(v) => setUsagePeriodFilter(v as UsagePeriodFilter)}
+                >
+                  <SelectTrigger aria-label="Credit usage period">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="current">
+                      Current ({formatPeriodRange(currentPeriodStart, currentPeriodEnd)})
+                    </SelectItem>
+                    <SelectItem value="previous">
+                      Previous ({formatPeriodRange(previousPeriodStart, previousPeriodEnd)})
+                    </SelectItem>
+                    <SelectItem value="all">All time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <p className="text-3xl font-bold text-slate-900 mt-4">
               {usedInPeriod.toLocaleString()}{" "}
               <span className="text-lg font-semibold text-slate-500">
@@ -587,13 +702,22 @@ export function BillingOverview({
               />
             </div>
             {usedInPeriod > 0 && (
-              <p className="text-xs text-slate-500 mt-2">{totalUsage.pctLabel} of total credits used</p>
+              <p className="text-xs text-slate-500 mt-2">
+                {totalUsage.pctLabel} of{" "}
+                {usagePeriodFilter === "all" ? "total credits" : "plan credits for this period"} used
+              </p>
             )}
-            {sub.currentPeriodEnd && (
+            {usagePeriodFilter === "current" && sub.currentPeriodEnd && (
               <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 flex-shrink-0" />
-                Estimated Credit Renewal on:{" "}
-                {format(new Date(sub.currentPeriodEnd), "MMM d, yyyy, h:mm a")} GMT+5:30
+                Estimated credit renewal (Asia/Calcutta):{" "}
+                {formatRenewalInIndia(new Date(sub.currentPeriodEnd))}
+              </p>
+            )}
+            {usagePeriodFilter === "previous" && (
+              <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                Viewing previous billing period: {formatPeriodRange(previousPeriodStart, previousPeriodEnd)}
               </p>
             )}
           </div>
@@ -636,7 +760,7 @@ export function BillingOverview({
         <div className="mb-5">
           <h3 className="text-base font-bold text-slate-900">Credit usage breakdown</h3>
           <p className="text-sm text-slate-500 mt-0.5">
-            See how your credits are being used across different services. Percentages are of your total available credits ({totalCreditsPool.toLocaleString()} credits). These rows add up to Total credit usage.
+            See how your credits are being used across different services for the selected period. Percentages are of your plan credits ({totalCreditsPool.toLocaleString()} credits). These rows add up to Total credit usage.
           </p>
         </div>
 

@@ -799,6 +799,8 @@ router.get("/credits", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/subscription", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  // Roll billing period + grant renewal credits when auto-renew is due (Cursor-style).
+  await ensureSubscriptionCredits(userId);
   const rows = await db.select({
     id: subscriptionsTable.id,
     userId: subscriptionsTable.userId,
