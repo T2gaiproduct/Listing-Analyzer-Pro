@@ -105,6 +105,14 @@ function formatHours(hours: number): string {
   return `${Math.round(hours * 60)} min`;
 }
 
+function formatBillingPeriodRange(startIso: string | null | undefined, endIso: string | null | undefined): string | null {
+  if (!startIso || !endIso) return null;
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  return `${format(start, "MMM d, yyyy")} – ${format(end, "MMM d, yyyy")}`;
+}
+
 function resolveDashboardImageUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
   const trimmed = url.trim();
@@ -634,7 +642,8 @@ export default function Dashboard() {
     ?? user?.firstName
     ?? user?.fullName?.split(" ")[0]
     ?? "there";
-  const { stats, recentProjects, quickActions } = dashboard;
+  const { stats, recentProjects, quickActions, period } = dashboard;
+  const billingPeriodLabel = formatBillingPeriodRange(period?.billingStart, period?.billingEnd);
   const auditsTrendPositive = stats.auditsWeekOverWeekPct >= 0;
 
   const memberPool = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
@@ -724,6 +733,16 @@ export default function Dashboard() {
     ? dashboard.creditBreakdown.filter((seg) => seg.balance > 0)
     : creditBreakdown;
 
+  const showAccountOverview =
+    showAgencyAccountOverview || dashboard.viewMode === "account";
+  const canAddCredits =
+    isBillingAccountOwner
+    && !isTeamMember
+    && !showMemberCredits;
+  const creditsUsedPeriodSuffix = billingPeriodLabel
+    ? ` · ${billingPeriodLabel}`
+    : " · this billing period";
+
   return (
     <div className={cn("space-y-3 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
       {/* Welcome */}
@@ -733,8 +752,17 @@ export default function Dashboard() {
             Hi, {name} 👋
           </h1>
           <p className="hidden sm:block text-sm sm:text-base text-slate-500 mt-1">
-            {showAgencyAccountOverview || dashboard.viewMode === "account"
-              ? "Account overview across all your workspaces."
+            {showAccountOverview
+              ? (
+                <>
+                  Account overview across all your workspaces.
+                  {billingPeriodLabel ? (
+                    <span className="block text-slate-400 mt-0.5">
+                      Billing period: {billingPeriodLabel}
+                    </span>
+                  ) : null}
+                </>
+              )
               : <>Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? "this workspace"}</span>.</>}
           </p>
         </div>
@@ -799,20 +827,20 @@ export default function Dashboard() {
           subtext={
             showMemberCredits
               ? creditsAllowance > 0
-                ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
-                : "This billing period"
+                ? `of ${creditsAllowance.toLocaleString()} allocated by owner${creditsUsedPeriodSuffix}`
+                : billingPeriodLabel ?? "This billing period"
               : showOwnerWorkspaceCreditsUsed
                 ? creditsAllowance > 0
-                  ? `of ${creditsAllowance.toLocaleString()} funded to this workspace`
-                  : "This billing period"
+                  ? `of ${creditsAllowance.toLocaleString()} funded to this workspace${creditsUsedPeriodSuffix}`
+                  : billingPeriodLabel ?? "This billing period"
                 : planCreditsMode
                   ? creditsAllowance > 0
-                    ? `of ${creditsAllowance.toLocaleString()} plan credits this period`
-                    : "This billing period"
+                    ? `of ${creditsAllowance.toLocaleString()} plan credits${creditsUsedPeriodSuffix}`
+                    : billingPeriodLabel ?? "This billing period"
                   : showWorkspaceCountMetric
                     ? creditsAllowance > 0
-                      ? `of ${creditsAllowance.toLocaleString()} on your plan · all workspaces this period`
-                      : "All workspaces · this billing period"
+                      ? `of ${creditsAllowance.toLocaleString()} on your plan · all workspaces${creditsUsedPeriodSuffix}`
+                      : `All workspaces${creditsUsedPeriodSuffix}`
                     : "From AI tasks completed"
           }
           icon={(showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode || showWorkspaceCountMetric) ? Zap : Clock}
@@ -833,7 +861,7 @@ export default function Dashboard() {
                 ? creditsAllowance > 0
                   ? `of ${creditsAllowance.toLocaleString()} assigned to this workspace`
                   : `No credits assigned — fund on ${WORKSPACES_HUB_LABEL}`
-                : showAgencyAccountOverview || dashboard.viewMode === "account"
+                : showAccountOverview
                   ? workspaceCreditsAllocatedTotal != null && workspaceCreditsAllocatedTotal > 0
                     ? `On your account · ${workspaceCreditsAllocatedTotal.toLocaleString()} allocated to workspaces`
                     : "On your account"
@@ -842,7 +870,7 @@ export default function Dashboard() {
                     : `of ${creditsAllowance.toLocaleString()} credits`
           }
           icon={Wallet}
-          href={planCreditsMode ? "/billing" : undefined}
+          href={canAddCredits ? "/billing?tab=credits" : undefined}
         />
       </div>
 
@@ -919,13 +947,30 @@ export default function Dashboard() {
           {/* Credits donut */}
           <div className="bg-white rounded-lg sm:rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-6">
             <div className="flex items-baseline justify-between gap-2 mb-2 sm:mb-4">
-              <h2 className="text-sm sm:text-base font-semibold text-slate-900">Credits</h2>
-              <Link
-                href="/billing"
-                className="text-xs font-medium text-orange-500 hover:text-orange-600 sm:hidden"
-              >
-                Details
-              </Link>
+              <div className="min-w-0">
+                <h2 className="text-sm sm:text-base font-semibold text-slate-900">Credits</h2>
+                {billingPeriodLabel ? (
+                  <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate">
+                    Billing period · {billingPeriodLabel}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {canAddCredits ? (
+                  <Link
+                    href="/billing?tab=credits"
+                    className="text-xs font-medium text-orange-500 hover:text-orange-600"
+                  >
+                    Add Credits
+                  </Link>
+                ) : null}
+                <Link
+                  href="/billing"
+                  className="text-xs font-medium text-orange-500 hover:text-orange-600 sm:hidden"
+                >
+                  Details
+                </Link>
+              </div>
             </div>
             <DonutChart data={creditBreakdownForDisplay} total={creditsBalance} />
             {creditBreakdownForDisplay.length === 0 ? (
@@ -952,12 +997,19 @@ export default function Dashboard() {
                 ))}
               </ul>
             )}
-            <Link
-              href="/billing"
-              className="mt-4 sm:mt-5 hidden sm:inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"
-            >
-              View Detailed Usage <ChevronRight className="w-4 h-4" />
-            </Link>
+            <div className="mt-4 sm:mt-5 hidden sm:flex flex-wrap items-center gap-x-4 gap-y-2">
+              {canAddCredits ? (
+                <Button asChild size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
+                  <Link href="/billing?tab=credits">Add Credits</Link>
+                </Button>
+              ) : null}
+              <Link
+                href="/billing"
+                className="inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"
+              >
+                View Detailed Usage <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
 
           {/* Quick actions — desktop / tablet only (New Project covers mobile) */}
