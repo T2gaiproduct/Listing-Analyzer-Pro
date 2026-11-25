@@ -105,14 +105,6 @@ function formatHours(hours: number): string {
   return `${Math.round(hours * 60)} min`;
 }
 
-function formatBillingPeriodRange(startIso: string | null | undefined, endIso: string | null | undefined): string | null {
-  if (!startIso || !endIso) return null;
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-  return `${format(start, "MMM d, yyyy")} – ${format(end, "MMM d, yyyy")}`;
-}
-
 function resolveDashboardImageUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
   const trimmed = url.trim();
@@ -642,8 +634,7 @@ export default function Dashboard() {
     ?? user?.firstName
     ?? user?.fullName?.split(" ")[0]
     ?? "there";
-  const { stats, recentProjects, quickActions, period } = dashboard;
-  const billingPeriodLabel = formatBillingPeriodRange(period?.billingStart, period?.billingEnd);
+  const { stats, recentProjects, quickActions } = dashboard;
   const auditsTrendPositive = stats.auditsWeekOverWeekPct >= 0;
 
   const memberPool = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
@@ -735,9 +726,6 @@ export default function Dashboard() {
 
   const showAccountOverview =
     showAgencyAccountOverview || dashboard.viewMode === "account";
-  const creditsUsedPeriodSuffix = billingPeriodLabel
-    ? ` · ${billingPeriodLabel}`
-    : " · this billing period";
 
   return (
     <div className={cn("space-y-3 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
@@ -818,20 +806,20 @@ export default function Dashboard() {
           subtext={
             showMemberCredits
               ? creditsAllowance > 0
-                ? `of ${creditsAllowance.toLocaleString()} allocated by owner${creditsUsedPeriodSuffix}`
-                : billingPeriodLabel ?? "This billing period"
+                ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
+                : "This billing period"
               : showOwnerWorkspaceCreditsUsed
                 ? creditsAllowance > 0
-                  ? `of ${creditsAllowance.toLocaleString()} funded to this workspace${creditsUsedPeriodSuffix}`
-                  : billingPeriodLabel ?? "This billing period"
+                  ? `of ${creditsAllowance.toLocaleString()} funded to this workspace`
+                  : "This billing period"
                 : planCreditsMode
                   ? creditsAllowance > 0
-                    ? `of ${creditsAllowance.toLocaleString()} plan credits${creditsUsedPeriodSuffix}`
-                    : billingPeriodLabel ?? "This billing period"
+                    ? `of ${creditsAllowance.toLocaleString()} plan credits`
+                    : "This billing period"
                   : showWorkspaceCountMetric
                     ? creditsAllowance > 0
-                      ? `of ${creditsAllowance.toLocaleString()} on your plan · all workspaces${creditsUsedPeriodSuffix}`
-                      : `All workspaces${creditsUsedPeriodSuffix}`
+                      ? `of ${creditsAllowance.toLocaleString()} on your plan`
+                      : "This billing period"
                     : "From AI tasks completed"
           }
           icon={(showMemberCredits || showOwnerWorkspaceCreditsUsed || planCreditsMode || showWorkspaceCountMetric) ? Zap : Clock}
@@ -938,14 +926,7 @@ export default function Dashboard() {
           {/* Credits donut */}
           <div className="bg-white rounded-lg sm:rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-6">
             <div className="flex items-baseline justify-between gap-2 mb-2 sm:mb-4">
-              <div className="min-w-0">
-                <h2 className="text-sm sm:text-base font-semibold text-slate-900">Credits</h2>
-                {billingPeriodLabel ? (
-                  <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate">
-                    Billing period · {billingPeriodLabel}
-                  </p>
-                ) : null}
-              </div>
+              <h2 className="text-sm sm:text-base font-semibold text-slate-900">Credits</h2>
               <Link
                 href="/billing"
                 className="text-xs font-medium text-orange-500 hover:text-orange-600 sm:hidden shrink-0"
