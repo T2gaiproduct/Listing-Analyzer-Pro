@@ -415,6 +415,32 @@ export async function returnWorkspaceCreditsToAccountOnArchive(
   return { returned: toReturn };
 }
 
+/**
+ * Zero all workspace pools and member allocations for an account owner
+ * (billing-period expiry — unused credits do not roll over).
+ */
+export async function zeroAllWorkspaceCreditsForOwner(accountOwnerId: string): Promise<void> {
+  const workspaces = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 0)));
+  if (workspaces.length === 0) return;
+
+  const now = new Date();
+  const ids = workspaces.map((w) => w.id);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(workspaceCreditsTable)
+      .set({ aiCredits: 0, imageCredits: 0, auditCredits: 0, poolIsNet: true, updatedAt: now })
+      .where(inArray(workspaceCreditsTable.workspaceId, ids));
+    await tx
+      .update(memberCreditsTable)
+      .set({ aiCredits: 0, imageCredits: 0, auditCredits: 0, updatedAt: now })
+      .where(inArray(memberCreditsTable.workspaceId, ids));
+  });
+}
+
 /** Set workspace pool balances; moves credits between account owner balance and workspace pool. */
 export async function setWorkspaceCreditPool(
   accountOwnerId: string,

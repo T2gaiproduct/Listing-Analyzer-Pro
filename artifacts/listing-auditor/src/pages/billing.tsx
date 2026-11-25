@@ -276,11 +276,17 @@ interface PaymentSectionProps {
 }
 
 function GatewayBadge({ gateway }: { gateway: string }) {
-  const label: Record<string, string> = { stripe: "Stripe", razorpay: "Razorpay", paypal: "PayPal" };
+  const label: Record<string, string> = {
+    stripe: "Stripe",
+    razorpay: "Razorpay",
+    paypal: "PayPal",
+    subscription: "Subscription",
+  };
   const colors: Record<string, string> = {
     stripe: "bg-indigo-50 text-indigo-700",
     razorpay: "bg-sky-50 text-sky-700",
     paypal: "bg-yellow-50 text-yellow-700",
+    subscription: "bg-emerald-50 text-emerald-700",
   };
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${colors[gateway] ?? "bg-slate-100 text-slate-600"}`}>

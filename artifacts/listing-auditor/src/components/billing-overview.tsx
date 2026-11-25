@@ -41,13 +41,45 @@ interface Subscription {
   creditAllocations?: Record<string, number> | null;
 }
 
-type UsagePeriodFilter = "current" | "previous" | "all";
+const MAX_PERIOD_OPTIONS = 24;
+
+type UsagePeriodKey = "all" | `p${number}`;
 
 function shiftBillingCycle(date: Date, billingCycle: string, direction: 1 | -1): Date {
   const next = new Date(date.getTime());
   if (billingCycle === "yearly") next.setFullYear(next.getFullYear() + direction);
   else next.setMonth(next.getMonth() + direction);
   return next;
+}
+
+function buildBillingPeriodOptions(
+  currentStart: Date,
+  currentEnd: Date,
+  billingCycle: string,
+  maxPast: number = MAX_PERIOD_OPTIONS,
+): Array<{ key: UsagePeriodKey; start: Date; end: Date; label: string }> {
+  const options: Array<{ key: UsagePeriodKey; start: Date; end: Date; label: string }> = [
+    {
+      key: "p0",
+      start: currentStart,
+      end: currentEnd,
+      label: `Current (${formatPeriodRange(currentStart, currentEnd)})`,
+    },
+  ];
+  let end = new Date(currentStart);
+  for (let i = 1; i <= maxPast; i++) {
+    const start = shiftBillingCycle(end, billingCycle, -1);
+    options.push({
+      key: `p${i}`,
+      start,
+      end: new Date(end),
+      label: i === 1
+        ? `Previous (${formatPeriodRange(start, end)})`
+        : formatPeriodRange(start, end),
+    });
+    end = start;
+  }
+  return options;
 }
 
 function formatPeriodRange(start: Date, end: Date): string {
@@ -420,13 +452,15 @@ export function BillingOverview({
   const currentBalance = sumCredits(credits);
   const billingCycle = sub.billingCycle === "yearly" ? "yearly" : "monthly";
 
-  const [usagePeriodFilter, setUsagePeriodFilter] = useState<UsagePeriodFilter>("current");
+  const [usagePeriodFilter, setUsagePeriodFilter] = useState<UsagePeriodKey>("p0");
 
   const currentPeriodStart = sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
   const currentPeriodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : endOfMonth(new Date());
 
-  const previousPeriodEnd = new Date(currentPeriodStart);
-  const previousPeriodStart = shiftBillingCycle(previousPeriodEnd, billingCycle, -1);
+  const periodOptions = useMemo(
+    () => buildBillingPeriodOptions(currentPeriodStart, currentPeriodEnd, billingCycle),
+    [currentPeriodStart, currentPeriodEnd, billingCycle],
+  );
 
   const { periodStart, periodEnd, usageScopeLabel } = useMemo(() => {
     if (usagePeriodFilter === "all") {
@@ -440,41 +474,27 @@ export function BillingOverview({
             : "All-time usage",
       };
     }
-    if (usagePeriodFilter === "previous") {
-      return {
-        periodStart: previousPeriodStart,
-        periodEnd: previousPeriodEnd,
-        usageScopeLabel: accountOverviewUsage
-          ? `All workspaces · previous period (${formatPeriodRange(previousPeriodStart, previousPeriodEnd)})`
-          : billingWorkspaceName
-            ? `${billingWorkspaceName} · previous period (${formatPeriodRange(previousPeriodStart, previousPeriodEnd)})`
-            : `Previous period (${formatPeriodRange(previousPeriodStart, previousPeriodEnd)})`,
-      };
-    }
+    const selected = periodOptions.find((o) => o.key === usagePeriodFilter) ?? periodOptions[0]!;
+    const scopePrefix = accountOverviewUsage
+      ? "All workspaces"
+      : billingWorkspaceName ?? "Usage";
     return {
-      periodStart: currentPeriodStart,
-      periodEnd: currentPeriodEnd,
-      usageScopeLabel: accountOverviewUsage
-        ? `All workspaces · this billing period (${formatPeriodRange(currentPeriodStart, currentPeriodEnd)})`
-        : billingWorkspaceName
-          ? `${billingWorkspaceName} · this billing period (${formatPeriodRange(currentPeriodStart, currentPeriodEnd)})`
-          : `This billing period (${formatPeriodRange(currentPeriodStart, currentPeriodEnd)})`,
+      periodStart: selected.start,
+      periodEnd: selected.end,
+      usageScopeLabel: `${scopePrefix} · ${selected.key === "p0" ? "this billing period" : "selected period"} (${formatPeriodRange(selected.start, selected.end)})`,
     };
   }, [
     usagePeriodFilter,
     accountOverviewUsage,
     billingWorkspaceName,
-    currentPeriodStart,
-    currentPeriodEnd,
-    previousPeriodStart,
-    previousPeriodEnd,
+    periodOptions,
   ]);
 
   const transactions = creditUsage?.transactions ?? [];
 
   const workspaceTeamUsedInPeriod = useMemo(() => {
     if (accountOverviewUsage || billingWorkspaceId == null) return null;
-    if (usagePeriodFilter !== "current") return null;
+    if (usagePeriodFilter !== "p0") return null;
     const ownerUsed = teamData?.ownerUsedInScopedWorkspace ?? 0;
     const memberUsed = (teamData?.workspaceMemberStats ?? []).reduce(
       (sum, row) => sum + (row.creditsUsed ?? 0),
@@ -668,22 +688,21 @@ export function BillingOverview({
                 <h2 className="text-lg font-bold text-slate-900">Total credit usage</h2>
                 <p className="text-sm text-slate-500 mt-0.5">{usageScopeLabel}</p>
               </div>
-              <div className="w-full sm:w-56 flex-shrink-0">
+              <div className="w-full sm:w-72 flex-shrink-0">
                 <label className="text-xs text-slate-500 mb-1 block">Period</label>
                 <Select
                   value={usagePeriodFilter}
-                  onValueChange={(v) => setUsagePeriodFilter(v as UsagePeriodFilter)}
+                  onValueChange={(v) => setUsagePeriodFilter(v as UsagePeriodKey)}
                 >
                   <SelectTrigger aria-label="Credit usage period">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="current">
-                      Current ({formatPeriodRange(currentPeriodStart, currentPeriodEnd)})
-                    </SelectItem>
-                    <SelectItem value="previous">
-                      Previous ({formatPeriodRange(previousPeriodStart, previousPeriodEnd)})
-                    </SelectItem>
+                  <SelectContent className="max-h-72">
+                    {periodOptions.map((opt) => (
+                      <SelectItem key={opt.key} value={opt.key}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                     <SelectItem value="all">All time</SelectItem>
                   </SelectContent>
                 </Select>
@@ -707,17 +726,17 @@ export function BillingOverview({
                 {usagePeriodFilter === "all" ? "total credits" : "plan credits for this period"} used
               </p>
             )}
-            {usagePeriodFilter === "current" && sub.currentPeriodEnd && (
+            {usagePeriodFilter === "p0" && sub.currentPeriodEnd && (
               <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 flex-shrink-0" />
                 Estimated credit renewal (Asia/Calcutta):{" "}
                 {formatRenewalInIndia(new Date(sub.currentPeriodEnd))}
               </p>
             )}
-            {usagePeriodFilter === "previous" && (
+            {usagePeriodFilter !== "all" && usagePeriodFilter !== "p0" && (
               <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 flex-shrink-0" />
-                Viewing previous billing period: {formatPeriodRange(previousPeriodStart, previousPeriodEnd)}
+                Viewing past billing period: {formatPeriodRange(periodStart, periodEnd)}
               </p>
             )}
           </div>

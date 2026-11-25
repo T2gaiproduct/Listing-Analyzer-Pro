@@ -1,13 +1,13 @@
 import Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import {
-  db, plansTable, creditsTable, creditTransactionsTable,
+  db, plansTable,
   paymentsTable, subscriptionsTable, userProfilesTable,
 } from "@workspace/db";
 import { upsertUserProfile } from "./user-profile";
 import { logger } from "./logger";
 import { fulfillStripeCreditCheckout } from "./stripe-credit-checkout";
-import { grantPlanCreditsDelta } from "./subscription-credits";
+import { grantPlanCreditsDelta, renewPlanCreditsWithExpiry } from "./subscription-credits";
 import { planRowToGrantCredits } from "./plan-credits";
 import { fulfillStripeSubscriptionCheckout } from "./subscription-fulfillment";
 
@@ -118,34 +118,8 @@ async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string
   if (isInitialSubscription) {
     await grantPlanCreditsDelta(userId, grantCredits, `${plan.name} plan — initial subscription`);
   } else {
-    const [existingCredits] = await db
-      .select()
-      .from(creditsTable)
-      .where(eq(creditsTable.userId, userId));
-
-    if (existingCredits) {
-      await db.update(creditsTable)
-        .set({
-          aiCredits: existingCredits.aiCredits + grantCredits.aiCredits,
-          imageCredits: existingCredits.imageCredits + grantCredits.imageCredits,
-          auditCredits: existingCredits.auditCredits + grantCredits.auditCredits,
-          updatedAt: now,
-        })
-        .where(eq(creditsTable.userId, userId));
-    } else {
-      await db.insert(creditsTable).values({
-        userId,
-        aiCredits: grantCredits.aiCredits,
-        imageCredits: grantCredits.imageCredits,
-        auditCredits: grantCredits.auditCredits,
-      });
-    }
-
-    await db.insert(creditTransactionsTable).values([
-      { userId, creditType: "ai", amount: grantCredits.aiCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
-      { userId, creditType: "image", amount: grantCredits.imageCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
-      { userId, creditType: "audit", amount: grantCredits.auditCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
-    ]);
+    // No rollover: expire unused plan + pack + workspace credits, then grant only this plan.
+    await renewPlanCreditsWithExpiry(userId, grantCredits, `Renewal — ${plan.name}`);
   }
 
   // Update subscription period dates from the invoice

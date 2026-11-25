@@ -5,8 +5,10 @@ import {
   creditTransactionsTable,
   subscriptionsTable,
   plansTable,
+  paymentsTable,
 } from "@workspace/db";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "./plan-credits";
+import { zeroAllWorkspaceCreditsForOwner } from "./workspace-credits.js";
 
 export interface CreditBalances {
   aiCredits: number;
@@ -137,27 +139,80 @@ export function addBillingCycle(date: Date, billingCycle: string, direction: 1 |
   return next;
 }
 
-/** Grant a full plan allocation (used on each billing-period renewal). Unused balances roll over. */
-export async function grantFullPlanCreditsForRenewal(
+/**
+ * Expire all unused credits (plan + packs) and zero workspace/member pools.
+ * Does not grant new credits — call setAccountCreditsToPlanAllocation after.
+ */
+export async function expireAllCreditsForPeriodEnd(
+  userId: string,
+  reason = "Billing period ended — unused credits expired",
+): Promise<CreditBalances> {
+  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const current = credits ?? EMPTY_CREDITS;
+  const now = new Date();
+
+  await zeroAllWorkspaceCreditsForOwner(userId);
+
+  if (credits && sumCredits(current) > 0) {
+    const txs = [
+      ...(current.aiCredits > 0
+        ? [{
+            userId,
+            creditType: "ai" as const,
+            amount: -current.aiCredits,
+            reason,
+            featureType: "subscription_expiry",
+          }]
+        : []),
+      ...(current.imageCredits > 0
+        ? [{
+            userId,
+            creditType: "image" as const,
+            amount: -current.imageCredits,
+            reason,
+            featureType: "subscription_expiry",
+          }]
+        : []),
+      ...(current.auditCredits > 0
+        ? [{
+            userId,
+            creditType: "audit" as const,
+            amount: -current.auditCredits,
+            reason,
+            featureType: "subscription_expiry",
+          }]
+        : []),
+    ];
+    if (txs.length > 0) {
+      await db.insert(creditTransactionsTable).values(txs);
+    }
+  }
+
+  if (credits) {
+    await db
+      .update(creditsTable)
+      .set({ aiCredits: 0, imageCredits: 0, auditCredits: 0, updatedAt: now })
+      .where(eq(creditsTable.userId, userId));
+  } else {
+    await db.insert(creditsTable).values({ userId, ...EMPTY_CREDITS });
+  }
+
+  return { ...EMPTY_CREDITS };
+}
+
+/** Set account credit balances to exactly the new plan allocation (after expiry). */
+export async function setAccountCreditsToPlanAllocation(
   userId: string,
   plan: PlanCredits,
   reason: string,
 ): Promise<boolean> {
-  const toAdd: CreditBalances = {
+  const next: CreditBalances = {
     aiCredits: Math.max(0, Math.floor(plan.aiCredits)),
     imageCredits: Math.max(0, Math.floor(plan.imageCredits)),
     auditCredits: Math.max(0, Math.floor(plan.auditCredits)),
   };
-  if (sumCredits(toAdd) <= 0) return false;
-
-  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
-  const current = credits ?? EMPTY_CREDITS;
   const now = new Date();
-  const next = {
-    aiCredits: current.aiCredits + toAdd.aiCredits,
-    imageCredits: current.imageCredits + toAdd.imageCredits,
-    auditCredits: current.auditCredits + toAdd.auditCredits,
-  };
+  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
 
   if (credits) {
     await db
@@ -168,24 +223,78 @@ export async function grantFullPlanCreditsForRenewal(
     await db.insert(creditsTable).values({ userId, ...next });
   }
 
+  if (sumCredits(next) <= 0) return false;
+
   await db.insert(creditTransactionsTable).values([
-    ...(toAdd.aiCredits > 0
-      ? [{ userId, creditType: "ai" as const, amount: toAdd.aiCredits, reason, featureType: "subscription" }]
+    ...(next.aiCredits > 0
+      ? [{ userId, creditType: "ai" as const, amount: next.aiCredits, reason, featureType: "subscription" }]
       : []),
-    ...(toAdd.imageCredits > 0
-      ? [{ userId, creditType: "image" as const, amount: toAdd.imageCredits, reason, featureType: "subscription" }]
+    ...(next.imageCredits > 0
+      ? [{ userId, creditType: "image" as const, amount: next.imageCredits, reason, featureType: "subscription" }]
       : []),
-    ...(toAdd.auditCredits > 0
-      ? [{ userId, creditType: "audit" as const, amount: toAdd.auditCredits, reason, featureType: "subscription" }]
+    ...(next.auditCredits > 0
+      ? [{ userId, creditType: "audit" as const, amount: next.auditCredits, reason, featureType: "subscription" }]
       : []),
   ]);
 
   return true;
 }
 
+/** Expire leftover credits (incl. packs + workspaces), then grant only the new plan allocation. */
+export async function renewPlanCreditsWithExpiry(
+  userId: string,
+  plan: PlanCredits,
+  reason: string,
+): Promise<void> {
+  await expireAllCreditsForPeriodEnd(userId);
+  await setAccountCreditsToPlanAllocation(userId, plan, reason);
+}
+
+async function recordPlanRenewalInBillingHistory(options: {
+  userId: string;
+  planId: number | null;
+  planName: string;
+  billingCycle: string;
+  periodStart: Date;
+  periodEnd: Date;
+  amount: number;
+  gateway: string;
+  gatewayPaymentId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  const gatewayPaymentId =
+    options.gatewayPaymentId
+    ?? `renewal:${options.userId}:${options.periodStart.toISOString()}:${options.periodEnd.toISOString()}`;
+
+  const existing = await db
+    .select({ id: paymentsTable.id })
+    .from(paymentsTable)
+    .where(eq(paymentsTable.gatewayPaymentId, gatewayPaymentId))
+    .limit(1);
+  if (existing.length > 0) return;
+
+  await db.insert(paymentsTable).values({
+    userId: options.userId,
+    planId: options.planId ?? undefined,
+    amount: options.amount,
+    status: "completed",
+    gateway: options.gateway,
+    gatewayPaymentId,
+    metadata: {
+      type: "subscription_renewal",
+      planName: options.planName,
+      billingCycle: options.billingCycle,
+      periodStart: options.periodStart.toISOString(),
+      periodEnd: options.periodEnd.toISOString(),
+      ...(options.metadata ?? {}),
+    },
+  });
+}
+
 /**
- * When auto-renew is on and currentPeriodEnd is past, advance billing periods
- * (Cursor-style) and grant a fresh plan allocation per rolled period. Unused credits roll over.
+ * When auto-renew is on and currentPeriodEnd is past, advance billing periods,
+ * expire unused credits (no rollover), grant only the new plan allocation, and
+ * record each renewal in Billing History.
  */
 export async function advanceSubscriptionBillingPeriodIfNeeded(userId: string): Promise<{
   rolled: number;
@@ -205,6 +314,8 @@ export async function advanceSubscriptionBillingPeriodIfNeeded(userId: string): 
       creditAllocations: plansTable.creditAllocations,
       planName: plansTable.name,
       planId: plansTable.id,
+      priceMonthly: plansTable.priceMonthly,
+      priceYearly: plansTable.priceYearly,
     })
     .from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
@@ -247,17 +358,39 @@ export async function advanceSubscriptionBillingPeriodIfNeeded(userId: string): 
     auditCredits: pools.auditCredits,
   };
 
+  const cycle = sub.billingCycle || "monthly";
+  const renewAmount = cycle === "yearly"
+    ? Number(sub.priceYearly ?? 0) * 12
+    : Number(sub.priceMonthly ?? 0);
+
+  const rolledPeriods: Array<{ start: Date; end: Date }> = [];
   let rolled = 0;
   while (now.getTime() > periodEnd.getTime() && rolled < MAX_PERIOD_ROLLS_PER_CALL) {
     periodStart = new Date(periodEnd);
-    periodEnd = addBillingCycle(periodEnd, sub.billingCycle || "monthly", 1);
+    periodEnd = addBillingCycle(periodEnd, cycle, 1);
     rolled += 1;
-    const label = planCredits.name;
-    await grantFullPlanCreditsForRenewal(
+    rolledPeriods.push({ start: new Date(periodStart), end: new Date(periodEnd) });
+  }
+
+  // Expire leftover (plan + packs + workspace pools), then grant only the new plan once.
+  await renewPlanCreditsWithExpiry(
+    userId,
+    planCredits,
+    `${planCredits.name} — billing period renewal`,
+  );
+
+  for (const p of rolledPeriods) {
+    await recordPlanRenewalInBillingHistory({
       userId,
-      planCredits,
-      `${label} — billing period renewal (${rolled})`,
-    );
+      planId: sub.planId ?? null,
+      planName: planCredits.name,
+      billingCycle: cycle,
+      periodStart: p.start,
+      periodEnd: p.end,
+      amount: renewAmount,
+      gateway: "subscription",
+      metadata: { source: "local_auto_renew", catchUpRolls: rolled },
+    });
   }
 
   await db
