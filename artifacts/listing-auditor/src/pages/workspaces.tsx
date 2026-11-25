@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { egPlaceholderCompanyWithPrefix } from "@/lib/ecommerce-guru-placeholders";
-import { fetchJson } from "@/lib/api-fetch";
+import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-header";
 import { applyWorkspaceCreated } from "@/lib/on-workspace-created";
@@ -79,6 +79,7 @@ interface WorkspaceOverviewRow {
   creditsUsedTotal?: number;
   fundedTotal?: number;
   poolRemaining?: number;
+  unassignedPoolCredits?: CreditBuckets;
 }
 
 interface WorkspaceOverview {
@@ -372,15 +373,29 @@ export default function WorkspacesPage() {
       setFundingWorkspace(null);
       toast({ title: "Workspace credit pool updated" });
     },
-    onError: (err: Error) => toast({ title: "Failed to update pool", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => {
+      const code = err instanceof ApiFetchError ? err.code : (err as Error & { code?: string }).code;
+      const title =
+        code === "INSUFFICIENT_ACCOUNT"
+          ? "Not enough unallocated credits"
+          : code === "BELOW_MEMBER_ALLOCATIONS"
+            ? "Pool below member allocations"
+            : "Failed to update pool";
+      toast({ title, description: err.message, variant: "destructive" });
+    },
   });
 
   const openFundPool = (ws: WorkspaceOverviewRow) => {
     setFundingWorkspace(ws);
+    const unassigned = ws.poolAvailableForMembers ?? ws.unassignedPoolCredits ?? ws.poolCredits ?? {
+      aiCredits: 0,
+      imageCredits: 0,
+      auditCredits: 0,
+    };
     setPoolForm({
-      aiCredits: String(ws.poolCredits?.aiCredits ?? 0),
-      imageCredits: String(ws.poolCredits?.imageCredits ?? 0),
-      auditCredits: String(ws.poolCredits?.auditCredits ?? 0),
+      aiCredits: String(unassigned.aiCredits ?? 0),
+      imageCredits: String(unassigned.imageCredits ?? 0),
+      auditCredits: String(unassigned.auditCredits ?? 0),
     });
   };
 
@@ -769,7 +784,7 @@ export default function WorkspacesPage() {
             <DialogTitle>Fund workspace pool — {fundingWorkspace?.name}</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-slate-500">
-            Move credits from your unallocated account balance into this workspace pool. Members are assigned only from this pool.
+            Set the <span className="font-medium text-slate-700">unassigned</span> workspace pool (not yet given to members). Any bucket can be zero — fund images only, for example. Credits move from your account unallocated balance per type.
           </p>
           {overview?.availableToFundWorkspaces && (
             <p className="text-xs text-slate-500">
@@ -777,23 +792,30 @@ export default function WorkspacesPage() {
             </p>
           )}
           {fundingWorkspace && (
-            <p className="text-sm font-medium text-slate-800">
-              This workspace pool: <span className="text-orange-600">{fundingPoolTotal.toLocaleString()}</span> credits total
-              {fundingWorkspace.poolCredits && (
-                <span className="text-xs font-normal text-slate-500">
-                  {" "}
-                  ({formatCreditBuckets({
-                    auditCredits: Math.max(0, parseInt(poolForm.auditCredits, 10) || 0),
-                    aiCredits: Math.max(0, parseInt(poolForm.aiCredits, 10) || 0),
-                    imageCredits: Math.max(0, parseInt(poolForm.imageCredits, 10) || 0),
-                  })})
-                </span>
+            <div className="text-xs text-slate-600 space-y-1 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+              {fundingWorkspace.poolCreditsTotal != null && (
+                <p>
+                  Funded in workspace (members + unassigned):{" "}
+                  <span className="font-medium text-slate-800">{fundingWorkspace.poolCreditsTotal.toLocaleString()}</span> total
+                </p>
               )}
-            </p>
+              {fundingWorkspace.memberAllocatedCredits && sumCredits(fundingWorkspace.memberAllocatedCredits) > 0 && (
+                <p>
+                  Already assigned to members: {formatCreditBuckets(fundingWorkspace.memberAllocatedCredits)}
+                </p>
+              )}
+              <p>
+                Unassigned pool you are setting:{" "}
+                <span className="font-medium text-orange-600">{fundingPoolTotal.toLocaleString()}</span> total
+                {" "}
+                ({formatCreditBuckets({
+                  auditCredits: Math.max(0, parseInt(poolForm.auditCredits, 10) || 0),
+                  aiCredits: Math.max(0, parseInt(poolForm.aiCredits, 10) || 0),
+                  imageCredits: Math.max(0, parseInt(poolForm.imageCredits, 10) || 0),
+                })})
+              </p>
+            </div>
           )}
-          <p className="text-xs text-slate-500">
-            Each field is a credit type. Total pool = audit + text + images (e.g. 20 + 20 + 20 = 60 for this workspace).
-          </p>
           <div className="grid grid-cols-3 gap-3 py-2">
             <div>
               <Label className="text-xs">Audit</Label>

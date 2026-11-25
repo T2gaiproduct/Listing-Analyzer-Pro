@@ -449,14 +449,35 @@ export async function setWorkspaceCreditPool(
   const ownerBal = ownerRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
 
   if (delta.aiCredits > ownerBal.aiCredits || delta.imageCredits > ownerBal.imageCredits || delta.auditCredits > ownerBal.auditCredits) {
-    const err = new Error("Insufficient account credits to fund this workspace pool") as Error & { code?: string };
+    const shortfalls: string[] = [];
+    if (delta.aiCredits > ownerBal.aiCredits) {
+      shortfalls.push(`text (need ${delta.aiCredits} more unallocated, have ${ownerBal.aiCredits})`);
+    }
+    if (delta.imageCredits > ownerBal.imageCredits) {
+      shortfalls.push(`image (need ${delta.imageCredits} more unallocated, have ${ownerBal.imageCredits})`);
+    }
+    if (delta.auditCredits > ownerBal.auditCredits) {
+      shortfalls.push(`audit (need ${delta.auditCredits} more unallocated, have ${ownerBal.auditCredits})`);
+    }
+    const err = new Error(
+      shortfalls.length > 0
+        ? `Not enough unallocated account credits: ${shortfalls.join("; ")}. Fund each credit type separately from your account balance.`
+        : "Insufficient account credits to fund this workspace pool",
+    ) as Error & { code?: string };
     err.code = "INSUFFICIENT_ACCOUNT";
     throw err;
   }
 
   const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
   if (ai < memberAllocated.aiCredits || img < memberAllocated.imageCredits || audit < memberAllocated.auditCredits) {
-    const err = new Error("Workspace pool cannot be below credits already allocated to members") as Error & { code?: string };
+    const mins: string[] = [];
+    if (ai < memberAllocated.aiCredits) mins.push(`audit at least ${memberAllocated.auditCredits}`);
+    if (img < memberAllocated.imageCredits) mins.push(`image at least ${memberAllocated.imageCredits}`);
+    if (audit < memberAllocated.auditCredits) mins.push(`audit at least ${memberAllocated.auditCredits}`);
+    const err = new Error(
+      `Unassigned pool cannot be below credits already assigned to members (set ${mins.join(", ")}). `
+      + "These fields set the unassigned pool only — raise a bucket or lower member balances first.",
+    ) as Error & { code?: string };
     err.code = "BELOW_MEMBER_ALLOCATIONS";
     throw err;
   }
@@ -641,8 +662,20 @@ export async function setWorkspaceMemberCredits(
   const deltaAudit = audit - oldAudit;
 
   if (deltaAi > pool.aiCredits || deltaImg > pool.imageCredits || deltaAudit > pool.auditCredits) {
+    const needs: string[] = [];
+    if (deltaAi > pool.aiCredits) {
+      needs.push(`text (need ${deltaAi} in pool, ${pool.aiCredits} available)`);
+    }
+    if (deltaImg > pool.imageCredits) {
+      needs.push(`image (need ${deltaImg} in pool, ${pool.imageCredits} available)`);
+    }
+    if (deltaAudit > pool.auditCredits) {
+      needs.push(`audit (need ${deltaAudit} in pool, ${pool.auditCredits} available)`);
+    }
     const err = new Error(
-      "This workspace doesn't have enough credits available to assign. Add credits to the workspace first (from Workspaces), then assign credits to members.",
+      needs.length > 0
+        ? `Not enough unassigned credits in this workspace pool: ${needs.join("; ")}. Fund the workspace on Workspaces first.`
+        : "This workspace doesn't have enough credits available to assign. Fund the workspace pool on Workspaces, then assign credits to members.",
     ) as Error & { code?: string };
     err.code = "EXCEEDS_WORKSPACE_POOL";
     throw err;
@@ -689,6 +722,67 @@ export async function setWorkspaceMemberCredits(
   });
 
   return { aiCredits: ai, imageCredits: img, auditCredits: audit };
+}
+
+export type MemberCreditUpdateMode = "set" | "add";
+
+export type MemberCreditPatchInput = {
+  creditUpdateMode?: MemberCreditUpdateMode;
+  aiCredits?: number;
+  imageCredits?: number;
+  auditCredits?: number;
+};
+
+/** Apply partial or add-mode member credit changes without wiping omitted buckets. */
+export async function patchWorkspaceMemberCredits(
+  workspaceId: number,
+  workspaceMemberId: number,
+  memberId: number | null,
+  patch: MemberCreditPatchInput,
+): Promise<{ credits: CreditTotals; previous: CreditTotals }> {
+  const mode: MemberCreditUpdateMode = patch.creditUpdateMode === "add" ? "add" : "set";
+  const current = normalizeCreditTotals((await getWorkspaceMemberCredits(workspaceMemberId)) ?? { ...ZERO });
+
+  const hasAi = patch.aiCredits !== undefined;
+  const hasImg = patch.imageCredits !== undefined;
+  const hasAudit = patch.auditCredits !== undefined;
+
+  if (!hasAi && !hasImg && !hasAudit) {
+    const err = new Error("Provide at least one of auditCredits, aiCredits, or imageCredits") as Error & { code?: string };
+    err.code = "NO_CREDIT_FIELDS";
+    throw err;
+  }
+
+  const next: CreditTotals = { ...current };
+
+  const applyField = (
+    key: keyof CreditTotals,
+    raw: number | undefined,
+    provided: boolean,
+  ) => {
+    if (!provided) return;
+    const n = Math.max(0, Math.floor(raw ?? 0));
+    if (mode === "add") {
+      next[key] = Math.max(0, current[key] + n);
+    } else {
+      next[key] = n;
+    }
+  };
+
+  applyField("aiCredits", patch.aiCredits, hasAi);
+  applyField("imageCredits", patch.imageCredits, hasImg);
+  applyField("auditCredits", patch.auditCredits, hasAudit);
+
+  const credits = await setWorkspaceMemberCredits(
+    workspaceId,
+    workspaceMemberId,
+    memberId,
+    next.aiCredits,
+    next.imageCredits,
+    next.auditCredits,
+  );
+
+  return { credits, previous: current };
 }
 
 /** Return a removed member's remaining allocation to the workspace unassigned pool. */

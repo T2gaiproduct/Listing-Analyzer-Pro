@@ -14,6 +14,14 @@ import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { accountRoleLabel } from "@/lib/role-display";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import {
+  type MemberCreditEditFields,
+  type MemberCreditPatchBody,
+  emptyMemberCreditEdit,
+  buildMemberCreditPatchBody,
+  memberCreditsUpdatedToastDescription,
+  formatCreditBuckets,
+} from "@/lib/workspace-member-credits";
 import { memberCreditAssignmentErrorToast } from "@/lib/member-credit-assignment-errors";
 import { MemberEmailAutocomplete } from "@/components/member-email-autocomplete";
 import { getEmailValidationError } from "@/lib/email-validation";
@@ -70,7 +78,7 @@ export default function WorkspaceMembersPage() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [roleId, setRoleId] = useState<string>("");
-  const [editingCredits, setEditingCredits] = useState<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>({});
+  const [editingCredits, setEditingCredits] = useState<Record<number, MemberCreditEditFields>>({});
   const [editingMember, setEditingMember] = useState<MemberRow | null>(null);
   const [editName, setEditName] = useState("");
   const [editRoleId, setEditRoleId] = useState("");
@@ -110,13 +118,17 @@ export default function WorkspaceMembersPage() {
   }, [roles, roleId]);
 
   const creditMutation = useMutation({
-    mutationFn: ({ memberId, aiCredits, imageCredits, auditCredits }: { memberId: number; aiCredits: number; imageCredits: number; auditCredits: number }) =>
-      fetchJson(`${basePath}/api/workspaces/${workspaceId}/members/${memberId}/credits`, {
+    mutationFn: ({ memberId, patch }: { memberId: number; patch: MemberCreditPatchBody }) =>
+      fetchJson<{
+        credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+        previousCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+        creditUpdateMode?: "set" | "add";
+      }>(`${basePath}/api/workspaces/${workspaceId}/members/${memberId}/credits`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aiCredits, imageCredits, auditCredits }),
+        body: JSON.stringify(patch),
       }),
-    onSuccess: (_data, { memberId }) => {
+    onSuccess: (data, { memberId }) => {
       setEditingCredits((p) => {
         const next = { ...p };
         delete next[memberId];
@@ -125,7 +137,12 @@ export default function WorkspaceMembersPage() {
       qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
       qc.invalidateQueries({ queryKey: ["team"] });
       qc.invalidateQueries({ queryKey: ["workspace-member-credits"] });
-      toast({ title: "Credits updated" });
+      const previous = data.previousCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+      const mode = data.creditUpdateMode ?? "set";
+      toast({
+        title: "Credits updated",
+        description: memberCreditsUpdatedToastDescription(previous, data.credits, mode),
+      });
     },
     onError: (err: Error) => {
       const { title, description } = memberCreditAssignmentErrorToast(err);
@@ -225,7 +242,12 @@ export default function WorkspaceMembersPage() {
         await fetchJson(`${basePath}/api/workspaces/${workspaceId}/members/${memberId}/credits`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ aiCredits, imageCredits, auditCredits }),
+          body: JSON.stringify({
+            creditUpdateMode: "set",
+            aiCredits,
+            imageCredits,
+            auditCredits,
+          }),
         });
       }
     },
@@ -331,7 +353,7 @@ export default function WorkspaceMembersPage() {
           </CardHeader>
           <CardContent className="text-sm text-slate-600 space-y-1">
             <p>
-              Pool balance: {membersData.poolCredits.auditCredits} audit · {membersData.poolCredits.aiCredits} text · {membersData.poolCredits.imageCredits} images
+              Funded in workspace: {membersData.poolCredits.auditCredits} audit · {membersData.poolCredits.aiCredits} text · {membersData.poolCredits.imageCredits} images
             </p>
             {membersData.poolAvailableForMembers && (
               <p className="text-xs text-slate-500">
@@ -417,11 +439,12 @@ export default function WorkspaceMembersPage() {
               <TableBody>
                 {members.map((m) => {
                   const isEditing = editingCredits[m.id] != null;
-                  const editVals = editingCredits[m.id] ?? {
-                    aiCredits: String(m.allocatedCredits?.aiCredits ?? 0),
-                    imageCredits: String(m.allocatedCredits?.imageCredits ?? 0),
-                    auditCredits: String(m.allocatedCredits?.auditCredits ?? 0),
+                  const baseline = {
+                    auditCredits: m.allocatedCredits?.auditCredits ?? 0,
+                    aiCredits: m.allocatedCredits?.aiCredits ?? 0,
+                    imageCredits: m.allocatedCredits?.imageCredits ?? 0,
                   };
+                  const editVals = editingCredits[m.id] ?? emptyMemberCreditEdit(baseline);
                   const colspan =
                     4
                     + (canViewCredits ? 1 : 0)
@@ -449,11 +472,7 @@ export default function WorkspaceMembersPage() {
                                   aria-label="Allocate credits"
                                   onClick={() => setEditingCredits((p) => ({
                                     ...p,
-                                    [m.id]: {
-                                      aiCredits: String(m.allocatedCredits?.aiCredits ?? 0),
-                                      imageCredits: String(m.allocatedCredits?.imageCredits ?? 0),
-                                      auditCredits: String(m.allocatedCredits?.auditCredits ?? 0),
-                                    },
+                                    [m.id]: emptyMemberCreditEdit(baseline),
                                   }))}
                                 >
                                   <Zap className="w-3.5 h-3.5" />
@@ -532,11 +551,51 @@ export default function WorkspaceMembersPage() {
                                   Allocate credits for {m.invitedName || m.invitedEmail}
                                 </span>
                               </div>
+                              <p className="text-xs text-slate-500 mb-2">
+                                Current balance: {formatCreditBuckets(editVals.baseline)}
+                              </p>
                               {membersData?.poolAvailableForMembers && (
                                 <p className="text-xs text-slate-500 mb-3">
-                                  Available to assign: up to {membersData.poolAvailableForMembers.auditCredits} audit · {membersData.poolAvailableForMembers.aiCredits} text · {membersData.poolAvailableForMembers.imageCredits} images
+                                  Unassigned in pool: up to {membersData.poolAvailableForMembers.auditCredits} audit · {membersData.poolAvailableForMembers.aiCredits} text · {membersData.poolAvailableForMembers.imageCredits} images
                                 </p>
                               )}
+                              <div className="flex gap-2 mb-3">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={editVals.mode === "add" ? "default" : "outline"}
+                                  className={editVals.mode === "add" ? "bg-orange-500 hover:bg-orange-600 h-7 text-xs" : "h-7 text-xs"}
+                                  onClick={() => setEditingCredits((p) => ({
+                                    ...p,
+                                    [m.id]: {
+                                      ...emptyMemberCreditEdit(baseline),
+                                      mode: "add",
+                                      auditCredits: "",
+                                      aiCredits: "",
+                                      imageCredits: "",
+                                    },
+                                  }))}
+                                >
+                                  Add credits
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={editVals.mode === "set" ? "default" : "outline"}
+                                  className={editVals.mode === "set" ? "bg-orange-500 hover:bg-orange-600 h-7 text-xs" : "h-7 text-xs"}
+                                  onClick={() => setEditingCredits((p) => ({
+                                    ...p,
+                                    [m.id]: emptyMemberCreditEdit(baseline),
+                                  }))}
+                                >
+                                  Set balances
+                                </Button>
+                              </div>
+                              <p className="text-xs text-slate-500 mb-2">
+                                {editVals.mode === "add"
+                                  ? "Enter amounts to add. Leave a field blank to leave that balance unchanged."
+                                  : "Enter the member's new balances for each type."}
+                              </p>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                                 <div>
                                   <Label className="text-xs text-slate-500 mb-1 block">Audit credits</Label>
@@ -545,9 +604,14 @@ export default function WorkspaceMembersPage() {
                                     min={0}
                                     className="h-9"
                                     value={editVals.auditCredits}
+                                    placeholder={editVals.mode === "add" ? "0" : undefined}
                                     onChange={(e) => setEditingCredits((p) => ({
                                       ...p,
-                                      [m.id]: { ...editVals, auditCredits: e.target.value },
+                                      [m.id]: {
+                                        ...p[m.id]!,
+                                        auditCredits: e.target.value,
+                                        touched: { ...p[m.id]!.touched, audit: true },
+                                      },
                                     }))}
                                   />
                                 </div>
@@ -558,9 +622,14 @@ export default function WorkspaceMembersPage() {
                                     min={0}
                                     className="h-9"
                                     value={editVals.aiCredits}
+                                    placeholder={editVals.mode === "add" ? "0" : undefined}
                                     onChange={(e) => setEditingCredits((p) => ({
                                       ...p,
-                                      [m.id]: { ...editVals, aiCredits: e.target.value },
+                                      [m.id]: {
+                                        ...p[m.id]!,
+                                        aiCredits: e.target.value,
+                                        touched: { ...p[m.id]!.touched, ai: true },
+                                      },
                                     }))}
                                   />
                                 </div>
@@ -571,9 +640,14 @@ export default function WorkspaceMembersPage() {
                                     min={0}
                                     className="h-9"
                                     value={editVals.imageCredits}
+                                    placeholder={editVals.mode === "add" ? "0" : undefined}
                                     onChange={(e) => setEditingCredits((p) => ({
                                       ...p,
-                                      [m.id]: { ...editVals, imageCredits: e.target.value },
+                                      [m.id]: {
+                                        ...p[m.id]!,
+                                        imageCredits: e.target.value,
+                                        touched: { ...p[m.id]!.touched, image: true },
+                                      },
                                     }))}
                                   />
                                 </div>
@@ -584,12 +658,16 @@ export default function WorkspaceMembersPage() {
                                   className="bg-orange-500 hover:bg-orange-600"
                                   disabled={creditMutation.isPending}
                                   onClick={() => {
-                                    creditMutation.mutate({
-                                      memberId: m.id,
-                                      aiCredits: Math.max(0, parseInt(editVals.aiCredits, 10) || 0),
-                                      imageCredits: Math.max(0, parseInt(editVals.imageCredits, 10) || 0),
-                                      auditCredits: Math.max(0, parseInt(editVals.auditCredits, 10) || 0),
-                                    });
+                                    const patch = buildMemberCreditPatchBody(editVals);
+                                    if (!patch) {
+                                      toast({
+                                        title: "Enter credits to add",
+                                        description: "Fill in at least one credit type to add, or switch to Set balances.",
+                                        variant: "destructive",
+                                      });
+                                      return;
+                                    }
+                                    creditMutation.mutate({ memberId: m.id, patch });
                                   }}
                                 >
                                   {creditMutation.isPending ? "Saving…" : "Save credits"}
