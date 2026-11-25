@@ -438,6 +438,12 @@ export async function setWorkspaceCreditPool(
   if (!ws) throw new Error("Workspace not found");
 
   await ensureWorkspaceCreditsRow(workspaceId);
+  await reconcileGrossWorkspacePool(workspaceId);
+  const [poolMeta] = await db
+    .select({ poolIsNet: workspaceCreditsTable.poolIsNet })
+    .from(workspaceCreditsTable)
+    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+  const isLegacyGrossPool = poolMeta?.poolIsNet === false;
   const current = await getWorkspaceCredits(workspaceId);
   const delta = {
     aiCredits: ai - current.aiCredits,
@@ -468,18 +474,27 @@ export async function setWorkspaceCreditPool(
     throw err;
   }
 
-  const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
-  if (ai < memberAllocated.aiCredits || img < memberAllocated.imageCredits || audit < memberAllocated.auditCredits) {
-    const mins: string[] = [];
-    if (ai < memberAllocated.aiCredits) mins.push(`audit at least ${memberAllocated.auditCredits}`);
-    if (img < memberAllocated.imageCredits) mins.push(`image at least ${memberAllocated.imageCredits}`);
-    if (audit < memberAllocated.auditCredits) mins.push(`audit at least ${memberAllocated.auditCredits}`);
-    const err = new Error(
-      `Unassigned pool cannot be below credits already assigned to members (set ${mins.join(", ")}). `
-      + "These fields set the unassigned pool only — raise a bucket or lower member balances first.",
-    ) as Error & { code?: string };
-    err.code = "BELOW_MEMBER_ALLOCATIONS";
-    throw err;
+  // Net pools store unassigned remainder only — members can hold credits while unassigned is 0.
+  if (isLegacyGrossPool) {
+    const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
+    if (ai < memberAllocated.aiCredits || img < memberAllocated.imageCredits || audit < memberAllocated.auditCredits) {
+      const mins: string[] = [];
+      if (ai < memberAllocated.aiCredits) {
+        mins.push(`text at least ${memberAllocated.aiCredits}`);
+      }
+      if (img < memberAllocated.imageCredits) {
+        mins.push(`image at least ${memberAllocated.imageCredits}`);
+      }
+      if (audit < memberAllocated.auditCredits) {
+        mins.push(`audit at least ${memberAllocated.auditCredits}`);
+      }
+      const err = new Error(
+        `Workspace pool cannot be below credits already assigned to members (set ${mins.join(", ")}). `
+        + "Lower member balances or raise the pool total for this legacy workspace pool.",
+      ) as Error & { code?: string };
+      err.code = "BELOW_MEMBER_ALLOCATIONS";
+      throw err;
+    }
   }
 
   const now = new Date();
