@@ -751,20 +751,15 @@ export default function Dashboard() {
           <h1 className="text-base sm:text-xl font-semibold text-slate-900 tracking-tight truncate">
             Hi, {name} 👋
           </h1>
-          <p className="hidden sm:block text-sm sm:text-base text-slate-500 mt-1">
-            {showAccountOverview
-              ? (
-                <>
-                  Account overview across all your workspaces.
-                  {billingPeriodLabel ? (
-                    <span className="block text-slate-400 mt-0.5">
-                      Billing period: {billingPeriodLabel}
-                    </span>
-                  ) : null}
-                </>
-              )
-              : <>Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? "this workspace"}</span>.</>}
-          </p>
+          {!showAccountOverview ? (
+            <p className="hidden sm:block text-sm sm:text-base text-slate-500 mt-1">
+              Overview for{" "}
+              <span className="font-medium text-slate-700">
+                {featureWorkspace?.name ?? workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? "this workspace"}
+              </span>
+              .
+            </p>
+          ) : null}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
