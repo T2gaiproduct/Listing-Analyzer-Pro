@@ -735,10 +735,6 @@ export default function Dashboard() {
 
   const showAccountOverview =
     showAgencyAccountOverview || dashboard.viewMode === "account";
-  const canAddCredits =
-    isBillingAccountOwner
-    && !isTeamMember
-    && !showMemberCredits;
   const creditsUsedPeriodSuffix = billingPeriodLabel
     ? ` · ${billingPeriodLabel}`
     : " · this billing period";
@@ -865,7 +861,7 @@ export default function Dashboard() {
                     : `of ${creditsAllowance.toLocaleString()} credits`
           }
           icon={Wallet}
-          href={canAddCredits ? "/billing?tab=credits" : undefined}
+          href={planCreditsMode ? "/billing" : undefined}
         />
       </div>
 
@@ -950,22 +946,12 @@ export default function Dashboard() {
                   </p>
                 ) : null}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {canAddCredits ? (
-                  <Link
-                    href="/billing?tab=credits"
-                    className="text-xs font-medium text-orange-500 hover:text-orange-600"
-                  >
-                    Add Credits
-                  </Link>
-                ) : null}
-                <Link
-                  href="/billing"
-                  className="text-xs font-medium text-orange-500 hover:text-orange-600 sm:hidden"
-                >
-                  Details
-                </Link>
-              </div>
+              <Link
+                href="/billing"
+                className="text-xs font-medium text-orange-500 hover:text-orange-600 sm:hidden shrink-0"
+              >
+                Details
+              </Link>
             </div>
             <DonutChart data={creditBreakdownForDisplay} total={creditsBalance} />
             {creditBreakdownForDisplay.length === 0 ? (
@@ -992,19 +978,12 @@ export default function Dashboard() {
                 ))}
               </ul>
             )}
-            <div className="mt-4 sm:mt-5 hidden sm:flex flex-wrap items-center gap-x-4 gap-y-2">
-              {canAddCredits ? (
-                <Button asChild size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
-                  <Link href="/billing?tab=credits">Add Credits</Link>
-                </Button>
-              ) : null}
-              <Link
-                href="/billing"
-                className="inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"
-              >
-                View Detailed Usage <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
+            <Link
+              href="/billing"
+              className="mt-4 sm:mt-5 hidden sm:inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"
+            >
+              View Detailed Usage <ChevronRight className="w-4 h-4" />
+            </Link>
           </div>
 
           {/* Quick actions — desktop / tablet only (New Project covers mobile) */}
