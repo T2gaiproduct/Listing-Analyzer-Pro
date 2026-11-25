@@ -26,6 +26,14 @@ import { accountRoleLabel } from "@/lib/role-display";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { fetchJson } from "@/lib/api-fetch";
 import { memberCreditAssignmentErrorToast } from "@/lib/member-credit-assignment-errors";
+import {
+  type MemberCreditEditFields,
+  type MemberCreditPatchBody,
+  emptyMemberCreditEdit,
+  buildMemberCreditPatchBody,
+  memberCreditsUpdatedToastDescription,
+  formatCreditBuckets,
+} from "@/lib/workspace-member-credits";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -175,9 +183,9 @@ interface WorkspaceMembersDetailPanelProps {
   roles: AccountRole[];
   canManageCredits: boolean;
   availableToAllocate?: TeamData["availableToAllocate"];
-  editingCredits: Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>;
-  setEditingCredits: Dispatch<SetStateAction<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>>;
-  onSaveCredits: (workspaceMemberId: number, aiCredits: number, imageCredits: number, auditCredits: number) => void;
+  editingCredits: Record<number, MemberCreditEditFields>;
+  setEditingCredits: Dispatch<SetStateAction<Record<number, MemberCreditEditFields>>>;
+  onSaveCredits: (workspaceMemberId: number, patch: MemberCreditPatchBody) => void;
   creditSaving: boolean;
   emptyLabel?: string;
 }
@@ -194,6 +202,8 @@ function WorkspaceMembersDetailPanel({
   creditSaving,
   emptyLabel,
 }: WorkspaceMembersDetailPanelProps) {
+  const { toast } = useToast();
+
   if (members.length === 0) {
     return <p className="text-xs text-slate-500 py-4">{emptyLabel ?? "No members yet."}</p>;
   }
@@ -210,11 +220,12 @@ function WorkspaceMembersDetailPanel({
       {active.map((m) => {
         const stat = getWsStat(m.id);
         const isEditing = editingCredits[m.id] != null;
-        const editVals = editingCredits[m.id] ?? {
-          aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
-          imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
-          auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
+        const baseline = {
+          auditCredits: stat?.allocatedCredits?.auditCredits ?? stat?.remainingCredits?.auditCredits ?? 0,
+          aiCredits: stat?.allocatedCredits?.aiCredits ?? stat?.remainingCredits?.aiCredits ?? 0,
+          imageCredits: stat?.allocatedCredits?.imageCredits ?? stat?.remainingCredits?.imageCredits ?? 0,
         };
+        const editVals = editingCredits[m.id] ?? emptyMemberCreditEdit(baseline);
 
         return (
           <div key={m.id} className="px-5 py-4">
@@ -261,11 +272,7 @@ function WorkspaceMembersDetailPanel({
                   className="flex-shrink-0"
                   onClick={() => setEditingCredits((prev) => ({
                     ...prev,
-                    [m.id]: {
-                      aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
-                      imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
-                      auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
-                    },
+                    [m.id]: emptyMemberCreditEdit(baseline),
                   }))}
                 >
                   <Zap className="w-4 h-4" />
@@ -276,39 +283,89 @@ function WorkspaceMembersDetailPanel({
               <div className="mt-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-medium text-slate-700">Allocate Credits</span>
+                  <span className="text-sm font-medium text-slate-700">Member credits</span>
                 </div>
+                <p className="text-xs text-slate-500 mb-2">
+                  Current balance: {formatCreditBuckets(editVals.baseline)}
+                </p>
                 {availableToAllocate && (
                   <p className="text-xs text-slate-500 mb-3">
-                    Available to assign: up to {availableToAllocate.auditCredits} audit, {availableToAllocate.aiCredits} text, {availableToAllocate.imageCredits} image credits.
+                    Unassigned in pool: up to {availableToAllocate.auditCredits} audit · {availableToAllocate.aiCredits} text · {availableToAllocate.imageCredits} image
                   </p>
                 )}
+                <div className="flex gap-2 mb-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editVals.mode === "add" ? "default" : "outline"}
+                    className={editVals.mode === "add" ? "bg-orange-500 hover:bg-orange-600 h-7 text-xs" : "h-7 text-xs"}
+                    onClick={() => setEditingCredits((prev) => ({
+                      ...prev,
+                      [m.id]: { ...prev[m.id]!, mode: "add", auditCredits: "", aiCredits: "", imageCredits: "", touched: { audit: false, ai: false, image: false } },
+                    }))}
+                  >
+                    Add credits
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editVals.mode === "set" ? "default" : "outline"}
+                    className={editVals.mode === "set" ? "bg-orange-500 hover:bg-orange-600 h-7 text-xs" : "h-7 text-xs"}
+                    onClick={() => setEditingCredits((prev) => ({
+                      ...prev,
+                      [m.id]: emptyMemberCreditEdit(editVals.baseline),
+                    }))}
+                  >
+                    Set balances
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mb-2">
+                  {editVals.mode === "add"
+                    ? "Enter amounts to add per type. Leave a field blank to leave that balance unchanged."
+                    : "Enter the member's new credit balances for each type."}
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                   <div>
-                    <Label className="text-xs text-slate-500 mb-1 block">AI Credits</Label>
+                    <Label className="text-xs text-slate-500 mb-1 block">Text (AI)</Label>
                     <Input type="number" min={0} value={editVals.aiCredits} className="h-8 text-sm"
-                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id]!, aiCredits: e.target.value } }))} />
+                      placeholder={editVals.mode === "add" ? "0" : undefined}
+                      onChange={(e) => setEditingCredits((prev) => ({
+                        ...prev,
+                        [m.id]: { ...prev[m.id]!, aiCredits: e.target.value, touched: { ...prev[m.id]!.touched, ai: true } },
+                      }))} />
                   </div>
                   <div>
-                    <Label className="text-xs text-slate-500 mb-1 block">Image Credits</Label>
+                    <Label className="text-xs text-slate-500 mb-1 block">Images</Label>
                     <Input type="number" min={0} value={editVals.imageCredits} className="h-8 text-sm"
-                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id]!, imageCredits: e.target.value } }))} />
+                      placeholder={editVals.mode === "add" ? "0" : undefined}
+                      onChange={(e) => setEditingCredits((prev) => ({
+                        ...prev,
+                        [m.id]: { ...prev[m.id]!, imageCredits: e.target.value, touched: { ...prev[m.id]!.touched, image: true } },
+                      }))} />
                   </div>
                   <div>
-                    <Label className="text-xs text-slate-500 mb-1 block">Audit Credits</Label>
+                    <Label className="text-xs text-slate-500 mb-1 block">Audit</Label>
                     <Input type="number" min={0} value={editVals.auditCredits} className="h-8 text-sm"
-                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id]!, auditCredits: e.target.value } }))} />
+                      placeholder={editVals.mode === "add" ? "0" : undefined}
+                      onChange={(e) => setEditingCredits((prev) => ({
+                        ...prev,
+                        [m.id]: { ...prev[m.id]!, auditCredits: e.target.value, touched: { ...prev[m.id]!.touched, audit: true } },
+                      }))} />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" className="bg-orange-500 hover:bg-orange-600" disabled={creditSaving}
                     onClick={() => {
-                      onSaveCredits(
-                        m.id,
-                        Math.max(0, parseInt(editVals.aiCredits) || 0),
-                        Math.max(0, parseInt(editVals.imageCredits) || 0),
-                        Math.max(0, parseInt(editVals.auditCredits) || 0),
-                      );
+                      const patch = buildMemberCreditPatchBody(editVals);
+                      if (!patch) {
+                        toast({
+                          title: "Enter credits to add",
+                          description: "Fill in at least one credit type to add, or switch to Set balances.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      onSaveCredits(m.id, patch);
                       setEditingCredits((prev) => {
                         const next = { ...prev };
                         delete next[m.id];
@@ -447,29 +504,29 @@ export default function Team() {
   });
 
   const creditMutation = useMutation({
-    mutationFn: ({ id, aiCredits, imageCredits, auditCredits }: { id: number; aiCredits: number; imageCredits: number; auditCredits: number }) => {
+    mutationFn: ({ id, patch }: { id: number; patch: MemberCreditPatchBody }) => {
       if (!scopedWorkspaceId) {
         throw new Error("Select a workspace to assign credits from its pool.");
       }
-      return fetch(`${basePath}/api/workspaces/${scopedWorkspaceId}/members/${id}/credits`, {
+      return fetchJson<{
+        credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+        previousCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+        creditUpdateMode?: "set" | "add";
+      }>(`${basePath}/api/workspaces/${scopedWorkspaceId}/members/${id}/credits`, {
         method: "PATCH",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aiCredits, imageCredits, auditCredits }),
-      }).then(async (r) => {
-        const data = (await r.json()) as { error?: string; code?: string };
-        if (!r.ok) {
-          const err = new Error(data.error ?? "Failed to update credits") as Error & { code?: string };
-          err.code = data.code;
-          throw err;
-        }
-        return data;
+        body: JSON.stringify(patch),
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["team"] });
       qc.invalidateQueries({ queryKey: ["workspace-members"] });
-      toast({ title: "Credits updated" });
+      const previous = data.previousCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+      const mode = data.creditUpdateMode ?? "set";
+      toast({
+        title: "Credits updated",
+        description: memberCreditsUpdatedToastDescription(previous, data.credits, mode),
+      });
     },
     onError: (e: Error) => {
       const { title, description } = memberCreditAssignmentErrorToast(e);
@@ -477,7 +534,7 @@ export default function Team() {
     },
   });
 
-  const [editingCredits, setEditingCredits] = useState<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>({});
+  const [editingCredits, setEditingCredits] = useState<Record<number, MemberCreditEditFields>>({});
 
   const members = data?.members ?? [];
   const memberStats = data?.memberStats ?? [];
@@ -664,7 +721,7 @@ export default function Team() {
             availableToAllocate={workspacePoolAvailable ?? data?.availableToAllocate}
             editingCredits={editingCredits}
             setEditingCredits={setEditingCredits}
-            onSaveCredits={(id, ai, img, audit) => creditMutation.mutate({ id, aiCredits: ai, imageCredits: img, auditCredits: audit })}
+            onSaveCredits={(id, patch) => creditMutation.mutate({ id, patch })}
             creditSaving={creditMutation.isPending}
             emptyLabel="No members in this workspace yet. Invite someone from the workspace members page."
           />

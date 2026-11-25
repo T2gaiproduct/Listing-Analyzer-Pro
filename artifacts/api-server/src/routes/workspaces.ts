@@ -46,7 +46,7 @@ import { displayWorkspaceRoleLabel } from "../lib/role-display.js";
 import {
   getWorkspaceCredits,
   setWorkspaceCreditPool,
-  setWorkspaceMemberCredits,
+  patchWorkspaceMemberCredits,
   sumAllocatedMemberCreditsForWorkspace,
   getWorkspaceMemberCredits,
   sumWorkspacePoolsForOwner,
@@ -718,10 +718,11 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
     return;
   }
 
-  const { aiCredits, imageCredits, auditCredits } = req.body as {
+  const body = req.body as {
     aiCredits?: number;
     imageCredits?: number;
     auditCredits?: number;
+    creditUpdateMode?: "set" | "add";
   };
 
   let teamMemberId: number | null = null;
@@ -739,19 +740,21 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
   }
 
   try {
-    const previousCredits = await getWorkspaceMemberCredits(memberId);
-    const credits = await setWorkspaceMemberCredits(
+    const { credits, previous } = await patchWorkspaceMemberCredits(
       ctx.workspaceId,
       memberId,
       teamMemberId,
-      aiCredits ?? 0,
-      imageCredits ?? 0,
-      auditCredits ?? 0,
+      {
+        creditUpdateMode: body.creditUpdateMode,
+        aiCredits: body.aiCredits,
+        imageCredits: body.imageCredits,
+        auditCredits: body.auditCredits,
+      },
     );
     void notifyWorkspaceMemberCreditsAssigned({
       workspaceId: ctx.workspaceId,
       workspaceMemberId: memberId,
-      previousCredits: previousCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+      previousCredits: previous,
       assignedCredits: credits,
     });
     const pool = await getWorkspaceCredits(ctx.workspaceId);
@@ -760,6 +763,8 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
     res.json({
       workspaceMemberId: memberId,
       credits,
+      previousCredits: previous,
+      creditUpdateMode: body.creditUpdateMode ?? "set",
       poolCredits: workspacePoolFundedTotals(pool, memberAllocated),
       unassignedPoolCredits: pool,
       memberAllocatedCredits: memberAllocated,
@@ -768,7 +773,7 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
     });
   } catch (err) {
     const e = err as Error & { code?: string };
-    if (e.code === "EXCEEDS_WORKSPACE_POOL") {
+    if (e.code === "EXCEEDS_WORKSPACE_POOL" || e.code === "NO_CREDIT_FIELDS") {
       res.status(400).json({ error: e.message, code: e.code });
       return;
     }
