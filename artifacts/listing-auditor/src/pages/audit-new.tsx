@@ -92,13 +92,18 @@ function BuildBrandStepCard({
         "bg-card border border-border shadow-sm transition-shadow min-w-0",
         step.border,
         mobileSlide &&
-          "mx-8 flex flex-col items-center text-center gap-2 rounded-xl border-b-[3px] px-3 py-4",
+          "mx-7 flex h-full min-h-[min(46dvh,22rem)] flex-col items-center justify-center text-center gap-3.5 rounded-2xl border-b-[3px] px-5 py-8",
         !mobileSlide &&
           "flex-1 flex flex-col items-center text-center gap-4 rounded-2xl p-5 border-b-4 hover:shadow-md",
       )}
     >
       <div className={cn(mobileSlide ? "self-center" : "self-start")}>
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
+        <span
+          className={cn(
+            "inline-flex items-center justify-center rounded-full bg-muted text-muted-foreground font-bold",
+            mobileSlide ? "w-8 h-8 text-sm" : "w-6 h-6 text-xs",
+          )}
+        >
           {step.number}
         </span>
       </div>
@@ -106,16 +111,24 @@ function BuildBrandStepCard({
         className={cn(
           "rounded-full bg-gradient-to-br flex items-center justify-center shadow-inner shrink-0",
           step.gradient,
-          mobileSlide ? "w-14 h-14" : "w-16 h-16",
+          mobileSlide ? "w-[4.5rem] h-[4.5rem]" : "w-16 h-16",
         )}
       >
-        <Icon className={cn(step.iconColor, mobileSlide ? "w-6 h-6" : "w-7 h-7")} />
+        <Icon className={cn(step.iconColor, mobileSlide ? "w-8 h-8" : "w-7 h-7")} />
       </div>
-      <div className={cn("w-full", !mobileSlide && "flex-1")}>
-        <p className="text-sm font-bold text-foreground leading-snug">{step.title}</p>
+      <div className={cn("w-full", mobileSlide ? "max-w-[16rem]" : "flex-1")}>
         <p
           className={cn(
-            "text-[11px] mt-1 leading-snug text-muted-foreground",
+            "font-bold text-foreground leading-snug",
+            mobileSlide ? "text-base" : "text-sm",
+          )}
+        >
+          {step.title}
+        </p>
+        <p
+          className={cn(
+            "mt-1.5 leading-relaxed text-muted-foreground",
+            mobileSlide ? "text-sm" : "text-[11px] leading-snug",
             !mobileSlide && "mt-1.5 leading-relaxed text-foreground",
           )}
         >
@@ -147,29 +160,29 @@ function BuildBrandStepsMobileCarousel() {
   }, [api, onSelect]);
 
   return (
-    <div className="sm:hidden relative">
+    <div className="sm:hidden relative flex flex-1 flex-col min-h-0">
       <Carousel
         setApi={setApi}
         opts={{ align: "start", loop: false, dragFree: false }}
-        className="w-full"
+        className="w-full flex-1 flex flex-col min-h-0"
       >
-        <CarouselContent className="-ml-0">
+        <CarouselContent className="-ml-0 h-full">
           {steps.map((step) => (
-            <CarouselItem key={step.number} className="pl-0 basis-full">
+            <CarouselItem key={step.number} className="pl-0 basis-full h-full">
               <BuildBrandStepCard step={step} layout="mobile-slide" />
             </CarouselItem>
           ))}
         </CarouselContent>
         <CarouselPrevious
           variant="outline"
-          className="left-0 top-[42%] -translate-y-1/2 h-7 w-7 border-orange-200 bg-background/95 shadow-sm text-orange-700"
+          className="left-0 top-1/2 -translate-y-1/2 h-8 w-8 border-orange-200 bg-background/95 shadow-sm text-orange-700"
         />
         <CarouselNext
           variant="outline"
-          className="right-0 top-[42%] -translate-y-1/2 h-7 w-7 border-orange-200 bg-background/95 shadow-sm text-orange-700"
+          className="right-0 top-1/2 -translate-y-1/2 h-8 w-8 border-orange-200 bg-background/95 shadow-sm text-orange-700"
         />
       </Carousel>
-      <div className="flex items-center justify-center gap-1.5 mt-2" role="tablist" aria-label="How it works steps">
+      <div className="flex items-center justify-center gap-1.5 mt-3 shrink-0" role="tablist" aria-label="How it works steps">
         {steps.map((step, index) => (
           <button
             key={step.number}
@@ -185,7 +198,7 @@ function BuildBrandStepsMobileCarousel() {
           />
         ))}
       </div>
-      <p className="text-center text-[10px] text-muted-foreground/80 mt-1 tabular-nums">
+      <p className="text-center text-[10px] text-muted-foreground/80 mt-1.5 tabular-nums shrink-0">
         {activeIndex + 1}/{steps.length}
       </p>
     </div>
@@ -208,9 +221,9 @@ export default function AuditNew() {
   }
 
   return (
-    <div className="animate-in fade-in duration-500 sm:min-h-full">
+    <div className="animate-in fade-in duration-500 flex flex-col max-sm:min-h-[calc(100dvh-6.75rem)] sm:min-h-full">
       {/* Hero */}
-      <div className="text-center pt-7 pb-5 px-4 sm:pt-12 sm:pb-10 sm:px-6 relative overflow-hidden bg-card border-b border-border">
+      <div className="text-center pt-5 pb-4 px-4 sm:pt-12 sm:pb-10 sm:px-6 relative overflow-hidden bg-card border-b border-border max-sm:shrink-0">
         <div
           className="pointer-events-none absolute inset-0 opacity-100 dark:opacity-60"
           style={{
@@ -219,23 +232,23 @@ export default function AuditNew() {
           }}
         />
         <div className="relative">
-        <h1 className="text-[1.65rem] sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+        <h1 className="text-[1.55rem] sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
           Build Your Brand Content
         </h1>
-        <h2 className="text-[1.65rem] sm:text-5xl font-extrabold tracking-tight leading-tight mt-1">
+        <h2 className="text-[1.55rem] sm:text-5xl font-extrabold tracking-tight leading-tight mt-0.5 sm:mt-1">
           <span className="bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-transparent">
             Using AI
           </span>{" "}
           <Sparkles className="inline w-6 h-6 sm:w-8 sm:h-8 text-orange-400 align-middle -mt-0.5 sm:-mt-1" />
         </h2>
-        <p className="text-[11px] text-muted-foreground sm:text-foreground mt-3 sm:mt-4 max-w-md mx-auto leading-relaxed px-1">
+        <p className="text-xs text-muted-foreground sm:text-foreground mt-2.5 sm:mt-4 max-w-md mx-auto leading-relaxed px-1">
           Turn product information into high-converting listings in minutes.
         </p>
 
         <Button
           size="lg"
           className={cn(
-            "mt-5 sm:mt-7 w-full max-w-sm mx-auto sm:w-auto sm:max-w-none max-sm:min-w-0 max-sm:py-3.5 max-sm:px-6",
+            "mt-4 sm:mt-7 w-full max-w-sm mx-auto sm:w-auto sm:max-w-none max-sm:min-w-0 max-sm:py-3.5 max-sm:px-6",
             HERO_PRIMARY_CTA_CLASS,
           )}
           onClick={() => setStartDrawerOpen(true)}
@@ -253,9 +266,9 @@ export default function AuditNew() {
       </div>
 
       {/* How It Works */}
-      <div className="pb-3 sm:pb-10 w-full min-w-0 px-4 sm:px-6 max-w-6xl mx-auto">
+      <div className="flex flex-1 flex-col min-h-0 pb-4 sm:pb-10 w-full min-w-0 px-4 sm:px-6 max-w-6xl mx-auto max-sm:pt-3">
         {/* Section header */}
-        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-8">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-8 max-sm:shrink-0">
           <div className="hidden sm:flex items-center gap-1">
             <span className="text-orange-300 text-sm sm:text-base">✦</span>
             <div className="h-px w-8 sm:w-12 bg-gradient-to-r from-transparent to-orange-300" />
