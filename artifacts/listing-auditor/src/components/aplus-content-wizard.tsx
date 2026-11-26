@@ -112,7 +112,7 @@ const APLUS_TIER_TABS: { id: AplusContentTier; label: string; hint: string }[] =
   {
     id: "brand_story",
     label: "Brand Story",
-    hint: "Four Brand Story elements (background card, logo, story image+text, ASIN showcase). Separate From the Brand content — not mixed with Standard/Premium.",
+    hint: "Separate From the Brand content — not mixed with Standard/Premium modules.",
   },
 ];
 
@@ -541,17 +541,6 @@ export function AplusContentWizard({
         {" "}
         Module prompts and instructions come from Admin → AI Skills (A+ content).
       </p>
-      {aplusTier === "brand_story" ? (
-        <div className="rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 px-3.5 py-3 sm:px-4">
-          <p className="text-xs font-semibold text-orange-800">
-            Brand Story — 4 production elements
-          </p>
-          <p className="text-[11px] text-orange-700/90 mt-1 leading-relaxed">
-            Separate From the Brand content (not mixed with Standard/Premium): background/story card,
-            logo/identity, story image + text, and product/ASIN showcase. Match sizes shown in A+ Content Manager.
-          </p>
-        </div>
-      ) : null}
       <div className={cn(
         "grid gap-3 w-full",
         aplusTier === "brand_story"

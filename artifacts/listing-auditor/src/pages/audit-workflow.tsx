@@ -3267,17 +3267,6 @@ export default function AuditWorkflow() {
                     </button>
                   ))}
                 </div>
-                {aplusTierTab === "brand_story" ? (
-                  <div className="rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 px-3.5 py-3 sm:px-4">
-                    <p className="text-xs font-semibold text-orange-800">
-                      Brand Story — 4 production elements
-                    </p>
-                    <p className="text-[11px] text-orange-700/90 mt-1 leading-relaxed">
-                      Separate From the Brand content (not mixed with Standard/Premium): background/story card,
-                      logo/identity, story image + text, and product/ASIN showcase. Match sizes shown in A+ Content Manager.
-                    </p>
-                  </div>
-                ) : null}
               </div>
 
               <div className={cn(
