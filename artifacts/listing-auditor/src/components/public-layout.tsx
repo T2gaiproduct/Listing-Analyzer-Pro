@@ -1,6 +1,22 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, Facebook, Twitter, Linkedin, Youtube, Instagram, Mail, MapPin, Phone } from "lucide-react";
+import {
+  Menu,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Youtube,
+  Instagram,
+  Mail,
+  MapPin,
+  Phone,
+  Home,
+  Sparkles,
+  Headphones,
+  Newspaper,
+  Building2,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SiteLogo } from "@/components/site-logo";
@@ -187,6 +203,109 @@ function HeaderActionButtons({
   );
 }
 
+const MOBILE_BOTTOM_NAV_ITEMS: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  match: (location: string) => boolean;
+}[] = [
+  { href: "/", label: "Home", icon: Home, match: (loc) => loc === "/" },
+  {
+    href: "/features",
+    label: "Features",
+    icon: Sparkles,
+    match: (loc) => loc === "/features" || loc.startsWith("/features/"),
+  },
+  {
+    href: "/blog",
+    label: "Blog",
+    icon: Newspaper,
+    match: (loc) => loc === "/blog" || loc.startsWith("/blog/"),
+  },
+  {
+    href: "/about",
+    label: "About",
+    icon: Building2,
+    match: (loc) => loc === "/about" || loc.startsWith("/about/"),
+  },
+];
+
+function shortCtaLabel(label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed) return "Get Started";
+  const lower = trimmed.toLowerCase();
+  if (lower.includes("get started")) return "Get Started";
+  if (lower.includes("quote")) return "Get Quote";
+  return trimmed.split(/\s+/).slice(0, 2).join(" ");
+}
+
+function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: string }) {
+  const [location] = useLocation();
+  const centerLabel = shortCtaLabel(ctaText);
+  const left = MOBILE_BOTTOM_NAV_ITEMS.slice(0, 2);
+  const right = MOBILE_BOTTOM_NAV_ITEMS.slice(2);
+
+  return (
+    <nav
+      className="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-[#0B1B3A] text-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(11,27,58,0.35)]"
+      aria-label="Mobile primary"
+    >
+      <div className="relative grid grid-cols-5 items-end px-1 pt-2 pb-1.5 min-h-[4.25rem]">
+        {left.map((item) => {
+          const active = item.match(location);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-11 text-[10px] font-semibold tracking-wide",
+                active ? "text-[#F5C518]" : "text-white/90",
+              )}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon className="w-5 h-5" strokeWidth={active ? 2.4 : 2} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+
+        <div className="relative flex flex-col items-center justify-end min-h-11">
+          <Link
+            href={ctaUrl || "/sign-up"}
+            className="absolute -top-7 left-1/2 -translate-x-1/2 flex h-14 w-14 items-center justify-center rounded-full bg-[#F5C518] text-[#0B1B3A] shadow-lg shadow-black/25 ring-4 ring-[#0B1B3A] active:scale-95 transition-transform"
+            aria-label={centerLabel}
+          >
+            <Headphones className="w-6 h-6" strokeWidth={2.25} />
+          </Link>
+          <span className="pt-7 text-[10px] font-semibold tracking-wide text-white/90 leading-none">
+            {centerLabel}
+          </span>
+        </div>
+
+        {right.map((item) => {
+          const active = item.match(location);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-11 text-[10px] font-semibold tracking-wide",
+                active ? "text-[#F5C518]" : "text-white/90",
+              )}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon className="w-5 h-5" strokeWidth={active ? 2.4 : 2} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 export function PublicNav() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -202,11 +321,20 @@ export function PublicNav() {
       <PromoBanner />
       <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-sm">
       <div className="flex w-full max-w-[1920px] mx-auto items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-3 sm:py-3.5 gap-2 sm:gap-4 min-w-0">
-      <div className="flex items-center gap-3 sm:gap-6 lg:gap-10 min-w-0 flex-1">
+      <button
+        type="button"
+        className="lg:hidden touch-target flex items-center justify-center rounded-lg text-[#0B1B3A] hover:bg-slate-100 p-2 shrink-0"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open menu"
+      >
+        <Menu className="w-6 h-6" strokeWidth={2.25} />
+      </button>
+
+      <div className="hidden lg:flex items-center gap-3 sm:gap-6 lg:gap-10 min-w-0 flex-1">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 font-bold text-base sm:text-lg tracking-tight flex-shrink-0 text-slate-900 min-w-0">
           <SiteLogo imageClassName={NAV_LOGO_CLASS} />
         </Link>
-        <nav className="hidden lg:flex items-center gap-0.5">
+        <nav className="flex items-center gap-0.5">
           {headerLinks.map((l) => (
             <PublicNavLink
               key={l.id}
@@ -223,7 +351,15 @@ export function PublicNav() {
           ))}
         </nav>
       </div>
-      <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+
+      <Link
+        href="/"
+        className="lg:hidden flex items-center justify-end font-bold text-base tracking-tight flex-1 min-w-0 text-slate-900"
+      >
+        <SiteLogo imageClassName={NAV_LOGO_CLASS} />
+      </Link>
+
+      <div className="hidden lg:flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
         <HeaderActionButtons
           headerCtas={headerCtas}
           useAdminOnly={hasHeaderNavConfig}
@@ -233,20 +369,12 @@ export function PublicNav() {
           ctaText={ctaText}
           ctaUrl={ctaUrl}
         />
-        <button
-          type="button"
-          className="lg:hidden touch-target flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 p-2"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Open menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
       </div>
       </div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
-          side="right"
+          side="left"
           className="w-[min(100vw-3rem,20rem)] p-0 flex flex-col lg:hidden bg-white text-slate-900 border-slate-200 [&>button]:text-slate-600 [&>button]:hover:text-slate-900 [&>button]:opacity-100"
         >
           <SheetTitle className="sr-only">Site navigation</SheetTitle>
@@ -292,6 +420,7 @@ export function PublicNav() {
         </SheetContent>
       </Sheet>
     </header>
+    <PublicMobileBottomNav ctaText={ctaText} ctaUrl={ctaUrl} />
     </>
   );
 }
@@ -464,7 +593,7 @@ export function PublicFooter() {
           </div>
         </div>
 
-        <div className="border-t border-slate-800 pt-6 pb-20 sm:pb-0">
+        <div className="border-t border-slate-800 pt-6 pb-24 lg:pb-0">
           <p className="text-xs sm:text-sm text-slate-500 text-center sm:text-left leading-relaxed max-w-full break-words">
             <span className="block sm:inline">© {year} {platformName}.</span>{" "}
             <span className="block sm:inline">{copyright}</span>

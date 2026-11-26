@@ -109,14 +109,14 @@ export function LiveChatWidget() {
       <button
         type="button"
         onClick={() => handleOpenChange(!open)}
-        className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-40 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-[5.75rem] right-4 lg:bottom-6 lg:right-6 z-40 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
         aria-label={open ? "Close chat" : "Open chat"}
       >
         {open ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
       </button>
 
       {open && (
-        <div className="fixed bottom-[5.5rem] right-4 sm:bottom-24 sm:right-6 z-40 w-[min(100vw-2rem,20rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200 flex flex-col max-h-[min(32rem,calc(100dvh-7rem))]">
+        <div className="fixed bottom-[9.5rem] right-4 lg:bottom-24 lg:right-6 z-40 w-[min(100vw-2rem,20rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200 flex flex-col max-h-[min(32rem,calc(100dvh-11rem))] lg:max-h-[min(32rem,calc(100dvh-7rem))]">
           <div className="bg-slate-900 text-white p-4 shrink-0">
             <h3 className="font-semibold text-sm">Need help?</h3>
             <p className="text-xs text-slate-400 mt-0.5">Send a message — our team will reply by email.</p>
