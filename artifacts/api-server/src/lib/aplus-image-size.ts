@@ -14,31 +14,18 @@ const APLUS_EDGE_TO_EDGE_PROMPT =
 export { APLUS_SAFE_MARGIN_PROMPT, APLUS_EDGE_TO_EDGE_PROMPT };
 
 /**
- * Fit generated art into 970×300 without cropping (contain). Uses a soft blurred
- * background fill on the sides so the module still feels full-width on Amazon.
+ * Fit generated art into exact 970×300 for Amazon A+.
+ * Uses cover (center crop) so the real image fills edge-to-edge — no blurred
+ * side extensions, letterboxing, or background fills. Preview and export share
+ * this same buffer composition.
  */
 export async function resizeAplusModuleBuffer(buffer: Buffer): Promise<Buffer> {
-  const foreground = await sharp(buffer)
-    .resize(APLUS_MODULE_WIDTH, APLUS_MODULE_HEIGHT, {
-      fit: "inside",
-      kernel: sharp.kernel.lanczos3,
-    })
-    .png()
-    .toBuffer();
-
-  const background = await sharp(buffer)
+  return sharp(buffer)
     .resize(APLUS_MODULE_WIDTH, APLUS_MODULE_HEIGHT, {
       fit: "cover",
       position: "centre",
       kernel: sharp.kernel.lanczos3,
     })
-    .blur(24)
-    .modulate({ brightness: 0.92, saturation: 1.05 })
-    .png()
-    .toBuffer();
-
-  return sharp(background)
-    .composite([{ input: foreground, gravity: "centre" }])
     .png({ compressionLevel: 6, adaptiveFiltering: true })
     .toBuffer();
 }
