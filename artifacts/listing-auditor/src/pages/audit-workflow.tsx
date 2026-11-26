@@ -992,11 +992,24 @@ export default function AuditWorkflow() {
       }
     },
     onError: (err) => {
+      const message = err instanceof Error ? err.message : "Please try again";
+      if (/already in progress/i.test(message)) {
+        setIsCreating(true);
+        setAplusStatus("generating");
+        toast({
+          title: "Generation in progress",
+          description: "Your A+ modules are still generating. Showing progress…",
+        });
+        if (currentAuditId) {
+          void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+        }
+        return;
+      }
       setIsCreating(false);
       setAplusStatus("failed");
       toast({
         title: "A+ generation failed",
-        description: err instanceof Error ? err.message : "Please try again",
+        description: message,
         variant: "destructive",
       });
     },
@@ -2088,6 +2101,7 @@ export default function AuditWorkflow() {
   }, [activeStep, mergeGraphicsAplusSteps, graphicsStepPanel, handleWorkflowOptimizeContent, contentMarketplaceId, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast, isTeamMember, memberCredits?.imageCredits, accountImageCredits, aplusImageCostPerModule, generateListingFromUploadContext, persistWorkflowStep, queryClient, scratchWorkflowImageUrls]);
 
   const handleGenerateAplus = useCallback(() => {
+    if (generateAplus.isPending || aplusStatus === "generating" || isCreating) return;
     if (!productName.trim()) {
       toast({ title: "Product name required", description: "Please enter a product name in the Upload step first.", variant: "destructive" });
       return;
@@ -2127,6 +2141,9 @@ export default function AuditWorkflow() {
       setGraphicsStepPanel("aplus");
       setActiveStep(mergeGraphicsAplusSteps ? 4 : 5);
       setIsCreating(true);
+      setAplusStatus("generating");
+      setAplusProgress({ done: 0, total: selectedAplusModules.length || 4 });
+      aplusCompletionToastShownRef.current = false;
       patchAudit.mutate({ id: auditId, data: { currentStep: uiStepToApiStep(5) } });
       generateAplus.mutate({
         auditId,
@@ -2135,7 +2152,7 @@ export default function AuditWorkflow() {
         ...aplusGenerateOptions,
       });
     })();
-  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, accountImageCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit, mergeGraphicsAplusSteps, scratchWorkflowImageUrls, uploadedImages]);
+  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, accountImageCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft, persistUploadTabToAudit, mergeGraphicsAplusSteps, scratchWorkflowImageUrls, uploadedImages, aplusStatus, isCreating]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
