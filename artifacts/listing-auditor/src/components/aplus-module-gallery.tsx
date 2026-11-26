@@ -123,7 +123,7 @@ function AplusImageCard({
         <ProtectedAppImage
           src={normalized.imageUrl}
           alt={normalized.title}
-          className="w-full h-full object-contain bg-slate-100"
+          className="w-full h-full object-cover"
         />
         {isLoading && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">

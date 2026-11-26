@@ -645,7 +645,7 @@ export function AplusContentWizard({
                     <ProtectedAppImage
                       src={module.imageUrl}
                       alt={module.title}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/55 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
                       <span className="p-2 rounded-full bg-white/90 text-slate-800 shadow-sm">
