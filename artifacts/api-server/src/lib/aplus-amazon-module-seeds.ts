@@ -86,6 +86,8 @@ export const APLUS_AMAZON_MODULE_SEEDS: AplusModuleSeed[] = [
     promptTemplate: `${dimPrompt(150, 300, "Tall narrow product portrait for a comparison chart column.")} for {{productDesc}}. Chart title "{{gridTitle}}". Clean product on white or light studio background.`,
   },
   // ── Brand Story (4 production elements — separate Amazon content type) ──
+  // Universal prompts: category-agnostic layout language inspired by premium From-the-Brand
+  // references (flat-lay strip, heritage panel, product pedestals). Adapt materials to {{productDesc}}.
   {
     slug: "brand_story",
     category: "aplus",
@@ -104,7 +106,7 @@ export const APLUS_AMAZON_MODULE_SEEDS: AplusModuleSeed[] = [
       imageCount: 1,
       amazonModuleName: "Brand background / story card",
     },
-    promptTemplate: `${dimPrompt(1464, 600, "Brand Story background / story card for From the Brand. Confirm final upload size in A+ Content Manager for the selected card.")} for {{productDesc}}. Headline "{{storyHeadline}}". Warm aspirational brand atmosphere, premium aesthetic, product integrated naturally.`,
+    promptTemplate: `${dimPrompt(1464, 600, "Amazon Brand Story / From the Brand wide background card. Soft cream or warm beige canvas. Across the top edge, a breathable flat-lay strip of category-appropriate raw ingredients, materials, or lifestyle props derived from {{productDesc}} (bowls, jars, spoons, loose product pieces) — never invent unrelated food if the product is not food. Lower area is a calm premium brand panel: leave clear space for logo/wordmark zone on the left and a heritage-style headline area. Optional soft parchment or textured panel for story text. Elegant serif-luxury mood, soft natural studio light, high-end Amazon Brand Story aesthetic. No watermarks, no marketplace UI chrome.")} Product: {{productDesc}}. Story headline cue "{{storyHeadline}}". Story body cue "{{storyBody}}". Keep composition universal for any category; only swap props/materials to match the product.`,
   },
   {
     slug: "brand_logo_identity",
@@ -124,7 +126,7 @@ export const APLUS_AMAZON_MODULE_SEEDS: AplusModuleSeed[] = [
       imageCount: 1,
       amazonModuleName: "Brand logo / brand identity",
     },
-    promptTemplate: `${dimPrompt(600, 600, "Brand logo / identity mark on a clean background suitable for Brand Story upload. Crisp vector-like edges, no clutter, high resolution.")} for {{productDesc}}. Centered brand mark treatment; no fake trademarks. Confirm exact upload size in A+ Content Manager.`,
+    promptTemplate: `${dimPrompt(600, 600, "Amazon Brand Story logo / brand-identity square. Centered premium wordmark or emblem treatment for the brand of {{productDesc}} on a clean soft cream, ivory, or light warm-neutral background. Crisp edges, high resolution, generous padding, minimal decoration. If a brand logo reference image is provided, preserve it faithfully; otherwise create a simple elegant emblem that fits the category without inventing real trademarked logos of other brands. No busy flat-lays, no product piles, no fake seals or certificates.")} Product context: {{productDesc}}. Optional headline cue "{{storyHeadline}}". Suitable for Brand Story logo upload.`,
   },
   {
     slug: "brand_story_image_text",
@@ -144,7 +146,7 @@ export const APLUS_AMAZON_MODULE_SEEDS: AplusModuleSeed[] = [
       imageCount: 1,
       amazonModuleName: "Brand story image and text",
     },
-    promptTemplate: `${dimPrompt(1464, 600, "Brand story image with clear space for accompanying story text. Layout-first: leave readable negative space for copy.")} for {{productDesc}}. Story headline "{{storyHeadline}}". Body cue "{{storyBody}}". Confirm final dimensions for the chosen Brand Story card in A+ Content Manager.`,
+    promptTemplate: `${dimPrompt(1464, 600, "Amazon Brand Story image-and-text wide module. Soft cream beige flat-lay lifestyle background with category-appropriate product ingredients or materials from {{productDesc}} arranged along the top/edges. Reserve a clear rectangular parchment or soft panel (left or center) with large readable negative space for a story headline and short value bullets — do not fill that panel with dense fake paragraphs; leave clean text-safe space. Optional small supporting product or dessert-style accent in a corner only if it fits the category. Premium heritage storytelling mood, soft even light, generous breathing room, From-the-Brand carousel style.")} Product: {{productDesc}}. Headline "{{storyHeadline}}". Body cue "{{storyBody}}". Universal across categories — adapt only the photographed materials to the product.`,
   },
   {
     slug: "brand_asin_showcase",
@@ -164,7 +166,7 @@ export const APLUS_AMAZON_MODULE_SEEDS: AplusModuleSeed[] = [
       imageCount: 1,
       amazonModuleName: "Product / ASIN showcase",
     },
-    promptTemplate: `${dimPrompt(800, 800, "Product / ASIN showcase hero for Brand Story. Clean commercial product shot suitable for brand catalog showcase.")} for {{productDesc}}. Title "{{gridTitle}}". Verify ASIN selection and display in Seller Central preview.`,
+    promptTemplate: `${dimPrompt(800, 800, "Amazon Brand Story Product / ASIN showcase square. Premium commercial studio composition: finished packaged product(s) for {{productDesc}} displayed as a hero assortment — pouches, boxes, bottles, or jars on circular wooden or geometric pedestals / soft risers, or a clean floating pack layout. Soft warm neutral or category-fitting colored backdrop panels (cream, olive, terracotta accents OK). Include a small bowl or loose product detail only when it clarifies the item. Sharp packaging labels readable, high-end e-commerce catalog look, not cluttered. No lifestyle people, no busy kitchen scenes.")} Title cue "{{gridTitle}}". Detail cue "{{grid1Title}}: {{grid1Desc}}". Showcase must remain category-universal: always feature the actual product packaging style implied by {{productDesc}}.`,
   },
 
   // ── Additional Standard modules ──

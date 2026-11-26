@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, imagePromptTemplatesTable } from "@workspace/db";
 import { DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS } from "./image-prompt-template-defaults.js";
 import {
@@ -175,6 +175,7 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
   }
 
   // Keep Brand Story system catalog aligned with Amazon's four production elements.
+  const brandStoryTemplateIds: number[] = [];
   for (const seed of DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS) {
     if (seed.category !== "aplus" || seed.metadata?.aplusTier !== "brand_story") continue;
     const meta = parseImagePromptMetadata(seed.metadata);
@@ -198,6 +199,8 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
         name: seed.name,
         description: seed.description,
         sortOrder: seed.sortOrder,
+        // Refresh system Brand Story prompts so Admin → AI Skills picks up universal layouts.
+        promptTemplate: seed.promptTemplate,
         headlineTemplate: seed.headlineTemplate ?? row.headlineTemplate,
         bodyTemplate: seed.bodyTemplate ?? row.bodyTemplate,
         metadata: {
@@ -212,8 +215,23 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
         updatedAt: new Date(),
       })
       .where(eq(imagePromptTemplatesTable.id, row.id));
+    brandStoryTemplateIds.push(row.id);
   }
 
-  const { syncAllImagePromptTemplatesToSkills } = await import("./image-prompt-skill-sync.js");
+  const {
+    syncAllImagePromptTemplatesToSkills,
+    syncImagePromptTemplateToSkill,
+  } = await import("./image-prompt-skill-sync.js");
   await syncAllImagePromptTemplatesToSkills();
+
+  // Force-refresh AI Skills text for Brand Story system modules (universal prompts).
+  if (brandStoryTemplateIds.length > 0) {
+    const refreshed = await db
+      .select()
+      .from(imagePromptTemplatesTable)
+      .where(inArray(imagePromptTemplatesTable.id, brandStoryTemplateIds));
+    for (const row of refreshed) {
+      await syncImagePromptTemplateToSkill(row, { refreshInstructions: true });
+    }
+  }
 }
