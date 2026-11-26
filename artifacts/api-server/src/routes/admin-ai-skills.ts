@@ -193,6 +193,9 @@ router.get(
   requireAdminPermission("manage_settings"),
   async (_req, res): Promise<void> => {
     await ensureAiSkillTypesReady();
+    // Seed A+ / graphics templates once per process, then ensure every template has a linked Live skill.
+    const { ensureImagePromptTemplatesReady } = await import("../lib/ensure-image-prompt-templates.js");
+    await ensureImagePromptTemplatesReady();
     await syncAllContentMarketplacesToSkills();
     await syncAllImagePromptTemplatesToSkills();
     const rows = await db

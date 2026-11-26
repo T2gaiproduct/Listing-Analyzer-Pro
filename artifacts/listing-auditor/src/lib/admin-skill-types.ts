@@ -101,23 +101,36 @@ export function skillTypeEditorMode(
   return findAdminSkillType(types, slug)?.editorMode ?? "content";
 }
 
-export type SkillCatalogTypeLabel = "Product content" | "Image" | "Audit" | string;
+export type SkillCatalogTypeLabel =
+  | "Product content"
+  | "Image"
+  | "A+ Image"
+  | "Graphics Image"
+  | "Audit"
+  | string;
 
 export function skillCatalogTypeFromRegistry(
   skillTypeSlug: string,
   types: AdminSkillType[],
   skillKind?: string,
 ): SkillCatalogTypeLabel {
-  if (skillKind === "image_prompt") return "Image";
+  if (skillKind === "image_prompt") {
+    if (skillTypeSlug === "aplus_content") return "A+ Image";
+    if (skillTypeSlug === "product_images") return "Graphics Image";
+    return "Image";
+  }
   const row = findAdminSkillType(types, skillTypeSlug);
   if (row) {
+    if (row.slug === "aplus_content") return "A+ Image";
+    if (row.slug === "product_images") return "Graphics Image";
     if (row.catalogGroup === "image") return "Image";
     if (row.catalogGroup === "audit") return "Audit";
     if (row.catalogGroup === "content") return "Product content";
     return row.label;
   }
   if (skillTypeSlug === "listing_audit") return "Audit";
-  if (skillTypeSlug === "product_images" || skillTypeSlug === "aplus_content") return "Image";
+  if (skillTypeSlug === "aplus_content") return "A+ Image";
+  if (skillTypeSlug === "product_images") return "Graphics Image";
   if (skillTypeSlug === "product_content") return "Product content";
   return skillTypeSlug.replace(/_/g, " ");
 }

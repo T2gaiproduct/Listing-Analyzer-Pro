@@ -29,10 +29,17 @@ import { useAdminSkillTypes, type SkillCatalogTypeLabel } from "@/lib/admin-skil
 import { AdminSkillRenameDialog } from "@/components/admin-skill-rename-dialog";
 
 function TypeBadge({ type }: { type: SkillCatalogTypeLabel }) {
-  if (type === "Image") {
+  if (type === "A+ Image") {
+    return (
+      <span className="inline-flex rounded-full border border-orange-300 bg-orange-50 px-2.5 py-0.5 text-[11px] font-semibold text-orange-900">
+        A+ Image
+      </span>
+    );
+  }
+  if (type === "Graphics Image" || type === "Image") {
     return (
       <span className="inline-flex rounded-full border border-orange-200/80 bg-orange-50/80 px-2.5 py-0.5 text-[11px] font-semibold text-orange-900">
-        Image
+        {type === "Graphics Image" ? "Graphics Image" : "Image"}
       </span>
     );
   }
@@ -79,6 +86,8 @@ type Props = {
   selectedSlug?: string | null;
 };
 
+type CatalogFilter = "all" | "aplus" | "graphics" | "audit" | "content";
+
 export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Props) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -87,9 +96,30 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
   const [deleteTarget, setDeleteTarget] = useState<AiSkillRecord | null>(null);
   const [renameTarget, setRenameTarget] = useState<AiSkillRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [filter, setFilter] = useState<CatalogFilter>("all");
+
+  const filtered = useMemo(() => {
+    return skills.filter((skill) => {
+      if (filter === "all") return true;
+      if (filter === "aplus") return skill.skillType === "aplus_content" || skill.slug.startsWith("image-prompt-aplus-");
+      if (filter === "graphics") {
+        return skill.skillType === "product_images" || skill.slug.startsWith("image-prompt-graphics-");
+      }
+      if (filter === "audit") return skill.skillType === "listing_audit";
+      if (filter === "content") {
+        return skill.skillType === "product_content" || skill.skillKind === "marketplace_content";
+      }
+      return true;
+    });
+  }, [skills, filter]);
 
   const sorted = useMemo(
-    () => [...skills].sort((a, b) => a.name.localeCompare(b.name)),
+    () => [...filtered].sort((a, b) => a.name.localeCompare(b.name)),
+    [filtered],
+  );
+
+  const aplusCount = useMemo(
+    () => skills.filter((s) => s.skillType === "aplus_content" || s.slug.startsWith("image-prompt-aplus-")).length,
     [skills],
   );
 
@@ -118,8 +148,33 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
     }
   };
 
+  const filterTabs: { id: CatalogFilter; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "aplus", label: `A+ Image (${aplusCount})` },
+    { id: "graphics", label: "Graphics Image" },
+    { id: "audit", label: "Audit" },
+    { id: "content", label: "Product content" },
+  ];
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+      <div className="flex flex-wrap gap-2 px-4 pt-4 pb-3 border-b border-slate-100">
+        {filterTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setFilter(tab.id)}
+            className={cn(
+              "rounded-full px-3 py-1 text-[11px] font-semibold border transition-colors",
+              filter === tab.id
+                ? "bg-orange-500 text-white border-orange-500"
+                : "bg-white text-slate-600 border-slate-200 hover:border-orange-300",
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[760px]">
           <thead>
@@ -144,7 +199,9 @@ export function AdminSkillsCatalogTable({ skills, isLoading, selectedSlug }: Pro
             {!isLoading && sorted.length === 0 && (
               <tr>
                 <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                  No skills yet. Create a marketplace, audit, image prompt, or category skill.
+                  {filter === "aplus"
+                    ? "No A+ image prompt skills yet. Open this page again after API seed/sync, or publish A+ modules under Image prompt templates."
+                    : "No skills yet. Create a marketplace, audit, image prompt, or category skill."}
                 </td>
               </tr>
             )}

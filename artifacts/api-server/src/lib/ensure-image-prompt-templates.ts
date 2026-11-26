@@ -174,10 +174,10 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
       );
   }
 
-  // Keep Brand Story system catalog aligned with Amazon's four production elements.
-  const brandStoryTemplateIds: number[] = [];
+  // Keep system A+ catalog (Standard / Premium / Brand Story) aligned with seeds + Admin AI Skills.
+  const aplusSystemTemplateIds: number[] = [];
   for (const seed of DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS) {
-    if (seed.category !== "aplus" || seed.metadata?.aplusTier !== "brand_story") continue;
+    if (seed.category !== "aplus" || seed.isSystem !== 1) continue;
     const meta = parseImagePromptMetadata(seed.metadata);
     const rows = await db
       .select()
@@ -199,14 +199,15 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
         name: seed.name,
         description: seed.description,
         sortOrder: seed.sortOrder,
-        // Refresh system Brand Story prompts so Admin → AI Skills picks up universal layouts.
+        enabled: seed.enabled,
+        // System A+ prompts track seeds so Admin → AI Skills stays configured for every module.
         promptTemplate: seed.promptTemplate,
         headlineTemplate: seed.headlineTemplate ?? row.headlineTemplate,
         bodyTemplate: seed.bodyTemplate ?? row.bodyTemplate,
         metadata: {
           ...existingMeta,
           icon: meta.icon ?? existingMeta.icon,
-          aplusTier: "brand_story",
+          aplusTier: meta.aplusTier ?? existingMeta.aplusTier ?? "standard",
           imageWidth: meta.imageWidth ?? existingMeta.imageWidth,
           imageHeight: meta.imageHeight ?? existingMeta.imageHeight,
           imageCount: meta.imageCount ?? existingMeta.imageCount ?? 1,
@@ -215,7 +216,7 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
         updatedAt: new Date(),
       })
       .where(eq(imagePromptTemplatesTable.id, row.id));
-    brandStoryTemplateIds.push(row.id);
+    aplusSystemTemplateIds.push(row.id);
   }
 
   const {
@@ -224,12 +225,12 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
   } = await import("./image-prompt-skill-sync.js");
   await syncAllImagePromptTemplatesToSkills();
 
-  // Force-refresh AI Skills text for Brand Story system modules (universal prompts).
-  if (brandStoryTemplateIds.length > 0) {
+  // Force-publish/refresh AI Skills for every system A+ module (Standard, Premium, Brand Story).
+  if (aplusSystemTemplateIds.length > 0) {
     const refreshed = await db
       .select()
       .from(imagePromptTemplatesTable)
-      .where(inArray(imagePromptTemplatesTable.id, brandStoryTemplateIds));
+      .where(inArray(imagePromptTemplatesTable.id, aplusSystemTemplateIds));
     for (const row of refreshed) {
       await syncImagePromptTemplateToSkill(row, { refreshInstructions: true });
     }
