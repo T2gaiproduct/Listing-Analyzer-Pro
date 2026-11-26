@@ -52,12 +52,17 @@ export function computeRevenueCalculator(
   };
 }
 
-/** Default Amazon India referral % by broad category label (manual estimates — adjust in UI). */
+/**
+ * Suggested referral % by broad category label (manual estimates).
+ * Not marketplace-specific — sellers should adjust for US/UK/EU/IN/etc. Seller Central rates.
+ */
 export function defaultReferralFeePercentForCategory(category: string | null | undefined): number {
   const c = category?.trim().toLowerCase() ?? "";
   if (c.includes("watch")) return 15;
   if (c.includes("jewel")) return 12;
-  if (c.includes("cloth") || c.includes("apparel")) return 17;
-  if (c.includes("electron")) return 8;
+  if (c.includes("cloth") || c.includes("apparel") || c.includes("fashion")) return 17;
+  if (c.includes("electron") || c.includes("computer")) return 8;
+  if (c.includes("book")) return 15;
+  if (c.includes("grocery") || c.includes("food")) return 8;
   return 10;
 }

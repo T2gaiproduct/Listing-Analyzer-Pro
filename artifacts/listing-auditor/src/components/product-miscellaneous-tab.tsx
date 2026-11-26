@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calculator, ShoppingCart, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normalizeListingCurrency } from "@/lib/listing-currencies";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
 import { ProductRevenueCalculatorPanel } from "@/components/product-revenue-calculator-panel";
@@ -83,7 +84,7 @@ export function ProductMiscellaneousTab({
             productName={productName}
             category={category}
             initialSellingPrice={listingPrice}
-            currency={listingCurrency?.trim() || "INR"}
+            currency={normalizeListingCurrency(listingCurrency)}
           />
         </div>
       )}
