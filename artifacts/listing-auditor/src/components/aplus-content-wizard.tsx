@@ -163,11 +163,17 @@ export function AplusContentWizard({
     if (!auditData?.generatedImages) return;
     const saved = readAplusFromAudit(auditData.generatedImages);
     if (saved.modules.length) setAplusModules(saved.modules);
-    if (aplusStatus === "generating" || saved.status === "generating") {
-      setAplusProgress(saved.progress);
-      if (saved.status !== "generating") {
-        setAplusStatus(saved.status);
+    // While locally generating, only sync progress from server "generating".
+    // Do not clear the loader from a stale cached "completed" after invalidateQueries.
+    if (aplusStatus === "generating") {
+      if (saved.status === "generating") {
+        setAplusProgress(saved.progress);
       }
+      return;
+    }
+    if (saved.status === "generating") {
+      setAplusStatus("generating");
+      setAplusProgress(saved.progress);
     }
   }, [auditData?.generatedImages, aplusStatus]);
 
@@ -251,10 +257,25 @@ export function AplusContentWizard({
       }
     },
     onError: (err) => {
+      const message = err instanceof Error ? err.message : "Please try again";
+      // Server already started — keep the loader and resume polling instead of failing.
+      if (/already in progress/i.test(message)) {
+        setAplusStatus("generating");
+        setAplusProgress((prev) => ({
+          done: prev.done,
+          total: prev.total || selectedAplusModules.length || 4,
+        }));
+        toast({
+          title: "Generation in progress",
+          description: "Your A+ modules are still generating. Showing progress…",
+        });
+        void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+        return;
+      }
       setAplusStatus("failed");
       toast({
         title: "A+ generation failed",
-        description: err instanceof Error ? err.message : "Please try again",
+        description: message,
         variant: "destructive",
       });
     },
@@ -304,6 +325,7 @@ export function AplusContentWizard({
   }, [auditId, aplusStatus, apiAuthReady, queryClient, toast]);
 
   const handleGenerateAplus = () => {
+    if (generateAplus.isPending || aplusStatus === "generating") return;
     if (!productName.trim()) {
       toast({
         title: "Product name required",
@@ -337,6 +359,12 @@ export function AplusContentWizard({
       });
       return;
     }
+    // Show loader immediately (before the network round-trip) so regenerate
+    // cannot be double-clicked while the request is in flight.
+    setAplusStatus("generating");
+    setAplusProgress({ done: 0, total: selectedAplusModules.length || 4 });
+    completionToastShownRef.current = false;
+    failureToastShownRef.current = false;
     generateAplus.mutate();
   };
 
