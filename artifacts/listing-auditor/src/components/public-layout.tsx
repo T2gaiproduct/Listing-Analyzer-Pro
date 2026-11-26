@@ -247,7 +247,7 @@ function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: s
 
   return (
     <nav
-      className="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-[#0B1B3A] text-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(11,27,58,0.35)]"
+      className="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-orange-500 text-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(249,115,22,0.35)]"
       aria-label="Mobile primary"
     >
       <div className="relative grid grid-cols-5 items-end px-1 pt-2 pb-1.5 min-h-[4.25rem]">
@@ -260,11 +260,11 @@ function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: s
               href={item.href}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-11 text-[10px] font-semibold tracking-wide",
-                active ? "text-[#F5C518]" : "text-white/90",
+                active ? "text-white" : "text-white/85",
               )}
               aria-current={active ? "page" : undefined}
             >
-              <Icon className="w-5 h-5" strokeWidth={active ? 2.4 : 2} />
+              <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} fill={active ? "currentColor" : "none"} />
               <span>{item.label}</span>
             </Link>
           );
@@ -273,12 +273,12 @@ function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: s
         <div className="relative flex flex-col items-center justify-end min-h-11">
           <Link
             href={ctaUrl || "/sign-up"}
-            className="absolute -top-7 left-1/2 -translate-x-1/2 flex h-14 w-14 items-center justify-center rounded-full bg-[#F5C518] text-[#0B1B3A] shadow-lg shadow-black/25 ring-4 ring-[#0B1B3A] active:scale-95 transition-transform"
+            className="absolute -top-7 left-1/2 -translate-x-1/2 flex h-14 w-14 items-center justify-center rounded-full bg-white text-orange-500 shadow-lg shadow-orange-900/25 ring-4 ring-orange-500 active:scale-95 transition-transform"
             aria-label={centerLabel}
           >
             <Headphones className="w-6 h-6" strokeWidth={2.25} />
           </Link>
-          <span className="pt-7 text-[10px] font-semibold tracking-wide text-white/90 leading-none">
+          <span className="pt-7 text-[10px] font-semibold tracking-wide text-white leading-none">
             {centerLabel}
           </span>
         </div>
@@ -292,11 +292,11 @@ function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: s
               href={item.href}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-11 text-[10px] font-semibold tracking-wide",
-                active ? "text-[#F5C518]" : "text-white/90",
+                active ? "text-white" : "text-white/85",
               )}
               aria-current={active ? "page" : undefined}
             >
-              <Icon className="w-5 h-5" strokeWidth={active ? 2.4 : 2} />
+              <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} fill={active ? "currentColor" : "none"} />
               <span>{item.label}</span>
             </Link>
           );
@@ -319,11 +319,11 @@ export function PublicNav() {
   return (
     <>
       <PromoBanner />
-      <header className="sticky top-0 z-50 w-full border-b border-[#0B1B3A] bg-[#0B1B3A] lg:border-slate-200/80 lg:bg-white/95 lg:backdrop-blur-sm">
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-sm">
       <div className="relative flex w-full max-w-[1920px] mx-auto items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-3 sm:py-3.5 gap-2 sm:gap-4 min-w-0">
       <button
         type="button"
-        className="lg:hidden relative z-10 touch-target flex items-center justify-center rounded-lg text-white hover:bg-white/10 p-2 shrink-0"
+        className="lg:hidden relative z-10 touch-target flex items-center justify-center rounded-lg text-slate-800 hover:bg-slate-100 p-2 shrink-0"
         onClick={() => setMobileOpen(true)}
         aria-label="Open menu"
       >
@@ -338,8 +338,7 @@ export function PublicNav() {
         <SiteLogo
           imageClassName={cn(
             NAV_LOGO_CLASS,
-            /* Knock out baked-in black logo plate against navy header */
-            "object-center max-w-[12.5rem] mix-blend-lighten",
+            "object-center max-w-[12.5rem]",
           )}
         />
       </Link>
