@@ -319,16 +319,33 @@ export function PublicNav() {
   return (
     <>
       <PromoBanner />
-      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-sm">
-      <div className="flex w-full max-w-[1920px] mx-auto items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-3 sm:py-3.5 gap-2 sm:gap-4 min-w-0">
+      <header className="sticky top-0 z-50 w-full border-b border-[#0B1B3A] bg-[#0B1B3A] lg:border-slate-200/80 lg:bg-white/95 lg:backdrop-blur-sm">
+      <div className="relative flex w-full max-w-[1920px] mx-auto items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-3 sm:py-3.5 gap-2 sm:gap-4 min-w-0">
       <button
         type="button"
-        className="lg:hidden touch-target flex items-center justify-center rounded-lg text-[#0B1B3A] hover:bg-slate-100 p-2 shrink-0"
+        className="lg:hidden relative z-10 touch-target flex items-center justify-center rounded-lg text-white hover:bg-white/10 p-2 shrink-0"
         onClick={() => setMobileOpen(true)}
         aria-label="Open menu"
       >
         <Menu className="w-6 h-6" strokeWidth={2.25} />
       </button>
+
+      <Link
+        href="/"
+        className="lg:hidden absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center max-w-[min(70vw,14rem)]"
+        aria-label="Home"
+      >
+        <SiteLogo
+          imageClassName={cn(
+            NAV_LOGO_CLASS,
+            /* Knock out baked-in black logo plate against navy header */
+            "object-center max-w-[12.5rem] mix-blend-lighten",
+          )}
+        />
+      </Link>
+
+      {/* Balances the menu button so absolute logo stays optically centered */}
+      <div className="lg:hidden w-10 h-10 shrink-0" aria-hidden />
 
       <div className="hidden lg:flex items-center gap-3 sm:gap-6 lg:gap-10 min-w-0 flex-1">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 font-bold text-base sm:text-lg tracking-tight flex-shrink-0 text-slate-900 min-w-0">
@@ -351,13 +368,6 @@ export function PublicNav() {
           ))}
         </nav>
       </div>
-
-      <Link
-        href="/"
-        className="lg:hidden flex items-center justify-end font-bold text-base tracking-tight flex-1 min-w-0 text-slate-900"
-      >
-        <SiteLogo imageClassName={NAV_LOGO_CLASS} />
-      </Link>
 
       <div className="hidden lg:flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
         <HeaderActionButtons
