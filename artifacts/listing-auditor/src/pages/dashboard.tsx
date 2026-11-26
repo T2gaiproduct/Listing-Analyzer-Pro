@@ -634,7 +634,26 @@ export default function Dashboard() {
     ?? user?.firstName
     ?? user?.fullName?.split(" ")[0]
     ?? "there";
-  const { stats, recentProjects, quickActions } = dashboard;
+  const { stats, recentProjects, quickActions: rawQuickActions } = dashboard;
+  const quickActions = rawQuickActions.filter((action) => {
+    const href = action.href.split("?")[0] ?? action.href;
+    const isVideos =
+      action.icon === "video"
+      || href === "/videos"
+      || action.label === "Create Videos";
+    const isAds =
+      action.icon === "ads"
+      || href === "/ads"
+      || href.startsWith("/ads/")
+      || action.label === "Manage Ads";
+    if (isVideos) {
+      return !CREATE_VIDEOS_COMING_SOON && !isEcommGuruProductionNavHiddenFeature("videos");
+    }
+    if (isAds) {
+      return !MANAGE_ADS_COMING_SOON && !isEcommGuruProductionNavHiddenFeature("ads");
+    }
+    return true;
+  });
   const auditsTrendPositive = stats.auditsWeekOverWeekPct >= 0;
 
   const memberPool = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
