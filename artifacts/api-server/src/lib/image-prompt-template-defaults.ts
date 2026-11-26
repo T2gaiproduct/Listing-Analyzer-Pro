@@ -1,4 +1,5 @@
 import type { ImagePromptTemplateCategory, ImagePromptTemplateMetadata } from "@workspace/db";
+import { APLUS_AMAZON_MODULE_SEEDS } from "./aplus-amazon-module-seeds.js";
 
 export type ImagePromptTemplateSeed = {
   slug: string;
@@ -111,56 +112,5 @@ export const DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS: ImagePromptTemplateSeed[] = [
     promptTemplate:
       "Custom creative product image for {{productDesc}}. Interpret any seller creative direction as refinements on this brief. Professional commercial product photography. High-resolution, clean e-commerce quality. No logos, no watermarks unless the seller direction explicitly allows on-image text.",
   },
-  {
-    slug: "hero",
-    category: "aplus",
-    name: "Hero Banner",
-    description: "Full-width product hero image with headline",
-    enabled: 1,
-    isSystem: 1,
-    sortOrder: 10,
-    headlineTemplate: "{{heroHeadline}}",
-    bodyTemplate: "{{heroSubheadline}}",
-    promptTemplate:
-      'Amazon A+ Enhanced Brand Content ultra-wide horizontal banner (970x300 px aspect, very wide and short) for {{productDesc}}. {{aplusEdgeToEdge}} Product, headline "{{heroHeadline}}", and subheadline "{{heroSubheadline}}" integrated in one strip; do not use a tall portrait layout. Premium e-commerce design, sharp legible typography, professional commercial photography.',
-  },
-  {
-    slug: "features",
-    category: "aplus",
-    name: "Feature Highlights",
-    description: "Icon + text modules showcasing key features",
-    enabled: 1,
-    isSystem: 1,
-    sortOrder: 20,
-    headlineTemplate: "{{feature1Title}}",
-    bodyTemplate: "{{feature1Body}} · {{feature2Body}}",
-    promptTemplate:
-      'Amazon A+ feature highlights ultra-wide banner (970x300 px aspect) for {{productDesc}}. {{aplusEdgeToEdge}} Three-column infographic in one horizontal strip with product center or offset and icon callouts: "{{feature1Title}}", "{{feature2Title}}", "{{feature3Title}}". Crisp icons, serif or premium sans headlines, high-detail product render. Clean modern e-commerce infographic style.',
-  },
-  {
-    slug: "comparison",
-    category: "aplus",
-    name: "Comparison Chart",
-    description: "Compare your product against competitors",
-    enabled: 1,
-    isSystem: 1,
-    sortOrder: 30,
-    headlineTemplate: "{{gridTitle}}",
-    bodyTemplate: "{{grid1Title}}: {{grid1Desc}}",
-    promptTemplate:
-      'Amazon A+ comparison chart ultra-wide banner (970x300 px aspect) for {{productDesc}}. {{aplusEdgeToEdge}} Side-by-side comparison filling the strip. Title "{{gridTitle}}". Features: "{{grid1Title}}", "{{grid2Title}}", "{{grid3Title}}", "{{grid4Title}}". Sharp chart labels and checkmarks. Clean chart-style e-commerce design.',
-  },
-  {
-    slug: "brand_story",
-    category: "aplus",
-    name: "Brand Story",
-    description: "Tell your brand story with rich imagery",
-    enabled: 1,
-    isSystem: 1,
-    sortOrder: 40,
-    headlineTemplate: "{{storyHeadline}}",
-    bodyTemplate: "{{storyBody}}",
-    promptTemplate:
-      'Amazon A+ brand story ultra-wide banner (970x300 px aspect) for {{productDesc}}. {{aplusEdgeToEdge}} Emotional storytelling with product integration. Headline "{{storyHeadline}}". Warm aspirational atmosphere, premium brand aesthetic, photographic depth.',
-  },
+  ...APLUS_AMAZON_MODULE_SEEDS,
 ];

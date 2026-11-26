@@ -5,6 +5,9 @@ import { z } from "zod/v4";
 export const imagePromptTemplateCategorySchema = z.enum(["graphics", "aplus"]);
 export type ImagePromptTemplateCategory = z.infer<typeof imagePromptTemplateCategorySchema>;
 
+export const aplusContentTierSchema = z.enum(["standard", "premium", "brand_story"]);
+export type AplusContentTier = z.infer<typeof aplusContentTierSchema>;
+
 export const imagePromptTemplateMetadataSchema = z.object({
   icon: z.string().optional(),
   /** Where generated graphics images are stored in the project record */
@@ -21,6 +24,19 @@ export const imagePromptTemplateMetadataSchema = z.object({
   compositeSceneSuffix: z.string().optional(),
   /** Scene-only prompt when composite generation hits safety filters (optional). */
   compositeFallbackScene: z.string().optional(),
+  /**
+   * Amazon A+ content family. Standard and Premium cannot be mixed in one document.
+   * Brand Story is a separate content type.
+   */
+  aplusTier: aplusContentTierSchema.optional(),
+  /** Amazon upload width in pixels (primary image slot). */
+  imageWidth: z.number().int().positive().optional(),
+  /** Amazon upload height in pixels (primary image slot). */
+  imageHeight: z.number().int().positive().optional(),
+  /** How many image slots this module uses (when >1, prompts describe a composite grid). */
+  imageCount: z.number().int().positive().optional(),
+  /** Official Amazon module display name from Seller Central / module guides. */
+  amazonModuleName: z.string().optional(),
 });
 
 export type ImagePromptTemplateMetadata = z.infer<typeof imagePromptTemplateMetadataSchema>;

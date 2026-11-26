@@ -12,6 +12,7 @@ import {
 } from "./image-storage";
 import {
   APLUS_SAFE_MARGIN_PROMPT,
+  openAiSizeForAplusDims,
   resizeAplusModuleBuffer,
 } from "./aplus-image-size.js";
 import {
@@ -54,9 +55,7 @@ export interface AplusModuleVersion {
   generatedAt: string;
 }
 
-export type AplusAspectRatio = "970:300" | "16:10" | "9:16" | "1:1";
-
-const APLUS_GENERATION_SIZE = "1792x1024" as const;
+export type AplusAspectRatio = "970:300" | "16:10" | "9:16" | "1:1" | string;
 
 export type AplusModuleId = string;
 
@@ -68,6 +67,8 @@ export interface AplusModule {
   body: string;
   imageUrl: string;
   aspectRatio?: AplusAspectRatio;
+  imageWidth?: number;
+  imageHeight?: number;
   versions?: AplusModuleVersion[];
 }
 
@@ -90,8 +91,12 @@ export {
   getEnabledAplusModuleSlugs,
 } from "./image-prompt-template-service.js";
 
-function specToAspectRatio(): AplusAspectRatio {
-  return "970:300";
+function specToAspectRatio(spec: RuntimeAplusModuleSpec): AplusAspectRatio {
+  return `${spec.imageWidth}:${spec.imageHeight}`;
+}
+
+function generationSizeForSpec(spec: RuntimeAplusModuleSpec) {
+  return openAiSizeForAplusDims(spec.imageWidth, spec.imageHeight);
 }
 
 export async function getModuleSpec(id: AplusModuleId): Promise<RuntimeAplusModuleSpec | undefined> {
@@ -101,7 +106,7 @@ export async function getModuleSpec(id: AplusModuleId): Promise<RuntimeAplusModu
 export function normalizeAplusModule(module: AplusModule): AplusModule {
   return {
     ...module,
-    aspectRatio: module.aspectRatio ?? specToAspectRatio(),
+    aspectRatio: module.aspectRatio ?? "970:300",
     versions: module.versions ?? [],
   };
 }
@@ -155,11 +160,14 @@ async function generateModuleBuffer(
     /* use original file */
   }
 
+  const genSize = generationSizeForSpec(spec);
+  const exportSize = { width: spec.imageWidth, height: spec.imageHeight };
+
   const compositeFallback = () =>
     generatePreservedProductImage({
       imageType: spec.id,
       sourceFilePath: sourcePath,
-      size: APLUS_GENERATION_SIZE,
+      size: genSize,
       prompt,
       productLabel: data.productName,
       compositeSceneSuffix: wrappers.compositeSceneSuffix,
@@ -172,7 +180,7 @@ async function generateModuleBuffer(
     raw = await generateImageWithReferenceProxy(
       refPrompt,
       normalizedRef,
-      APLUS_GENERATION_SIZE,
+      genSize,
       imageOpts,
     );
   } catch (err) {
@@ -183,7 +191,7 @@ async function generateModuleBuffer(
         raw = await generateImageWithReferenceProxy(
           buildReferenceRetryPrompt(wrappers),
           normalizedRef,
-          APLUS_GENERATION_SIZE,
+          genSize,
           imageOpts,
         );
       } catch {
@@ -191,7 +199,7 @@ async function generateModuleBuffer(
       }
     }
   }
-  return resizeAplusModuleBuffer(raw);
+  return resizeAplusModuleBuffer(raw, exportSize);
 }
 
 function buildAplusModuleFromSpec(
@@ -208,7 +216,9 @@ function buildAplusModuleFromSpec(
     headline: spec.headline(content),
     body: spec.body(content),
     imageUrl,
-    aspectRatio: specToAspectRatio(),
+    aspectRatio: specToAspectRatio(spec),
+    imageWidth: spec.imageWidth,
+    imageHeight: spec.imageHeight,
     versions: existing?.versions ?? [],
   });
 }
@@ -289,7 +299,10 @@ export async function editAplusModule(data: {
   const filePath = path.join(dir, filename);
   const edited = await editImagesProxy([sourceFilePath, ...refPaths], data.editPrompt.trim(), filePath);
   if (!edited?.length) throw new Error("No image data returned from AI edit");
-  const buffer = await resizeAplusModuleBuffer(edited);
+  const buffer = await resizeAplusModuleBuffer(edited, {
+    width: spec.imageWidth,
+    height: spec.imageHeight,
+  });
   fs.writeFileSync(filePath, buffer);
 
   const imageUrl = urlPath(data.auditId, filename);

@@ -7,6 +7,8 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export type ImagePromptTemplateCategory = "graphics" | "aplus";
 
+export type AplusContentTier = "standard" | "premium" | "brand_story";
+
 export type ImagePromptTemplateOption = {
   slug: string;
   category: ImagePromptTemplateCategory;
@@ -15,6 +17,11 @@ export type ImagePromptTemplateOption = {
   icon?: string | null;
   isUserCustomType?: boolean;
   sortOrder: number;
+  aplusTier?: AplusContentTier | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  imageCount?: number | null;
+  amazonModuleName?: string | null;
 };
 
 export type ImagePromptTemplateMetadata = {
@@ -26,6 +33,11 @@ export type ImagePromptTemplateMetadata = {
   referenceRetry?: string;
   compositeSceneSuffix?: string;
   compositeFallbackScene?: string;
+  aplusTier?: AplusContentTier;
+  imageWidth?: number;
+  imageHeight?: number;
+  imageCount?: number;
+  amazonModuleName?: string;
 };
 
 export type ImagePromptTemplateAdmin = {
@@ -86,14 +98,70 @@ export type AplusModuleCard = {
   label: string;
   desc: string;
   icon: string;
+  aplusTier: AplusContentTier;
+  imageWidth?: number;
+  imageHeight?: number;
+  imageCount?: number;
+  amazonModuleName?: string;
 };
 
 const FALLBACK_APLUS_MODULES: AplusModuleCard[] = [
-  { id: "hero", label: "Hero Banner", desc: "High-impact visual for the top of the page", icon: "🖼️" },
-  { id: "features", label: "Features Highlights", desc: "Detailed breakdown of key product benefits", icon: "🔍" },
-  { id: "comparison", label: "Comparison Charts", desc: "Side-by-side comparison with competitors or models", icon: "📊" },
-  { id: "brand_story", label: "Brand Story", desc: "Connect with customers through your brand's mission", icon: "📖" },
+  {
+    id: "hero",
+    label: "Image & Dark Text Overlay",
+    desc: "970×300 full-width banner (Standard)",
+    icon: "🖼️",
+    aplusTier: "standard",
+    imageWidth: 970,
+    imageHeight: 300,
+  },
+  {
+    id: "features",
+    label: "Four Image Highlights",
+    desc: "400×400 highlight image (Standard)",
+    icon: "🔍",
+    aplusTier: "standard",
+    imageWidth: 400,
+    imageHeight: 400,
+  },
+  {
+    id: "comparison",
+    label: "Comparison Chart",
+    desc: "150×300 product column (Standard)",
+    icon: "📊",
+    aplusTier: "standard",
+    imageWidth: 150,
+    imageHeight: 300,
+  },
+  {
+    id: "brand_story",
+    label: "Brand Story Card",
+    desc: "Brand-focused story art (separate content type)",
+    icon: "📖",
+    aplusTier: "brand_story",
+    imageWidth: 1464,
+    imageHeight: 600,
+  },
 ];
+
+function mapAplusTemplateToCard(t: ImagePromptTemplateOption): AplusModuleCard {
+  const width = t.imageWidth ?? undefined;
+  const height = t.imageHeight ?? undefined;
+  const dimLabel = width && height ? `${width}×${height}` : null;
+  return {
+    id: t.slug,
+    label: t.name,
+    desc: dimLabel
+      ? `${t.description ?? t.amazonModuleName ?? "Amazon A+ module"} · ${dimLabel}`
+      : (t.description ?? ""),
+    icon: t.icon ?? "🖼️",
+    aplusTier: t.aplusTier ?? "standard",
+    imageWidth: width,
+    imageHeight: height,
+    imageCount: t.imageCount ?? undefined,
+    amazonModuleName: t.amazonModuleName ?? undefined,
+  };
+}
 
 export function useAplusModuleCards(): {
   modules: AplusModuleCard[];
@@ -106,12 +174,7 @@ export function useAplusModuleCards(): {
     const templates = data?.templates;
     if (!isFetched || isLoading) return FALLBACK_APLUS_MODULES;
     if (!templates?.length) return [];
-    return templates.map((t) => ({
-      id: t.slug,
-      label: t.name,
-      desc: t.description ?? "",
-      icon: t.icon ?? "🖼️",
-    }));
+    return templates.map(mapAplusTemplateToCard);
   }, [data, isFetched, isLoading]);
   const modulesUnavailable = isFetched && !isLoading && !(data?.templates?.length);
   return { modules, isLoading, modulesUnavailable };

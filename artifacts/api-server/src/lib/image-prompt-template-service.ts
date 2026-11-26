@@ -229,6 +229,10 @@ export type RuntimeAplusModuleSpec = {
   id: string;
   title: string;
   description: string;
+  aplusTier?: "standard" | "premium" | "brand_story";
+  imageWidth: number;
+  imageHeight: number;
+  imageCount: number;
   buildPrompt: (productDesc: string, content: EbcContent) => string;
   headline: (content: EbcContent) => string;
   body: (content: EbcContent) => string;
@@ -241,6 +245,7 @@ export async function getRuntimeAplusModuleSpec(
   const row = await getImagePromptTemplateBySlug("aplus", slug);
   if (!row || row.enabled !== 1) return undefined;
 
+  const meta = parseImagePromptMetadata(row.metadata);
   const fromSkill = await resolvePublishedImagePromptFields(row);
   const promptTemplate = fromSkill?.promptTemplate?.trim() || row.promptTemplate;
   const headlineTemplate = fromSkill?.headlineTemplate ?? row.headlineTemplate;
@@ -249,10 +254,18 @@ export async function getRuntimeAplusModuleSpec(
     ? await resolveCategoryAplusSkillAddon(productCategory)
     : "";
 
+  const imageWidth = meta.imageWidth && meta.imageWidth > 0 ? meta.imageWidth : 970;
+  const imageHeight = meta.imageHeight && meta.imageHeight > 0 ? meta.imageHeight : 300;
+  const imageCount = meta.imageCount && meta.imageCount > 0 ? meta.imageCount : 1;
+
   return {
     id: row.slug,
     title: row.name,
     description: row.description ?? "",
+    aplusTier: meta.aplusTier,
+    imageWidth,
+    imageHeight,
+    imageCount,
     buildPrompt: (productDesc, content) => {
       const vars = {
         ...ebcContentToTemplateVars(content),
@@ -295,6 +308,11 @@ export function serializeImagePromptTemplatePublic(row: ImagePromptTemplate) {
     description: row.description,
     icon: meta.icon ?? null,
     sortOrder: row.sortOrder,
+    aplusTier: meta.aplusTier ?? null,
+    imageWidth: meta.imageWidth ?? null,
+    imageHeight: meta.imageHeight ?? null,
+    imageCount: meta.imageCount ?? null,
+    amazonModuleName: meta.amazonModuleName ?? null,
   };
 }
 

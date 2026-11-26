@@ -113,12 +113,41 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
   const existingRows = await db.select().from(imagePromptTemplatesTable);
   for (const row of existingRows) {
     const meta = parseImagePromptMetadata(row.metadata);
-    if (meta.referenceInstruction?.trim()) continue;
-    const defaults = wrapperDefaultsForSeed(row.category, row.slug);
+    const seed = DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS.find(
+      (s) => s.slug === row.slug && s.category === row.category,
+    );
+    const needsAplusMeta =
+      row.category === "aplus" &&
+      seed?.metadata &&
+      (!meta.aplusTier || !meta.imageWidth || !meta.imageHeight);
+    const needsReference = !meta.referenceInstruction?.trim();
+
+    if (!needsReference && !needsAplusMeta) continue;
+
+    const defaults = needsReference ? wrapperDefaultsForSeed(row.category, row.slug) : {};
+    const aplusPatch = needsAplusMeta
+      ? {
+          aplusTier: seed?.metadata?.aplusTier ?? meta.aplusTier,
+          imageWidth: seed?.metadata?.imageWidth ?? meta.imageWidth,
+          imageHeight: seed?.metadata?.imageHeight ?? meta.imageHeight,
+          imageCount: seed?.metadata?.imageCount ?? meta.imageCount,
+          amazonModuleName: seed?.metadata?.amazonModuleName ?? meta.amazonModuleName,
+          icon: meta.icon ?? seed?.metadata?.icon,
+        }
+      : {};
+
     await db
       .update(imagePromptTemplatesTable)
       .set({
-        metadata: { ...meta, ...defaults },
+        // Only enrich Amazon dimension/tier metadata — never overwrite admin-edited prompts.
+        ...(needsAplusMeta && seed && row.isSystem === 1
+          ? {
+              name: seed.name,
+              description: seed.description,
+              sortOrder: seed.sortOrder,
+            }
+          : {}),
+        metadata: { ...meta, ...defaults, ...aplusPatch },
         updatedAt: new Date(),
       })
       .where(eq(imagePromptTemplatesTable.id, row.id));

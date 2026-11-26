@@ -40,7 +40,13 @@ function blankTemplate(category: ImagePromptTemplateCategory): ImagePromptTempla
     bodyTemplate: category === "aplus" ? "{{heroSubheadline}}" : null,
     metadata: category === "graphics"
       ? { icon: "✨", graphicsBucket: "lifestyle" }
-      : { icon: "🖼️" },
+      : {
+          icon: "🖼️",
+          aplusTier: "standard",
+          imageWidth: 970,
+          imageHeight: 300,
+          imageCount: 1,
+        },
   };
 }
 
@@ -380,19 +386,111 @@ export default function AdminSettingsImagePromptTemplates() {
                         </div>
                       </>
                     ) : (
-                      <div>
-                        <Label>Icon (emoji)</Label>
-                        <Input
-                          value={draft.metadata?.icon ?? ""}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              metadata: { ...draft.metadata, icon: e.target.value },
-                            })
-                          }
-                          className="mt-1"
-                        />
-                      </div>
+                      <>
+                        <div>
+                          <Label>Icon (emoji)</Label>
+                          <Input
+                            value={draft.metadata?.icon ?? ""}
+                            onChange={(e) =>
+                              setDraft({
+                                ...draft,
+                                metadata: { ...draft.metadata, icon: e.target.value },
+                              })
+                            }
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label>Amazon content type</Label>
+                          <select
+                            className="mt-1 w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                            value={draft.metadata?.aplusTier ?? "standard"}
+                            onChange={(e) =>
+                              setDraft({
+                                ...draft,
+                                metadata: {
+                                  ...draft.metadata,
+                                  aplusTier: e.target.value as "standard" | "premium" | "brand_story",
+                                },
+                              })
+                            }
+                          >
+                            <option value="standard">Standard (Basic) A+</option>
+                            <option value="premium">Premium A+</option>
+                            <option value="brand_story">Brand Story</option>
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label>Width (px)</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={draft.metadata?.imageWidth ?? ""}
+                              onChange={(e) =>
+                                setDraft({
+                                  ...draft,
+                                  metadata: {
+                                    ...draft.metadata,
+                                    imageWidth: e.target.value ? Number(e.target.value) : undefined,
+                                  },
+                                })
+                              }
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label>Height (px)</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={draft.metadata?.imageHeight ?? ""}
+                              onChange={(e) =>
+                                setDraft({
+                                  ...draft,
+                                  metadata: {
+                                    ...draft.metadata,
+                                    imageHeight: e.target.value ? Number(e.target.value) : undefined,
+                                  },
+                                })
+                              }
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label>Image slots</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={draft.metadata?.imageCount ?? 1}
+                              onChange={(e) =>
+                                setDraft({
+                                  ...draft,
+                                  metadata: {
+                                    ...draft.metadata,
+                                    imageCount: e.target.value ? Number(e.target.value) : 1,
+                                  },
+                                })
+                              }
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Amazon module name</Label>
+                          <Input
+                            value={draft.metadata?.amazonModuleName ?? ""}
+                            onChange={(e) =>
+                              setDraft({
+                                ...draft,
+                                metadata: { ...draft.metadata, amazonModuleName: e.target.value },
+                              })
+                            }
+                            className="mt-1"
+                            placeholder="e.g. Image & Dark Text Overlay"
+                          />
+                        </div>
+                      </>
                     )}
                   </div>
                   <div>

@@ -23,15 +23,70 @@ import { refreshCreditBalances } from "@/lib/credit-queries";
 import { cn } from "@/lib/utils";
 import { useApiAuthReady } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
-import { useAplusModuleCards } from "@/lib/image-prompt-templates";
+import {
+  useAplusModuleCards,
+  type AplusContentTier,
+  type AplusModuleCard,
+} from "@/lib/image-prompt-templates";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-export const APLUS_MODULE_CARDS = [
-  { id: "hero", label: "Hero Banner", desc: "High-impact visual for the top of the page", icon: "🖼️" },
-  { id: "features", label: "Features Highlights", desc: "Detailed breakdown of key product benefits", icon: "🔍" },
-  { id: "comparison", label: "Comparison Charts", desc: "Side-by-side comparison with competitors or models", icon: "📊" },
-  { id: "brand_story", label: "Brand Story", desc: "Connect with customers through your brand's mission", icon: "📖" },
+/** @deprecated Prefer useAplusModuleCards() — kept for imports that expect a static list. */
+export const APLUS_MODULE_CARDS: AplusModuleCard[] = [
+  {
+    id: "hero",
+    label: "Image & Dark Text Overlay",
+    desc: "970×300 (Standard)",
+    icon: "🖼️",
+    aplusTier: "standard",
+    imageWidth: 970,
+    imageHeight: 300,
+  },
+  {
+    id: "features",
+    label: "Four Image Highlights",
+    desc: "400×400 (Standard)",
+    icon: "🔍",
+    aplusTier: "standard",
+    imageWidth: 400,
+    imageHeight: 400,
+  },
+  {
+    id: "comparison",
+    label: "Comparison Chart",
+    desc: "150×300 (Standard)",
+    icon: "📊",
+    aplusTier: "standard",
+    imageWidth: 150,
+    imageHeight: 300,
+  },
+  {
+    id: "brand_story",
+    label: "Brand Story Card",
+    desc: "Brand Story content type",
+    icon: "📖",
+    aplusTier: "brand_story",
+    imageWidth: 1464,
+    imageHeight: 600,
+  },
+];
+
+const APLUS_TIER_TABS: { id: AplusContentTier; label: string; hint: string }[] = [
+  {
+    id: "standard",
+    label: "Standard A+",
+    hint: "Basic product-description modules. Cannot mix with Premium in one Amazon document.",
+  },
+  {
+    id: "premium",
+    label: "Premium A+",
+    hint: "Enhanced modules (video, hotspots, carousels). Cannot mix with Standard.",
+  },
+  {
+    id: "brand_story",
+    label: "Brand Story",
+    hint: "Separate From the Brand content — not mixed with Standard/Premium modules.",
+  },
 ];
 
 function formatAplusApiError(status: number, apiError?: string): string {
@@ -121,8 +176,17 @@ export function AplusContentWizard({
   /** Product Overview gallery — used as product reference during A+ image generation. */
   overviewImageUrls?: string[] | null;
 }) {
-  const { modules: APLUS_MODULE_CARDS, isLoading: aplusModulesLoading, modulesUnavailable } = useAplusModuleCards();
-  const allAplusModuleIds = useMemo(() => APLUS_MODULE_CARDS.map((m) => m.id), [APLUS_MODULE_CARDS]);
+  const { modules: aplusModuleCards, isLoading: aplusModulesLoading, modulesUnavailable } = useAplusModuleCards();
+  const [aplusTier, setAplusTier] = useState<AplusContentTier>("standard");
+  const visibleAplusModules = useMemo(
+    () => aplusModuleCards.filter((m) => m.aplusTier === aplusTier),
+    [aplusModuleCards, aplusTier],
+  );
+  const moduleById = useMemo(() => {
+    const map = new Map<string, AplusModuleCard>();
+    for (const m of aplusModuleCards) map.set(m.id, m);
+    return map;
+  }, [aplusModuleCards]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isTeamMember, memberCredits } = useTeam();
@@ -149,6 +213,14 @@ export function AplusContentWizard({
   const [aplusCustomizeModuleId, setAplusCustomizeModuleId] = useState<string | null>(null);
   const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
   const syncedAuditIdRef = useRef<number | null>(null);
+
+  const switchAplusTier = useCallback((tier: AplusContentTier) => {
+    setAplusTier(tier);
+    setSelectedAplusModules((prev) =>
+      prev.filter((id) => aplusModuleCards.find((m) => m.id === id)?.aplusTier === tier),
+    );
+    setAplusCustomizeModuleId(null);
+  }, [aplusModuleCards]);
 
   useEffect(() => {
     if (!auditData?.generatedImages || syncedAuditIdRef.current === auditId) return;
@@ -418,118 +490,161 @@ export function AplusContentWizard({
   }
 
   const moduleSelectorGrid = (
-    <div className={cn(
-      "grid gap-3 w-full",
-      createOnly ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4",
-    )}>
-      {(aplusModulesLoading && APLUS_MODULE_CARDS.length === 0) ? (
-        <p className="text-xs text-slate-500 col-span-full py-4 text-center">Loading A+ modules…</p>
-      ) : null}
-      {APLUS_MODULE_CARDS.map((module) => {
-        const isSelected = selectedAplusModules.includes(module.id);
-        const isGenerated = generatedAplusModuleIds.has(module.id);
-        const cardClass = createOnly
-          ? cn(
-            "relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all text-left",
-            isSelected
-              ? "border-orange-500 bg-orange-50/30"
-              : "border-slate-200 bg-white hover:border-slate-300",
-            (isGenerating || modulesUnavailable) && "opacity-60 cursor-not-allowed",
-          )
-          : cn(
-            "relative rounded-2xl border-2 p-5 text-left transition-all",
-            isSelected
-              ? "border-orange-500 bg-orange-50/40 shadow-sm"
-              : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
-            isGenerating && "opacity-60 cursor-not-allowed",
-          );
-
-        return (
+    <div className="space-y-3 w-full">
+      <div className="flex flex-wrap gap-2">
+        {APLUS_TIER_TABS.map((tab) => (
           <button
-            key={module.id}
+            key={tab.id}
             type="button"
-            disabled={isGenerating || modulesUnavailable}
-            onClick={() => {
-              if (isGenerating || modulesUnavailable) return;
-              if (createOnly) {
-                if (selectedAplusModules.includes(module.id)) {
-                  setSelectedAplusModules((prev) => prev.filter((id) => id !== module.id));
-                  if (aplusCustomizeModuleId === module.id) setAplusCustomizeModuleId(null);
+            disabled={isGenerating}
+            onClick={() => switchAplusTier(tab.id)}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors",
+              aplusTier === tab.id
+                ? "bg-orange-500 text-white border-orange-500"
+                : "bg-white text-slate-600 border-slate-200 hover:border-orange-300",
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-slate-500 leading-relaxed">
+        {APLUS_TIER_TABS.find((t) => t.id === aplusTier)?.hint}
+        {" "}
+        Module prompts and instructions come from Admin → AI Skills (A+ content).
+      </p>
+      <div className={cn(
+        "grid gap-3 w-full",
+        createOnly ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4",
+      )}>
+        {(aplusModulesLoading && visibleAplusModules.length === 0) ? (
+          <p className="text-xs text-slate-500 col-span-full py-4 text-center">Loading A+ modules…</p>
+        ) : null}
+        {!aplusModulesLoading && visibleAplusModules.length === 0 ? (
+          <p className="text-xs text-slate-500 col-span-full py-4 text-center">
+            No {aplusTier.replace("_", " ")} modules enabled yet. An admin can publish them under AI Skills / Image prompts.
+          </p>
+        ) : null}
+        {visibleAplusModules.map((module) => {
+          const isSelected = selectedAplusModules.includes(module.id);
+          const isGenerated = generatedAplusModuleIds.has(module.id);
+          const dim =
+            module.imageWidth && module.imageHeight
+              ? `${module.imageWidth}×${module.imageHeight}`
+              : null;
+          const cardClass = createOnly
+            ? cn(
+              "relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all text-left",
+              isSelected
+                ? "border-orange-500 bg-orange-50/30"
+                : "border-slate-200 bg-white hover:border-slate-300",
+              (isGenerating || modulesUnavailable) && "opacity-60 cursor-not-allowed",
+            )
+            : cn(
+              "relative rounded-2xl border-2 p-5 text-left transition-all",
+              isSelected
+                ? "border-orange-500 bg-orange-50/40 shadow-sm"
+                : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+              isGenerating && "opacity-60 cursor-not-allowed",
+            );
+
+          return (
+            <button
+              key={module.id}
+              type="button"
+              disabled={isGenerating || modulesUnavailable}
+              onClick={() => {
+                if (isGenerating || modulesUnavailable) return;
+                if (createOnly) {
+                  if (selectedAplusModules.includes(module.id)) {
+                    setSelectedAplusModules((prev) => prev.filter((id) => id !== module.id));
+                    if (aplusCustomizeModuleId === module.id) setAplusCustomizeModuleId(null);
+                    return;
+                  }
+                  setSelectedAplusModules((prev) => {
+                    const sameTier = prev.filter((id) => moduleById.get(id)?.aplusTier === module.aplusTier);
+                    return [...sameTier, module.id];
+                  });
+                  setAplusCustomizeModuleId(module.id);
                   return;
                 }
-                setSelectedAplusModules((prev) => [...prev, module.id]);
-                setAplusCustomizeModuleId(module.id);
-                return;
-              }
-              setSelectedAplusModules((prev) => (
-                prev.includes(module.id)
-                  ? prev.filter((id) => id !== module.id)
-                  : [...prev, module.id]
-              ));
-            }}
-            className={cardClass}
-          >
-            {createOnly ? (
-              <div className="flex items-start gap-2.5">
-                <span className="text-xl leading-none mt-0.5">{module.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className={cn(
-                      "text-sm font-semibold",
-                      isSelected ? "text-orange-900" : "text-slate-900",
-                    )}
-                    >
-                      {module.label}
-                    </h3>
-                    <div
-                      className={cn(
-                        "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
-                        isSelected
-                          ? "border-orange-500 bg-orange-500"
-                          : "border-slate-300",
+                setSelectedAplusModules((prev) => {
+                  if (prev.includes(module.id)) return prev.filter((id) => id !== module.id);
+                  const sameTier = prev.filter((id) => moduleById.get(id)?.aplusTier === module.aplusTier);
+                  return [...sameTier, module.id];
+                });
+              }}
+              className={cardClass}
+            >
+              {createOnly ? (
+                <div className="flex items-start gap-2.5">
+                  <span className="text-xl leading-none mt-0.5">{module.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className={cn(
+                        "text-sm font-semibold",
+                        isSelected ? "text-orange-900" : "text-slate-900",
                       )}
-                    >
-                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                      >
+                        {module.label}
+                      </h3>
+                      <div
+                        className={cn(
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                          isSelected
+                            ? "border-orange-500 bg-orange-500"
+                            : "border-slate-300",
+                        )}
+                      >
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
                     </div>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-tight">{module.desc}</p>
+                    {dim && (
+                      <p className="text-[10px] font-semibold text-orange-600/90 mt-1 tabular-nums">{dim}px</p>
+                    )}
+                    {isGenerated && !isSelected && (
+                      <p className="text-[10px] font-medium text-slate-500 mt-1">
+                        Already generated — select to regenerate
+                      </p>
+                    )}
+                    {isSelected && createOnly && (
+                      <p className="text-[10px] font-medium text-slate-500 mt-1">
+                        Tap again to remove from selection
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5 leading-tight">{module.desc}</p>
-                  {isGenerated && !isSelected && (
-                    <p className="text-[10px] font-medium text-slate-500 mt-1">
-                      Already generated — select to regenerate
-                    </p>
-                  )}
-                  {isSelected && createOnly && (
-                    <p className="text-[10px] font-medium text-slate-500 mt-1">
-                      Tap again to remove from selection
-                    </p>
-                  )}
                 </div>
-              </div>
-            ) : (
-              <>
-                <span className="text-3xl leading-none block mb-3">{module.icon}</span>
-                <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
-                  {module.label}
-                </p>
-                <p className="text-xs text-slate-400 mt-1 leading-snug">{module.desc}</p>
-                {isSelected && (
-                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  </div>
-                )}
-                {isGenerated && !isSelected && (
-                  <div
-                    className="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm"
-                    aria-label="Generated"
-                  >
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  </div>
-                )}
-              </>
-            )}
-          </button>
-        );
-      })}
+              ) : (
+                <>
+                  <span className="text-3xl leading-none block mb-3">{module.icon}</span>
+                  <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                    {module.label}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1 leading-snug">{module.desc}</p>
+                  {dim && (
+                    <p className="text-[11px] font-semibold text-orange-600 mt-2 tabular-nums">{dim} px</p>
+                  )}
+                  {isSelected && (
+                    <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  )}
+                  {isGenerated && !isSelected && (
+                    <div
+                      className="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm"
+                      aria-label="Generated"
+                    >
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  )}
+                </>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -545,8 +660,8 @@ export function AplusContentWizard({
         </span>
         {!createOnly && (
           <span className="text-xs text-slate-400">
-            {selectedAplusModules.length === allAplusModuleIds.length
-              ? "All modules will be generated"
+            {selectedAplusModules.length === visibleAplusModules.length && visibleAplusModules.length > 0
+              ? `All ${aplusTier.replace("_", " ")} modules will be generated`
               : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
           </span>
         )}
@@ -558,7 +673,7 @@ export function AplusContentWizard({
       </div>
       {!createOnly && (
         <SelectedGraphicsTypesSummary
-          imageTypes={APLUS_MODULE_CARDS}
+          imageTypes={aplusModuleCards}
           selectedTypeIds={selectedAplusModules}
           getConfig={getAplusModuleConfig}
           onEdit={setAplusCustomizeModuleId}
@@ -566,7 +681,7 @@ export function AplusContentWizard({
             setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
             if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
           }}
-          instructionText="Selected modules — tap a row to customize prompt, references, and quality."
+          instructionText="Selected modules — tap a row to customize prompt, references, and quality (Admin AI Skills supply the base instruction)."
           hideAspectRatio
         />
       )}
@@ -577,7 +692,7 @@ export function AplusContentWizard({
     <ImageTypeCustomizeDialog
       open={aplusCustomizeModuleId !== null}
       onOpenChange={(open) => { if (!open) setAplusCustomizeModuleId(null); }}
-      type={APLUS_MODULE_CARDS.find((m) => m.id === aplusCustomizeModuleId) ?? null}
+      type={aplusModuleCards.find((m) => m.id === aplusCustomizeModuleId) ?? null}
       config={aplusCustomizeModuleId ? getAplusModuleConfig(aplusCustomizeModuleId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
       onConfigChange={(patch) => {
         if (aplusCustomizeModuleId) updateAplusModuleConfig(aplusCustomizeModuleId, patch);
