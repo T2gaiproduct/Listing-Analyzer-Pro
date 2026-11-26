@@ -247,7 +247,7 @@ function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: s
 
   return (
     <nav
-      className="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-orange-500 text-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(249,115,22,0.35)]"
+      className="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-orange-300 text-orange-950 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(253,186,116,0.45)]"
       aria-label="Mobile primary"
     >
       <div className="relative grid grid-cols-5 items-end px-1 pt-2 pb-1.5 min-h-[4.25rem]">
@@ -260,7 +260,7 @@ function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: s
               href={item.href}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-11 text-[10px] font-semibold tracking-wide",
-                active ? "text-white" : "text-white/85",
+                active ? "text-orange-950" : "text-orange-950/75",
               )}
               aria-current={active ? "page" : undefined}
             >
@@ -273,12 +273,12 @@ function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: s
         <div className="relative flex flex-col items-center justify-end min-h-11">
           <Link
             href={ctaUrl || "/sign-up"}
-            className="absolute -top-7 left-1/2 -translate-x-1/2 flex h-14 w-14 items-center justify-center rounded-full bg-white text-orange-500 shadow-lg shadow-orange-900/25 ring-4 ring-orange-500 active:scale-95 transition-transform"
+            className="absolute -top-7 left-1/2 -translate-x-1/2 flex h-14 w-14 items-center justify-center rounded-full bg-white text-orange-500 shadow-lg shadow-orange-900/15 ring-4 ring-orange-300 active:scale-95 transition-transform"
             aria-label={centerLabel}
           >
             <Headphones className="w-6 h-6" strokeWidth={2.25} />
           </Link>
-          <span className="pt-7 text-[10px] font-semibold tracking-wide text-white leading-none">
+          <span className="pt-7 text-[10px] font-semibold tracking-wide text-orange-950 leading-none">
             {centerLabel}
           </span>
         </div>
@@ -292,7 +292,7 @@ function PublicMobileBottomNav({ ctaText, ctaUrl }: { ctaText: string; ctaUrl: s
               href={item.href}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-11 text-[10px] font-semibold tracking-wide",
-                active ? "text-white" : "text-white/85",
+                active ? "text-orange-950" : "text-orange-950/75",
               )}
               aria-current={active ? "page" : undefined}
             >
