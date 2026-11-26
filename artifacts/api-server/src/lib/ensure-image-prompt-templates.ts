@@ -174,6 +174,46 @@ export async function ensureDefaultImagePromptTemplatesSeeded(): Promise<void> {
       );
   }
 
+  // Keep Brand Story system catalog aligned with Amazon's four production elements.
+  for (const seed of DEFAULT_IMAGE_PROMPT_TEMPLATE_SEEDS) {
+    if (seed.category !== "aplus" || seed.metadata?.aplusTier !== "brand_story") continue;
+    const meta = parseImagePromptMetadata(seed.metadata);
+    const rows = await db
+      .select()
+      .from(imagePromptTemplatesTable)
+      .where(
+        and(
+          eq(imagePromptTemplatesTable.slug, seed.slug),
+          eq(imagePromptTemplatesTable.category, "aplus"),
+          eq(imagePromptTemplatesTable.isSystem, 1),
+        ),
+      )
+      .limit(1);
+    if (rows.length === 0) continue;
+    const row = rows[0]!;
+    const existingMeta = parseImagePromptMetadata(row.metadata);
+    await db
+      .update(imagePromptTemplatesTable)
+      .set({
+        name: seed.name,
+        description: seed.description,
+        sortOrder: seed.sortOrder,
+        headlineTemplate: seed.headlineTemplate ?? row.headlineTemplate,
+        bodyTemplate: seed.bodyTemplate ?? row.bodyTemplate,
+        metadata: {
+          ...existingMeta,
+          icon: meta.icon ?? existingMeta.icon,
+          aplusTier: "brand_story",
+          imageWidth: meta.imageWidth ?? existingMeta.imageWidth,
+          imageHeight: meta.imageHeight ?? existingMeta.imageHeight,
+          imageCount: meta.imageCount ?? existingMeta.imageCount ?? 1,
+          amazonModuleName: meta.amazonModuleName ?? existingMeta.amazonModuleName,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(imagePromptTemplatesTable.id, row.id));
+  }
+
   const { syncAllImagePromptTemplatesToSkills } = await import("./image-prompt-skill-sync.js");
   await syncAllImagePromptTemplatesToSkills();
 }

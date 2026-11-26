@@ -104,7 +104,11 @@ import {
   ImageTypeCustomizeDialog,
   SelectedGraphicsTypesSummary,
 } from "@/components/graphics-type-customize-ui";
-import { useAplusModuleCards, useGraphicsImageTypesFromApi } from "@/lib/image-prompt-templates";
+import {
+  useAplusModuleCards,
+  useGraphicsImageTypesFromApi,
+  type AplusContentTier,
+} from "@/lib/image-prompt-templates";
 import { AmazonBrowseCategorySelect } from "@/components/amazon-browse-category-select";
 import { resolveGraphicsRecordLabel } from "@/lib/graphics-display-label";
 import {
@@ -573,7 +577,15 @@ function CreatingPanel({
 export default function AuditWorkflow() {
   const { imageTypes: IMAGE_TYPES } = useGraphicsImageTypesFromApi();
   const { modules: APLUS_MODULE_CARDS } = useAplusModuleCards();
-  const allAplusModuleIds = useMemo(() => APLUS_MODULE_CARDS.map((m) => m.id), [APLUS_MODULE_CARDS]);
+  const [aplusTierTab, setAplusTierTab] = useState<AplusContentTier>("standard");
+  const visibleAplusModuleCards = useMemo(
+    () => APLUS_MODULE_CARDS.filter((m) => m.aplusTier === aplusTierTab),
+    [APLUS_MODULE_CARDS, aplusTierTab],
+  );
+  const allAplusModuleIds = useMemo(
+    () => visibleAplusModuleCards.map((m) => m.id),
+    [visibleAplusModuleCards],
+  );
   const [, nav]         = useLocation();
   const search          = useSearch();
   const { toast }       = useToast();
@@ -3224,10 +3236,61 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {APLUS_MODULE_CARDS.map((module) => {
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { id: "standard" as const, label: "Standard A+" },
+                      { id: "premium" as const, label: "Premium A+" },
+                      { id: "brand_story" as const, label: "Brand Story" },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      disabled={aplusStatus === "generating" || generateAplus.isPending}
+                      onClick={() => {
+                        setAplusTierTab(tab.id);
+                        setSelectedAplusModules((prev) =>
+                          prev.filter((id) => APLUS_MODULE_CARDS.find((m) => m.id === id)?.aplusTier === tab.id),
+                        );
+                        setAplusCustomizeModuleId(null);
+                      }}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors",
+                        aplusTierTab === tab.id
+                          ? "bg-orange-500 text-white border-orange-500"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-orange-300",
+                      )}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {aplusTierTab === "brand_story" ? (
+                  <div className="rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 px-3.5 py-3 sm:px-4">
+                    <p className="text-xs font-semibold text-orange-800">
+                      Brand Story — 4 production elements
+                    </p>
+                    <p className="text-[11px] text-orange-700/90 mt-1 leading-relaxed">
+                      Separate From the Brand content (not mixed with Standard/Premium): background/story card,
+                      logo/identity, story image + text, and product/ASIN showcase. Match sizes shown in A+ Content Manager.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className={cn(
+                "grid grid-cols-1 sm:grid-cols-2 gap-4",
+                aplusTierTab === "brand_story" ? "lg:grid-cols-4" : "lg:grid-cols-3",
+              )}>
+                {visibleAplusModuleCards.map((module) => {
                   const isSelected = selectedAplusModules.includes(module.id);
                   const generated = aplusModules.find((m) => m.id === module.id);
+                  const dim =
+                    module.imageWidth && module.imageHeight
+                      ? `${module.imageWidth}×${module.imageHeight}`
+                      : null;
                   return (
                     <button
                       key={module.id}
@@ -3235,7 +3298,12 @@ export default function AuditWorkflow() {
                       onClick={() => {
                         if (aplusStatus === "generating" || generateAplus.isPending) return;
                         if (!selectedAplusModules.includes(module.id)) {
-                          setSelectedAplusModules((prev) => [...prev, module.id]);
+                          setSelectedAplusModules((prev) => {
+                            const sameTier = prev.filter(
+                              (id) => APLUS_MODULE_CARDS.find((m) => m.id === id)?.aplusTier === module.aplusTier,
+                            );
+                            return [...sameTier, module.id];
+                          });
                         }
                         setAplusCustomizeModuleId(module.id);
                         setIsDirty(true);
@@ -3254,6 +3322,9 @@ export default function AuditWorkflow() {
                         {module.label}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1 leading-snug">{module.desc}</p>
+                      {dim && (
+                        <p className="text-[11px] font-semibold text-orange-600 mt-2 tabular-nums">{dim} px</p>
+                      )}
                       {isSelected && (
                         <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
                           <Check className="w-3.5 h-3.5 text-white" />
@@ -3275,8 +3346,8 @@ export default function AuditWorkflow() {
                     {selectedAplusModules.length} selected
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {selectedAplusModules.length === allAplusModuleIds.length
-                      ? "All modules will be generated"
+                    {selectedAplusModules.length === allAplusModuleIds.length && allAplusModuleIds.length > 0
+                      ? `All ${aplusTierTab.replace("_", " ")} modules will be generated`
                       : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
                   </span>
                 </div>
@@ -3284,7 +3355,7 @@ export default function AuditWorkflow() {
 
               {selectedAplusModules.length > 0 && (
                 <SelectedGraphicsTypesSummary
-                  imageTypes={APLUS_MODULE_CARDS}
+                  imageTypes={visibleAplusModuleCards}
                   selectedTypeIds={selectedAplusModules}
                   getConfig={getAplusModuleConfig}
                   onEdit={setAplusCustomizeModuleId}
