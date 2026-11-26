@@ -92,7 +92,7 @@ function BuildBrandStepCard({
         "bg-card border border-border shadow-sm transition-shadow min-w-0",
         step.border,
         mobileSlide &&
-          "mx-7 flex h-full min-h-[min(46dvh,22rem)] flex-col items-center justify-center text-center gap-3.5 rounded-2xl border-b-[3px] px-5 py-8",
+          "mx-7 flex h-full min-h-[calc(100dvh-19.75rem)] flex-col items-center justify-center text-center gap-3.5 rounded-2xl border-b-[3px] px-5 py-8",
         !mobileSlide &&
           "flex-1 flex flex-col items-center text-center gap-4 rounded-2xl p-5 border-b-4 hover:shadow-md",
       )}
