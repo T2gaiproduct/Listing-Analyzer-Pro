@@ -28,6 +28,8 @@ export class ImagePromptTemplateError extends Error {
 const GRAPHICS_PLACEHOLDERS = ["productDesc"] as const;
 const APLUS_PLACEHOLDERS = [
   "productDesc",
+  "brandName",
+  "productCategory",
   "aplusEdgeToEdge",
   "heroHeadline",
   "heroSubheadline",
@@ -241,6 +243,7 @@ export type RuntimeAplusModuleSpec = {
 export async function getRuntimeAplusModuleSpec(
   slug: string,
   productCategory?: string | null,
+  brandName?: string | null,
 ): Promise<RuntimeAplusModuleSpec | undefined> {
   const row = await getImagePromptTemplateBySlug("aplus", slug);
   if (!row || row.enabled !== 1) return undefined;
@@ -253,6 +256,8 @@ export async function getRuntimeAplusModuleSpec(
   const categoryAddon = productCategory
     ? await resolveCategoryAplusSkillAddon(productCategory)
     : "";
+  const brandNameVar = brandName?.trim() ?? "";
+  const productCategoryVar = productCategory?.trim() ?? "";
 
   const imageWidth = meta.imageWidth && meta.imageWidth > 0 ? meta.imageWidth : 970;
   const imageHeight = meta.imageHeight && meta.imageHeight > 0 ? meta.imageHeight : 300;
@@ -270,6 +275,8 @@ export async function getRuntimeAplusModuleSpec(
       const vars = {
         ...ebcContentToTemplateVars(content),
         productDesc,
+        brandName: brandNameVar,
+        productCategory: productCategoryVar,
         aplusEdgeToEdge: APLUS_EDGE_TO_EDGE_PROMPT,
       };
       const base = renderPromptTemplate(promptTemplate, vars);
@@ -277,12 +284,20 @@ export async function getRuntimeAplusModuleSpec(
     },
     headline: (content) => {
       const template = headlineTemplate?.trim() || "{{heroHeadline}}";
-      return renderPromptTemplate(template, ebcContentToTemplateVars(content));
+      return renderPromptTemplate(template, {
+        ...ebcContentToTemplateVars(content),
+        brandName: brandNameVar,
+        productCategory: productCategoryVar,
+      });
     },
     body: (content) => {
       const template = bodyTemplate?.trim() || "";
       if (!template) return "";
-      return renderPromptTemplate(template, ebcContentToTemplateVars(content));
+      return renderPromptTemplate(template, {
+        ...ebcContentToTemplateVars(content),
+        brandName: brandNameVar,
+        productCategory: productCategoryVar,
+      });
     },
   };
 }
@@ -290,10 +305,11 @@ export async function getRuntimeAplusModuleSpec(
 export async function getRuntimeAplusModuleSpecs(
   moduleIds: string[],
   productCategory?: string | null,
+  brandName?: string | null,
 ): Promise<RuntimeAplusModuleSpec[]> {
   const specs: RuntimeAplusModuleSpec[] = [];
   for (const id of moduleIds) {
-    const spec = await getRuntimeAplusModuleSpec(id, productCategory);
+    const spec = await getRuntimeAplusModuleSpec(id, productCategory, brandName);
     if (spec) specs.push(spec);
   }
   return specs;

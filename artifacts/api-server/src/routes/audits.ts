@@ -1354,6 +1354,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
       await generateAplusModuleImages({
         auditId: id,
         productName: audit.productName,
+        brandName: audit.brandName,
         category: audit.category,
         content,
         imageUrls: overviewImageUrls,

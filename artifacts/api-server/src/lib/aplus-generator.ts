@@ -359,6 +359,7 @@ export function buildDefaultAplusPrompt(data: {
 export async function generateAplusModuleImages(data: {
   auditId: number;
   productName: string;
+  brandName?: string | null;
   category?: string | null;
   content: EbcContent;
   imageUrls: string[];
@@ -375,7 +376,7 @@ export async function generateAplusModuleImages(data: {
 }): Promise<AplusModule[]> {
   const dir = ensureAuditImageDir(data.auditId);
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-  const specs = await getRuntimeAplusModuleSpecs(data.moduleIds, data.category);
+  const specs = await getRuntimeAplusModuleSpecs(data.moduleIds, data.category, data.brandName);
   const total = specs.length;
   const globalImageDirection = data.imageCustomPrompt?.trim();
   const graphicsProjectId = await findGraphicsProjectIdForAudit(data.auditId);

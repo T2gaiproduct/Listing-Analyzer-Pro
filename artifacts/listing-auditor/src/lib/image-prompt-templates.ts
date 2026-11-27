@@ -263,4 +263,4 @@ export const GRAPHICS_PLACEHOLDER_HELP =
   "Placeholders: {{productDesc}} — formatted product name, category, and seller description.";
 
 export const APLUS_PLACEHOLDER_HELP =
-  "Placeholders: {{productDesc}}, {{aplusEdgeToEdge}}, EBC fields such as {{heroHeadline}}, {{feature1Title}}, {{gridTitle}}, {{storyHeadline}}, etc.";
+  "Placeholders: {{productDesc}}, {{brandName}}, {{productCategory}}, {{aplusEdgeToEdge}}, EBC fields such as {{heroHeadline}}, {{feature1Title}}, {{gridTitle}}, {{storyHeadline}}, {{storyBody}}, etc.";
