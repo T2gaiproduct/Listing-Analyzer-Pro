@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
-import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link as LinkIcon, FileText as FileTextIcon, AlertTriangle, Download } from "lucide-react";
+import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link as LinkIcon, FileText as FileTextIcon, AlertTriangle, Download, Store, LayoutGrid } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,203 @@ const roleColors: Record<string, string> = {
   editor: "bg-blue-100 text-blue-700",
   viewer: "bg-slate-100 text-slate-600",
 };
+
+type AdminMarketplaceConnection = {
+  platform: "amazon" | "ebay" | "walmart" | "shopify" | "woocommerce";
+  connected: boolean;
+  workspaceId: number | null;
+  workspaceName: string | null;
+  label: string | null;
+  environment: string | null;
+  connectedAt: string | null;
+  source: "workspace_settings" | "user_amazon_seller";
+};
+
+type AdminWorkspaceSummary = {
+  totalMemberships: number;
+  uniquePeople: number;
+  activeMembers: number;
+  pendingInvites: number;
+  workspaces: Array<{
+    id: number;
+    name: string;
+    clientLabel: string | null;
+    isDefault: boolean;
+    memberCount: number;
+    activeMemberCount: number;
+    pendingMemberCount: number;
+    members: Array<{
+      id: number;
+      invitedEmail: string;
+      invitedName: string;
+      status: string;
+      userId: string | null;
+      roleName: string | null;
+      invitedAt: string;
+      acceptedAt: string | null;
+    }>;
+  }>;
+};
+
+type AdminBillingSummary = {
+  completedPaymentsTotal: number;
+  pendingPaymentsTotal: number;
+  pendingPaymentsCount: number;
+  failedPaymentsCount: number;
+  paidInvoicesTotal: number;
+  unpaidInvoicesTotal: number;
+  totalSpend: number;
+  spendSource: "payments" | "invoices" | "none";
+  hasActiveSubscriptionWithoutSpend: boolean;
+};
+
+const MARKETPLACE_LABELS: Record<AdminMarketplaceConnection["platform"], string> = {
+  amazon: "Amazon",
+  ebay: "eBay",
+  walmart: "Walmart",
+  shopify: "Shopify",
+  woocommerce: "WooCommerce",
+};
+
+function AdminCustomerMarketplaces({ connections }: { connections: AdminMarketplaceConnection[] }) {
+  if (connections.length === 0) {
+    return (
+      <Card className="border-0 shadow-sm">
+        <CardContent className="py-12 text-center">
+          <Store className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm font-medium">No marketplace connections</p>
+          <p className="text-xs text-slate-400 mt-1">This customer has not connected Amazon, eBay, Walmart, Shopify, or WooCommerce.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Store className="w-4 h-4 text-orange-500" /> Connected Marketplaces
+          <Badge variant="outline" className="ml-auto">{connections.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50">
+              <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Marketplace</th>
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Account</th>
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Workspace</th>
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Environment</th>
+              <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Connected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {connections.map((c, idx) => (
+              <tr key={`${c.platform}-${c.workspaceId ?? "user"}-${idx}`} className="border-b border-slate-50">
+                <td className="px-5 py-3 font-medium text-slate-800">{MARKETPLACE_LABELS[c.platform]}</td>
+                <td className="px-3 py-3 text-slate-600 text-xs break-all">{c.label ?? "—"}</td>
+                <td className="px-3 py-3 text-slate-600">
+                  {c.workspaceName ?? (c.source === "user_amazon_seller" ? "Account-level" : "—")}
+                </td>
+                <td className="px-3 py-3">
+                  {c.environment ? (
+                    <Badge variant="outline" className="text-xs capitalize">{c.environment}</Badge>
+                  ) : "—"}
+                </td>
+                <td className="px-5 py-3 text-right text-xs text-slate-400">
+                  {c.connectedAt ? format(new Date(c.connectedAt), "MMM d, yyyy") : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminCustomerWorkspaces({ summary }: { summary: AdminWorkspaceSummary | null | undefined }) {
+  const workspaces = summary?.workspaces ?? [];
+  if (workspaces.length === 0) {
+    return (
+      <Card className="border-0 shadow-sm">
+        <CardContent className="py-12 text-center">
+          <LayoutGrid className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm font-medium">No workspaces</p>
+          <p className="text-xs text-slate-400 mt-1">This customer does not own any workspaces yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Workspaces", value: workspaces.length },
+          { label: "Members", value: summary?.totalMemberships ?? 0 },
+          { label: "Active", value: summary?.activeMembers ?? 0 },
+          { label: "Pending invites", value: summary?.pendingInvites ?? 0 },
+        ].map((s) => (
+          <Card key={s.label} className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-xs text-slate-500">{s.label}</p>
+              <p className="text-lg font-bold text-slate-900">{s.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {workspaces.map((ws) => (
+        <Card key={ws.id} className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2 flex-wrap">
+              <LayoutGrid className="w-4 h-4 text-orange-500" />
+              {ws.name}
+              {ws.isDefault && <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">Default</Badge>}
+              {ws.clientLabel && <Badge variant="outline">{ws.clientLabel}</Badge>}
+              <Badge variant="outline" className="ml-auto">{ws.memberCount} members</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {(ws.members?.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-6">No members in this workspace.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Member</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Role</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Status</th>
+                    <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ws.members.map((m) => (
+                    <tr key={m.id} className="border-b border-slate-50">
+                      <td className="px-5 py-3">
+                        <p className="font-medium text-slate-800">{m.invitedName || m.invitedEmail}</p>
+                        <p className="text-xs text-slate-400">{m.invitedEmail}</p>
+                      </td>
+                      <td className="px-3 py-3 text-slate-600 capitalize">{m.roleName ?? "—"}</td>
+                      <td className="px-3 py-3">
+                        <Badge variant="outline" className={m.status === "active" ? "border-green-200 text-green-600 text-xs" : m.status === "pending" ? "border-amber-200 text-amber-600 text-xs" : "border-slate-200 text-slate-500 text-xs"}>
+                          {m.status}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-3 text-right text-xs text-slate-400">
+                        {m.acceptedAt ? format(new Date(m.acceptedAt), "MMM d, yyyy") : m.status === "pending" ? `Invited ${formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
 
 function AdminCustomerTeam({ userId }: { userId: string }) {
   const { data, isLoading } = useQuery<{ members: AdminTeamMember[]; memberStats: AdminTeamStat[] }>({
@@ -266,11 +463,47 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
     return <div className="flex items-center justify-center h-64"><div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>;
   }
 
-  const { user, profile, audits, auditStats, credits, transactions, subscription } = data ?? {};
+  type CustomerDetailPayload = {
+    user?: any;
+    profile?: any;
+    audits?: any[];
+    auditStats?: any;
+    credits?: any;
+    transactions?: any[];
+    subscription?: any;
+    marketplaces?: AdminMarketplaceConnection[];
+    workspaces?: AdminWorkspaceSummary;
+    billingSummary?: AdminBillingSummary;
+    projectCounts?: { audits: number; graphics: number; workspaces: number; connectedMarketplaces: number };
+  };
+  const detail = (data ?? {}) as CustomerDetailPayload;
+  const {
+    user,
+    profile,
+    audits,
+    auditStats,
+    credits,
+    transactions,
+    subscription,
+    workspaces,
+    billingSummary,
+    projectCounts,
+  } = detail;
+  const marketplaces: AdminMarketplaceConnection[] = Array.isArray(detail.marketplaces)
+    ? detail.marketplaces
+    : [];
   const payments: Array<{ id: number; amount: number; currency: string; status: string; gateway: string; createdAt: string; couponCode?: string | null; discountAmount?: number | null }> = billingData?.payments ?? [];
   const invoices: Array<{ id: number; amount: number; currency: string; status: string; dueDate: string | null; createdAt: string }> = billingData?.invoices ?? [];
 
-  const totalSpend = payments.filter((p) => p.status === "completed").reduce((s, p) => s + p.amount, 0);
+  const paymentsSpend = payments
+    .filter((p) => ["completed", "paid", "succeeded"].includes((p.status ?? "").toLowerCase()))
+    .reduce((s, p) => s + p.amount, 0);
+  const totalSpend = billingSummary?.totalSpend ?? paymentsSpend;
+  const spendNote = billingSummary?.spendSource === "invoices"
+    ? "from paid invoices"
+    : billingSummary?.hasActiveSubscriptionWithoutSpend
+      ? "no completed payments on file"
+      : null;
   const hasPendingPayPal = payments.some((p) => p.status === "pending" && p.gateway === "paypal");
 
   return (
@@ -352,12 +585,14 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
       </div>
 
       {/* Quick stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { label: "Total Audits", value: auditStats?.total ?? 0, icon: FileText, color: "text-orange-500" },
-          { label: "Avg Score", value: `${auditStats?.averageScore ?? 0}/100`, icon: Activity, color: "text-blue-500" },
-          { label: "Total Spend", value: `$${totalSpend.toFixed(2)}`, icon: DollarSign, color: "text-green-500" },
-          { label: "Credit Balance", value: `${(credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0)}`, icon: CreditCard, color: "text-purple-500" },
+          { label: "Total Audits", value: auditStats?.total ?? projectCounts?.audits ?? 0, icon: FileText, color: "text-orange-500", hint: null as string | null },
+          { label: "Avg Score", value: `${auditStats?.averageScore ?? 0}/100`, icon: Activity, color: "text-blue-500", hint: null },
+          { label: "Total Spend", value: `$${Number(totalSpend).toFixed(2)}`, icon: DollarSign, color: "text-green-500", hint: spendNote },
+          { label: "Credit Balance", value: `${(credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0)}`, icon: CreditCard, color: "text-purple-500", hint: null },
+          { label: "Workspaces", value: projectCounts?.workspaces ?? workspaces?.workspaces?.length ?? 0, icon: LayoutGrid, color: "text-slate-600", hint: null },
+          { label: "Marketplaces", value: projectCounts?.connectedMarketplaces ?? marketplaces.length, icon: Store, color: "text-indigo-500", hint: null },
         ].map((s) => (
           <Card key={s.label} className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center gap-3">
@@ -365,21 +600,38 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
               <div>
                 <p className="text-xs text-slate-500">{s.label}</p>
                 <p className="text-lg font-bold text-slate-900">{s.value}</p>
+                {s.hint && <p className="text-[10px] text-amber-600 leading-tight mt-0.5">{s.hint}</p>}
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+      {billingSummary?.hasActiveSubscriptionWithoutSpend && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-medium">Active subscription with $0 recorded spend</p>
+            <p className="text-xs mt-0.5 text-amber-700">
+              Plan is active but there are no completed payments
+              {billingSummary.pendingPaymentsCount > 0
+                ? ` (${billingSummary.pendingPaymentsCount} pending · $${billingSummary.pendingPaymentsTotal.toFixed(2)}). Check the Payments tab or Sync PayPal.`
+                : ". This can happen for admin-assigned plans, trials, or incomplete checkout capture."}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="overview"><FileText className="w-4 h-4 mr-1.5" />Audit History</TabsTrigger>
           <TabsTrigger value="profile"><User className="w-4 h-4 mr-1.5" />Profile</TabsTrigger>
           <TabsTrigger value="credits"><CreditCard className="w-4 h-4 mr-1.5" />Credits</TabsTrigger>
           <TabsTrigger value="subscriptions"><Package className="w-4 h-4 mr-1.5" />Subscription</TabsTrigger>
           <TabsTrigger value="payments"><DollarSign className="w-4 h-4 mr-1.5" />Payments</TabsTrigger>
-            <TabsTrigger value="activity"><Activity className="w-4 h-4 mr-1.5" />Activity</TabsTrigger>
+          <TabsTrigger value="marketplaces"><Store className="w-4 h-4 mr-1.5" />Marketplaces</TabsTrigger>
+          <TabsTrigger value="workspaces"><LayoutGrid className="w-4 h-4 mr-1.5" />Workspaces</TabsTrigger>
+          <TabsTrigger value="activity"><Activity className="w-4 h-4 mr-1.5" />Activity</TabsTrigger>
           <TabsTrigger value="team"><Users className="w-4 h-4 mr-1.5" />Team</TabsTrigger>
         </TabsList>
 
@@ -764,11 +1016,28 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
 
         {/* ── Payment History ── */}
         <TabsContent value="payments">
+          {billingSummary && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              {[
+                { label: "Completed payments", value: `$${billingSummary.completedPaymentsTotal.toFixed(2)}` },
+                { label: "Pending", value: `${billingSummary.pendingPaymentsCount} · $${billingSummary.pendingPaymentsTotal.toFixed(2)}` },
+                { label: "Paid invoices", value: `$${billingSummary.paidInvoicesTotal.toFixed(2)}` },
+                { label: "Header spend", value: `$${billingSummary.totalSpend.toFixed(2)} (${billingSummary.spendSource})` },
+              ].map((s) => (
+                <Card key={s.label} className="border-0 shadow-sm">
+                  <CardContent className="p-3">
+                    <p className="text-xs text-slate-500">{s.label}</p>
+                    <p className="text-sm font-bold text-slate-900">{s.value}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base font-semibold flex items-center gap-2 flex-wrap">
                 <DollarSign className="w-4 h-4 text-orange-500" /> Payment History
-                <Badge variant="outline" className="ml-auto">{payments.length} payments · ${totalSpend.toFixed(2)} total</Badge>
+                <Badge variant="outline" className="ml-auto">{payments.length} payments · ${Number(totalSpend).toFixed(2)} total</Badge>
                 {hasPendingPayPal && (
                   <Button
                     size="sm"
@@ -837,6 +1106,16 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
           </Card>
         </TabsContent>
 
+        {/* ── Marketplaces ── */}
+        <TabsContent value="marketplaces">
+          <AdminCustomerMarketplaces connections={marketplaces} />
+        </TabsContent>
+
+        {/* ── Workspaces ── */}
+        <TabsContent value="workspaces">
+          <AdminCustomerWorkspaces summary={workspaces} />
+        </TabsContent>
+
         {/* ── Team ── */}
         <TabsContent value="team">
           <AdminCustomerTeam userId={userId} />
@@ -856,6 +1135,20 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                 {[
                   user?.createdAt && { date: new Date(user.createdAt), event: "Account created", icon: "🎉", color: "bg-green-100 text-green-700" },
                   user?.lastSignInAt && { date: new Date(user.lastSignInAt), event: "Last sign-in", icon: "🔑", color: "bg-blue-100 text-blue-700" },
+                  subscription?.createdAt && {
+                    date: new Date(subscription.createdAt),
+                    event: `Subscription: ${subscription.planName ?? "plan"} (${subscription.status})`,
+                    icon: "📦",
+                    color: "bg-purple-100 text-purple-700",
+                  },
+                  ...marketplaces
+                    .filter((m) => m.connectedAt)
+                    .map((m) => ({
+                      date: new Date(m.connectedAt!),
+                      event: `Connected ${MARKETPLACE_LABELS[m.platform]}${m.label ? `: ${m.label}` : ""}`,
+                      icon: "🛒",
+                      color: "bg-indigo-100 text-indigo-700",
+                    })),
                   ...(audits ?? []).slice(0, 5).map((a: { id: number; productName: string; createdAt: string }) => ({
                     date: new Date(a.createdAt),
                     event: `Audit created: ${a.productName}`,

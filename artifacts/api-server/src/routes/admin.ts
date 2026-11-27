@@ -11,6 +11,7 @@ import {
   userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable, workspacesTable,
   graphicsProjectsTable, authCredentialsTable,
 } from "@workspace/db";
+import { loadAdminCustomerOverviewExtras } from "../lib/admin-customer-overview.js";
 import OpenAI from "openai";
 import { like, or, ilike } from "drizzle-orm";
 import { clearProviderCache } from "../lib/ai-provider";
@@ -484,6 +485,9 @@ router.get("/admin/customers/:userId", requireAdmin, async (req, res): Promise<v
   const [credits] = creditsRes;
   const [profile] = profileRes;
   const [subscription] = subscriptionRes;
+  const subscriptionStatus = (subscription?.status ?? "").toLowerCase();
+  const hasActiveSubscription = subscriptionStatus === "active" || subscriptionStatus === "trial";
+  const overview = await loadAdminCustomerOverviewExtras(userId, { hasActiveSubscription });
 
   res.json({
     user: {
@@ -507,6 +511,10 @@ router.get("/admin/customers/:userId", requireAdmin, async (req, res): Promise<v
     credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
     transactions,
     subscription: subscription ?? null,
+    marketplaces: overview.marketplaces,
+    workspaces: overview.workspaces,
+    billingSummary: overview.billingSummary,
+    projectCounts: overview.projectCounts,
   });
 });
 
