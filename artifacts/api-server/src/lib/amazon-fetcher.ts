@@ -28,7 +28,7 @@ export interface FetchedListing {
   attributes: FetchedListingAttribute[];
 }
 
-function extractAsinFromUrl(url: string): string | null {
+export function extractAsinFromUrl(url: string): string | null {
   const patterns = [
     /\/dp\/([A-Z0-9]{10})/i,
     /\/gp\/product\/([A-Z0-9]{10})/i,
@@ -95,14 +95,27 @@ async function getSessionCookies(domain: string): Promise<string> {
   }
 }
 
-async function fetchAmazonPage(asin: string, cookies: string, domain = "amazon.com"): Promise<string> {
-  const url = `https://www.${domain}/dp/${asin}?th=1&psc=1`;
+async function fetchAmazonPage(
+  asin: string,
+  cookies: string,
+  domain = "amazon.com",
+  pathStyle: "desktop" | "mobile" = "desktop",
+): Promise<string> {
+  const path = pathStyle === "mobile"
+    ? `/gp/aw/d/${asin}`
+    : `/dp/${asin}?th=1&psc=1`;
+  const url = `https://www.${domain}${path}`;
   const headers: Record<string, string> = {
     ...BASE_HEADERS,
     "Accept-Language": domain.endsWith(".in") ? "en-IN,en;q=0.9" : "en-US,en;q=0.9",
     "Sec-Fetch-Site": "same-origin",
     Referer: `https://www.${domain}/`,
   };
+  if (pathStyle === "mobile") {
+    headers["User-Agent"] =
+      "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
+    headers["sec-ch-ua-mobile"] = "?1";
+  }
   if (cookies) headers["Cookie"] = cookies;
 
   const res = await fetch(url, {
@@ -344,27 +357,45 @@ async function fetchListingByAsinOnDomain(
   domain: string,
 ): Promise<FetchedListing> {
   const cookies = await getSessionCookies(domain);
+  const attempts: Array<{ cookies: string; pathStyle: "desktop" | "mobile" }> = [
+    { cookies, pathStyle: "desktop" },
+    { cookies: "", pathStyle: "desktop" },
+    { cookies, pathStyle: "mobile" },
+    { cookies: "", pathStyle: "mobile" },
+  ];
 
-  let html: string;
-  try {
-    html = await fetchAmazonPage(normalizedAsin, cookies, domain);
-  } catch (err) {
-    if (err instanceof Error && err.message === "CAPTCHA") {
+  let html: string | null = null;
+  let sawCaptcha = false;
+  let lastError: Error | null = null;
+
+  for (const attempt of attempts) {
+    try {
+      html = await fetchAmazonPage(
+        normalizedAsin,
+        attempt.cookies,
+        domain,
+        attempt.pathStyle,
+      );
+      break;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (lastError.message === "CAPTCHA") {
+        sawCaptcha = true;
+        continue;
+      }
+      // Non-CAPTCHA errors: try remaining styles once, then surface.
+      continue;
+    }
+  }
+
+  if (!html) {
+    if (sawCaptcha) {
       throw new Error(
         "Amazon blocked this request (CAPTCHA). This happens when fetching from cloud servers. " +
-          "Please use the manual entry option to paste your listing data directly.",
+          "Connect Amazon on Marketplaces to fetch via SP-API, or use the manual entry option.",
       );
     }
-    try {
-      html = await fetchAmazonPage(normalizedAsin, "", domain);
-    } catch (retryErr) {
-      if (retryErr instanceof Error && retryErr.message === "CAPTCHA") {
-        throw new Error(
-          "Amazon blocked this request (CAPTCHA). Please use the manual entry option to paste your listing data directly.",
-        );
-      }
-      throw retryErr;
-    }
+    throw lastError ?? new Error(`Amazon returned no product page for ${normalizedAsin}.`);
   }
 
   const listing = parseAmazonHtml(html, normalizedAsin);

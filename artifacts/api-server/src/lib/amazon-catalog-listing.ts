@@ -159,6 +159,87 @@ function mergeAttributeRows(
   return normalizeAmazonAttributes(merged);
 }
 
+function descriptionFromCatalogAttributes(
+  attributes: Record<string, unknown> | undefined | null,
+): string | null {
+  const descFromAttrs = attributes?.product_description;
+  if (!Array.isArray(descFromAttrs)) return null;
+  const parts = descFromAttrs
+    .map((e) => extractCatalogEntryText(e))
+    .filter(Boolean) as string[];
+  return normalizeAmazonDescription(parts.join("\n\n"));
+}
+
+function categoryFromCatalogSummary(summary: Record<string, unknown> | null): string | null {
+  const browse = summary?.browseClassification;
+  if (browse && typeof browse === "object") {
+    const display = (browse as { displayName?: unknown }).displayName;
+    if (typeof display === "string" && display.trim()) {
+      return cleanAmazonListingLine(display, 120);
+    }
+  }
+  const brand = summary?.brandName;
+  if (typeof brand === "string" && brand.trim()) {
+    return cleanAmazonListingLine(brand, 120);
+  }
+  return null;
+}
+
+/**
+ * Build a full listing from SP-API Catalog Items only (no HTML scrape).
+ * Used when Amazon CAPTCHA blocks cloud scrapes but the workspace is connected.
+ */
+export async function fetchAmazonListingFromCatalog(opts: {
+  asin: string;
+  marketplaceCode: string;
+  connection: ResolvedAmazonConnection;
+}): Promise<FetchedListing | null> {
+  const asin = opts.asin.trim().toUpperCase();
+  if (!/^[A-Z0-9]{10}$/.test(asin)) return null;
+
+  let catalogPayload: Awaited<ReturnType<typeof getCatalogItemByAsin>>;
+  try {
+    catalogPayload = await getCatalogItemByAsin({
+      settings: opts.connection.settings,
+      refreshToken: opts.connection.refreshToken,
+      asin,
+      marketplaceCode: opts.marketplaceCode,
+    });
+  } catch {
+    return null;
+  }
+
+  const summary = pickSummaryForMarketplace(
+    catalogPayload.summaries as Array<Record<string, unknown>> | undefined,
+    opts.marketplaceCode,
+  );
+  const title = typeof summary?.itemName === "string"
+    ? cleanAmazonListingLine(summary.itemName, 500)
+    : "";
+  if (!title) return null;
+
+  const bulletPoints = extractBulletsFromCatalogAttributes(catalogPayload.attributes);
+  const imageUrls = extractImagesFromCatalogPayload(catalogPayload);
+  const attributes = catalogAttributesToRows(catalogPayload.attributes);
+  const description = descriptionFromCatalogAttributes(catalogPayload.attributes)
+    ?? (bulletPoints.length > 0 ? normalizeAmazonDescription(bulletPoints.join("\n")) : null);
+  const productName = title.split(",")[0]?.trim() || title.slice(0, 60);
+
+  return {
+    productName: cleanAmazonListingLine(productName, 120) || productName,
+    asin,
+    category: categoryFromCatalogSummary(summary),
+    title,
+    bulletPoints,
+    imageUrls,
+    targetKeywords: [],
+    description,
+    price: null,
+    rating: null,
+    attributes,
+  };
+}
+
 export async function enrichAmazonListingFromCatalog(opts: {
   listing: FetchedListing;
   marketplaceCode: string;
@@ -205,13 +286,7 @@ export async function enrichAmazonListingFromCatalog(opts: {
 
   let description = opts.listing.description;
   if (!description) {
-    const descFromAttrs = catalogPayload.attributes?.product_description;
-    if (Array.isArray(descFromAttrs)) {
-      const parts = descFromAttrs
-        .map((e) => extractCatalogEntryText(e))
-        .filter(Boolean) as string[];
-      description = normalizeAmazonDescription(parts.join("\n\n"));
-    }
+    description = descriptionFromCatalogAttributes(catalogPayload.attributes);
   }
 
   const attributesSource: "sp_api_catalog" | "scrape" | "mixed" =

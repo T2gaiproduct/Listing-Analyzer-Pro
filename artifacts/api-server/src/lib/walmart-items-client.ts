@@ -218,3 +218,41 @@ export async function fetchWalmartItemBySku(input: {
     throw err;
   }
 }
+
+/** Numeric Walmart item id from `/ip/.../123456789` product URLs. */
+export function parseWalmartItemIdFromListingUrl(url: string | null | undefined): string | null {
+  const trimmed = url?.trim();
+  if (!trimmed) return null;
+  try {
+    const path = new URL(trimmed).pathname;
+    const match = path.match(/\/ip\/(?:[^/]+\/)?(\d{6,})(?:\/|$)/i)
+      ?? path.match(/\/(\d{6,})(?:\/|$)/);
+    return match?.[1] ?? null;
+  } catch {
+    const match = trimmed.match(/\/ip\/(?:[^/]+\/)?(\d{6,})(?:[/?#]|$)/i);
+    return match?.[1] ?? null;
+  }
+}
+
+/** Seller-catalog lookup by Walmart ITEM_ID (public URL id). Only finds the seller's own items. */
+export async function fetchWalmartItemByItemId(input: {
+  connection: WalmartWorkspaceConnection;
+  accessToken: string;
+  itemId: string;
+}): Promise<WalmartCatalogItem | null> {
+  const itemId = input.itemId.trim();
+  if (!/^\d{6,}$/.test(itemId)) return null;
+  try {
+    const raw = await walmartGetJson({
+      connection: input.connection,
+      accessToken: input.accessToken,
+      path: `/v3/items/${encodeURIComponent(itemId)}?productIdType=ITEM_ID`,
+    });
+    const page = parseWalmartItemsPage(raw);
+    if (page.items[0]) return page.items[0];
+    return parseWalmartCatalogItem(raw);
+  } catch (err) {
+    if (err instanceof WalmartOAuthError && err.status === 404) return null;
+    throw err;
+  }
+}

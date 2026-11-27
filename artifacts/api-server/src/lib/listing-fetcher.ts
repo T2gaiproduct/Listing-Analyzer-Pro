@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import type { Request } from "express";
 import {
+  extractAsinFromUrl,
   fetchListingByAsin,
   fetchListingByUrl,
   type FetchedListing,
@@ -8,6 +9,7 @@ import {
 } from "./amazon-fetcher";
 import {
   enrichAmazonListingFromCatalog,
+  fetchAmazonListingFromCatalog,
   resolveMarketplaceCodeForAmazonListing,
 } from "./amazon-catalog-listing.js";
 import { resolveAmazonConnectionForWorkspace } from "./resolve-amazon-settings.js";
@@ -25,6 +27,11 @@ import {
 import { parseEbayItemIdFromListingUrl } from "./ebay-import-utils.js";
 import { resolveEbayAccessToken } from "./ebay-inventory-client.js";
 import { fetchEbayTradingItemDetails } from "./ebay-trading-client.js";
+import {
+  fetchWalmartItemByItemId,
+  parseWalmartItemIdFromListingUrl,
+  resolveWalmartAccessToken,
+} from "./walmart-items-client.js";
 
 
 export type ListingPlatform = "amazon" | "shopify" | "walmart" | "ebay" | "etsy" | "generic";
@@ -221,15 +228,22 @@ async function fetchPageHtml(url: string, platform: ListingPlatform): Promise<st
     lower.includes("access denied")
     || lower.includes("captcha")
     || lower.includes("robot check")
+    || lower.includes("robot or human")
     || lower.includes("splashui/challenge")
     || lower.includes("pardon our interruption")
+    || lower.includes("/blocked?")
     || (lower.includes("blocked") && lower.includes("automated"))
   ) {
     if (platform === "ebay") {
       throw new Error(ebayBrowseCredentialsHint(url));
     }
+    if (platform === "walmart") {
+      throw new Error(
+        "Walmart blocked automated page scraping (CAPTCHA). Connect Walmart on Marketplaces and import your own listings, or enter product details manually.",
+      );
+    }
     throw new Error(
-      "This store blocked automated fetching. Try again later or enter listing details manually.",
+      "This store blocked automated fetching (CAPTCHA). Try again later or enter listing details manually.",
     );
   }
 
@@ -619,6 +633,57 @@ function mergeListing(
   };
 }
 
+async function tryFetchWalmartListingViaMarketplaceApi(
+  pageUrl: string,
+  spApi?: FetchListingSpApiContext,
+): Promise<FetchedListing | null> {
+  if (!spApi?.workspaceId) return null;
+  const itemId = parseWalmartItemIdFromListingUrl(pageUrl);
+  if (!itemId) return null;
+
+  try {
+    const { connection, accessToken } = await resolveWalmartAccessToken(spApi.workspaceId);
+    const item = await fetchWalmartItemByItemId({ connection, accessToken, itemId });
+    if (!item?.productName?.trim()) return null;
+
+    const title = item.productName.trim();
+    const description = item.descriptionHtml
+      ? cheerio.load(item.descriptionHtml).text().replace(/\s+/g, " ").trim().slice(0, 4000)
+      : null;
+    const bulletPoints: string[] = [];
+    if (description) {
+      const sentences = description
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 20 && s.length < 300);
+      bulletPoints.push(...sentences.slice(0, 5));
+    }
+    const price = item.priceAmount != null
+      ? `${item.currency === "USD" || !item.currency ? "$" : `${item.currency} `}${item.priceAmount.toFixed(2)}`
+      : null;
+    const attributes: FetchedListingAttribute[] = [];
+    if (item.sku) attributes.push({ attribute: "SKU", value: item.sku });
+    if (item.upc) attributes.push({ attribute: "UPC", value: item.upc });
+    if (item.wpid) attributes.push({ attribute: "WPID", value: item.wpid });
+
+    return {
+      productName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
+      asin: `walmart:${itemId}`,
+      category: null,
+      title,
+      bulletPoints,
+      imageUrls: item.imageUrls.slice(0, 9),
+      targetKeywords: extractKeywordsFromListing(title, bulletPoints),
+      description,
+      price,
+      rating: null,
+      attributes,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchNonAmazonListing(
   url: string,
   platform: ListingPlatform,
@@ -636,23 +701,36 @@ async function fetchNonAmazonListing(
     if (tradingListing) return tradingListing;
   }
 
+  if (platform === "walmart") {
+    const walmartListing = await tryFetchWalmartListingViaMarketplaceApi(url, spApi);
+    if (walmartListing) return walmartListing;
+  }
+
   if (platform === "shopify" || url.includes("/products/")) {
     const shopifyListing = await fetchShopifyProductJson(url);
     if (shopifyListing) return shopifyListing;
   }
 
-  const html = await fetchPageHtml(url, platform);
-  const $ = cheerio.load(html);
+  try {
+    const html = await fetchPageHtml(url, platform);
+    const $ = cheerio.load(html);
 
-  const jsonLdProducts = readJsonLdProducts(html);
-  const jsonLdPartial = jsonLdProducts.length > 0
-    ? parseFromJsonLd(jsonLdProducts[0], url)
-    : {};
+    const jsonLdProducts = readJsonLdProducts(html);
+    const jsonLdPartial = jsonLdProducts.length > 0
+      ? parseFromJsonLd(jsonLdProducts[0], url)
+      : {};
 
-  const ogPartial = parseOpenGraph($, url);
-  const platformPartial = parsePlatformSpecific($, html, url, platform);
+    const ogPartial = parseOpenGraph($, url);
+    const platformPartial = parsePlatformSpecific($, html, url, platform);
 
-  return mergeListing(platform, url, ogPartial, jsonLdPartial, platformPartial);
+    return mergeListing(platform, url, ogPartial, jsonLdPartial, platformPartial);
+  } catch (err) {
+    if (platform === "walmart") {
+      const walmartListing = await tryFetchWalmartListingViaMarketplaceApi(url, spApi);
+      if (walmartListing) return walmartListing;
+    }
+    throw err;
+  }
 }
 
 async function enrichListingTargetKeywords(listing: FetchedListing): Promise<FetchedListing> {
@@ -700,6 +778,93 @@ async function enrichAmazonListingIfConnected(
   }
 }
 
+function isAmazonCaptchaError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /captcha/i.test(message);
+}
+
+async function tryFetchAmazonListingViaSpApi(opts: {
+  asin: string;
+  url?: string;
+  spApi?: FetchListingSpApiContext;
+}): Promise<FetchedListing | null> {
+  if (!opts.spApi?.workspaceId) return null;
+  const connection = await resolveAmazonConnectionForWorkspace({
+    workspaceId: opts.spApi.workspaceId,
+    userId: opts.spApi.userId,
+    req: opts.spApi.req,
+  });
+  if (!connection) return null;
+
+  const marketplaceCode = resolveMarketplaceCodeForAmazonListing({
+    url: opts.url,
+    connection,
+  });
+  return fetchAmazonListingFromCatalog({
+    asin: opts.asin,
+    marketplaceCode,
+    connection,
+  });
+}
+
+async function fetchAmazonListingWithCaptchaFallback(input: {
+  asin?: string;
+  url?: string;
+  spApi?: FetchListingSpApiContext;
+}): Promise<FetchedListing> {
+  const resolvedAsin = (
+    input.asin?.trim()
+    || (input.url ? extractAsinFromUrl(input.url) : null)
+    || ""
+  ).toUpperCase();
+
+  // Prefer SP-API catalog when connected — avoids CAPTCHA entirely.
+  if (resolvedAsin && isAmazonAsin(resolvedAsin)) {
+    const viaSpApi = await tryFetchAmazonListingViaSpApi({
+      asin: resolvedAsin,
+      url: input.url,
+      spApi: input.spApi,
+    });
+    if (viaSpApi) {
+      return enrichAmazonListingIfConnected(viaSpApi, {
+        url: input.url,
+        spApi: input.spApi,
+      });
+    }
+  }
+
+  try {
+    const listing = input.asin?.trim()
+      ? await fetchListingByAsin(input.asin.trim())
+      : await fetchListingByUrl(input.url!);
+    return enrichAmazonListingIfConnected(listing, {
+      url: input.url,
+      spApi: input.spApi,
+    });
+  } catch (err) {
+    if (!isAmazonCaptchaError(err)) throw err;
+
+    if (resolvedAsin && isAmazonAsin(resolvedAsin)) {
+      const viaSpApi = await tryFetchAmazonListingViaSpApi({
+        asin: resolvedAsin,
+        url: input.url,
+        spApi: input.spApi,
+      });
+      if (viaSpApi) {
+        return enrichAmazonListingIfConnected(viaSpApi, {
+          url: input.url,
+          spApi: input.spApi,
+        });
+      }
+    }
+
+    throw new Error(
+      "Amazon blocked this request (CAPTCHA). Connect Amazon on Marketplaces to fetch via SP-API, "
+      + "or use the manual entry option to paste your listing data directly.",
+    );
+  }
+}
+
 export async function fetchListing(input: {
   asin?: string;
   url?: string;
@@ -707,12 +872,12 @@ export async function fetchListing(input: {
 }): Promise<FetchedListing> {
   if (input.asin?.trim()) {
     if (isAmazonAsin(input.asin)) {
-      const listing = await fetchListingByAsin(input.asin.trim());
-      const enriched = await enrichAmazonListingIfConnected(listing, {
+      const listing = await fetchAmazonListingWithCaptchaFallback({
+        asin: input.asin.trim(),
         url: input.url,
         spApi: input.spApi,
       });
-      return enrichListingTargetKeywords(enriched);
+      return enrichListingTargetKeywords(listing);
     }
     throw new Error(
       "That value is not a valid Amazon ASIN. Paste a full product URL from Amazon, Shopify, Walmart, eBay, Etsy, or another store.",
@@ -740,12 +905,11 @@ export async function fetchListing(input: {
 
   const platform = detectListingPlatform(normalizedUrl);
   if (platform === "amazon") {
-    const listing = await fetchListingByUrl(normalizedUrl);
-    const enriched = await enrichAmazonListingIfConnected(listing, {
+    const listing = await fetchAmazonListingWithCaptchaFallback({
       url: normalizedUrl,
       spApi: input.spApi,
     });
-    return enrichListingTargetKeywords(enriched);
+    return enrichListingTargetKeywords(listing);
   }
 
   return enrichListingTargetKeywords(
