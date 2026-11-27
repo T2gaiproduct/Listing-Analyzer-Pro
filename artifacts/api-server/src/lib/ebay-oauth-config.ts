@@ -22,17 +22,36 @@ export function ebayOAuthDefaultEnvironment(): EbayOAuthEnvironment {
   return raw === "production" ? "production" : "sandbox";
 }
 
-function readCredentialsForEnv(environment: EbayOAuthEnvironment): EbayAppCredentials | null {
-  const prefix = environment === "sandbox" ? "EBAY_SANDBOX_" : "EBAY_PRODUCTION_";
+export type EbayClientCredentials = {
+  clientId: string;
+  clientSecret: string;
+};
+
+function envPrefix(environment: EbayOAuthEnvironment): "EBAY_SANDBOX_" | "EBAY_PRODUCTION_" {
+  return environment === "sandbox" ? "EBAY_SANDBOX_" : "EBAY_PRODUCTION_";
+}
+
+/** Client ID + secret only — enough for Browse API application tokens (no RuName). */
+export function getEbayClientCredentials(
+  environment: EbayOAuthEnvironment,
+): EbayClientCredentials | null {
+  const prefix = envPrefix(environment);
   const clientId = process.env[`${prefix}CLIENT_ID`]?.trim() ?? "";
   const clientSecret = process.env[`${prefix}CLIENT_SECRET`]?.trim() ?? "";
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
+function readCredentialsForEnv(environment: EbayOAuthEnvironment): EbayAppCredentials | null {
+  const prefix = envPrefix(environment);
+  const client = getEbayClientCredentials(environment);
   const ruName = process.env[`${prefix}RUNAME`]?.trim() ?? "";
   const devId = process.env[`${prefix}DEV_ID`]?.trim() ?? "";
   const certId = process.env[`${prefix}CERT_ID`]?.trim() ?? "";
-  if (!clientId || !clientSecret || !ruName) return null;
+  if (!client || !ruName) return null;
   return {
-    clientId,
-    clientSecret,
+    clientId: client.clientId,
+    clientSecret: client.clientSecret,
     ruName,
     devId: devId || undefined,
     certId: certId || undefined,

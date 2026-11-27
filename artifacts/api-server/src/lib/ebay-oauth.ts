@@ -1,5 +1,9 @@
 import type { EbayAppCredentials, EbayOAuthEnvironment } from "./ebay-oauth-config.js";
-import { ebayOAuthEndpoints, getEbayAppCredentials } from "./ebay-oauth-config.js";
+import {
+  ebayOAuthEndpoints,
+  getEbayAppCredentials,
+  getEbayClientCredentials,
+} from "./ebay-oauth-config.js";
 import { ebayOAuthScopeParam } from "./ebay-oauth-scopes.js";
 
 export type EbayTokenResponse = {
@@ -9,9 +13,64 @@ export type EbayTokenResponse = {
   token_type: string;
 };
 
-function basicAuthHeader(creds: EbayAppCredentials): string {
+const APPLICATION_TOKEN_SCOPE = "https://api.ebay.com/oauth/api_scope";
+
+type CachedApplicationToken = {
+  accessToken: string;
+  expiresAtMs: number;
+};
+
+const applicationTokenCache = new Map<EbayOAuthEnvironment, CachedApplicationToken>();
+
+function basicAuthHeader(creds: Pick<EbayAppCredentials, "clientId" | "clientSecret">): string {
   const encoded = Buffer.from(`${creds.clientId}:${creds.clientSecret}`).toString("base64");
   return `Basic ${encoded}`;
+}
+
+/** Application (client_credentials) token for public Browse API calls. */
+export async function getEbayApplicationToken(
+  environment: EbayOAuthEnvironment,
+): Promise<string> {
+  const cached = applicationTokenCache.get(environment);
+  if (cached && cached.expiresAtMs > Date.now() + 60_000) {
+    return cached.accessToken;
+  }
+
+  const creds = getEbayClientCredentials(environment);
+  if (!creds) {
+    throw new Error(`eBay ${environment} client credentials are not configured.`);
+  }
+
+  const { tokenUrl } = ebayOAuthEndpoints(environment);
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    scope: APPLICATION_TOKEN_SCOPE,
+  });
+  const res = await fetch(tokenUrl, {
+    method: "POST",
+    headers: {
+      Authorization: basicAuthHeader(creds),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(text || `eBay application token request failed (${res.status})`);
+  }
+  const data = JSON.parse(text) as EbayTokenResponse;
+  const accessToken = data.access_token?.trim();
+  if (!accessToken) {
+    throw new Error("eBay application token response missing access_token.");
+  }
+  const expiresInSec = typeof data.expires_in === "number" && data.expires_in > 0
+    ? data.expires_in
+    : 7200;
+  applicationTokenCache.set(environment, {
+    accessToken,
+    expiresAtMs: Date.now() + expiresInSec * 1000,
+  });
+  return accessToken;
 }
 
 export function buildEbayAuthorizeUrl(

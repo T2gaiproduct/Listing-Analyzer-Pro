@@ -18,6 +18,13 @@ import {
   extractKeywordsFromListing,
   resolveTargetKeywordsForListing,
 } from "./listing-keyword-suggester.js";
+import {
+  ebayEnvironmentFromListingUrl,
+  tryFetchEbayListingViaBrowseApi,
+} from "./ebay-browse-client.js";
+import { parseEbayItemIdFromListingUrl } from "./ebay-import-utils.js";
+import { resolveEbayAccessToken } from "./ebay-inventory-client.js";
+import { fetchEbayTradingItemDetails } from "./ebay-trading-client.js";
 
 
 export type ListingPlatform = "amazon" | "shopify" | "walmart" | "ebay" | "etsy" | "generic";
@@ -180,6 +187,15 @@ async function fetchShopifyProductJson(url: string): Promise<FetchedListing | nu
   }
 }
 
+function ebayBrowseCredentialsHint(url: string): string {
+  const environment = ebayEnvironmentFromListingUrl(url);
+  const label = environment === "sandbox" ? "SANDBOX" : "PRODUCTION";
+  return (
+    `eBay blocks automated page scraping. Configure EBAY_${label}_CLIENT_ID and `
+    + `EBAY_${label}_CLIENT_SECRET on the API server so public listing URLs can be loaded via the eBay Browse API.`
+  );
+}
+
 async function fetchPageHtml(url: string, platform: ListingPlatform): Promise<string> {
   const origin = new URL(url).origin;
   const res = await fetch(url, {
@@ -193,6 +209,9 @@ async function fetchPageHtml(url: string, platform: ListingPlatform): Promise<st
   });
 
   if (!res.ok) {
+    if (platform === "ebay" && (res.status === 403 || res.status === 503)) {
+      throw new Error(ebayBrowseCredentialsHint(url));
+    }
     throw new Error(`The store returned HTTP ${res.status}. Check the URL and try again.`);
   }
 
@@ -202,14 +221,72 @@ async function fetchPageHtml(url: string, platform: ListingPlatform): Promise<st
     lower.includes("access denied")
     || lower.includes("captcha")
     || lower.includes("robot check")
+    || lower.includes("splashui/challenge")
+    || lower.includes("pardon our interruption")
     || (lower.includes("blocked") && lower.includes("automated"))
   ) {
+    if (platform === "ebay") {
+      throw new Error(ebayBrowseCredentialsHint(url));
+    }
     throw new Error(
       "This store blocked automated fetching. Try again later or enter listing details manually.",
     );
   }
 
   return html;
+}
+
+async function tryFetchEbayListingViaTradingApi(
+  pageUrl: string,
+  spApi?: FetchListingSpApiContext,
+): Promise<FetchedListing | null> {
+  if (!spApi?.workspaceId) return null;
+  const itemId = parseEbayItemIdFromListingUrl(pageUrl);
+  if (!itemId) return null;
+
+  try {
+    const { accessToken, environment } = await resolveEbayAccessToken(spApi.workspaceId);
+    const details = await fetchEbayTradingItemDetails({
+      environment,
+      accessToken,
+      itemId,
+    });
+    const title = details.title?.trim();
+    if (!title) return null;
+
+    const description = details.descriptionHtml
+      ? cheerio.load(details.descriptionHtml).text().replace(/\s+/g, " ").trim().slice(0, 4000)
+      : null;
+    const bulletPoints: string[] = [];
+    if (description) {
+      const sentences = description
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 20 && s.length < 300);
+      bulletPoints.push(...sentences.slice(0, 5));
+    }
+    const price = details.priceCents != null
+      ? `${details.currency === "USD" ? "$" : `${details.currency} `}${(details.priceCents / 100).toFixed(2)}`
+      : null;
+
+    return {
+      productName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
+      asin: `ebay:${itemId}`,
+      category: null,
+      title,
+      bulletPoints,
+      imageUrls: details.imageUrls.slice(0, 9),
+      targetKeywords: extractKeywordsFromListing(title, bulletPoints),
+      description,
+      price,
+      rating: null,
+      attributes: details.sku
+        ? [{ attribute: "SKU", value: details.sku }]
+        : [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 type JsonLdNode = Record<string, unknown>;
@@ -542,7 +619,23 @@ function mergeListing(
   };
 }
 
-async function fetchNonAmazonListing(url: string, platform: ListingPlatform): Promise<FetchedListing> {
+async function fetchNonAmazonListing(
+  url: string,
+  platform: ListingPlatform,
+  spApi?: FetchListingSpApiContext,
+): Promise<FetchedListing> {
+  if (platform === "ebay") {
+    try {
+      const browseListing = await tryFetchEbayListingViaBrowseApi(url);
+      if (browseListing) return browseListing;
+    } catch {
+      // Browse API failed (auth/item/marketplace). Fall through to Trading / HTML.
+    }
+
+    const tradingListing = await tryFetchEbayListingViaTradingApi(url, spApi);
+    if (tradingListing) return tradingListing;
+  }
+
   if (platform === "shopify" || url.includes("/products/")) {
     const shopifyListing = await fetchShopifyProductJson(url);
     if (shopifyListing) return shopifyListing;
@@ -655,5 +748,7 @@ export async function fetchListing(input: {
     return enrichListingTargetKeywords(enriched);
   }
 
-  return enrichListingTargetKeywords(await fetchNonAmazonListing(normalizedUrl, platform));
+  return enrichListingTargetKeywords(
+    await fetchNonAmazonListing(normalizedUrl, platform, input.spApi),
+  );
 }
