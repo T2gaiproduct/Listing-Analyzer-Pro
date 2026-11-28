@@ -162,19 +162,12 @@ export async function buildReceiptPdfBytes(data: ReceiptPdfInput): Promise<Uint8
       try {
         const bytes = fs.readFileSync(logoPath);
         const image = await pdf.embedPng(bytes);
-        const maxW = 150;
-        const maxH = 42;
+        const maxW = 190;
+        const maxH = 58;
         const scale = Math.min(maxW / image.width, maxH / image.height);
         const w = image.width * scale;
         const h = image.height * scale;
-        // Logo art is on a black canvas — draw a matching rounded plate behind it.
-        page.drawRectangle({
-          x: labelX,
-          y: baselineFromTop(top, 0) - h,
-          width: w,
-          height: h,
-          color: rgb(0, 0, 0),
-        });
+        // Logo art includes its own black canvas — place it directly.
         page.drawImage(image, {
           x: labelX,
           y: baselineFromTop(top, 0) - h,
