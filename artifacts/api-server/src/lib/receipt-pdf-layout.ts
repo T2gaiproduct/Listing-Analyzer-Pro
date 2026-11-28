@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type RGB } from "pdf-lib";
 
 export interface ReceiptPdfInput {
@@ -24,6 +27,13 @@ const slate600: RGB = rgb(0.28, 0.33, 0.39);
 const slate400: RGB = rgb(0.58, 0.64, 0.72);
 const slate100: RGB = rgb(0.945, 0.961, 0.976);
 
+const PLATFORM_NAME = "Ecommerce Guru";
+const SUPPORT_EMAIL =
+  process.env.RECEIPT_SUPPORT_EMAIL?.trim()
+  || process.env.SUPPORT_EMAIL?.trim()
+  || "support@ecomm-guru.com";
+const SITE_HOST = "ecomm-guru.com";
+
 function formatDate(dateStr: string | Date): string {
   const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
   return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -39,6 +49,25 @@ function formatCurrency(amount: number, currency: string): string {
 
 function baselineFromTop(top: number, fontSize: number): number {
   return PAGE_H - top - fontSize;
+}
+
+function resolveEcommerceGuruLogoPath(): string | null {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.resolve(process.cwd(), "assets/ecommerce-guru-logo.png"),
+    path.resolve(process.cwd(), "artifacts/api-server/assets/ecommerce-guru-logo.png"),
+    path.resolve(here, "../../assets/ecommerce-guru-logo.png"),
+    path.resolve(here, "../../../listing-auditor/public/logo.png"),
+    path.resolve(process.cwd(), "../listing-auditor/public/logo.png"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {
+      // continue
+    }
+  }
+  return null;
 }
 
 export async function buildReceiptPdfBytes(data: ReceiptPdfInput): Promise<Uint8Array> {
@@ -127,18 +156,59 @@ export async function buildReceiptPdfBytes(data: ReceiptPdfInput): Promise<Uint8
     return top + rowStep;
   }
 
+  async function drawBrandMark(top: number): Promise<number> {
+    const logoPath = resolveEcommerceGuruLogoPath();
+    if (logoPath) {
+      try {
+        const bytes = fs.readFileSync(logoPath);
+        const image = await pdf.embedPng(bytes);
+        const maxW = 150;
+        const maxH = 42;
+        const scale = Math.min(maxW / image.width, maxH / image.height);
+        const w = image.width * scale;
+        const h = image.height * scale;
+        // Logo art is on a black canvas — draw a matching rounded plate behind it.
+        page.drawRectangle({
+          x: labelX,
+          y: baselineFromTop(top, 0) - h,
+          width: w,
+          height: h,
+          color: rgb(0, 0, 0),
+        });
+        page.drawImage(image, {
+          x: labelX,
+          y: baselineFromTop(top, 0) - h,
+          width: w,
+          height: h,
+        });
+        return h;
+      } catch {
+        // fall through to wordmark
+      }
+    }
+
+    // Text wordmark fallback (no SellerLens): Ecommerce Guru
+    const brandSize = 18;
+    const ecommerce = "Ecommerce ";
+    const guru = "Guru";
+    const ecommerceW = fontBold.widthOfTextAtSize(ecommerce, brandSize);
+    drawText(ecommerce, labelX, top, { size: brandSize, font: fontBold, color: slate900 });
+    drawText(guru, labelX + ecommerceW, top, { size: brandSize, font: fontBold, color: orange });
+    return brandSize + 4;
+  }
+
   // ─── Header ───────────────────────────────────────────────────────────────
-  let top = 52;
-  const brandSize = 20;
-  const sellerW = fontBold.widthOfTextAtSize("Seller", brandSize);
-  drawText("Seller", labelX, top, { size: brandSize, font: fontBold, color: slate900 });
-  drawText("Lens", labelX + sellerW, top, { size: brandSize, font: fontBold, color: orange });
+  let top = 48;
+  const brandHeight = await drawBrandMark(top);
   drawTextRight("RECEIPT", contentRight, top, { size: 16, font: fontBold });
-  drawTextRight("AI-powered Amazon listing optimization", contentRight, top + 20, { size: 10, color: slate400 });
-  thickHLine(top + 46);
+  drawTextRight("AI-powered listing optimization", contentRight, top + 20, {
+    size: 10,
+    color: slate400,
+  });
+  thickHLine(top + Math.max(brandHeight, 36) + 10);
 
   // ─── Receipt details ────────────────────────────────────────────────────────
-  top = sectionTitle("Receipt Details", top + 58);
+  top = sectionTitle("Receipt Details", top + Math.max(brandHeight, 36) + 22);
   top = detailRow("Receipt No:", `R-${String(data.id).padStart(6, "0")}`, top);
   top = detailRow(
     "Transaction ID:",
@@ -209,13 +279,13 @@ export async function buildReceiptPdfBytes(data: ReceiptPdfInput): Promise<Uint8
   const footerLineTop = PAGE_H - margin - 42;
   hLine(footerLineTop);
   drawTextCenter(
-    "Thank you for your business. If you have questions, contact support@sellerlens.io.",
+    `Thank you for your business. If you have questions, contact ${SUPPORT_EMAIL}.`,
     margin,
     contentRight,
     footerLineTop + 14,
     { size: 9, color: slate400 },
   );
-  drawTextCenter("Ecommerce Guru · sellerlens.io", margin, contentRight, footerLineTop + 26, {
+  drawTextCenter(`${PLATFORM_NAME} · ${SITE_HOST}`, margin, contentRight, footerLineTop + 26, {
     size: 9,
     color: slate400,
   });
